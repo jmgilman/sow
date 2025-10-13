@@ -39,3 +39,27 @@ Completed task design/010: "Convert YAML templates to CUE schemas with validatio
 **Agent**: architect-1 (iteration 1)
 
 **Outcome**: Successfully created 5 CUE schema files with comprehensive validation rules. All deliverables met.
+
+---
+
+## 2025-10-13T00:03:00Z - orchestrator-1
+
+**Action**: task-started
+
+Starting task design/020: "Design CLI architecture (project structure, command routing, embedded schemas)"
+
+**Agent**: architect-1 (iteration 1)
+
+**Context**: Providing CLI reference docs, system architecture, and roadmap requirements for Go CLI design.
+
+---
+
+## 2025-10-13T00:11:00Z - orchestrator-1
+
+**Action**: task-completed
+
+Completed task design/020: "Design CLI architecture (project structure, command routing, embedded schemas)"
+
+**Agent**: architect-1 (iteration 1)
+
+**Outcome**: Created comprehensive ADR documenting complete Go CLI architecture. Covers project structure, Cobra command routing, CUE schema embedding, context auto-detection, core abstractions, and implementation phases.

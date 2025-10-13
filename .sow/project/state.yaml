@@ -32,7 +32,7 @@ phases:
 
       - id: "020"
         name: "Design CLI architecture (project structure, command routing, embedded schemas)"
-        status: pending
+        status: completed
         parallel: false
         assigned_agent: "architect"
 
