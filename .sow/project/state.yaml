@@ -1,0 +1,79 @@
+# Project State
+# Location: .sow/project/state.yaml
+
+project:
+  name: "cli-foundation-and-schemas"
+  branch: "feat/cli-and-schemas"
+  created_at: "2025-10-13T00:00:00Z"
+  updated_at: "2025-10-13T00:00:00Z"
+  description: "Build complete CLI with embedded CUE schemas (Milestone 1)"
+
+  complexity:
+    rating: 3
+    metrics:
+      estimated_files: 25
+      cross_cutting: true
+      new_dependencies: true
+
+  active_phase: "design"
+
+phases:
+  - name: "design"
+    status: in_progress
+    created_at: "2025-10-13T00:00:00Z"
+    completed_at: null
+
+    tasks:
+      - id: "010"
+        name: "Convert YAML templates to CUE schemas with validation rules"
+        status: pending
+        parallel: false
+        assigned_agent: "architect"
+
+      - id: "020"
+        name: "Design CLI architecture (project structure, command routing, embedded schemas)"
+        status: pending
+        parallel: false
+        assigned_agent: "architect"
+
+      - id: "030"
+        name: "Define build and distribution strategy for cross-platform binaries"
+        status: pending
+        parallel: false
+        assigned_agent: "architect"
+
+  - name: "implement"
+    status: pending
+    created_at: "2025-10-13T00:00:00Z"
+    completed_at: null
+
+    tasks:
+      - id: "010"
+        name: "Set up Go project structure with CUE embedding"
+        status: pending
+        parallel: false
+        assigned_agent: "implementer"
+
+      - id: "020"
+        name: "Implement core validation engine (CUE schema validation)"
+        status: pending
+        parallel: false
+        assigned_agent: "implementer"
+
+      - id: "030"
+        name: "Implement initialization commands (init, schema)"
+        status: pending
+        parallel: false
+        assigned_agent: "implementer"
+
+      - id: "040"
+        name: "Implement utility commands (log, session-info, validate)"
+        status: pending
+        parallel: false
+        assigned_agent: "implementer"
+
+      - id: "050"
+        name: "Implement management commands (sinks, repos)"
+        status: pending
+        parallel: false
+        assigned_agent: "implementer"

@@ -1,0 +1,25 @@
+# Task State
+# Location: .sow/project/phases/design/tasks/020/state.yaml
+
+task:
+  id: "020"
+  name: "Design CLI architecture (project structure, command routing, embedded schemas)"
+  phase: "design"
+  status: pending
+
+  created_at: "2025-10-13T00:00:00Z"
+  started_at: null
+  updated_at: "2025-10-13T00:00:00Z"
+  completed_at: null
+
+  iteration: 1
+  assigned_agent: "architect"
+
+  references:
+    - docs/CLI_REFERENCE.md
+    - docs/ARCHITECTURE.md
+    - ROADMAP.md
+
+  feedback: []
+
+  files_modified: []

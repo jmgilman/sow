@@ -1,0 +1,24 @@
+# Task State
+# Location: .sow/project/phases/implement/tasks/050/state.yaml
+
+task:
+  id: "050"
+  name: "Implement management commands (sinks, repos)"
+  phase: "implement"
+  status: pending
+
+  created_at: "2025-10-13T00:00:00Z"
+  started_at: null
+  updated_at: "2025-10-13T00:00:00Z"
+  completed_at: null
+
+  iteration: 1
+  assigned_agent: "implementer"
+
+  references:
+    - docs/CLI_REFERENCE.md
+    - docs/ARCHITECTURE.md
+
+  feedback: []
+
+  files_modified: []

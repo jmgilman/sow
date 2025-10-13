@@ -1,0 +1,23 @@
+# Task State
+# Location: .sow/project/phases/implement/tasks/040/state.yaml
+
+task:
+  id: "040"
+  name: "Implement utility commands (log, session-info, validate)"
+  phase: "implement"
+  status: pending
+
+  created_at: "2025-10-13T00:00:00Z"
+  started_at: null
+  updated_at: "2025-10-13T00:00:00Z"
+  completed_at: null
+
+  iteration: 1
+  assigned_agent: "implementer"
+
+  references:
+    - docs/CLI_REFERENCE.md
+
+  feedback: []
+
+  files_modified: []

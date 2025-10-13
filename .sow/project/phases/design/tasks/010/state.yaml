@@ -1,0 +1,29 @@
+# Task State
+# Location: .sow/project/phases/design/tasks/010/state.yaml
+
+task:
+  id: "010"
+  name: "Convert YAML templates to CUE schemas with validation rules"
+  phase: "design"
+  status: pending
+
+  created_at: "2025-10-13T00:00:00Z"
+  started_at: null
+  updated_at: "2025-10-13T00:00:00Z"
+  completed_at: null
+
+  iteration: 1
+  assigned_agent: "architect"
+
+  references:
+    - schemas/templates/project-state.yaml
+    - schemas/templates/task-state.yaml
+    - schemas/templates/sink-index.json
+    - schemas/templates/repo-index.json
+    - schemas/templates/sow-version.yaml
+    - docs/SCHEMAS.md
+    - docs/CLI_REFERENCE.md
+
+  feedback: []
+
+  files_modified: []
