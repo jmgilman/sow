@@ -23,6 +23,26 @@ Pay special attention to:
 - `docs/PROJECT_MANAGEMENT.md` - How projects, phases, and tasks work
 - `docs/FILE_STRUCTURE.md` - Directory layout and file organization
 
+### Repository Discovery
+
+Before starting any project work:
+
+1. **Check for existing index**: Read `.sow/index.md` if it exists
+   - If missing, run `/index` to generate it
+   - The index maps logical components and existing documentation
+
+2. **Survey the codebase**: Use Glob to understand what exists
+   - Check `docs/` for architecture documentation
+   - Check `plugin/` and `schemas/` for existing templates
+   - Verify what needs creating vs. what already exists
+
+3. **Identify existing work**: Don't assume everything needs building from scratch
+   - Documentation may already define structures
+   - Templates may already exist
+   - Design work may be complete
+
+**Critical**: Always verify what exists before planning design phases.
+
 ---
 
 ## What We're Doing
@@ -53,6 +73,14 @@ Since `/start-project` doesn't exist yet, you'll manually:
 - Commit project state to git (on feature branch)
 
 **Progressive Planning**: Start with 1-2 phases, not full roadmap planning
+
+**Discovery-Driven Planning**:
+- Survey repository first (read index, glob directories, check docs/)
+- Assess what exists vs. what needs creating
+- Plan based on actual gaps, not assumptions
+- If documentation exists, start with implementation
+- If templates exist, start with population/validation
+- Only create design phases when design is truly needed
 
 ### 2. Manual Task Management
 
@@ -141,10 +169,15 @@ Follow progressive planning philosophy:
 
 When user requests work on a milestone:
 
-1. **Assess Scope**:
+1. **Discovery**:
+   - Read `.sow/index.md` (or run `/index` if missing)
+   - Use Glob to check for existing files/directories
+   - Read relevant documentation from `docs/`
    - Review milestone in ROADMAP.md
-   - Determine complexity (1-3 rating)
-   - Decide initial phases (1-2, not all)
+   - Compare milestone deliverables to what already exists
+   - Determine actual work needed (not assumed work)
+   - Decide complexity (1-3 rating) based on real scope
+   - Decide initial phases (skip design if designs exist)
 
 2. **Create Project** (if not exists):
    - Write `.sow/project/state.yaml`
@@ -204,6 +237,13 @@ When user requests work on a milestone:
 - State files are source of truth
 - No reliance on conversation history
 
+**Discovery Before Planning**:
+- Always check `.sow/index.md` first
+- Use Glob/Grep to verify what exists
+- Read existing documentation before creating design tasks
+- Complexity ratings should reflect actual work, not milestone description
+- Skip design phases if designs are already documented
+
 **Human Approval Gates**:
 - Request approval when adding new phases
 - Provide clear rationale for changes
@@ -237,6 +277,30 @@ You have access to:
 - **Task**: For spawning specialist worker agents
 
 **No TodoWrite**: The todo list feature is part of Claude Code, not part of `sow`. During bootstrap, use `sow` state management instead.
+
+---
+
+## Common Mistakes to Avoid
+
+**❌ Planning design work that's already done**
+- Check `docs/` before creating design tasks
+- Verify schemas don't exist in `schemas/templates/`
+- Read FILE_STRUCTURE.md before planning directory structures
+
+**❌ Overestimating complexity**
+- Implementing documented designs = Simple (1)
+- Creating new designs = Moderate to Complex (2-3)
+- Don't rate "2" just because milestone sounds important
+
+**❌ Not surveying the repository**
+- Always read `.sow/index.md` before starting
+- Use Glob to check what directories exist
+- Verify your assumptions about what needs building
+
+**❌ Ignoring existing documentation**
+- `docs/` may contain complete specifications
+- ARCHITECTURE.md, FILE_STRUCTURE.md, SCHEMAS.md are references, not suggestions
+- Follow documented designs, don't reinvent them
 
 ---
 
