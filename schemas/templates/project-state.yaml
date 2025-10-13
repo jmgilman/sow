@@ -1,0 +1,31 @@
+# Project State Template
+# Location: .sow/project/state.yaml
+
+project:
+  name: ""                        # Project name (kebab-case)
+  branch: ""                      # Git branch
+  created_at: ""                  # ISO 8601 timestamp
+  updated_at: ""                  # ISO 8601 timestamp
+  description: ""                 # Human-readable description
+
+  complexity:
+    rating: 0                     # 1=simple, 2=moderate, 3=complex
+    metrics:
+      estimated_files: 0
+      cross_cutting: false
+      new_dependencies: false
+
+  active_phase: ""                # Current active phase name
+
+phases:
+  - name: ""                      # Phase name (discovery, design, implement, test, review, deploy, document)
+    status: pending               # pending | in_progress | completed
+    created_at: ""                # ISO 8601 timestamp
+    completed_at: null            # ISO 8601 timestamp or null
+
+    tasks:
+      - id: "010"                 # Gap-numbered ID
+        name: ""                  # Task name
+        status: pending           # pending | in_progress | completed | abandoned
+        parallel: false           # Can run in parallel
+        assigned_agent: ""        # architect | implementer | integration-tester | reviewer | documenter

@@ -6,6 +6,6 @@ Through a unified UX and a consistent file structure, `sow` eases the burden of 
 
 ## Latest Status (2025-10-12)
 
-The repo has been initialized with a single minimal README.
-This is the very beginning of this project.
-The first order of business is to go through a comprehensive research and discovery process.
+The repo has been initialized with all architecture and roadmap documents.
+We are beginning work to create `sow` using the same system of work proposed by `sow`.
+

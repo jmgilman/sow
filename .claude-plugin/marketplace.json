@@ -1,0 +1,18 @@
+{
+  "name": "sow-marketplace",
+  "owner": {
+    "name": "sow contributors",
+    "email": "sow@example.com"
+  },
+  "plugins": [
+    {
+      "name": "sow",
+      "source": "./plugin",
+      "description": "AI-powered system of work for software engineering",
+      "version": "0.1.0",
+      "author": {
+        "name": "sow contributors"
+      }
+    }
+  ]
+}
