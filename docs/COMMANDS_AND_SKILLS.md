@@ -92,20 +92,27 @@ Both are implemented as slash commands (markdown files), but serve different pur
 
 **Actions**:
 1. Check if already initialized (exit if `.sow/` exists)
-2. Create `.sow/` structure:
-   - `.sow/knowledge/` (with `overview.md` template)
-   - `.sow/sinks/` (with `index.json`)
-   - `.sow/repos/` (with `index.json`)
-   - `.sow/.version` (tracks structure version)
-3. Create `.gitignore` entries:
+2. Check if `sow` CLI is installed (`which sow`)
+3. If CLI not installed:
+   - Provide platform-specific installation instructions
+   - Wait for user confirmation that CLI is installed
+4. If CLI installed:
+   - Run `sow init` to materialize `.sow/` structure from embedded CUE schemas
+   - CUE schemas define structure with defaults (knowledge/, sinks/, repos/)
+5. Create `.gitignore` entries:
    - `.sow/sinks/`
    - `.sow/repos/`
-4. Commit structure to git
-5. Offer optional CLI installation
+6. Commit structure to git
 
-**Success Output**:
+**Success Output (CLI already installed)**:
 ```
-✓ sow initialized successfully!
+✓ sow CLI detected at /usr/local/bin/sow
+✓ Running sow init...
+✓ Created .sow/ structure from CUE schemas
+✓ Added .gitignore entries
+✓ Committed to git
+
+sow initialized successfully!
 
 Available commands:
   /start-project <name> - Create new project
@@ -114,9 +121,46 @@ Available commands:
 Try: /start-project "Add authentication"
 ```
 
+**Installation Guidance (CLI not installed)**:
+```
+⚠️  sow CLI is not installed
+
+Installation instructions:
+
+macOS:
+  brew install sow-cli
+  # OR
+  curl -sSL https://get.sow.dev | bash
+
+Linux:
+  curl -sSL https://get.sow.dev | bash
+
+Windows:
+  # Download from https://github.com/your-org/sow/releases
+  # Add to PATH
+
+After installation, please confirm and I'll continue with initialization.
+
+[Press enter when sow CLI is installed]
+```
+
 **Error Cases**:
 - Already initialized: "sow already initialized in this repository"
 - Not in git repository: "Must be in a git repository to use sow"
+- CLI not installed: Shows installation guidance and waits for confirmation
+
+**What Happens Behind the Scenes**:
+
+The `/init` slash command delegates structure creation to the `sow init` CLI command. The CLI:
+1. Reads embedded CUE schemas that define the `.sow/` structure
+2. Materializes the structure with defaults:
+   - `.sow/knowledge/` (with `overview.md` template)
+   - `.sow/sinks/` (with `index.json`)
+   - `.sow/repos/` (with `index.json`)
+   - `.sow/.version` (tracks structure version)
+3. Validates the structure against CUE constraints
+
+This ensures the structure remains consistent and version-controlled via CUE schemas rather than being hardcoded in the slash command.
 
 ---
 

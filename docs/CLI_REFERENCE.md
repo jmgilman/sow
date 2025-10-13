@@ -15,7 +15,9 @@
 - [Global Commands](#global-commands)
   - [sow --version](#sow---version)
   - [sow --help](#sow---help)
+  - [sow init](#sow-init)
   - [sow validate](#sow-validate)
+  - [sow schema](#sow-schema)
 - [Logging Commands](#logging-commands)
   - [sow log](#sow-log)
   - [sow session-info](#sow-session-info)
@@ -43,13 +45,15 @@
 
 ## Overview
 
-The `sow` CLI provides fast operations and utilities that complement the Claude Code plugin. While the CLI is **optional**, it significantly improves performance for certain operations.
+The `sow` CLI is **required** for using sow. It provides essential schema management, initialization, validation, and fast operations.
 
 **Key Benefits**:
+- **Schema management** - Embeds CUE schemas as source of truth for all `.sow/` file formats
+- **Initialization** - Materializes `.sow/` structure with correct defaults from schemas
+- **Validation** - Validates files against embedded CUE schemas
 - **Fast logging** - Instant log entry creation (vs 30s file edit)
 - **Sink management** - Install and update knowledge sinks
 - **Repository management** - Link external repositories
-- **Validation** - Check structure integrity
 - **Session info** - Display current project status
 
 **Installation**: See [DISTRIBUTION.md](./DISTRIBUTION.md) for installation instructions.
@@ -57,6 +61,8 @@ The `sow` CLI provides fast operations and utilities that complement the Claude 
 ---
 
 ## Installation
+
+The sow CLI must be installed before you can use sow. The `/init` slash command will guide you through installation if the CLI is not detected.
 
 ### Download and Install
 
@@ -165,9 +171,55 @@ Documentation: https://github.com/your-org/sow
 
 ---
 
+### sow init
+
+Initialize sow structure in a repository by materializing defaults from embedded CUE schemas.
+
+**Usage**:
+```bash
+sow init
+```
+
+**Actions**:
+1. Checks prerequisites (git repository, not already initialized)
+2. Materializes `.sow/` structure from CUE schemas with default values:
+   - `.sow/knowledge/` (with `overview.md` template)
+   - `.sow/sinks/` (with empty `index.json`)
+   - `.sow/repos/` (with empty `index.json`)
+   - `.sow/.version` (tracks current version)
+3. Creates `.gitignore` entries for `.sow/sinks/` and `.sow/repos/`
+4. Commits structure to git
+
+**Output**:
+```
+✓ Checking prerequisites...
+✓ Creating .sow/ structure from CUE schemas...
+  - .sow/knowledge/ (with overview.md template)
+  - .sow/sinks/ (with index.json)
+  - .sow/repos/ (with index.json)
+  - .sow/.version (tracking version 0.2.0)
+
+✓ Creating .gitignore entries...
+  - .sow/sinks/
+  - .sow/repos/
+
+✓ Committing structure to git...
+  [main abc1234] Initialize sow (v0.2.0)
+
+sow initialized successfully!
+```
+
+**Error Cases**:
+- Already initialized: "sow already initialized in this repository"
+- Not in git repository: "Must be in a git repository to use sow"
+
+---
+
 ### sow validate
 
-Validate sow structure integrity.
+Validate sow structure integrity against embedded CUE schemas.
+
+**Purpose**: Validates all `.sow/` files against the CUE schemas embedded in the CLI binary. This ensures file formats are correct, required fields are present, and constraints are satisfied.
 
 **Usage**:
 ```bash
@@ -209,6 +261,62 @@ All checks passed!
 **Exit Code**:
 - `0` - All checks passed
 - `1` - Validation errors found
+
+---
+
+### sow schema
+
+View embedded CUE schemas for `.sow/` file formats.
+
+**Usage**:
+```bash
+sow schema show <type>
+sow schema list
+```
+
+**Commands**:
+
+**`sow schema show <type>`** - Display a specific schema:
+```bash
+# Show project state schema
+sow schema show project
+
+# Show task state schema
+sow schema show task
+
+# Show version file schema
+sow schema show version
+
+# Show sinks index schema
+sow schema show sinks-index
+
+# Show repos index schema
+sow schema show repos-index
+```
+
+**`sow schema list`** - List all available schemas:
+```bash
+sow schema list
+```
+
+**Output Example**:
+```bash
+$ sow schema show version
+
+// .sow/.version schema
+#Version: {
+	sow_structure_version: string
+	plugin_version:        string
+	last_migrated:         string | null
+	initialized:           string
+}
+```
+
+**Purpose**: Allows users to inspect the embedded CUE schemas that define file formats. Useful for:
+- Understanding file structure requirements
+- Debugging validation errors
+- Writing correct configuration files
+- Learning what fields are available
 
 ---
 

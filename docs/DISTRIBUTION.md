@@ -19,8 +19,8 @@
 - [Installation Flow](#installation-flow)
   - [First-Time Setup](#first-time-setup)
   - [Plugin Installation](#plugin-installation)
-  - [Repository Initialization](#repository-initialization)
   - [CLI Installation](#cli-installation)
+  - [Repository Initialization](#repository-initialization)
 - [Upgrade Workflow](#upgrade-workflow)
   - [Checking for Updates](#checking-for-updates)
   - [Upgrading the Plugin](#upgrading-the-plugin)
@@ -35,6 +35,7 @@
   - [Binary Distribution](#binary-distribution)
   - [Installation Methods](#installation-methods)
   - [Version Alignment](#version-alignment)
+  - [CUE Schema Embedding](#cue-schema-embedding)
 - [Marketplace Publishing](#marketplace-publishing)
   - [Publishing Process](#publishing-process)
   - [Marketplace Listing](#marketplace-listing)
@@ -55,11 +56,11 @@
 
 ## Overview
 
-`sow` is distributed as a **Claude Code Plugin** with an **optional CLI** for enhanced functionality.
+`sow` is distributed as a **Claude Code Plugin** with a **required CLI** for schema management and operations.
 
 **Distribution Components**:
 - **Claude Code Plugin** (required) - Agents, commands, hooks, migrations
-- **CLI Binary** (optional) - Fast operations, sink/repo management
+- **CLI Binary** (required) - Schema management, initialization, validation, and fast operations
 
 **Versioning Strategy**:
 - Plugin uses semantic versioning (MAJOR.MINOR.PATCH)
@@ -352,7 +353,7 @@ After plugin installed, initialize repository:
 ```
 
 **Actions**:
-1. Check prerequisites (git repository, not already initialized)
+1. Check prerequisites (git repository, not already initialized, CLI installed)
 2. Create `.sow/` structure:
    - `.sow/knowledge/` (with `overview.md` template)
    - `.sow/sinks/` (with empty `index.json`)
@@ -360,11 +361,14 @@ After plugin installed, initialize repository:
    - `.sow/.version` (tracks version 0.2.0)
 3. Create `.gitignore` entries for `.sow/sinks/` and `.sow/repos/`
 4. Commit structure to git
-5. Offer optional CLI installation
 
 **Success Output**:
 ```
 ✓ Checking prerequisites...
+  - Git repository found
+  - Not already initialized
+  - CLI installed (v0.2.0)
+
 ✓ Creating .sow/ structure...
   - .sow/knowledge/ (with overview.md template)
   - .sow/sinks/ (with index.json)
@@ -378,15 +382,18 @@ After plugin installed, initialize repository:
 ✓ Committing structure to git...
   [main abc1234] Initialize sow (v0.2.0)
 
-🚀 Optional: Install sow CLI for enhanced functionality?
-   [Details about CLI installation...]
-
-[y/n]:
+✓ Repository initialized successfully!
 ```
 
 ### CLI Installation
 
-**Optional** but provides faster operations:
+**Required** for schema management and initialization. The CLI must be installed **before** running `/init`.
+
+**Why CLI is Required**:
+- Embeds CUE schemas for validation
+- Provides schema management commands
+- Handles initialization and migration
+- Offers fast logging and operations
 
 **Download**:
 ```bash
@@ -410,11 +417,12 @@ sow --version
 # sow 0.2.0
 ```
 
-**Benefits**:
+**Capabilities**:
+- Schema validation using embedded CUE schemas
+- Repository initialization (`sow init`)
 - Fast logging (used by agents)
-- Sink management commands
-- Repository management
-- Validation utilities
+- Sink and repository management
+- Migration utilities
 
 ---
 
@@ -740,16 +748,24 @@ Your repository is now at v0.3.0
 
 ## CLI Distribution
 
+The CLI is a **required component** that embeds all CUE schemas at build time. This makes it the authoritative source for schema validation and structure management.
+
 ### Binary Distribution
 
 **GitHub Releases**:
 ```
 https://github.com/your-org/sow/releases/
 ├── v0.2.0/
-│   ├── sow-macos          (macOS binary)
-│   ├── sow-linux          (Linux binary)
-│   └── sow-windows.exe    (Windows binary)
+│   ├── sow-macos          (macOS binary with embedded schemas)
+│   ├── sow-linux          (Linux binary with embedded schemas)
+│   └── sow-windows.exe    (Windows binary with embedded schemas)
 ```
+
+**What's Embedded**:
+- All CUE schemas for validation
+- Default templates
+- Migration logic
+- Schema versioning
 
 **Platforms**:
 - macOS (Intel and Apple Silicon)
@@ -828,6 +844,154 @@ sow --version
 # sow 0.3.0
 ```
 
+### CUE Schema Embedding
+
+The CLI embeds all CUE schemas at build time using Go's `embed` directive. This makes the CLI the single source of truth for schema validation and eliminates the need for external schema files.
+
+**Why Embed Schemas?**
+- **Single Binary**: No external dependencies or configuration files needed
+- **Version Alignment**: Schemas are always synchronized with CLI version
+- **Offline Validation**: Works without network access or external files
+- **Consistency**: All users get identical schemas for a given version
+- **Simplicity**: No schema installation or path configuration required
+
+**Build-Time Embedding**:
+
+The CLI uses Go's `//go:embed` directive to embed schemas into the binary:
+
+```go
+package schema
+
+import (
+    _ "embed"
+    "cuelang.org/go/cue"
+    "cuelang.org/go/cue/cuecontext"
+)
+
+//go:embed schemas/project.cue
+var projectSchema string
+
+//go:embed schemas/task.cue
+var taskSchema string
+
+//go:embed schemas/version.cue
+var versionSchema string
+
+// GetSchema returns the compiled CUE schema for a given type
+func GetSchema(schemaType string) (cue.Value, error) {
+    ctx := cuecontext.New()
+
+    var schema string
+    switch schemaType {
+    case "project":
+        schema = projectSchema
+    case "task":
+        schema = taskSchema
+    case "version":
+        schema = versionSchema
+    default:
+        return cue.Value{}, fmt.Errorf("unknown schema type: %s", schemaType)
+    }
+
+    return ctx.CompileString(schema), nil
+}
+```
+
+**Schema Access**:
+
+The CLI provides commands to access and validate against embedded schemas:
+
+```bash
+# Validate project state against embedded schema
+sow validate project .sow/project/state.yaml
+
+# Validate task state
+sow validate task .sow/project/phases/design/tasks/001/state.yaml
+
+# Export embedded schema (for reference)
+sow schema export project > project-schema.cue
+
+# List all embedded schemas
+sow schema list
+```
+
+**Schema Versioning**:
+
+Schemas are versioned along with the CLI:
+
+- Each CLI version embeds a specific set of schemas
+- Schema changes require a new CLI release
+- Old CLI versions continue to work with their embedded schemas
+- Migrations handle schema version changes
+
+**Development Workflow**:
+
+When developing the CLI:
+
+1. **Edit Schema**: Modify `.cue` files in `schemas/` directory
+2. **Rebuild CLI**: Schemas are automatically embedded during build
+3. **Test Validation**: Run tests to ensure schemas work correctly
+4. **Release**: Tagged release includes new schemas in binary
+
+**Distribution Benefits**:
+
+For users:
+- Install CLI → Get all schemas automatically
+- No schema configuration needed
+- Schemas match CLI version exactly
+- Validation works immediately after installation
+
+For developers:
+- Single source of truth for schemas
+- Version control schemas in Git
+- Test schema changes before release
+- No separate schema distribution
+
+**Example: Using Embedded Schemas**:
+
+```bash
+# Initialize repository (uses embedded schemas for validation)
+sow init
+
+# Schemas are consulted automatically during:
+# - Project creation
+# - Task state updates
+# - Migration validation
+# - State file parsing
+
+# Manual validation using embedded schemas
+sow validate project .sow/project/state.yaml
+# ✓ Valid according to embedded schema (v0.2.0)
+
+# If schema validation fails
+sow validate task .sow/project/phases/design/tasks/001/state.yaml
+# ✗ Validation error:
+#   - Field 'iteration' is required
+#   - Field 'status' must be one of: pending, in_progress, completed
+```
+
+**Technical Details**:
+
+- **Embed Package**: Uses Go's `embed` package (Go 1.16+)
+- **File Size Impact**: Schemas add ~50KB to binary (minimal)
+- **Runtime Access**: Schemas loaded into memory on first use
+- **Caching**: Compiled schemas cached for performance
+- **Error Handling**: Invalid schemas caught at compile time
+
+**Why This Matters**:
+
+Without embedded schemas:
+- Users would need to download schemas separately
+- Schema versions could drift from CLI version
+- Network access required for validation
+- Complex installation process
+
+With embedded schemas:
+- Single binary installation
+- Guaranteed version alignment
+- Offline validation
+- Simple user experience
+
 ---
 
 ## Marketplace Publishing
@@ -858,7 +1022,7 @@ git push origin v0.2.0
 - Go to repository releases page
 - Create new release for tag `v0.2.0`
 - Include CHANGELOG.md excerpt
-- Attach CLI binaries (if applicable)
+- Attach CLI binaries (required - with embedded schemas)
 
 **3. Create Marketplace Listing**:
 

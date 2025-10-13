@@ -8,6 +8,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [CUE Schema System](#cue-schema-system)
 - [Project State Schema](#project-state-schema)
 - [Task State Schema](#task-state-schema)
 - [Task Description Format](#task-description-format)
@@ -26,6 +27,8 @@
 
 This document provides complete specifications for all file formats used in `sow`. All examples use valid YAML, JSON, or Markdown syntax.
 
+**Note**: CUE schemas embedded in the sow CLI are the authoritative source of truth. This document provides human-readable reference documentation.
+
 **File Format Summary**:
 
 | File | Format | Purpose |
@@ -43,7 +46,63 @@ This document provides complete specifications for all file formats used in `sow
 
 ---
 
+## CUE Schema System
+
+All schemas in `sow` are defined using [CUE](https://cuelang.org/) (Configure, Unify, Execute) and embedded directly in the CLI binary. CUE provides type safety, validation, and documentation generation, ensuring consistency across all file formats.
+
+### Why CUE?
+
+CUE offers several advantages for schema management:
+
+- **Single Source of Truth**: Schema definitions are embedded in the CLI, eliminating drift between code and documentation
+- **Strong Validation**: Type checking and constraints enforce correctness at runtime
+- **Self-Documentation**: Schemas include inline documentation that can be extracted and displayed
+- **Tooling Integration**: Native support for validation, formatting, and conversion
+
+### Accessing Schemas
+
+Use the `sow schema` command to view and validate schemas:
+
+```bash
+# View project state schema
+sow schema show project
+
+# View task state schema
+sow schema show task
+
+# Validate a project state file
+sow schema validate project .sow/project/state.yaml
+
+# List all available schemas
+sow schema list
+```
+
+### Schema Validation
+
+The CLI automatically validates files against embedded CUE schemas during:
+
+- **Project initialization** (`sow project init`)
+- **Task creation** (`sow task create`)
+- **State updates** (`sow task update`)
+- **File operations** (reading/writing state files)
+
+Invalid files are rejected with detailed error messages indicating which constraints were violated.
+
+### Relationship to Markdown Documentation
+
+This document provides **human-readable reference documentation** for schemas. The CUE schemas embedded in the CLI are the **authoritative source of truth**. When in doubt:
+
+1. Use `sow schema show <type>` to view the canonical schema
+2. Use `sow schema validate` to check file conformance
+3. Refer to this document for examples and field descriptions
+
+The CLI ensures all generated files conform to the embedded schemas, eliminating manual validation errors.
+
+---
+
 ## Project State Schema
+
+**Source of Truth**: CUE schema embedded in sow CLI (`sow schema show project`). This documentation provides human-readable reference.
 
 **File**: `.sow/project/state.yaml`
 
@@ -183,6 +242,8 @@ phases:
 ---
 
 ## Task State Schema
+
+**Source of Truth**: CUE schema embedded in sow CLI (`sow schema show task`). This documentation provides human-readable reference.
 
 **File**: `.sow/project/phases/<phase>/tasks/<id>/state.yaml`
 
@@ -485,6 +546,8 @@ CLI auto-constructs agent ID and timestamp.
 
 ## Sink Index Schema
 
+**Source of Truth**: CUE schema embedded in sow CLI (`sow schema show sinks-index`). This documentation provides human-readable reference.
+
 **File**: `.sow/sinks/index.json`
 
 **Purpose**: LLM-maintained catalog of installed sinks with metadata for agent discovery.
@@ -559,6 +622,8 @@ CLI auto-constructs agent ID and timestamp.
 
 ## Repository Index Schema
 
+**Source of Truth**: CUE schema embedded in sow CLI (`sow schema show repos-index`). This documentation provides human-readable reference.
+
 **File**: `.sow/repos/index.json`
 
 **Purpose**: References to linked repositories for cross-repo context.
@@ -616,6 +681,8 @@ CLI auto-constructs agent ID and timestamp.
 ---
 
 ## Version File Schema
+
+**Source of Truth**: CUE schema embedded in sow CLI (`sow schema show version`). This documentation provides human-readable reference.
 
 **File**: `.sow/.version`
 

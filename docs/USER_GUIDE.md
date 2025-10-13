@@ -65,7 +65,7 @@
 
 - **Claude Code** installed and working
 - **Git repository** (existing or new)
-- **Optional**: CLI tools for enhanced functionality
+- **sow CLI** (required for initialization and validation)
 
 #### Step 1: Install Plugin
 
@@ -92,7 +92,30 @@ claude
 
 Changes take effect after restart.
 
-#### Step 3: Verify SessionStart Hook
+#### Step 3: Install CLI (Required)
+
+The CLI is **required** for sow. It provides essential schema management, initialization, and validation.
+
+```bash
+# macOS/Linux
+curl -L https://github.com/your-org/sow/releases/download/v0.2.0/sow-macos -o sow
+chmod +x sow
+mv sow ~/.local/bin/sow
+
+# Verify
+sow --version
+# sow 0.2.0
+```
+
+**CLI Benefits**:
+- **Schema management** - Embeds CUE schemas as source of truth
+- **Initialization** - Materializes structure from schemas
+- **Validation** - Validates files against CUE schemas
+- Fast logging (used by agents)
+- Sink management
+- Repository management
+
+#### Step 4: Verify SessionStart Hook
 
 When Claude Code starts, you should see:
 
@@ -112,16 +135,17 @@ This confirms the plugin is installed correctly.
 ```
 
 **What Happens**:
-1. Creates `.sow/` directory structure
-2. Creates `.sow/knowledge/overview.md` template
-3. Creates empty indexes for sinks and repos
-4. Adds git ignore rules for `.sow/sinks/` and `.sow/repos/`
-5. Commits structure to git
-6. Offers optional CLI installation
+1. Checks if CLI is installed (guides installation if not)
+2. Creates `.sow/` directory structure
+3. Creates `.sow/knowledge/overview.md` template
+4. Creates empty indexes for sinks and repos
+5. Adds git ignore rules for `.sow/sinks/` and `.sow/repos/`
+6. Commits structure to git
 
 **Success Output**:
 ```
 ✓ Checking prerequisites...
+✓ CLI detected (v0.2.0)
 ✓ Creating .sow/ structure...
   - .sow/knowledge/ (with overview.md template)
   - .sow/sinks/ (with index.json)
@@ -134,42 +158,9 @@ This confirms the plugin is installed correctly.
 
 ✓ Committing structure to git...
   [main abc1234] Initialize sow (v0.2.0)
-
-🚀 Optional: Install sow CLI for enhanced functionality?
-   The CLI provides fast operations like logging and sink management.
-
-   Download for your platform:
-   - macOS: https://github.com/your-org/sow/releases/download/v0.2.0/sow-macos
-   - Linux: https://github.com/your-org/sow/releases/download/v0.2.0/sow-linux
-   - Windows: https://github.com/your-org/sow/releases/download/v0.2.0/sow-windows.exe
-
-   After download: mv ~/Downloads/sow-macos ~/.local/bin/sow && chmod +x ~/.local/bin/sow
-
-   Test with: sow --version
-
-[y to download now, n to skip, ? for more info]:
 ```
 
-#### Optional: Install CLI
-
-The CLI is **optional** but provides faster operations:
-
-```bash
-# macOS/Linux
-curl -L https://github.com/your-org/sow/releases/download/v0.2.0/sow-macos -o sow
-chmod +x sow
-mv sow ~/.local/bin/sow
-
-# Verify
-sow --version
-# sow 0.2.0
-```
-
-**CLI Benefits**:
-- Fast logging (used by agents)
-- Sink management
-- Repository management
-- Validation commands
+**Note**: If CLI is not installed, `/init` will detect this and provide installation instructions before proceeding.
 
 ### Verifying Installation
 

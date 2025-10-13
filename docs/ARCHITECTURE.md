@@ -17,6 +17,13 @@ This document explains the fundamental architecture of `sow`, the design pattern
 - [Multi-Repo Strategy](#multi-repo-strategy)
 - [Zero-Context Resumability](#zero-context-resumability)
 - [Key Design Decisions](#key-design-decisions)
+  - [Phases as Directories](#phases-as-directories)
+  - [Skills = Slash Commands](#skills--slash-commands)
+  - [Fail-Forward Task Management](#fail-forward-task-management)
+  - [CLI-Driven Logging](#cli-driven-logging)
+  - [Schema Management](#schema-management)
+  - [Iteration Counter](#iteration-counter)
+  - [Separate Test Agents](#separate-test-agents)
 
 ---
 
@@ -727,6 +734,530 @@ sow log \
 - Rejected: Too slow (performance critical)
 - Rejected: Format inconsistencies
 - Rejected: Agent cognitive overhead
+
+---
+
+## Schema Management
+
+### Design Decision: CUE-Based Schemas
+
+All `.sow/` file schemas (state files, logs, indices) are defined using [CUE](https://cuelang.org/) and embedded directly in the CLI binary at build time.
+
+**What is CUE?**
+- Data validation language (think "types for JSON/YAML")
+- Developed by Google, used internally at Google for configuration
+- Combines type safety with rich constraints
+- Produces executable schemas that validate and provide defaults
+
+**Core Principle**: Schema version = CLI version
+- When you install `sow` CLI v1.2.3, you get schemas compatible with that version
+- No separate schema files to manage
+- No version mismatches possible
+- Single source of truth
+
+### Rationale
+
+#### Why CUE Over JSON Schema?
+
+**1. Type Safety and Strong Typing**
+
+JSON Schema:
+```json
+{
+  "type": "object",
+  "properties": {
+    "status": {"type": "string"}
+  }
+}
+```
+
+CUE:
+```cue
+#TaskStatus: "pending" | "in_progress" | "completed" | "abandoned"
+
+task: {
+  status: #TaskStatus  // Compile-time validation
+}
+```
+
+CUE provides true enums and type definitions, not just runtime validation.
+
+**2. Default Values and Constraints**
+
+JSON Schema has limited default support. CUE makes defaults first-class:
+
+```cue
+task: {
+  id: string
+  status: *"pending" | "in_progress" | "completed"  // Default: "pending"
+  iteration: int & >=1 | *1                         // Default: 1
+  created_at: string                                 // Required
+  completed_at?: string                              // Optional
+}
+```
+
+**3. Rich Constraint System**
+
+CUE supports complex validation logic:
+
+```cue
+// Task ID must be numeric string, 3 digits, divisible by 10
+task_id: string & =~"^[0-9]{3}$" & strconv.Atoi(_) % 10 == 0
+
+// Branch name constraints
+branch: string & !="main" & !="master"
+
+// Date format validation
+timestamp: string & =~"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+
+// Conditional constraints
+task: {
+  status: string
+  completed_at?: string
+
+  // Must have completed_at if status is completed
+  if status == "completed" {
+    completed_at: string
+  }
+}
+```
+
+**4. Composition and Reusability**
+
+CUE schemas compose cleanly:
+
+```cue
+// Base definitions
+#Timestamp: string & =~"^[0-9]{4}-[0-9]{2}-[0-9]{2}T.*Z$"
+#TaskID: string & =~"^[0-9]{3}$"
+#PhaseID: string & =~"^phase-[0-9]{2}$"
+
+// Compose into schemas
+#Task: {
+  id: #TaskID
+  created_at: #Timestamp
+  phase: #PhaseID
+}
+
+// Reuse across files
+project_state: {
+  tasks: [...#Task]
+}
+```
+
+**5. Tooling Integration**
+
+CUE integrates with existing tools:
+- `cue fmt` - Format schemas consistently
+- `cue vet` - Validate data against schema
+- `cue export` - Generate JSON/YAML
+- Go embedding - Direct use in applications
+
+**6. Self-Documenting**
+
+CUE schemas serve as both validation and documentation:
+
+```cue
+// Project state file
+#ProjectState: {
+  // Unique project identifier (UUID v4)
+  project_id: string & =~"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+
+  // Human-readable project name
+  name: string & len(string) > 0 & len(string) <= 100
+
+  // Git branch this project lives on (must not be main/master)
+  branch: string & !="main" & !="master"
+
+  // Ordered list of phases (discovery, design, implement, test, document, release)
+  phases: [...#Phase] & len(phases) >= 1
+
+  // Project creation timestamp (ISO 8601 format)
+  created_at: #Timestamp
+}
+```
+
+Schema becomes readable API documentation.
+
+#### Why Embed in CLI?
+
+**1. Version Alignment**
+
+Problem with external schemas:
+```
+User: Has CLI v1.2.0
+Downloads schema v1.3.0 from docs
+Creates project with v1.3.0 schema
+CLI v1.2.0 can't parse it
+```
+
+Solution with embedding:
+```
+User: Installs CLI v1.2.0
+CLI contains v1.2.0 schemas
+Creates project with v1.2.0 schema
+Perfect alignment guaranteed
+```
+
+**2. Single Binary Distribution**
+
+```bash
+# Download one file
+curl -L sow.dev/install.sh | sh
+
+# Everything included:
+# - CLI logic
+# - Schemas
+# - Validation
+# - Default values
+# No external dependencies
+```
+
+Simplifies distribution:
+- No "download schema files separately"
+- No "ensure schema version matches"
+- No network requests for validation
+- Works completely offline
+
+**3. Performance**
+
+External schemas:
+```
+1. Read schema file from disk
+2. Parse YAML/JSON
+3. Load into validator
+4. Validate data
+Total: ~50-100ms
+```
+
+Embedded schemas:
+```
+1. Use compiled-in schema (already loaded)
+2. Validate data
+Total: ~5-10ms
+```
+
+Schemas compiled into binary = instant access, no parsing overhead.
+
+**4. Consistency**
+
+External schemas can be:
+- Modified by users (accidentally or intentionally)
+- Corrupted during download
+- Out of sync across team members
+- Lost or moved
+
+Embedded schemas:
+- Immutable (part of binary)
+- Identical for all users of same CLI version
+- Cannot be tampered with
+- Always available
+
+### Implementation
+
+#### Build Process
+
+**go:embed Directive**:
+```go
+package schema
+
+import _ "embed"
+
+//go:embed project_state.cue
+var projectStateSchema string
+
+//go:embed task_state.cue
+var taskStateSchema string
+
+//go:embed sink_index.cue
+var sinkIndexSchema string
+
+// Compile schemas at init
+func init() {
+    projectSchema = mustCompile(projectStateSchema)
+    taskSchema = mustCompile(taskStateSchema)
+    sinkSchema = mustCompile(sinkIndexSchema)
+}
+```
+
+**Build Steps**:
+1. CUE schemas live in `cli/schema/*.cue`
+2. `go:embed` reads files at compile time
+3. Binary contains schema text
+4. Runtime compiles CUE → validation rules
+5. Cached for repeated use
+
+**Schema Organization**:
+```
+cli/schema/
+├── project_state.cue      # .sow/project/state.yaml
+├── task_state.cue         # phases/{phase}/tasks/{id}/state.yaml
+├── task_description.cue   # phases/{phase}/tasks/{id}/description.md
+├── sink_index.cue         # .sow/sinks/index.json
+├── repo_index.cue         # .sow/repos/index.json
+├── log_entry.cue          # Log format validation
+└── definitions.cue        # Shared types and constraints
+```
+
+#### Runtime Access
+
+**Via CLI Commands**:
+
+```bash
+# Show schema for a file type
+sow schema show project
+sow schema show task
+sow schema show sink-index
+
+# Validate a file against schema
+sow validate .sow/project/state.yaml
+sow validate phases/implement/tasks/010/state.yaml
+
+# Initialize with schema defaults
+sow init --project "Add authentication"
+# Creates .sow/project/state.yaml with all defaults applied
+
+# Get schema version
+sow version --schema
+# Output: 1.2.0 (matches CLI version)
+```
+
+**Programmatic Access**:
+
+```go
+// In CLI code
+import "github.com/sow/cli/schema"
+
+// Validate project state
+err := schema.ValidateProjectState(stateData)
+if err != nil {
+    return fmt.Errorf("invalid state: %w", err)
+}
+
+// Apply defaults to new task
+taskData := schema.NewTaskState("implement-auth")
+// Returns task with all default values filled in
+
+// Get schema for display
+schemaText := schema.GetProjectSchema()
+fmt.Println(schemaText)
+```
+
+**Agent Access**:
+
+Agents use CLI commands to interact with schemas:
+
+```bash
+# Orchestrator creates new task
+sow task create \
+  --phase implement \
+  --name "Add JWT token generation" \
+  --agent implementer
+
+# CLI applies schema defaults automatically:
+# - iteration: 1
+# - status: pending
+# - created_at: <current timestamp>
+```
+
+### Migration Impact
+
+#### When Schemas Change
+
+**Scenario**: CLI v1.2.0 → v1.3.0 adds new required field
+
+**Old Schema (v1.2.0)**:
+```cue
+#Task: {
+  id: string
+  status: #TaskStatus
+  iteration: int
+}
+```
+
+**New Schema (v1.3.0)**:
+```cue
+#Task: {
+  id: string
+  status: #TaskStatus
+  iteration: int
+  priority: "low" | "medium" | "high" | *"medium"  // New field
+}
+```
+
+**Migration Process**:
+
+```bash
+# User upgrades CLI
+brew upgrade sow
+# Now at v1.3.0
+
+# Try to use project created with v1.2.0
+sow continue
+
+# CLI detects schema version mismatch
+Error: Project state schema v1.2.0 detected
+CLI requires schema v1.3.0
+
+Run: sow migrate
+
+# User runs migration
+sow migrate
+
+Migrating .sow/project/state.yaml: v1.2.0 → v1.3.0
+  - Adding field: tasks[*].priority (default: medium)
+
+Migrating phases/implement/tasks/010/state.yaml: v1.2.0 → v1.3.0
+  - Adding field: priority (default: medium)
+
+Migration complete! 2 files updated.
+
+# Project now works with v1.3.0
+sow continue
+```
+
+**Migration Command Implementation**:
+
+```go
+// CLI migration logic
+func Migrate() error {
+    currentVersion := readProjectSchemaVersion()
+    targetVersion := schema.Version()
+
+    if currentVersion == targetVersion {
+        fmt.Println("Already up to date")
+        return nil
+    }
+
+    // Get migration path
+    migrations := schema.GetMigrationPath(currentVersion, targetVersion)
+
+    // Apply each migration
+    for _, migration := range migrations {
+        err := migration.Apply()
+        if err != nil {
+            return fmt.Errorf("migration failed: %w", err)
+        }
+    }
+
+    return nil
+}
+```
+
+#### CUE Provides Clear Migration Paths
+
+**Additive Changes** (backwards compatible):
+```cue
+// v1.2.0 → v1.3.0: Add optional field
+#Task: {
+  id: string
+  status: #TaskStatus
+  priority?: "low" | "medium" | "high"  // Optional: no migration needed
+}
+```
+
+**Default Changes** (backwards compatible):
+```cue
+// v1.2.0 → v1.3.0: Add field with default
+#Task: {
+  id: string
+  status: #TaskStatus
+  priority: "low" | "medium" | "high" | *"medium"  // Default: automatic
+}
+```
+
+**Structural Changes** (requires migration):
+```cue
+// v1.2.0
+#Task: {
+  assignee: string
+}
+
+// v1.3.0: Rename field
+#Task: {
+  assigned_agent: string  // Migration: rename assignee → assigned_agent
+}
+```
+
+**Migration Script Generation**:
+
+CUE can diff schemas and suggest migrations:
+
+```bash
+sow schema diff v1.2.0 v1.3.0
+
+Changes detected:
+1. tasks[*].assignee → tasks[*].assigned_agent (rename)
+2. tasks[*].priority added (default: medium)
+
+Suggested migration:
+  - Rename field: assignee → assigned_agent
+  - Add field: priority = "medium"
+```
+
+#### Versioning Strategy
+
+**Project State Stores Schema Version**:
+```yaml
+# .sow/project/state.yaml
+schema_version: 1.3.0
+project_id: abc-123
+name: Add authentication
+# ...
+```
+
+**CLI Checks Compatibility**:
+```go
+func LoadProject() error {
+    projectVersion := state.SchemaVersion
+    cliVersion := schema.Version()
+
+    if projectVersion != cliVersion {
+        return fmt.Errorf(
+            "schema version mismatch: project=%s cli=%s\nRun: sow migrate",
+            projectVersion, cliVersion,
+        )
+    }
+
+    // Versions match, proceed
+}
+```
+
+**Safety Guarantees**:
+- Cannot use old CLI with new project (version check fails)
+- Cannot use new CLI with old project (prompts migration)
+- Migration is explicit, not automatic
+- User approves migration before changes
+
+### Benefits Summary
+
+**For Users**:
+- Single binary installation (no external schema files)
+- Guaranteed version compatibility
+- Clear error messages when validation fails
+- Automatic defaults (less configuration)
+- Safe migrations with clear upgrade path
+
+**For Developers**:
+- Type-safe schema definitions
+- Compile-time validation
+- Easy to extend and modify schemas
+- Generated documentation from schemas
+- Embedded = no file path issues
+
+**For Agents**:
+- CLI enforces schema automatically
+- No need to understand YAML structure
+- Commands handle validation
+- Clear error messages to fix issues
+- Consistent format across all files
+
+**For the System**:
+- Single source of truth (CLI binary)
+- Performance (compiled, cached)
+- Consistency (immutable schemas)
+- Offline operation (no network required)
+- Atomic updates (new CLI = new schemas)
 
 ---
 

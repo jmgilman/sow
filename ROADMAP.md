@@ -1,93 +1,130 @@
 # sow Development Roadmap
 
-**Last Updated**: 2025-10-12
-**Status**: Preliminary roadmap for system implementation
+**Last Updated**: 2025-10-13
+**Status**: Simplified roadmap with 10 project-sized milestones
 
 ---
 
 ## Overview
 
-This roadmap outlines the sequential milestones for building the sow (system of work) framework. Each milestone represents a logical chunk of work that, when combined, results in a complete AI-powered system of work for software engineering.
+This roadmap outlines 10 sequential milestones for building the sow (system of work) framework. Each milestone represents roughly a "project's worth" of work - a substantial chunk that delivers meaningful functionality.
+
+The milestones are organized to:
+- Build foundational infrastructure first (CLI, schemas, file structure)
+- Establish the agent system (orchestrator and workers)
+- Add advanced features (feedback, skills, external knowledge)
+- Polish and release
 
 For detailed architectural decisions and technical specifications, see the comprehensive architecture documentation in this directory.
 
 ---
 
-## Milestone 1: Foundation and Core Infrastructure
+## Milestone 1: CLI Foundation & Schema System
 
-**Goal**: Establish the basic file structure, schemas, and version management system
+**Goal**: Build complete CLI with embedded CUE schemas as the foundation for all sow operations
+
+**Key Deliverables**:
+- Set up Go project structure for CLI
+- **Define CUE schemas for all state files** (project state, task state, sink index, repo index, version file)
+- Add CUE constraints and validation rules to schemas
+- Implement Go CLI binary with CUE schema embedding using `go:embed` directive
+- Build cross-platform binaries (macOS, Linux, Windows)
+- Implement version alignment system (CLI version = schema version)
+- Create all CLI commands:
+  - `sow init` - Initialize `.sow/` structure from embedded schemas
+  - `sow validate` - Validate files against embedded CUE schemas
+  - `sow schema` - Inspect embedded schemas
+  - `sow log` - Fast logging for agents (<1s)
+  - `sow session-info` - Session status for hooks
+  - `sow sinks` - Sink management (install, update, list, remove)
+  - `sow repos` - Repository management (add, sync, list, remove)
+- Implement auto-detection for task vs project context
+- Create installation guides for all platforms
+
+**Rationale**: Build complete CLI first to dogfood it during sow development. This provides immediate benefits (fast validation, initialization, logging) while implementing the rest of the system.
+
+**References**:
+- [CLI_REFERENCE.md](./CLI_REFERENCE.md) - Complete CLI documentation
+- [DISTRIBUTION.md](./DISTRIBUTION.md#cli-distribution) - CLI distribution strategy
+- [ARCHITECTURE.md](./ARCHITECTURE.md#schema-management) - CUE-based design
+- [SCHEMAS.md](./SCHEMAS.md) - File format specifications
+
+**Success Criteria**:
+- CUE schemas are defined with proper constraints and validation rules
+- CLI successfully embeds all CUE schemas at build time
+- All CLI commands are functional and performant
+- CLI binaries work on macOS, Linux, and Windows
+- CLI version matches schema version automatically
+- Installation is straightforward on all platforms
+- CLI can be used immediately for remaining milestones
+
+---
+
+## Milestone 2: Core Infrastructure & File Structure
+
+**Goal**: Establish the plugin architecture and file structure templates
 
 **Key Deliverables**:
 - Define and implement the two-layer architecture (execution + data layers)
 - Create file structure templates for `plugin/` (becomes `.claude/` on install) and `.sow/` directories
 - Implement version tracking system (`.sow/.version` and `plugin/.plugin-version`)
-- Define YAML/JSON schemas for all state files
-- Create basic validation utilities for structure integrity
+- Create markdown reference documentation from CUE schemas (built in Milestone 1)
+- Use CLI from Milestone 1 for validation during development
 
-**Note**: The execution layer is developed in the `plugin/` directory of the marketplace repository. When users install the plugin via `/plugin install sow@sow-marketplace`, the contents of `plugin/` are copied into their repository as `.claude/`.
+**Note**: The execution layer is developed in the `plugin/` directory of the marketplace repository. When users install the plugin via `/plugin install sow@sow-marketplace`, the contents of `plugin/` are copied into their repository as `.claude/`. CUE schemas are already defined in the CLI (Milestone 1).
 
 **References**:
 - [FILE_STRUCTURE.md](./FILE_STRUCTURE.md) - Complete directory layout
-- [SCHEMAS.md](./SCHEMAS.md) - File format specifications
+- [SCHEMAS.md](./SCHEMAS.md) - File format specifications (CUE as source of truth)
 - [ARCHITECTURE.md](./ARCHITECTURE.md#two-layer-architecture) - Architectural foundation
 
 **Success Criteria**:
-- File structures can be created and validated
-- Version files correctly track system versions
-- All schemas are well-defined and parseable
+- File structure templates are complete and documented
+- Version tracking system works correctly
+- Plugin directory structure is ready for marketplace distribution
+- Markdown documentation accurately reflects CUE schemas from CLI
+- Can use `sow validate` to verify all template files
 
 ---
 
-## Milestone 2: Orchestrator Agent (MVP)
+## Milestone 3: Orchestrator, Project Management & Logging
 
-**Goal**: Build the main coordinating agent that serves as the user interface
+**Goal**: Build the orchestrator agent and complete project management system with structured logging
 
 **Key Deliverables**:
 - Create orchestrator agent with system prompt
 - Implement startup behavior (SessionStart detection)
-- Build basic command routing (one-off vs project-based work)
-- Create simple task delegation mechanism
-- Implement project state reading and writing
+- Build command routing (one-off vs project-based work)
+- Implement project initialization logic (`/start-project`)
+- Build complexity assessment (1-3 rating)
+- Create progressive planning system (start with 1-2 phases)
+- Implement phase management (creation, transitions, validation)
+- Build gap numbering system for tasks
+- Create task state management (pending, in_progress, completed, abandoned)
+- Define structured markdown log format
+- Create action vocabulary for logging
+- Implement agent ID construction (role + iteration)
+- Integrate CLI logging (`sow log`) into agents
 
 **References**:
-- [AGENTS.md](./AGENTS.md#orchestrator) - Orchestrator role and responsibilities
-- [ARCHITECTURE.md](./ARCHITECTURE.md#multi-agent-system) - Multi-agent architecture
-
-**Success Criteria**:
-- Orchestrator can start up and assess work mode
-- Can create basic project structure
-- Can read and update project state files
-- Can identify next task to work on
-
----
-
-## Milestone 3: Project Management Core
-
-**Goal**: Implement the foundational project management system
-
-**Key Deliverables**:
-- Create project initialization logic (`/start-project`)
-- Implement complexity assessment (1-3 rating)
-- Build progressive planning system (start with 1-2 phases)
-- Create phase management (creation, transitions, validation)
-- Implement gap numbering system for tasks
-- Build task state management (pending, in_progress, completed, abandoned)
-
-**References**:
+- [AGENTS.md](./AGENTS.md#orchestrator) - Orchestrator specifications
 - [PROJECT_MANAGEMENT.md](./PROJECT_MANAGEMENT.md) - Complete project lifecycle
 - [ARCHITECTURE.md](./ARCHITECTURE.md#progressive-planning-philosophy) - Planning approach
 
 **Success Criteria**:
+- Orchestrator can start up and assess work mode
 - Projects can be created with initial phases
 - Tasks use gap numbering correctly
 - Phase transitions work as expected
 - State persists correctly across sessions
+- Logs are created with consistent format via CLI
+- Agent IDs are constructed correctly
 
 ---
 
-## Milestone 4: Worker Agents (Core Set)
+## Milestone 4: Worker Agents & Zero-Context Resumability
 
-**Goal**: Build the specialized worker agents for different types of work
+**Goal**: Build all specialized worker agents with complete context compilation and resumability system
 
 **Key Deliverables**:
 - Create architect agent (design and ADRs)
@@ -97,9 +134,15 @@ For detailed architectural decisions and technical specifications, see the compr
 - Create documenter agent (documentation updates)
 - Implement agent spawning mechanism via Task tool
 - Build agent assignment logic
+- Build context compilation system in orchestrator
+- Implement task description format and generation
+- Create reference tracking system (sinks, knowledge, repos)
+- Build worker recovery process (read state → execute → report)
+- Implement iteration tracking system
 
 **References**:
 - [AGENTS.md](./AGENTS.md#worker-agents) - Worker agent specifications
+- [ARCHITECTURE.md](./ARCHITECTURE.md#zero-context-resumability) - Resumability design
 - [ARCHITECTURE.md](./ARCHITECTURE.md#orchestrator--worker-pattern) - Agent coordination
 
 **Success Criteria**:
@@ -107,27 +150,6 @@ For detailed architectural decisions and technical specifications, see the compr
 - Orchestrator can spawn workers correctly
 - Workers can execute tasks independently
 - Task assignment works based on task type
-
----
-
-## Milestone 5: Context Compilation and Zero-Context Resumability
-
-**Goal**: Enable agents to resume work from filesystem state without conversation history
-
-**Key Deliverables**:
-- Build context compilation system in orchestrator
-- Implement task description format and generation
-- Create reference tracking system (sinks, knowledge, repos)
-- Build worker recovery process (read state → execute → report)
-- Implement iteration tracking system
-- Create task and project log structure
-
-**References**:
-- [ARCHITECTURE.md](./ARCHITECTURE.md#zero-context-resumability) - Resumability design
-- [AGENTS.md](./AGENTS.md#context-compilation) - Context compilation process
-- [PROJECT_MANAGEMENT.md](./PROJECT_MANAGEMENT.md#zero-context-resumability) - Recovery procedures
-
-**Success Criteria**:
 - Workers can resume tasks from filesystem state alone
 - No dependency on conversation history
 - Context is appropriately filtered for each worker
@@ -135,34 +157,9 @@ For detailed architectural decisions and technical specifications, see the compr
 
 ---
 
-## Milestone 6: Logging System
+## Milestone 5: Feedback Mechanism & Skills System
 
-**Goal**: Implement structured action logging for audit trails and recovery
-
-**Key Deliverables**:
-- Define structured markdown log format
-- Create action vocabulary for logging
-- Build CLI logging command (`sow log`)
-- Implement auto-detection of task vs project logs
-- Create agent ID construction (role + iteration)
-- Build log reading utilities
-
-**References**:
-- [PROJECT_MANAGEMENT.md](./PROJECT_MANAGEMENT.md#logging-system) - Logging specifications
-- [ARCHITECTURE.md](./ARCHITECTURE.md#cli-driven-logging) - CLI-based approach
-- [CLI_REFERENCE.md](./CLI_REFERENCE.md#sow-log) - CLI logging command
-
-**Success Criteria**:
-- Logs are created with consistent format
-- CLI logging is fast (<1s vs 30s file edit)
-- Agent IDs are constructed correctly
-- Logs support zero-context resumability
-
----
-
-## Milestone 7: Feedback Mechanism
-
-**Goal**: Enable human-in-the-loop corrections and guidance
+**Goal**: Enable human-in-the-loop corrections and create reusable agent capabilities
 
 **Key Deliverables**:
 - Create feedback file structure and format
@@ -170,96 +167,6 @@ For detailed architectural decisions and technical specifications, see the compr
 - Build feedback reading in workers
 - Create feedback status tracking (pending, addressed, superseded)
 - Integrate feedback with iteration system
-
-**References**:
-- [PROJECT_MANAGEMENT.md](./PROJECT_MANAGEMENT.md#feedback-mechanism) - Feedback system
-- [USER_GUIDE.md](./USER_GUIDE.md#providing-feedback-to-agents) - User experience
-
-**Success Criteria**:
-- Users can provide corrections to agents
-- Workers read and incorporate feedback
-- Feedback status is tracked correctly
-- Multiple rounds of feedback work smoothly
-
----
-
-## Milestone 8: Information Sinks System
-
-**Goal**: Implement external knowledge management via sinks
-
-**Key Deliverables**:
-- Create sink index schema and interrogation logic
-- Build CLI commands (`sow sinks install`, `update`, `list`, `remove`)
-- Implement sink-to-task routing logic in orchestrator
-- Create LLM-based sink summarization
-- Build sink update mechanism
-
-**References**:
-- [ARCHITECTURE.md](./ARCHITECTURE.md#information-sinks) - Sink architecture
-- [USER_GUIDE.md](./USER_GUIDE.md#working-with-sinks) - Sink workflows
-- [CLI_REFERENCE.md](./CLI_REFERENCE.md#sink-management) - CLI commands
-
-**Success Criteria**:
-- Sinks can be installed from git repositories
-- Orchestrator routes relevant sinks to workers
-- Sink index is maintained automatically
-- Sinks can be updated independently
-
----
-
-## Milestone 9: Repository Linking
-
-**Goal**: Enable multi-repo context for agents
-
-**Key Deliverables**:
-- Create repository index schema
-- Build CLI commands (`sow repos add`, `sync`, `list`, `remove`)
-- Implement clone and symlink support
-- Create repository-to-task reference system
-- Build sync mechanism for updates
-
-**References**:
-- [ARCHITECTURE.md](./ARCHITECTURE.md#multi-repo-strategy) - Multi-repo support
-- [USER_GUIDE.md](./USER_GUIDE.md#working-with-linked-repos) - Repo workflows
-- [CLI_REFERENCE.md](./CLI_REFERENCE.md#repository-management) - CLI commands
-
-**Success Criteria**:
-- External repositories can be linked
-- Workers can reference code from linked repos
-- Repositories sync correctly
-- Supports both monorepo and multi-repo setups
-
----
-
-## Milestone 10: Workflow Commands
-
-**Goal**: Build user-facing slash commands for project lifecycle
-
-**Key Deliverables**:
-- Implement `/init` command (bootstrap repository)
-- Implement `/start-project` command (create project with planning)
-- Implement `/continue` command (resume existing project)
-- Implement `/cleanup` command (delete project before merge)
-- Implement `/sync` command (update sinks and repos)
-- Build smart UX flows (branch protection, conflict resolution)
-
-**References**:
-- [COMMANDS_AND_SKILLS.md](./COMMANDS_AND_SKILLS.md#user-workflow-commands) - Command specifications
-- [USER_GUIDE.md](./USER_GUIDE.md) - User workflows
-
-**Success Criteria**:
-- All workflow commands are functional
-- Smart error handling and prompts work correctly
-- Users can complete full project lifecycle
-- Branch constraints are enforced
-
----
-
-## Milestone 11: Skills System
-
-**Goal**: Create reusable capabilities for worker agents
-
-**Key Deliverables**:
 - Design skills as slash commands (avoid separate abstraction)
 - Create architect skills (`/create-adr`, `/design-doc`)
 - Create implementer skills (`/implement-feature`, `/fix-bug`)
@@ -269,10 +176,16 @@ For detailed architectural decisions and technical specifications, see the compr
 - Build skill invocation in agent prompts
 
 **References**:
+- [PROJECT_MANAGEMENT.md](./PROJECT_MANAGEMENT.md#feedback-mechanism) - Feedback system
+- [USER_GUIDE.md](./USER_GUIDE.md#providing-feedback-to-agents) - User experience
 - [COMMANDS_AND_SKILLS.md](./COMMANDS_AND_SKILLS.md#skills-system) - Skills architecture
 - [ARCHITECTURE.md](./ARCHITECTURE.md#skills--slash-commands) - Design decision
 
 **Success Criteria**:
+- Users can provide corrections to agents
+- Workers read and incorporate feedback
+- Feedback status is tracked correctly
+- Multiple rounds of feedback work smoothly
 - Workers can invoke skills as needed
 - Skills are reusable across agents
 - No context window bloat from skill definitions
@@ -280,23 +193,68 @@ For detailed architectural decisions and technical specifications, see the compr
 
 ---
 
-## Milestone 12: Hooks System
+## Milestone 6: External Knowledge & Repository Linking
 
-**Goal**: Enable event-driven automation and customization
+**Goal**: Implement information sinks and multi-repo context management
 
 **Key Deliverables**:
+- Create sink index schema and interrogation logic
+- Implement sink-to-task routing logic in orchestrator
+- Create LLM-based sink summarization
+- Build sink update mechanism
+- Create repository index schema
+- Implement clone and symlink support
+- Create repository-to-task reference system
+- Build sync mechanism for updates
+- Integrate sink and repo commands (already built in CLI from Milestone 1)
+
+**References**:
+- [ARCHITECTURE.md](./ARCHITECTURE.md#information-sinks) - Sink architecture
+- [ARCHITECTURE.md](./ARCHITECTURE.md#multi-repo-strategy) - Multi-repo support
+- [USER_GUIDE.md](./USER_GUIDE.md#working-with-sinks) - Sink workflows
+- [USER_GUIDE.md](./USER_GUIDE.md#working-with-linked-repos) - Repo workflows
+
+**Success Criteria**:
+- Sinks can be installed from git repositories
+- Orchestrator routes relevant sinks to workers
+- Sink index is maintained automatically
+- Sinks can be updated independently
+- External repositories can be linked
+- Workers can reference code from linked repos
+- Repositories sync correctly
+- Supports both monorepo and multi-repo setups
+
+---
+
+## Milestone 7: Workflow Commands & Hooks System
+
+**Goal**: Build user-facing slash commands and event-driven automation system
+
+**Key Deliverables**:
+- Implement `/init` command (bootstrap repository)
+- Implement `/start-project` command (create project with planning)
+- Implement `/continue` command (resume existing project)
+- Implement `/cleanup` command (delete project before merge)
+- Implement `/sync` command (update sinks and repos)
+- Build smart UX flows (branch protection, conflict resolution)
 - Create hooks configuration schema (`hooks.json`)
 - Implement SessionStart hook (version checking, project status)
-- Create `sow session-info` CLI command for hook
 - Implement PostToolUse hooks (auto-formatting)
 - Implement PreCompact hooks (context preservation)
 - Build hook execution engine
+- Integrate `sow session-info` CLI command (already built in Milestone 1)
 
 **References**:
+- [COMMANDS_AND_SKILLS.md](./COMMANDS_AND_SKILLS.md#user-workflow-commands) - Command specifications
+- [USER_GUIDE.md](./USER_GUIDE.md) - User workflows
 - [HOOKS_AND_INTEGRATIONS.md](./HOOKS_AND_INTEGRATIONS.md#hooks-system) - Hooks documentation
 - [DISTRIBUTION.md](./DISTRIBUTION.md#version-check-implementation) - SessionStart hook
 
 **Success Criteria**:
+- All workflow commands are functional
+- Smart error handling and prompts work correctly
+- Users can complete full project lifecycle
+- Branch constraints are enforced
 - SessionStart hook detects version mismatches
 - Hooks run at correct lifecycle points
 - Custom hooks can be added by users
@@ -304,57 +262,9 @@ For detailed architectural decisions and technical specifications, see the compr
 
 ---
 
-## Milestone 13: Migration System
+## Milestone 8: Plugin Distribution & Migration System
 
-**Goal**: Enable smooth version upgrades with automated migrations
-
-**Key Deliverables**:
-- Define migration file format (markdown specifications)
-- Create `/migrate` command implementation
-- Build sequential migration chain execution
-- Implement version detection logic
-- Create migration templates for breaking changes
-- Build rollback procedures
-
-**References**:
-- [DISTRIBUTION.md](./DISTRIBUTION.md#migration-system) - Migration architecture
-- [COMMANDS_AND_SKILLS.md](./COMMANDS_AND_SKILLS.md#migrate) - Migration command
-
-**Success Criteria**:
-- Migrations can be applied automatically
-- Sequential migrations work for version skipping
-- Version mismatches are detected on SessionStart
-- Rollback is straightforward
-
----
-
-## Milestone 14: CLI Development
-
-**Goal**: Build optional but high-performance CLI binary
-
-**Key Deliverables**:
-- Implement core CLI commands (log, validate, session-info)
-- Build sink management commands
-- Build repository management commands
-- Create cross-platform binaries (macOS, Linux, Windows)
-- Implement auto-detection for task vs project context
-- Build fast logging performance (<1s)
-
-**References**:
-- [CLI_REFERENCE.md](./CLI_REFERENCE.md) - Complete CLI documentation
-- [DISTRIBUTION.md](./DISTRIBUTION.md#cli-distribution) - CLI distribution
-
-**Success Criteria**:
-- CLI is significantly faster than file editing
-- All documented commands are implemented
-- Binaries work on all platforms
-- Version alignment with plugin is maintained
-
----
-
-## Milestone 15: Plugin Packaging and Distribution
-
-**Goal**: Package system as Claude Code Plugin for distribution
+**Goal**: Package system for distribution and enable version upgrades
 
 **Key Deliverables**:
 - Create plugin metadata (`plugin.json`)
@@ -363,67 +273,34 @@ For detailed architectural decisions and technical specifications, see the compr
 - Create marketplace listing
 - Implement version tracking system
 - Create release automation
+- Define migration file format (markdown specifications)
+- Create `/migrate` command implementation
+- Build sequential migration chain execution
+- Implement version detection logic
+- Create migration templates for breaking changes
+- Build rollback procedures
 
 **References**:
 - [DISTRIBUTION.md](./DISTRIBUTION.md) - Complete distribution guide
+- [DISTRIBUTION.md](./DISTRIBUTION.md#migration-system) - Migration architecture
 - [ARCHITECTURE.md](./ARCHITECTURE.md#two-layer-architecture) - Distribution model
+- [COMMANDS_AND_SKILLS.md](./COMMANDS_AND_SKILLS.md#migrate) - Migration command
 
 **Success Criteria**:
 - Plugin can be installed via marketplace
 - Version management works correctly
 - Updates are straightforward
 - Installation is documented clearly
+- Migrations can be applied automatically
+- Sequential migrations work for version skipping
+- Version mismatches are detected on SessionStart
+- Rollback is straightforward
 
 ---
 
-## Milestone 16: MCP Integrations (Optional)
+## Milestone 9: Testing, Documentation & Polish
 
-**Goal**: Enable external tool and service integrations
-
-**Key Deliverables**:
-- Define MCP configuration schema (`mcp.json`)
-- Document common integrations (GitHub, Jira, etc.)
-- Create integration examples
-- Build authentication support
-- Test with popular MCP servers
-
-**References**:
-- [HOOKS_AND_INTEGRATIONS.md](./HOOKS_AND_INTEGRATIONS.md#mcp-integrations) - MCP documentation
-
-**Success Criteria**:
-- MCP servers can be configured
-- Authentication mechanisms work
-- Common integrations are documented
-- Security considerations are addressed
-
----
-
-## Milestone 17: Documentation and Examples
-
-**Goal**: Create comprehensive user and developer documentation
-
-**Key Deliverables**:
-- Finalize all architecture documents
-- Create getting started guide
-- Build example projects and workflows
-- Create video tutorials or demos
-- Write troubleshooting guides
-- Create contribution guidelines
-
-**References**:
-- All existing architecture documents in `docs/`
-
-**Success Criteria**:
-- New users can get started quickly
-- All features are documented
-- Common issues have solutions
-- Examples demonstrate key workflows
-
----
-
-## Milestone 18: Testing and Quality Assurance
-
-**Goal**: Ensure system reliability and correctness
+**Goal**: Ensure system reliability, create comprehensive documentation, and refine user experience
 
 **Key Deliverables**:
 - Create test suite for CLI commands
@@ -432,20 +309,12 @@ For detailed architectural decisions and technical specifications, see the compr
 - Validate schema compliance
 - Test cross-platform compatibility
 - Create CI/CD pipeline
-
-**Success Criteria**:
-- Core functionality has test coverage
-- Migrations are tested on real repositories
-- CLI works on all platforms
-- CI enforces quality standards
-
----
-
-## Milestone 19: Polish and User Experience
-
-**Goal**: Refine the system for production readiness
-
-**Key Deliverables**:
+- Finalize all architecture documents
+- Create getting started guide
+- Build example projects and workflows
+- Create video tutorials or demos
+- Write troubleshooting guides
+- Create contribution guidelines
 - Improve error messages and user prompts
 - Add helpful hints and suggestions
 - Optimize performance bottlenecks
@@ -453,17 +322,28 @@ For detailed architectural decisions and technical specifications, see the compr
 - Create consistent visual language
 - Add progress indicators for long operations
 
+**References**:
+- All existing architecture documents in `docs/`
+
 **Success Criteria**:
+- Core functionality has test coverage
+- Migrations are tested on real repositories
+- CLI works on all platforms
+- CI enforces quality standards
+- New users can get started quickly
+- All features are documented
+- Common issues have solutions
+- Examples demonstrate key workflows
 - User experience is smooth and intuitive
 - Error messages are helpful
-- Performance is acceptable
+- Performance is acceptable (<5s for most commands)
 - Visual consistency across commands
 
 ---
 
-## Milestone 20: Initial Release (v0.1.0)
+## Milestone 10: Initial Release & MCP Integrations
 
-**Goal**: Launch the first public version of sow
+**Goal**: Launch first public version of sow with optional external integrations
 
 **Key Deliverables**:
 - Package complete plugin and CLI
@@ -472,6 +352,14 @@ For detailed architectural decisions and technical specifications, see the compr
 - Announce to community
 - Gather initial feedback
 - Create feedback channels (issues, discussions)
+- Define MCP configuration schema (`mcp.json`) - optional
+- Document common integrations (GitHub, Jira, etc.) - optional
+- Create integration examples - optional
+- Build authentication support - optional
+- Test with popular MCP servers - optional
+
+**References**:
+- [HOOKS_AND_INTEGRATIONS.md](./HOOKS_AND_INTEGRATIONS.md#mcp-integrations) - MCP documentation
 
 **Success Criteria**:
 - System is installable and functional
@@ -479,6 +367,10 @@ For detailed architectural decisions and technical specifications, see the compr
 - Users can accomplish basic workflows
 - Feedback mechanism is in place
 - Known issues are documented
+- MCP servers can be configured (if implemented)
+- Authentication mechanisms work (if implemented)
+- Common integrations are documented (if implemented)
+- Security considerations are addressed
 
 ---
 
@@ -515,10 +407,10 @@ For detailed architectural decisions and technical specifications, see the compr
 - Progressive planning (not waterfall)
 
 **Flexibility Points**:
-- CLI is optional (system works without it)
 - MCP integrations are optional
 - Sinks and repo linking are optional features
 - Skills can be extended by users
+- Hooks can be customized for team workflows
 
 ---
 
