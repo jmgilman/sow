@@ -168,9 +168,41 @@ project-root/
 
 Defines how AI agents behave and interact with the system.
 
+### How It Gets There
+
+**IMPORTANT**: The `.claude/` directory is **created when the plugin is installed**, not stored in the plugin source repository.
+
+**Plugin Development Structure** (in the `sow` repository):
+```
+sow/                                    # Marketplace repository
+├── .claude-plugin/
+│   └── marketplace.json                # Defines marketplace, points to plugin/
+└── plugin/                             # Plugin source (template for .claude/)
+    ├── .claude-plugin/
+    │   └── plugin.json                 # Plugin metadata
+    ├── .plugin-version                 # Version file
+    ├── agents/                         # Agent definitions
+    ├── commands/                       # Slash commands
+    ├── hooks.json                      # Event automation
+    └── mcp.json                        # MCP integrations
+```
+
+**Installation Flow**:
+1. User runs: `/plugin install sow@sow-marketplace`
+2. Claude Code reads `.claude-plugin/marketplace.json`
+3. Finds plugin source at `./plugin`
+4. **Copies contents of `plugin/` into user's repository as `.claude/`**
+5. Result: User's repo now has `.claude/` with all plugin files
+
+**Key Understanding**:
+- `plugin/` directory = source template (lives in marketplace repo)
+- `.claude/` directory = installed plugin (lives in user's repo after installation)
+- When developing the plugin, edit files in `plugin/`
+- When using the plugin, files are in `.claude/`
+
 ### Committed to Git
 
-✅ **Yes** - Entire directory committed to all branches
+✅ **Yes** - Entire directory committed to all branches (after installation)
 - Team shares same agent behaviors
 - Distributed via Claude Code Plugin
 - Version-controlled with codebase
@@ -487,7 +519,7 @@ Individual task directories (numbered with gaps: 010, 020, 030)
 
 | Path | Committed? | Reason |
 |------|-----------|--------|
-| `.claude/` | ✅ Yes (all branches) | Team shares agents, commands, hooks |
+| `.claude/` | ✅ Yes (all branches) | Team shares agents, commands, hooks (installed from plugin) |
 | `.sow/.version` | ✅ Yes (all branches) | Track structure version |
 | `.sow/knowledge/` | ✅ Yes (all branches) | Repo-specific docs, architecture, ADRs |
 | `.sow/sinks/` | ❌ No (git-ignored) | External, per-developer installations |

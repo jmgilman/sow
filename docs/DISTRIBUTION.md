@@ -72,48 +72,61 @@
 
 ### Package Structure
 
-The plugin bundles all execution layer components:
+**IMPORTANT**: The plugin source is developed in the `plugin/` directory of the marketplace repository. When users install the plugin, the contents of `plugin/` are copied to `.claude/` in their repository.
+
+**Development Structure** (in the `sow` marketplace repository):
 
 ```
-sow-plugin/
+sow/                                    # Marketplace repository
 ├── .claude-plugin/
-│   └── plugin.json              # Metadata with version
+│   └── marketplace.json                # Marketplace config (points to ./plugin)
 │
-├── .plugin-version               # Plugin version (for runtime access)
-│
-├── agents/
-│   ├── orchestrator.md
-│   ├── architect.md
-│   ├── implementer.md
-│   ├── integration-tester.md
-│   ├── reviewer.md
-│   └── documenter.md
-│
-├── commands/
-│   ├── workflows/
-│   │   ├── init.md              # Bootstrap repository
-│   │   ├── start-project.md
-│   │   ├── continue.md
-│   │   ├── cleanup.md
-│   │   ├── migrate.md           # Version migration
-│   │   └── sync.md
-│   └── skills/
-│       ├── architect/
-│       ├── implementer/
-│       ├── integration-tester/
-│       ├── reviewer/
-│       └── documenter/
-│
-├── hooks.json                    # SessionStart hook for version checking
-│
-├── migrations/                   # Migration instructions
-│   ├── 0.1.0-to-0.2.0.md
-│   └── 0.2.0-to-0.3.0.md
-│
-└── README.md                     # Installation instructions
+└── plugin/                             # Plugin source (becomes .claude/ when installed)
+    ├── .claude-plugin/
+    │   └── plugin.json                 # Metadata with version
+    │
+    ├── .plugin-version                 # Plugin version (for runtime access)
+    │
+    ├── agents/
+    │   ├── orchestrator.md
+    │   ├── architect.md
+    │   ├── implementer.md
+    │   ├── integration-tester.md
+    │   ├── reviewer.md
+    │   └── documenter.md
+    │
+    ├── commands/
+    │   ├── workflows/
+    │   │   ├── init.md                 # Bootstrap repository
+    │   │   ├── start-project.md
+    │   │   ├── continue.md
+    │   │   ├── cleanup.md
+    │   │   ├── migrate.md              # Version migration
+    │   │   └── sync.md
+    │   └── skills/
+    │       ├── architect/
+    │       ├── implementer/
+    │       ├── integration-tester/
+    │       ├── reviewer/
+    │       └── documenter/
+    │
+    ├── hooks.json                      # SessionStart hook for version checking
+    │
+    ├── migrations/                     # Migration instructions
+    │   ├── 0.1.0-to-0.2.0.md
+    │   └── 0.2.0-to-0.3.0.md
+    │
+    └── README.md                       # Installation instructions
 ```
 
-**What Gets Installed**:
+**Installation Flow**:
+1. User runs: `/plugin install sow@sow-marketplace`
+2. Claude Code reads `.claude-plugin/marketplace.json`
+3. Finds plugin source at `./plugin`
+4. **Copies contents of `plugin/` → user's repository as `.claude/`**
+5. User's repository now has `.claude/` with all plugin files
+
+**What Gets Installed** (in user's `.claude/` directory):
 - All agents (`.md` files)
 - All commands (workflows and skills)
 - Hooks configuration
@@ -125,6 +138,11 @@ sow-plugin/
 - User-specific configurations
 - Project state
 - Installed sinks or repos
+
+**Key Understanding**:
+- When **developing** the plugin: Edit files in `plugin/`
+- When **using** the plugin: Files are in `.claude/`
+- The `plugin/` directory is the template for `.claude/`
 
 ### Plugin Metadata
 

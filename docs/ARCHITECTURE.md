@@ -66,10 +66,14 @@ This document explains the fundamental architecture of `sow`, the design pattern
 ### Implementation
 
 **Execution Layer** (`.claude/`)
-- Committed to git (all branches)
-- Distributed via Claude Code Plugin
+- **Source**: Developed in `plugin/` directory of marketplace repository
+- **Installation**: Contents of `plugin/` copied to `.claude/` when plugin installed
+- **Distribution**: Via Claude Code Plugin marketplace
+- Committed to git (all branches) after installation
 - Contains: agents, commands, hooks, MCP integrations
 - Immutable during session (replaced on upgrade)
+
+**Development Note**: When building the `sow` plugin, edit files in `plugin/`. When users install the plugin, these files appear in their repository as `.claude/`.
 
 **Data Layer** (`.sow/`)
 - Mixed git strategy (some committed, some ignored)

@@ -19,10 +19,12 @@ For detailed architectural decisions and technical specifications, see the compr
 
 **Key Deliverables**:
 - Define and implement the two-layer architecture (execution + data layers)
-- Create file structure templates for `.claude/` and `.sow/` directories
-- Implement version tracking system (`.sow/.version` and `.plugin-version`)
+- Create file structure templates for `plugin/` (becomes `.claude/` on install) and `.sow/` directories
+- Implement version tracking system (`.sow/.version` and `plugin/.plugin-version`)
 - Define YAML/JSON schemas for all state files
 - Create basic validation utilities for structure integrity
+
+**Note**: The execution layer is developed in the `plugin/` directory of the marketplace repository. When users install the plugin via `/plugin install sow@sow-marketplace`, the contents of `plugin/` are copied into their repository as `.claude/`.
 
 **References**:
 - [FILE_STRUCTURE.md](./FILE_STRUCTURE.md) - Complete directory layout
