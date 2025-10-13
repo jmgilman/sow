@@ -1,0 +1,79 @@
+project:
+  name: milestone-1-foundation
+  branch: feat/milestone-1-foundation
+  created_at: 2025-10-12T19:30:00Z
+  updated_at: 2025-10-12T19:30:00Z
+  description: |
+    Establish the basic file structure, schemas, and version management system
+    for the sow framework. This is Milestone 1 from ROADMAP.md.
+
+    Key deliverables:
+    - Define two-layer architecture (execution + data layers)
+    - Create file structure templates for plugin/ and .sow/ directories
+    - Implement version tracking system
+    - Define YAML/JSON schemas for all state files
+    - Create basic validation utilities
+
+  complexity:
+    rating: 2
+    metrics:
+      estimated_files: 20
+      cross_cutting: true
+      new_dependencies: false
+      rationale: |
+        Architectural foundation work requiring design decisions and multiple
+        template files. Moderate complexity due to establishing patterns that
+        will be used throughout the entire system.
+
+  active_phase: design
+
+phases:
+  - name: design
+    status: in_progress
+    created_at: 2025-10-12T19:30:00Z
+    tasks:
+      - id: "010"
+        name: Design file structure for plugin/ directory (execution layer)
+        status: pending
+        assigned_agent: architect
+        parallel: false
+
+      - id: "020"
+        name: Design file structure for .sow/ directory (data layer)
+        status: pending
+        assigned_agent: architect
+        parallel: false
+
+      - id: "030"
+        name: Define YAML schemas for all state files
+        status: pending
+        assigned_agent: architect
+        parallel: false
+
+  - name: implement
+    status: pending
+    created_at: 2025-10-12T19:30:00Z
+    tasks:
+      - id: "010"
+        name: Create plugin/ template files and directories
+        status: pending
+        assigned_agent: implementer
+        parallel: false
+
+      - id: "020"
+        name: Create .sow/ template files and directories
+        status: pending
+        assigned_agent: implementer
+        parallel: false
+
+      - id: "030"
+        name: Implement version tracking files
+        status: pending
+        assigned_agent: implementer
+        parallel: false
+
+      - id: "040"
+        name: Create basic validation utilities
+        status: pending
+        assigned_agent: implementer
+        parallel: false

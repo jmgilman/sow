@@ -1,0 +1,17 @@
+task:
+  id: "020"
+  name: Create .sow/ template files and directories
+  phase: implement
+  status: pending
+
+  created_at: 2025-10-12T19:30:00Z
+
+  iteration: 0
+  assigned_agent: implementer
+  parallel: false
+
+  references:
+    - ../../../../../../docs/FILE_STRUCTURE.md
+    - ../../../../../../docs/PROJECT_MANAGEMENT.md
+
+  files_modified: []

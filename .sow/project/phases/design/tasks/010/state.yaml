@@ -1,0 +1,19 @@
+task:
+  id: "010"
+  name: Design file structure for plugin/ directory (execution layer)
+  phase: design
+  status: pending
+
+  created_at: 2025-10-12T19:30:00Z
+
+  iteration: 0
+  assigned_agent: architect
+  parallel: false
+
+  references:
+    - ../../../../../../docs/FILE_STRUCTURE.md
+    - ../../../../../../docs/ARCHITECTURE.md
+    - ../../../../../../docs/AGENTS.md
+    - ../../../../../../ROADMAP.md
+
+  files_modified: []
