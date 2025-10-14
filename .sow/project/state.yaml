@@ -68,7 +68,7 @@ phases:
 
       - id: "040"
         name: "Implement utility commands (log, session-info, validate)"
-        status: pending
+        status: completed
         parallel: false
         assigned_agent: "implementer"
 

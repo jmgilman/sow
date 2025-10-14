@@ -30,6 +30,9 @@ provides utilities for AI agents to work with structured projects.`,
 	rootCmd.AddCommand(NewVersionCmd())
 	rootCmd.AddCommand(NewInitCmd())
 	rootCmd.AddCommand(NewSchemaCmd())
+	rootCmd.AddCommand(NewLogCmd())
+	rootCmd.AddCommand(NewSessionInfoCmd())
+	rootCmd.AddCommand(NewValidateCmd())
 
 	return rootCmd
 }
