@@ -1,0 +1,39 @@
+# Task State
+# Location: .sow/project/phases/implement/tasks/010/state.yaml
+
+task:
+  id: "010"
+  name: "Set up Go project structure with CUE embedding"
+  phase: "implement"
+  status: completed
+
+  created_at: "2025-10-13T00:00:00Z"
+  started_at: "2025-10-13T00:22:00Z"
+  updated_at: "2025-10-13T01:00:00Z"
+  completed_at: "2025-10-13T01:00:00Z"
+
+  iteration: 1
+  assigned_agent: "implementer"
+
+  references:
+    - knowledge/adrs/
+    - schemas/cue/
+
+  feedback: []
+
+  files_modified:
+    - go.mod
+    - go.sum
+    - cmd/sow/main.go
+    - internal/config/version.go
+    - internal/config/version_test.go
+    - internal/schema/embed.go
+    - internal/schema/embed_test.go
+    - internal/schema/cue/project-state.cue
+    - internal/schema/cue/task-state.cue
+    - internal/schema/cue/sink-index.cue
+    - internal/schema/cue/repo-index.cue
+    - internal/schema/cue/sow-version.cue
+    - internal/commands/root.go
+    - internal/commands/root_test.go
+    - bin/sow
