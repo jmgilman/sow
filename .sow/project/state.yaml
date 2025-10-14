@@ -62,7 +62,7 @@ phases:
 
       - id: "030"
         name: "Implement initialization commands (init, schema)"
-        status: pending
+        status: completed
         parallel: false
         assigned_agent: "implementer"
 

@@ -51,17 +51,20 @@ func TestRootCommandHasSubcommands(t *testing.T) {
 		t.Error("Root command has no subcommands")
 	}
 
-	// Verify version command exists
-	hasVersion := false
-	for _, cmd := range commands {
-		if cmd.Use == "version" {
-			hasVersion = true
-			break
+	// Verify expected commands exist
+	expectedCommands := []string{"version", "init", "schema"}
+	for _, expectedCmd := range expectedCommands {
+		found := false
+		for _, cmd := range commands {
+			if cmd.Use == expectedCmd {
+				found = true
+				break
+			}
 		}
-	}
 
-	if !hasVersion {
-		t.Error("Root command missing 'version' subcommand")
+		if !found {
+			t.Errorf("Root command missing '%s' subcommand", expectedCmd)
+		}
 	}
 }
 

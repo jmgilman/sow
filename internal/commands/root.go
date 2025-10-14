@@ -28,6 +28,8 @@ provides utilities for AI agents to work with structured projects.`,
 
 	// Add subcommands
 	rootCmd.AddCommand(NewVersionCmd())
+	rootCmd.AddCommand(NewInitCmd())
+	rootCmd.AddCommand(NewSchemaCmd())
 
 	return rootCmd
 }
