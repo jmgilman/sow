@@ -33,6 +33,8 @@ provides utilities for AI agents to work with structured projects.`,
 	rootCmd.AddCommand(NewLogCmd())
 	rootCmd.AddCommand(NewSessionInfoCmd())
 	rootCmd.AddCommand(NewValidateCmd())
+	rootCmd.AddCommand(NewSinksCmd())
+	rootCmd.AddCommand(NewReposCmd())
 
 	return rootCmd
 }
