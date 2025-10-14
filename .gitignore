@@ -1,0 +1,31 @@
+# Build outputs
+/bin/
+/sow
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# sow runtime directories (git-ignored per architecture)
+.sow/sinks/
+.sow/repos/
+
+# Note: .sow/project/ and .sow/knowledge/ are committed
+# .sow/.version is committed when initialized
