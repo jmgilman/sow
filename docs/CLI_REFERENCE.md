@@ -1,42 +1,20 @@
 # CLI Reference
 
-**Last Updated**: 2025-10-12
-**Status**: Comprehensive Architecture Documentation
+**Last Updated**: 2025-10-15
+**Purpose**: Complete CLI command reference
+
+This document provides comprehensive reference for all `sow` CLI commands and orchestrator slash commands.
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Installation](#installation)
-  - [Download and Install](#download-and-install)
-  - [Verify Installation](#verify-installation)
-  - [Updating the CLI](#updating-the-cli)
-- [Global Commands](#global-commands)
-  - [sow --version](#sow---version)
-  - [sow --help](#sow---help)
-  - [sow init](#sow-init)
-  - [sow validate](#sow-validate)
-  - [sow schema](#sow-schema)
+- [Core Commands](#core-commands)
 - [Logging Commands](#logging-commands)
-  - [sow log](#sow-log)
-  - [sow session-info](#sow-session-info)
-- [Sink Management](#sink-management)
-  - [sow sinks install](#sow-sinks-install)
-  - [sow sinks update](#sow-sinks-update)
-  - [sow sinks list](#sow-sinks-list)
-  - [sow sinks remove](#sow-sinks-remove)
-  - [sow sinks reindex](#sow-sinks-reindex)
-- [Repository Management](#repository-management)
-  - [sow repos add](#sow-repos-add)
-  - [sow repos sync](#sow-repos-sync)
-  - [sow repos list](#sow-repos-list)
-  - [sow repos remove](#sow-repos-remove)
-  - [sow repos reindex](#sow-repos-reindex)
-- [Utility Commands](#utility-commands)
-  - [sow save-context](#sow-save-context)
-  - [sow sync](#sow-sync)
-- [Command-Line Flags](#command-line-flags)
+- [Refs Commands](#refs-commands)
+- [Cache Commands](#cache-commands)
+- [Slash Commands](#slash-commands)
 - [Exit Codes](#exit-codes)
 - [Environment Variables](#environment-variables)
 - [Related Documentation](#related-documentation)
@@ -45,278 +23,81 @@
 
 ## Overview
 
-The `sow` CLI is **required** for using sow. It provides essential schema management, initialization, validation, and fast operations.
+The `sow` CLI provides: schema management (embedded CUE schemas as source of truth), structure initialization (materializes `.sow/` from schemas), validation (validates files against embedded schemas), fast logging (instant log entries), refs management (external references system), session information (current project status).
 
-**Key Benefits**:
-- **Schema management** - Embeds CUE schemas as source of truth for all `.sow/` file formats
-- **Initialization** - Materializes `.sow/` structure with correct defaults from schemas
-- **Validation** - Validates files against embedded CUE schemas
-- **Fast logging** - Instant log entry creation (vs 30s file edit)
-- **Sink management** - Install and update knowledge sinks
-- **Repository management** - Link external repositories
-- **Session info** - Display current project status
-
-**Installation**: See [DISTRIBUTION.md](./DISTRIBUTION.md) for installation instructions.
+**Installation**: Download appropriate binary for platform from GitHub releases. Place in PATH. Verify with `sow version`.
 
 ---
 
-## Installation
+## Core Commands
 
-The sow CLI must be installed before you can use sow. The `/init` slash command will guide you through installation if the CLI is not detected.
-
-### Download and Install
-
-**macOS**:
-```bash
-curl -L https://github.com/your-org/sow/releases/download/v0.2.0/sow-macos -o sow
-chmod +x sow
-mv sow ~/.local/bin/sow
-```
-
-**Linux**:
-```bash
-curl -L https://github.com/your-org/sow/releases/download/v0.2.0/sow-linux -o sow
-chmod +x sow
-mv sow ~/.local/bin/sow
-```
-
-**Windows**:
-```powershell
-# Download sow-windows.exe from releases
-# Add to PATH
-```
-
-### Verify Installation
-
-```bash
-sow --version
-# sow 0.2.0
-
-sow --help
-# Displays help information
-```
-
-### Updating the CLI
-
-Download latest version matching your plugin version:
-
-```bash
-# Check plugin version
-cat .claude/.plugin-version
-# 0.3.0
-
-# Download matching CLI
-curl -L https://github.com/your-org/sow/releases/download/v0.3.0/sow-macos -o sow
-chmod +x sow
-mv sow ~/.local/bin/sow
-
-# Verify
-sow --version
-# sow 0.3.0
-```
-
----
-
-## Global Commands
-
-### sow --version
+### sow version
 
 Display CLI version.
 
-**Usage**:
-```bash
-sow --version
-```
+**Usage**: `sow version`
 
-**Output**:
-```
-sow 0.2.0
-```
+**Output**: `sow 0.2.0`
 
 **Purpose**: Verify CLI installation and check version alignment with plugin.
 
 ---
 
-### sow --help
-
-Display help information.
-
-**Usage**:
-```bash
-sow --help
-```
-
-**Output**:
-```
-sow - AI-powered system of work for software engineering
-
-Usage:
-  sow [command] [options]
-
-Commands:
-  log              Create log entry
-  session-info     Display session information
-  sinks            Manage knowledge sinks
-  repos            Manage linked repositories
-  validate         Validate sow structure
-  sync             Sync sinks and repos
-  --version        Show version
-  --help           Show this help
-
-For command-specific help:
-  sow [command] --help
-
-Documentation: https://github.com/your-org/sow
-```
-
----
-
 ### sow init
 
-Initialize sow structure in a repository by materializing defaults from embedded CUE schemas.
+Initialize sow structure in repository.
 
-**Usage**:
-```bash
-sow init
-```
+**Usage**: `sow init`
 
-**Actions**:
-1. Checks prerequisites (git repository, not already initialized)
-2. Materializes `.sow/` structure from CUE schemas with default values:
-   - `.sow/knowledge/` (with `overview.md` template)
-   - `.sow/sinks/` (with empty `index.json`)
-   - `.sow/repos/` (with empty `index.json`)
-   - `.sow/.version` (tracks current version)
-3. Creates `.gitignore` entries for `.sow/sinks/` and `.sow/repos/`
-4. Commits structure to git
+**Actions**: Creates `.sow/` directory structure, creates knowledge directory with templates, creates refs directory with gitignore, creates version file, commits structure to git.
 
-**Output**:
-```
-✓ Checking prerequisites...
-✓ Creating .sow/ structure from CUE schemas...
-  - .sow/knowledge/ (with overview.md template)
-  - .sow/sinks/ (with index.json)
-  - .sow/repos/ (with index.json)
-  - .sow/.version (tracking version 0.2.0)
+**Prerequisites**: Must be in git repository, not already initialized.
 
-✓ Creating .gitignore entries...
-  - .sow/sinks/
-  - .sow/repos/
+**Output**: Confirmation of created structure and git commit.
 
-✓ Committing structure to git...
-  [main abc1234] Initialize sow (v0.2.0)
-
-sow initialized successfully!
-```
-
-**Error Cases**:
-- Already initialized: "sow already initialized in this repository"
-- Not in git repository: "Must be in a git repository to use sow"
-
----
-
-### sow validate
-
-Validate sow structure integrity against embedded CUE schemas.
-
-**Purpose**: Validates all `.sow/` files against the CUE schemas embedded in the CLI binary. This ensures file formats are correct, required fields are present, and constraints are satisfied.
-
-**Usage**:
-```bash
-sow validate
-```
-
-**Output (success)**:
-```
-✓ Validating sow structure...
-
-✓ .sow/ directory exists
-✓ .sow/.version exists and is valid
-✓ .sow/knowledge/ directory exists
-✓ .sow/sinks/ directory exists
-✓ .sow/sinks/index.json is valid JSON
-✓ .sow/repos/ directory exists
-✓ .sow/repos/index.json is valid JSON
-
-Project validation:
-✓ .sow/project/ exists
-✓ .sow/project/state.yaml is valid YAML
-✓ .sow/project/log.md exists
-✓ All task state files are valid
-
-All checks passed!
-```
-
-**Output (errors)**:
-```
-✓ Validating sow structure...
-
-✗ .sow/.version is missing
-✗ .sow/project/state.yaml is invalid YAML (line 42: unexpected token)
-✓ .sow/sinks/index.json is valid JSON
-
-2 errors found. See above for details.
-```
-
-**Exit Code**:
-- `0` - All checks passed
-- `1` - Validation errors found
+**Error Cases**: Already initialized, not in git repository.
 
 ---
 
 ### sow schema
 
-View embedded CUE schemas for `.sow/` file formats.
-
-**Usage**:
-```bash
-sow schema show <type>
-sow schema list
-```
+View and validate embedded CUE schemas.
 
 **Commands**:
 
-**`sow schema show <type>`** - Display a specific schema:
+`sow schema list` - List all available schemas.
+
+`sow schema show <type>` - Display specific schema. Types: `project`, `task`, `refs-index`, `refs-cache`, `refs-local`, `version`.
+
+`sow schema validate <type> <file>` - Validate file against schema.
+
+**Examples**:
 ```bash
-# Show project state schema
+# List schemas
+sow schema list
+
+# View project state schema
 sow schema show project
 
-# Show task state schema
-sow schema show task
-
-# Show version file schema
-sow schema show version
-
-# Show sinks index schema
-sow schema show sinks-index
-
-# Show repos index schema
-sow schema show repos-index
+# Validate project state file
+sow schema validate project .sow/project/state.yaml
 ```
 
-**`sow schema list`** - List all available schemas:
-```bash
-sow schema list
-```
+**Purpose**: Inspect embedded schemas, understand file formats, debug validation errors.
 
-**Output Example**:
-```bash
-$ sow schema show version
+---
 
-// .sow/.version schema
-#Version: {
-	sow_structure_version: string
-	plugin_version:        string
-	last_migrated:         string | null
-	initialized:           string
-}
-```
+### sow validate
 
-**Purpose**: Allows users to inspect the embedded CUE schemas that define file formats. Useful for:
-- Understanding file structure requirements
-- Debugging validation errors
-- Writing correct configuration files
-- Learning what fields are available
+Validate sow structure integrity.
+
+**Usage**: `sow validate`
+
+**Checks**: Directory structure exists, version file valid, refs indexes valid JSON, project state valid YAML (if exists), task states valid (if exist).
+
+**Output**: Success with checklist, or errors with detailed messages.
+
+**Exit Codes**: 0 (all passed), 1 (errors found).
 
 ---
 
@@ -324,591 +105,301 @@ $ sow schema show version
 
 ### sow log
 
-Create log entry in project or task log.
+Create structured log entry.
 
-**Usage**:
-```bash
-sow log [--file FILE]... --action ACTION --result RESULT [--project] "Description"
-```
+**Usage**: `sow log [--file FILE]... --action ACTION --result RESULT "Description"`
 
 **Options**:
-- `--file FILE` - File affected (can specify multiple)
-- `--action ACTION` - Action type (from vocabulary)
-- `--result RESULT` - Result (success, error, partial)
-- `--project` - Write to project log (default: auto-detect from cwd)
+- `--file FILE` - File affected (multiple allowed)
+- `--action ACTION` - Action type from vocabulary
+- `--result RESULT` - success | error | partial
+- `--project` - Force project log (default auto-detects)
 - Description - Free-form notes (required, quoted)
 
+**Action Vocabulary**: `started_task`, `created_file`, `modified_file`, `deleted_file`, `implementation_attempt`, `test_run`, `refactor`, `debugging`, `research`, `completed_task`, `paused_task`.
+
+**Auto-Detection**: From task directory writes to task log. From project root writes to project log. Use `--project` to force project level.
+
+**CLI Responsibilities**: Determines context, reads iteration from state, constructs agent ID, generates timestamp, formats entry, appends to log.
+
 **Examples**:
-
-**Task log** (from task directory):
 ```bash
-cd .sow/project/phases/implement/tasks/020/
+# Task log
+sow log --file src/auth/jwt.py --action created_file --result success \
+  "Created JWT service with RS256"
 
-sow log \
-  --file src/auth/jwt.py \
-  --action created_file \
-  --result success \
-  "Created JWT service with RS256 algorithm"
+# Multiple files
+sow log --file src/auth/jwt.py --file tests/test_jwt.py \
+  --action modified_file --result success \
+  "Implemented validation and tests"
+
+# Project log
+sow log --project --action started_phase --result success \
+  "Started implementation phase"
 ```
 
-**Task log** (from project root):
-```bash
-sow log \
-  --file src/auth/jwt.py \
-  --file tests/test_jwt.py \
-  --action modified_file \
-  --result success \
-  "Implemented token validation and added tests"
-```
-
-**Project log** (force project level):
-```bash
-sow log --project \
-  --action started_phase \
-  --result success \
-  "Started implement phase with 4 tasks"
-```
-
-**Multiple files**:
-```bash
-sow log \
-  --file src/auth/jwt.py \
-  --file src/auth/__init__.py \
-  --file requirements.txt \
-  --action modified_file \
-  --result success \
-  "Added JWT service and dependency"
-```
-
-**Auto-Detection**:
-- From task directory: writes to task log
-- From project root: writes to project log
-- Use `--project` to force project log
-
-**What CLI Does**:
-1. Determines context (task or project log)
-2. Reads current iteration from task state.yaml (if task log)
-3. Auto-constructs agent ID: `{role}-{iteration}`
-4. Generates timestamp (ISO 8601)
-5. Formats entry with required fields
-6. Appends to appropriate log.md
+**See Also**: [LOGGING_AND_STATE.md](./LOGGING_AND_STATE.md#cli-driven-logging)
 
 ---
 
 ### sow session-info
 
-Display current session information (used by SessionStart hook).
+Display current session information for SessionStart hook.
 
-**Usage**:
-```bash
-sow session-info
-```
+**Usage**: `sow session-info`
 
-**Output (no project)**:
-```
-📋 You are in a sow-enabled repository
-💡 No active project. Use /start-project <name> to begin
+**Output Variations**:
 
-✓ Versions aligned (v0.2.0)
+**No project**: Shows repository status, no active project message, versions, available commands.
 
-📖 Available commands:
-   /start-project <name> - Create new project
-   /continue - Resume existing project
-   /cleanup - Delete project before merge
-   /sync - Update sinks and repos
-```
+**With project**: Shows repository status, active project name and branch, resume message, versions, available commands.
 
-**Output (with project)**:
-```
-📋 You are in a sow-enabled repository
-🚀 Active project: Add authentication (branch: feat/add-auth)
-📂 Use /continue to resume work
-
-✓ Versions aligned (v0.2.0)
-
-📖 Available commands:
-   /start-project <name> - Create new project
-   /continue - Resume existing project
-   /cleanup - Delete project before merge
-   /sync - Update sinks and repos
-```
-
-**Output (version mismatch)**:
-```
-📋 You are in a sow-enabled repository
-💡 No active project. Use /start-project <name> to begin
-
-⚠️  Version mismatch detected!
-   Repository structure: 0.1.0
-   Plugin version: 0.2.0
-
-💡 Run /migrate to upgrade your repository structure
-   Migration path: 0.1.0 → 0.2.0
-   Review changes: https://github.com/your-org/sow/blob/main/CHANGELOG.md
-```
+**Version mismatch**: Shows warning with structure version and plugin version, migration instructions.
 
 **Purpose**: Provide context on session start via SessionStart hook.
 
 ---
 
-## Sink Management
+## Refs Commands
 
-### sow sinks install
+### sow refs add
 
-Install a knowledge sink from git repository or local path.
+Add remote or local reference.
 
-**Usage**:
-```bash
-sow sinks install <source> [<path>]
-```
+**Usage Remote**: `sow refs add <url> --path <path> --link <name> --type <type> --tag <tag>... --desc "<description>" --summary "<summary>" [--branch <branch>]`
 
-**Arguments**:
-- `source` - Git URL or local path
-- `path` - Optional: specific path within repo to copy
-
-**Examples**:
-
-**Install from git**:
-```bash
-sow sinks install https://github.com/your-org/python-style-guide
-```
-
-**Install specific path from git**:
-```bash
-sow sinks install https://github.com/your-org/standards style-guides/python
-```
-
-**Install from local path**:
-```bash
-sow sinks install /path/to/local/sink
-```
-
-**What Happens**:
-1. Clones or copies sink to `.sow/sinks/<name>/`
-2. Interrogates sink content (LLM reads and summarizes)
-3. Updates `.sow/sinks/index.json` with metadata
-4. Displays confirmation
-
-**Output**:
-```
-📥 Installing sink from https://github.com/your-org/python-style-guide...
-
-✓ Cloned to .sow/sinks/python-style/
-✓ Interrogated content (3 files found)
-✓ Updated index.json
-
-Sink installed: python-style (v1.2.0)
-Topics: formatting, naming, testing, imports
-```
-
----
-
-### sow sinks update
-
-Check for and install sink updates.
-
-**Usage**:
-```bash
-sow sinks update [<name>]
-```
+**Usage Local**: `sow refs add file:///<path> --link <name> --type <type> --tag <tag>... --desc "<description>" --summary "<summary>"`
 
 **Arguments**:
-- `name` - Optional: specific sink to update (updates all if omitted)
-
-**Examples**:
-
-**Update all sinks**:
-```bash
-sow sinks update
-```
-
-**Update specific sink**:
-```bash
-sow sinks update python-style
-```
-
-**Output**:
-```
-🔍 Checking for updates...
-
-Sinks:
-  ✓ python-style (v1.2.0) - up to date
-  ⬆️ api-conventions (v2.3.0 → v2.4.0) - Added GraphQL conventions
-  ⬆️ deployment-guide (v1.0.0 → v1.1.0) - Updated k8s configs
-
-Update all? [y/n/selective]
-
-User: selective
-
-Select sinks to update:
-  [y] api-conventions
-  [n] deployment-guide
-
-Updating...
-✓ api-conventions updated to v2.4.0
-✓ Regenerated index
-
-1 sink updated, 2 unchanged
-```
-
----
-
-### sow sinks list
-
-List installed sinks.
-
-**Usage**:
-```bash
-sow sinks list
-```
-
-**Output**:
-```
-Installed sinks:
-
-  python-style (v1.2.0)
-  - Python code style, formatting conventions, and testing standards
-  - Topics: formatting, naming, testing, imports, docstrings
-  - Source: https://github.com/your-org/python-style-guide
-
-  api-conventions (v2.4.0)
-  - REST and GraphQL API design standards and best practices
-  - Topics: endpoints, errors, versioning, graphql, authentication
-  - Source: https://github.com/your-org/api-standards
-
-  deployment-guide (v1.1.0)
-  - Kubernetes deployment configurations and CI/CD workflows
-  - Topics: kubernetes, ci-cd, docker, deployment, monitoring
-  - Source: https://github.com/your-org/deployment-standards
-
-3 sinks installed
-```
-
----
-
-### sow sinks remove
-
-Remove an installed sink.
-
-**Usage**:
-```bash
-sow sinks remove <name>
-```
-
-**Arguments**:
-- `name` - Sink identifier to remove
-
-**Example**:
-```bash
-sow sinks remove python-style
-```
-
-**Output**:
-```
-⚠️  Remove sink 'python-style'? [y/n]
-
-User: y
-
-✓ Removed .sow/sinks/python-style/
-✓ Updated index.json
-
-Sink removed: python-style
-```
-
----
-
-### sow sinks reindex
-
-Regenerate sink index by re-interrogating all sinks.
-
-**Usage**:
-```bash
-sow sinks reindex
-```
-
-**Output**:
-```
-🔄 Regenerating sink index...
-
-✓ Interrogated python-style (3 files)
-✓ Interrogated api-conventions (5 files)
-✓ Interrogated deployment-guide (4 files)
-✓ Updated index.json
-
-Index regenerated with 3 sinks
-```
-
-**When to Use**:
-- Index corrupted or out of sync
-- Manually added/modified sinks
-- After bulk sink operations
-
----
-
-## Repository Management
-
-### sow repos add
-
-Add a linked repository.
-
-**Usage**:
-```bash
-sow repos add <source> [--symlink]
-```
-
-**Arguments**:
-- `source` - Git URL or local path
-- `--symlink` - Create symlink instead of cloning (for local paths)
-
-**Examples**:
-
-**Clone repository**:
-```bash
-sow repos add https://github.com/your-org/auth-service
-```
-
-**Symlink local repository**:
-```bash
-sow repos add /path/to/shared-library --symlink
-```
-
-**What Happens**:
-1. Clones or symlinks repository to `.sow/repos/<name>/`
-2. Adds entry to `.sow/repos/index.json`
-3. Displays confirmation
-
-**Output**:
-```
-📥 Adding repository from https://github.com/your-org/auth-service...
-
-✓ Cloned to .sow/repos/auth-service/
-✓ Updated index.json
-
-Repository added: auth-service
-Purpose: Reference authentication implementation patterns
-```
-
----
-
-### sow repos sync
-
-Sync linked repositories (pull latest changes).
-
-**Usage**:
-```bash
-sow repos sync [<name>]
-```
-
-**Arguments**:
-- `name` - Optional: specific repo to sync (syncs all if omitted)
-
-**Examples**:
-
-**Sync all repos**:
-```bash
-sow repos sync
-```
-
-**Sync specific repo**:
-```bash
-sow repos sync auth-service
-```
-
-**Output**:
-```
-🔍 Syncing repositories...
-
-Repositories:
-  ✓ auth-service - up to date
-  ⬆️ shared-library (abc1234 → def5678) - Added new crypto utilities
-
-Update all? [y/n/selective]
-
-User: y
-
-Updating...
-✓ shared-library updated to def5678
-✓ Updated index.json
-
-1 repository updated, 1 unchanged
-```
-
----
-
-### sow repos list
-
-List linked repositories.
-
-**Usage**:
-```bash
-sow repos list
-```
-
-**Output**:
-```
-Linked repositories:
-
-  auth-service
-  - Reference authentication implementation patterns and middleware
-  - Type: clone
-  - Source: https://github.com/your-org/auth-service
-  - Branch: main
-
-  shared-library
-  - Shared cryptography and utility functions
-  - Type: symlink
-  - Source: /Users/you/code/shared-library
-
-2 repositories linked
-```
-
----
-
-### sow repos remove
-
-Remove a linked repository.
-
-**Usage**:
-```bash
-sow repos remove <name>
-```
-
-**Arguments**:
-- `name` - Repository identifier to remove
-
-**Example**:
-```bash
-sow repos remove auth-service
-```
-
-**Output**:
-```
-⚠️  Remove repository 'auth-service'? [y/n]
-
-User: y
-
-✓ Removed .sow/repos/auth-service/
-✓ Updated index.json
-
-Repository removed: auth-service
-```
-
----
-
-### sow repos reindex
-
-Regenerate repository index.
-
-**Usage**:
-```bash
-sow repos reindex
-```
-
-**Output**:
-```
-🔄 Regenerating repository index...
-
-✓ Indexed auth-service
-✓ Indexed shared-library
-✓ Updated index.json
-
-Index regenerated with 2 repositories
-```
-
----
-
-## Utility Commands
-
-### sow save-context
-
-Save important context before compaction (used by PreCompact hook).
-
-**Usage**:
-```bash
-sow save-context
-```
-
-**Output**:
-```
-💾 Saving context before compaction...
-
-✓ Logged compaction event to project log
-
-Context saved
-```
-
-**Purpose**: Hook for preserving context before Claude Code compaction.
-
----
-
-### sow sync
-
-Sync both sinks and repositories.
-
-**Usage**:
-```bash
-sow sync
-```
-
-**Output**:
-```
-🔍 Checking for updates...
-
-Sinks:
-  ✓ python-style (v1.2.0) - up to date
-  ⬆️ api-conventions (v2.3.0 → v2.4.0) - Added GraphQL conventions
-
-Repositories:
-  ✓ auth-service - up to date
-  ⬆️ shared-library (abc1234 → def5678) - Added new crypto utilities
-
-Update all? [y/n/selective]
-
-User: y
-
-Updating...
-✓ api-conventions updated to v2.4.0
-✓ shared-library updated to def5678
-✓ Regenerated indexes
-
-2 items updated, 2 unchanged
-```
-
-**Convenience**: Combines `sow sinks update` and `sow repos sync`.
-
----
-
-## Command-Line Flags
-
-### Global Flags
-
-Available for all commands:
-
-| Flag | Description |
-|------|-------------|
-| `--help` | Show command-specific help |
-| `--quiet` | Suppress output (only errors) |
-| `--verbose` | Verbose output (for debugging) |
-| `--no-color` | Disable colored output |
+- `url` - Git repository URL (https or ssh)
+- `--branch` - Branch name (optional, defaults to repo default)
+- `--path` - Subdirectory within repo (use "" or omit for root)
+- `--link` - Symlink name in `.sow/refs/`
+- `--type` - `knowledge` or `code`
+- `--tag` - Topic tag (repeat for multiple)
+- `--desc` - One-sentence description (quoted)
+- `--summary` - 2-3 sentence summary (quoted)
+
+**Behavior**: Clones to cache if needed (or uses existing cache), adds entry to index, creates symlink or copy, updates cache index.
 
 **Examples**:
 ```bash
-# Show help for specific command
-sow log --help
+# Remote knowledge ref
+sow refs add https://github.com/acme/style-guides \
+  --path python/ --link python-style --type knowledge \
+  --tag formatting --tag naming --tag testing \
+  --desc "Python coding standards" \
+  --summary "Covers PEP 8 formatting and testing patterns."
 
-# Quiet mode (only errors shown)
-sow validate --quiet
-
-# Verbose mode (debug output)
-sow sinks install https://example.com/sink --verbose
-
-# No color (for scripts/CI)
-sow validate --no-color
+# Local ref
+sow refs add file:///Users/josh/docs \
+  --link local-docs --type knowledge \
+  --tag wip --desc "Work-in-progress documentation" \
+  --summary "Draft docs before publishing."
 ```
 
-### Command-Specific Flags
+**See Also**: [REFS.md](./REFS.md#cli-commands)
 
-See individual command documentation above for command-specific flags.
+---
+
+### sow refs init
+
+Initialize references after cloning repository.
+
+**Usage**: `sow refs init`
+
+**Behavior**: Reads committed and local indexes, clones repos to cache if needed, creates symlinks or copies, updates cache index.
+
+**Output**: Lists repositories cached and links created, summary of initialized refs.
+
+**Usage Context**: Run after `git clone` when `.sow/refs/` directory empty but indexes exist.
+
+---
+
+### sow refs status
+
+Check if references up to date with remote.
+
+**Usage**: `sow refs status [id]`
+
+**Arguments**: `id` - Optional specific ref to check (checks all if omitted).
+
+**Behavior**: Fetches from remote, compares local SHA to remote SHA, updates cache index with status, shows staleness information.
+
+**Output**: Status for each ref (current, behind by N commits with recent commit list, error with details).
+
+---
+
+### sow refs update
+
+Pull latest changes from remote.
+
+**Usage**: `sow refs update [id]`
+
+**Arguments**: `id` - Optional specific ref to update (updates all behind refs if omitted).
+
+**Behavior**: Git pull in cache, update cache index with new SHA, rsync to consuming repos on Windows, symlinks automatically reflect on Unix.
+
+**Output**: Update summary (commits pulled, files synced on Windows).
+
+---
+
+### sow refs list
+
+Display all configured references.
+
+**Usage**: `sow refs list [--remote] [--local] [--all]`
+
+**Flags**:
+- `--remote` - Show only remote refs (from index.json)
+- `--local` - Show only local refs (from index.local.json)
+- `--all` - Show both (default)
+
+**Output**: Tree-formatted list showing source, branch, tags, status, description for each ref. Separate sections for remote and local refs.
+
+---
+
+### sow refs remove
+
+Remove reference from repository.
+
+**Usage**: `sow refs remove <id>`
+
+**Arguments**: `id` - Reference identifier to remove.
+
+**Behavior**: Confirms with user (unless `--force`), removes index entry, removes symlink or copy, updates cache index, optionally prunes cache.
+
+**Output**: Confirmation prompt, removal confirmation, note about cache pruning.
+
+---
+
+## Cache Commands
+
+### sow cache status
+
+Show cache usage and statistics.
+
+**Usage**: `sow cache status`
+
+**Output**: Cache location, list of cached repositories with size/timestamps/status/usage, total size, orphaned cache identification.
+
+**Purpose**: Inspect cache state, identify orphaned repos, check disk usage.
+
+---
+
+### sow cache prune
+
+Remove cached repos not used by any repository.
+
+**Usage**: `sow cache prune [--dry-run]`
+
+**Flags**: `--dry-run` - Show what would be removed without removing.
+
+**Behavior**: Identifies orphaned repos (used_by array empty), shows what will be removed, confirms with user, deletes and updates index.
+
+**Safety**: Dry-run by default or requires confirmation, lists what will be removed, allows `--force` to skip confirmation.
+
+---
+
+### sow cache clear
+
+Remove all cached repositories.
+
+**Usage**: `sow cache clear [--force]`
+
+**Warning**: Breaks symlinks in all repositories until `sow refs init` run.
+
+**Behavior**: Shows warning and lists all repos to be removed, requires explicit confirmation (type 'yes'), removes all caches, clears cache index.
+
+**Output**: Warning message, confirmation prompt, removal summary, reminder to run `sow refs init`.
+
+---
+
+## Slash Commands
+
+Slash commands are orchestrator-facing commands expanded to full prompts. Invoked by orchestrator agent during project coordination.
+
+### /project:new
+
+Create new project (replaces `/start-project`).
+
+**When**: User wants to start new project work.
+
+**Behavior**: Invokes truth table decision flow, asks questions to determine phase enablement, presents phase plan for approval, creates project structure on approval, transitions to first enabled phase.
+
+**See Also**: [PROJECT_LIFECYCLE.md](./PROJECT_LIFECYCLE.md)
+
+---
+
+### /project:continue
+
+Continue existing project (replaces `/continue`).
+
+**When**: User wants to resume work on existing project.
+
+**Behavior**: Reads project state, verifies branch matches, identifies next action (pending task or phase transition), compiles context, spawns worker or transitions phase.
+
+**See Also**: [PROJECT_LIFECYCLE.md](./PROJECT_LIFECYCLE.md)
+
+---
+
+### /phase:discovery
+
+Discovery phase workflow.
+
+**When**: Invoked by `/project:new` or `/project:continue` when discovery phase active.
+
+**Behavior**: Categorizes discovery work (bug, feature, docs, refactor, general), delegates to type-specific command, facilitates research and investigation, creates discovery artifacts, requests human approval.
+
+**See Also**: [PHASES/DISCOVERY.md](./PHASES/DISCOVERY.md)
+
+---
+
+### /phase:design
+
+Design phase workflow.
+
+**When**: Invoked when design phase active.
+
+**Behavior**: Facilitates design alignment (conversational refinement), spawns architect agent if needed, creates design artifacts (ADRs, design docs), requests human approval for artifacts, transitions to implementation when approved.
+
+**See Also**: [PHASES/DESIGN.md](./PHASES/DESIGN.md)
+
+---
+
+### /phase:implementation
+
+Implementation phase workflow.
+
+**When**: Invoked when implementation phase active. Always happens (required phase).
+
+**Behavior**: Creates initial task breakdown (with human approval), spawns implementer agents for tasks, manages fail-forward task additions, handles parallel execution, transitions to review when complete.
+
+**See Also**: [PHASES/IMPLEMENTATION.md](./PHASES/IMPLEMENTATION.md)
+
+---
+
+### /phase:review
+
+Review phase workflow.
+
+**When**: Invoked when review phase active. Always happens (required phase).
+
+**Behavior**: Performs mandatory orchestrator review, spawns reviewer agent if needed, creates review report, loops back to implementation if issues found, transitions to finalize when approved.
+
+**See Also**: [PHASES/REVIEW.md](./PHASES/REVIEW.md)
+
+---
+
+### /phase:finalize
+
+Finalize phase workflow.
+
+**When**: Invoked when finalize phase active. Always happens (required phase).
+
+**Behavior**: Documentation subphase (updates needed), runs final checks (tests, linters), deletes project folder (mandatory), creates pull request, hands off to human for merge.
+
+**See Also**: [PHASES/FINALIZE.md](./PHASES/FINALIZE.md)
 
 ---
 
@@ -946,7 +437,7 @@ fi
 | `SOW_LOG_LEVEL` | Log level (debug, info, warn, error) | `info` |
 | `SOW_TIMEOUT` | Network timeout (seconds) | `30` |
 
-**Example**:
+**Examples**:
 ```bash
 # Disable color
 export SOW_NO_COLOR=1
@@ -954,45 +445,20 @@ sow validate
 
 # Debug logging
 export SOW_LOG_LEVEL=debug
-sow sinks install https://example.com/sink
+sow refs add https://example.com/repo --path docs --link docs --type knowledge
 
 # Short timeout
 export SOW_TIMEOUT=10
-sow repos sync
-```
-
-### Credential Variables
-
-For MCP and external integrations:
-
-| Variable | Purpose |
-|----------|---------|
-| `GITHUB_TOKEN` | GitHub API authentication |
-| `JIRA_TOKEN` | Jira API authentication |
-| `DATADOG_API_KEY` | Datadog API authentication |
-
-**Usage**: Set in shell profile, referenced in `mcp.json`:
-```json
-{
-  "mcpServers": {
-    "github": {
-      "transport": "http",
-      "url": "https://api.github.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${GITHUB_TOKEN}"
-      }
-    }
-  }
-}
+sow refs update
 ```
 
 ---
 
 ## Related Documentation
 
-- **[USER_GUIDE.md](./USER_GUIDE.md)** - Day-to-day workflows using CLI
-- **[PROJECT_MANAGEMENT.md](./PROJECT_MANAGEMENT.md)** - Logging system details
-- **[DISTRIBUTION.md](./DISTRIBUTION.md)** - CLI installation and updates
-- **[HOOKS_AND_INTEGRATIONS.md](./HOOKS_AND_INTEGRATIONS.md)** - SessionStart hook usage
-- **[COMMANDS_AND_SKILLS.md](./COMMANDS_AND_SKILLS.md)** - Slash commands
-- **[SCHEMAS.md](./SCHEMAS.md)** - File formats and schemas
+- **[REFS.md](./REFS.md)** - Complete refs system documentation
+- **[LOGGING_AND_STATE.md](./LOGGING_AND_STATE.md)** - Logging system details
+- **[PROJECT_LIFECYCLE.md](./PROJECT_LIFECYCLE.md)** - Project lifecycle and slash commands
+- **[PHASES/](./PHASES/)** - Individual phase command workflows
+- **[SCHEMAS.md](./SCHEMAS.md)** - Schema validation and formats
+- **[USER_GUIDE.md](./USER_GUIDE.md)** - Day-to-day usage workflows

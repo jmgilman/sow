@@ -1,1110 +1,676 @@
 # User Guide
 
-**Last Updated**: 2025-10-12
-**Status**: Comprehensive Architecture Documentation
+**Last Updated**: 2025-10-15
+**Purpose**: Day-to-day usage workflows for users
+
+This guide walks you through using `sow` for everyday software development, from installation through project completion.
 
 ---
 
 ## Table of Contents
 
 - [Getting Started](#getting-started)
-  - [Installation](#installation)
-  - [First-Time Setup](#first-time-setup)
-  - [Verifying Installation](#verifying-installation)
 - [Starting a New Project](#starting-a-new-project)
-  - [Creating a Feature Branch](#creating-a-feature-branch)
-  - [Using /start-project](#using-start-project)
-  - [Understanding Initial Planning](#understanding-initial-planning)
-- [Working with Projects](#working-with-projects)
-  - [Continuing Work](#continuing-work)
-  - [Pausing and Resuming](#pausing-and-resuming)
-  - [Working Across Sessions](#working-across-sessions)
-  - [Switching Between Branches](#switching-between-branches)
-- [Understanding Project Status](#understanding-project-status)
-  - [Reading state.yaml](#reading-stateyaml)
-  - [Interpreting Task States](#interpreting-task-states)
-  - [Reviewing Logs](#reviewing-logs)
-- [Providing Feedback to Agents](#providing-feedback-to-agents)
-  - [When to Provide Feedback](#when-to-provide-feedback)
-  - [How Feedback is Stored](#how-feedback-is-stored)
-  - [How Agents Use Feedback](#how-agents-use-feedback)
-- [Completing and Cleaning Up](#completing-and-cleaning-up)
-  - [When to Run /cleanup](#when-to-run-cleanup)
-  - [Cleanup Process](#cleanup-process)
-  - [Creating Pull Requests](#creating-pull-requests)
-- [Working with Sinks](#working-with-sinks)
-  - [What Are Sinks?](#what-are-sinks)
-  - [Installing Sinks](#installing-sinks)
-  - [Updating Sinks](#updating-sinks)
-  - [Managing Sinks](#managing-sinks)
-- [Working with Linked Repos](#working-with-linked-repos)
-  - [Why Link Repositories?](#why-link-repositories)
-  - [Adding Linked Repos](#adding-linked-repos)
-  - [Syncing Linked Repos](#syncing-linked-repos)
-- [One-Off Tasks](#one-off-tasks)
-  - [When to Use vs Projects](#when-to-use-vs-projects)
-  - [Orchestrator Direct Mode](#orchestrator-direct-mode)
+- [Working Through Phases](#working-through-phases)
+- [Working with External References](#working-with-external-references)
+- [Providing Feedback](#providing-feedback)
+- [Completing and Finalizing](#completing-and-finalizing)
 - [Best Practices](#best-practices)
-  - [Project Scope](#project-scope)
-  - [Branch Management](#branch-management)
-  - [Commit Hygiene](#commit-hygiene)
-  - [Team Collaboration](#team-collaboration)
 - [Troubleshooting](#troubleshooting)
-  - [Common Issues](#common-issues)
-  - [Recovery Procedures](#recovery-procedures)
-  - [Getting Help](#getting-help)
 - [Related Documentation](#related-documentation)
 
 ---
 
 ## Getting Started
 
-### Installation
+### Prerequisites
 
-#### Prerequisites
+**Claude Code**: Must be installed and working.
 
-- **Claude Code** installed and working
-- **Git repository** (existing or new)
-- **sow CLI** (required for initialization and validation)
+**Git Repository**: Existing or new repository (sow works with any git repo).
 
-#### Step 1: Install Plugin
+**sow CLI**: Required for initialization and validation. Download from GitHub releases for your platform.
 
-Via marketplace:
-```bash
-# Add sow marketplace (one-time)
-/plugin marketplace add your-org/sow-marketplace
+### Installation Steps
 
-# Install plugin
-/plugin install sow@sow-marketplace
+**Step 1: Install Plugin**
+
+Via Claude Code marketplace or git URL:
 ```
-
-Via git URL:
-```bash
 /plugin install https://github.com/your-org/sow
 ```
 
-#### Step 2: Restart Claude Code
+**Step 2: Restart Claude Code**
 
+Plugin changes require restart. Exit and restart Claude Code.
+
+**Step 3: Install CLI**
+
+Download and install CLI for your platform:
 ```bash
-exit
-claude
-```
-
-Changes take effect after restart.
-
-#### Step 3: Install CLI (Required)
-
-The CLI is **required** for sow. It provides essential schema management, initialization, and validation.
-
-```bash
-# macOS/Linux
+# macOS
 curl -L https://github.com/your-org/sow/releases/download/v0.2.0/sow-macos -o sow
 chmod +x sow
 mv sow ~/.local/bin/sow
 
 # Verify
-sow --version
-# sow 0.2.0
+sow version
 ```
 
-**CLI Benefits**:
-- **Schema management** - Embeds CUE schemas as source of truth
-- **Initialization** - Materializes structure from schemas
-- **Validation** - Validates files against CUE schemas
-- Fast logging (used by agents)
-- Sink management
-- Repository management
+CLI provides: embedded CUE schemas, structure initialization, validation, fast logging, refs management.
 
-#### Step 4: Verify SessionStart Hook
+**Step 4: Initialize Repository**
 
-When Claude Code starts, you should see:
-
-```
-⚠️  Not a sow repository
-💡 Use /init to set up sow
-```
-
-This confirms the plugin is installed correctly.
-
-### First-Time Setup
-
-#### Initialize Your Repository
-
+In your git repository:
 ```
 /init
 ```
 
-**What Happens**:
-1. Checks if CLI is installed (guides installation if not)
-2. Creates `.sow/` directory structure
-3. Creates `.sow/knowledge/overview.md` template
-4. Creates empty indexes for sinks and repos
-5. Adds git ignore rules for `.sow/sinks/` and `.sow/repos/`
-6. Commits structure to git
+This creates `.sow/` directory structure with knowledge directory, refs directory with gitignore, version file. Commits structure to git.
 
-**Success Output**:
-```
-✓ Checking prerequisites...
-✓ CLI detected (v0.2.0)
-✓ Creating .sow/ structure...
-  - .sow/knowledge/ (with overview.md template)
-  - .sow/sinks/ (with index.json)
-  - .sow/repos/ (with index.json)
-  - .sow/.version (tracking version 0.2.0)
+**Step 5: Verify**
 
-✓ Creating .gitignore entries...
-  - .sow/sinks/
-  - .sow/repos/
-
-✓ Committing structure to git...
-  [main abc1234] Initialize sow (v0.2.0)
-```
-
-**Note**: If CLI is not installed, `/init` will detect this and provide installation instructions before proceeding.
-
-### Verifying Installation
-
-After initialization, restart Claude Code:
-
-```bash
-exit
-claude
-```
-
-You should see:
-
+After restart, you should see:
 ```
 📋 You are in a sow-enabled repository
-💡 No active project. Use /start-project <name> to begin
+💡 No active project. Use /project:new to begin
 
 ✓ Versions aligned (v0.2.0)
-
-📖 Available commands:
-   /start-project <name> - Create new project
-   /continue - Resume existing project
-   /cleanup - Delete project before merge
-   /sync - Update sinks and repos
 ```
 
 ---
 
 ## Starting a New Project
 
-### Creating a Feature Branch
+### Understanding Project Initialization
 
-**Important**: Always create a feature branch before starting a project. `sow` enforces **one project per branch**.
+When you start a new project, orchestrator will ask questions to determine which phases are needed. This truth table decision flow helps avoid over-engineering while ensuring necessary work is done.
+
+**Five Fixed Phases**: Every project has the same five phases: discovery (optional), design (optional), implementation (required), review (required), finalize (required). Orchestrator helps you decide which optional phases to enable.
+
+### Creating Feature Branch
+
+**Critical Rule**: Always create feature branch before starting project. Sow enforces one project per branch.
 
 ```bash
 # Create and switch to feature branch
 git checkout -b feat/add-authentication
 ```
 
-**Branch Naming Conventions**:
-- `feat/` - New features
-- `fix/` - Bug fixes
-- `refactor/` - Code refactoring
-- `docs/` - Documentation only
+Branch naming conventions: `feat/` for features, `fix/` for bugs, `refactor/` for refactoring, `docs/` for documentation.
 
-**Why Required?**:
-- Project state is committed to feature branch
-- Main branch stays clean (no project state)
-- CI enforces: no `.sow/project/` on main
-- Natural cleanup via branch deletion
+Why required: project state committed to feature branch, main branch stays clean, CI enforces no `.sow/project/` on main, natural cleanup via branch deletion.
 
-### Using /start-project
+### Using /project:new
 
+Start new project:
 ```
-/start-project "Add authentication"
+/project:new
 ```
 
-**Smart Branch Detection**:
+**Smart Branch Detection**: If on main/master, orchestrator offers to create feature branch. If existing project exists, orchestrator offers to continue existing or create new branch.
 
-If you're still on main/master:
+### Truth Table Decision Flow
+
+Orchestrator asks questions to infer right phase plan:
+
+**Question 1: What Are You Trying to Accomplish?**
+
+Orchestrator asks: "What would you like to accomplish in this project?"
+
+Provide clear description:
 ```
-Error: Cannot create project on main/master branch
-
-Would you like to create a new feature branch?
-  Branch name suggestion: feat/add-authentication
-
-Options:
-1. Create suggested branch (feat/add-authentication)
-2. Specify custom branch name
-3. Cancel
-
-[1/2/3]:
-```
-
-If you already have a project:
-```
-A project already exists: 'Previous feature'
-
-Options:
-1. Continue with existing project (/continue)
-2. Create new branch for fresh project
-3. Clean up existing project first (/cleanup)
-
-[1/2/3]:
+Add JWT-based authentication with user login, token refresh,
+and password hashing. Should integrate with existing User model.
 ```
 
-### Understanding Initial Planning
+**Question 2: Existing Context Assessment**
 
-After `/start-project`, the orchestrator:
+Orchestrator asks: "Do you have any existing context, documents, or notes about this?"
 
-1. **Prompts for Description**:
-   ```
-   Describe what you want to build:
-   ```
+Responses guide phase plan:
+- "No" or "Not really" → Likely needs discovery/design
+- "Yes, I have design docs" → May skip discovery/design
+- "There's documentation at X" → Likely skip phases
 
-   Provide clear requirements:
-   ```
-   Add JWT-based authentication with user login, token refresh,
-   and password hashing. Should integrate with existing User model.
-   ```
+**Question 3: Discovery Phase Decision** (if limited context)
 
-2. **Assesses Complexity**:
-   ```
-   🔍 Analyzing requirements...
+Orchestrator suggests: "It sounds like we could benefit from discovery to better understand [the problem/requirements]. Would you like to start with discovery phase?"
 
-   Complexity: Moderate (rating: 2/3)
+Responses:
+- Yes → Discovery enabled
+- No → Discovery disabled
+- Tell me more → Orchestrator explains benefits
 
-   Estimated scope:
-   - Files to modify: 8-12
-   - Cross-cutting concerns: Yes (auth middleware)
-   - New dependencies: Yes (JWT library, bcrypt)
-   ```
+**Question 4: Design Phase Decision** (after discovery or if some context exists)
 
-3. **Selects Initial Phases**:
-   ```
-   📋 Proposed plan:
+Orchestrator asks: "Do you want to create formal design documents before implementation?"
 
-   Phases:
-   - design (1 task)
-   - implement (4 tasks)
+Orchestrator uses Design Worthiness Rubric to make recommendation. Suggests design when: large scope (10+ tasks), new system component, architectural changes, multiple integration points, user uncertain.
 
-   Note: Starting with minimal structure. Additional phases
-   (test, review, document) can be added as needed.
+Suggests skipping design when: bug fixes, small features (1-5 tasks), minor refactors, discovery notes sufficient.
 
-   Approve? [y/n/modify]
-   ```
+**Final Confirmation**
 
-4. **Creates Initial Tasks**:
-   ```
-   ✓ Created project 'Add authentication'
+Orchestrator presents phase plan:
+```
+📋 Proposed plan:
 
-   Phase: design
-   - 010: Design authentication flow [architect]
+Phases enabled:
+- Discovery: enabled (research JWT libraries and approach)
+- Design: enabled (document architecture decisions)
+- Implementation: enabled (always required)
+- Review: enabled (always required)
+- Finalize: enabled (always required)
 
-   Phase: implement
-   - 010: Create User model [implementer]
-   - 020: Create JWT service [implementer]
-   - 030: Add login endpoint [implementer]
-   - 040: Add password hashing utility [implementer]
+Discovery and design will require your approval before continuing.
+Implementation, review, and finalize run autonomously.
 
-   ✓ Committed to git: [feat/add-auth abc1234] Initialize project 'Add authentication'
+Ready to proceed? [yes/modify]
+```
 
-   Starting with design phase...
-   ```
+### Project Creation
 
-**Progressive Planning**:
-- Don't worry about planning everything upfront
-- Orchestrator will request adding phases as needed
-- You'll approve phase changes along the way
+After approval, orchestrator creates project structure and transitions to first enabled phase.
+
+Output:
+```
+✓ Created project 'add-authentication'
+
+Branch: feat/add-auth
+
+Phase structure initialized:
+- Discovery: enabled
+- Design: enabled
+- Implementation: enabled
+- Review: enabled
+- Finalize: enabled
+
+✓ Committed to git
+
+Starting discovery phase...
+```
 
 ---
 
-## Working with Projects
+## Working Through Phases
 
-### Continuing Work
+### Discovery Phase (Optional, Human-Led)
 
+**When Enabled**: Research and investigation needed to understand problem or requirements.
+
+**Orchestrator Mode**: Subservient (acts as assistant, you lead).
+
+**Workflow**:
+
+1. **Categorization**: `/phase:discovery` categorizes work as bug, feature, docs, refactor, or general.
+
+2. **Research Work**: Orchestrator helps you research, or spawns researcher agent for focused investigation. Creates research reports in `phases/discovery/research/`.
+
+3. **Conversation and Notes**: Orchestrator takes notes continuously in `phases/discovery/notes.md`. Captures key decisions in `phases/discovery/decisions.md`.
+
+4. **Artifacts Created**: Research reports, notes, decisions. All tracked in project state with approval flags.
+
+5. **Approval Required**: You must approve all artifacts before discovery completes. Orchestrator asks: "Discovery artifacts ready for your review. Approve to continue to design?"
+
+**Example Discovery Workflow**:
 ```
-/continue
+[Discovery phase active]
+
+Orchestrator: "I've categorized this as feature discovery. Would you like me
+to research JWT libraries and authentication approaches?"
+
+You: "Yes, please focus on RS256 implementation and token refresh patterns."
+
+[Orchestrator spawns researcher agent]
+
+Researcher: [Creates research/001-jwt-libraries.md comparing options]
+
+Orchestrator: "Research complete. I've documented findings in
+discovery/research/001-jwt-libraries.md. Key recommendation: use PyJWT
+with RS256. Ready to approve and move to design?"
+
+You: "Approved."
+
+[Discovery completes, transitions to design]
 ```
 
-**What Happens**:
-1. Reads `.sow/project/state.yaml`
-2. Verifies branch matches project
-3. Shows current status
-4. Identifies next pending task
-5. Spawns appropriate worker
+### Design Phase (Optional, Human-Led)
 
-**Example Output**:
+**When Enabled**: Formal architecture decisions and design documentation needed.
+
+**Orchestrator Mode**: Subservient (acts as assistant, you lead).
+
+**Workflow**:
+
+1. **Design Alignment Subphase**: Conversational work refining discovery into high-level architecture decisions. Orchestrator facilitates, you guide. Notes captured in `phases/design/notes.md`.
+
+2. **Formalization**: When ready, orchestrator creates formal design documents. For simple docs, orchestrator handles directly. For complex docs, orchestrator spawns architect agent.
+
+3. **Artifacts Created**: ADRs in `phases/design/adrs/`, design documents in `phases/design/design-docs/`, optional diagrams. All tracked with approval flags.
+
+4. **Approval Required**: You must approve all artifacts before design completes.
+
+5. **Transition**: Once approved, orchestrator moves to implementation automatically.
+
+**Example Design Workflow**:
 ```
-📋 Project: Add authentication (branch: feat/add-auth)
+[Design phase active]
 
-Progress:
-  ✓ design (1/1 tasks complete)
-  → implement (2/4 tasks complete)
+Orchestrator: "Based on discovery, we need to decide: symmetric vs asymmetric
+JWT signing. What are your thoughts?"
 
-Completed:
-  ✓ design/010: Design authentication flow [architect]
-  ✓ implement/010: Create User model [implementer]
-  ✓ implement/020: Create JWT service [implementer]
+You: "Use RS256 asymmetric signing for better security."
 
-Current:
-  → implement/030: Add login endpoint [implementer] - IN PROGRESS
+Orchestrator: "Good choice. I'll document this as an ADR. Also need to decide
+on token storage approach..."
 
-Next:
-  ⬜ implement/040: Add password hashing utility [implementer]
+[Conversation continues, notes captured]
 
-Resuming task 030...
-Spawning implementer worker...
+Orchestrator: "Ready to formalize? I'll create ADR for RS256 decision and
+design doc for overall auth system architecture."
+
+You: "Yes."
+
+[Orchestrator spawns architect agent]
+
+Architect: [Creates adrs/001-use-jwt-rs256.md and design-docs/auth-system.md]
+
+Orchestrator: "Design documents created. Review phases/design/ directory.
+Approve to continue to implementation?"
+
+You: "Approved."
+
+[Design completes, transitions to implementation]
 ```
 
-### Pausing and Resuming
+### Implementation Phase (Required, AI-Autonomous)
 
-**Pausing Work**:
-- Simply exit Claude Code (Ctrl+D or `exit`)
-- All state is saved in `.sow/project/`
-- No special command needed
+**Always Happens**: Cannot be skipped.
 
-**Resuming Work**:
-- Start Claude Code in same repository
-- Run `/continue`
-- Orchestrator picks up exactly where you left off
+**Orchestrator Mode**: Autonomous (executes independently within boundaries).
 
-**Zero-Context Resumability**:
-- No conversation history needed
-- Orchestrator reads state and logs
-- Workers read task context and feedback
-- Can resume even after weeks
+**Workflow**:
 
-### Working Across Sessions
+1. **Task Breakdown**: Orchestrator creates implementation plan from discovery/design artifacts or your description. For very large projects, may spawn planner agent. Presents task breakdown for your approval.
 
-**Scenario**: You work on Monday, pause, resume on Friday
+2. **Task Execution**: Orchestrator spawns implementer agents for each task. Maximum autonomy: no approval needed for normal task flow. Implementer uses TDD (test-driven development).
 
-**Monday**:
+3. **Parallel Execution**: Tasks marked as parallelizable run simultaneously.
+
+4. **Fail-Forward**: If problem reveals new work needed, orchestrator requests approval to add tasks. Original approach may be marked abandoned rather than deleted.
+
+5. **Human Approval Required For**: Adding new tasks (fail-forward), going back to previous phases, implementer stuck needing help.
+
+6. **Automatic Transition**: When all tasks complete, automatically transitions to review.
+
+**Example Implementation Workflow**:
+```
+[Implementation phase active]
+
+Orchestrator: "Creating task breakdown from design documents..."
+
+Proposed tasks:
+- 010: Create User model with validation
+- 020: Implement JWT service with RS256
+- 030: Create login endpoint
+- 040: Add authentication middleware
+
+Approve task breakdown? [yes/modify]
+
+You: yes
+
+[Orchestrator spawns implementer for task 010]
+
+Implementer: [Works on User model, logs actions, completes]
+
+Orchestrator: "Task 010 complete. Moving to task 020..."
+
+[Continues through all tasks]
+
+Orchestrator: "All implementation tasks complete. Transitioning to review..."
+```
+
+**Providing Feedback During Implementation**: If implementer makes mistake, tell orchestrator. Orchestrator creates feedback file, increments iteration, spawns implementer with correction context.
+
+Example:
+```
+You: "The JWT service should use RS256, not HS256."
+
+Orchestrator: "I'll create feedback for the implementer."
+[Creates feedback/001.md, increments iteration]
+
+Implementer: [Reads feedback, fixes algorithm, completes]
+```
+
+### Review Phase (Required, AI-Autonomous)
+
+**Always Happens**: Cannot be skipped.
+
+**Orchestrator Mode**: Autonomous with mandatory review.
+
+**Workflow**:
+
+1. **Orchestrator Review**: Orchestrator always performs review (mandatory). Reads all requirements and all implementation changes. Compares to validate original intent met. For large/complex changes, may spawn reviewer agent for assistance.
+
+2. **Review Report**: Creates numbered review report (001-review.md, 002-review.md if loop-back). Report includes: requirements summary, changes summary, findings, assessment (pass/fail), next steps.
+
+3. **Human Review**: After orchestrator review, you can review yourself or trust orchestrator's assessment. You have final approval authority.
+
+4. **Loop-Back If Issues Found**: If issues identified (by orchestrator, reviewer agent, or you): orchestrator identifies what needs fixing, adds tasks to implementation, you approve, returns to implementation, executes fixes, automatically returns to review, creates new review report.
+
+5. **Multiple Iterations**: Review → Implementation → Review cycle continues until success.
+
+6. **Approval Required**: You must explicitly approve before proceeding to finalize.
+
+**Example Review Workflow**:
+```
+[Review phase active]
+
+Orchestrator: "Performing review of implementation..."
+[Reads requirements, reads all changes]
+
+Orchestrator: "Review complete. Created phases/review/reports/001-review.md.
+
+Assessment: FAIL
+Issue found: Login endpoint missing error handling for invalid credentials.
+
+Recommend adding task to implementation phase to address this. Approve?"
+
+You: "Yes, add the task."
+
+[Orchestrator adds task 050, returns to implementation]
+
+Implementer: [Completes error handling task]
+
+[Automatic transition back to review]
+
+Orchestrator: "Second review complete. Created 002-review.md.
+
+Assessment: PASS
+All issues addressed. Implementation meets original intent.
+
+Approve to proceed to finalize?"
+
+You: "Approved."
+
+[Transitions to finalize]
+```
+
+### Finalize Phase (Required, AI-Autonomous)
+
+**Always Happens**: Cannot be skipped.
+
+**Orchestrator Mode**: Autonomous for most actions.
+
+**Workflow**:
+
+1. **Documentation Subphase**: Orchestrator determines if documentation updates needed. Proposes changes (README, API docs, changelogs). Decides whether to move design artifacts to repository (ADRs typically moved). Requests your approval before making changes.
+
+2. **Final Checks**: Orchestrator runs: full test suite (must pass), configured linters (must pass), documentation completeness check, git tree cleanliness check.
+
+3. **Project Deletion** (MANDATORY): Orchestrator deletes `.sow/project/` folder. Creates cleanup commit. This is critical gate - cannot complete finalize without deletion.
+
+4. **PR Creation**: Orchestrator creates pull request using GitHub CLI (`gh`) or provides instructions for manual creation. PR includes comprehensive description: summary, changes made, testing, documentation.
+
+5. **Handoff to Human**: Orchestrator hands off. You review PR, merge when ready, delete feature branch.
+
+**Example Finalize Workflow**:
+```
+[Finalize phase active]
+
+Orchestrator: "Documentation subphase: I recommend updating README.md to
+document new auth endpoints. Approve?"
+
+You: "Yes."
+
+[Orchestrator or documenter agent updates README]
+
+Orchestrator: "Running final checks..."
+✓ All tests passing (42 tests)
+✓ All linters passing
+✓ Documentation current
+✓ Git tree clean
+
+Orchestrator: "Deleting project folder..."
+✓ Deleted .sow/project/
+✓ Created cleanup commit
+
+Orchestrator: "Creating pull request..."
+✓ PR created: https://github.com/org/repo/pull/42
+
+Work complete! Please review PR and merge when ready.
+
+Recommend squash-merge to keep main branch history clean.
+```
+
+---
+
+## Working with External References
+
+### Understanding the Refs System
+
+Refs provide unified system for external git resources: knowledge refs (style guides, API standards, policies), code refs (implementation examples, reference architectures).
+
+Replaces old sinks and repos systems with single consistent mechanism.
+
+**Benefits**: Clone once and reference from multiple repos, automatic staleness detection, AI agents consult refs when making decisions, team-wide sharing via committed index.
+
+### Adding References
+
+**Add Remote Reference**:
 ```bash
-# Start work
-git checkout feat/add-auth
-/continue
-
-# Work happens...
-# Task 030 is in progress
-
-# End of day - just exit
-exit
+sow refs add https://github.com/acme/style-guides \
+  --path python/ \
+  --link python-style \
+  --type knowledge \
+  --tag formatting --tag naming --tag testing \
+  --desc "Python coding standards" \
+  --summary "Covers PEP 8 formatting, naming conventions, and testing patterns."
 ```
 
-**Friday**:
+**Add Local Reference** (not shared with team):
 ```bash
-# Resume
-git checkout feat/add-auth
-claude
-
-# SessionStart shows context
-📋 You are in a sow-enabled repository
-🚀 Active project: Add authentication (branch: feat/add-auth)
-📂 Use /continue to resume work
-
-# Continue where you left off
-/continue
-
-# Orchestrator reads state and resumes task 030
+sow refs add file:///Users/you/local-docs \
+  --link local-docs \
+  --type knowledge \
+  --tag wip \
+  --desc "Work-in-progress documentation" \
+  --summary "Draft docs before publishing."
 ```
 
-**What Gets Preserved**:
-- Project state (phases, tasks, status)
-- Task descriptions and requirements
-- Context references (sinks, docs, files)
-- Action logs (what's been tried)
-- Feedback (your corrections)
+**Via Orchestrator** (natural language):
+```
+You: "Add our team's Python style guide from github.com/acme/style-guides"
 
-**What's NOT Needed**:
-- Conversation history
-- Previous agent memory
-- User re-explanation
+Orchestrator: "I'll install that as a knowledge reference."
+[Examines content, determines tags, adds reference]
+```
 
-### Switching Between Branches
+### Fresh Clone Setup
 
-**Key Feature**: Project state switches automatically with branches
+After cloning repository with existing refs configured:
 
 ```bash
-# Work on feature A
-git checkout feat/feature-a
-/continue
-# Works on "Feature A" project
+# Clone repo
+git clone https://github.com/org/repo
+cd repo
 
-# Switch to feature B
-git checkout feat/feature-b
-/continue
-# Works on "Feature B" project
-
-# Switch back to feature A
-git checkout feat/feature-a
-/continue
-# Back to "Feature A" project - exact same state
+# Initialize refs
+sow refs init
 ```
 
-**How It Works**:
-- `.sow/project/` is committed to each feature branch
-- Git handles switching project state automatically
-- Each branch has its own independent project
+This clones repos to cache and creates symlinks per committed index.
 
-**Benefits**:
-- Natural branch-based workflow
-- No manual project switching
-- Clean separation of work
-- Team can share branch with project state
+When Claude Code starts:
+```
+Orchestrator: "I notice 3 references configured but not initialized:
+- python-style
+- api-standards
+- security-guide
 
----
+Should I set them up?"
 
-## Understanding Project Status
+You: "Yes"
 
-### Reading state.yaml
+[Orchestrator runs sow refs init]
 
-View current project state:
+Orchestrator: "✓ Initialized 3 references. I can now reference these guides
+when working on code."
+```
+
+### Checking for Updates
 
 ```bash
-cat .sow/project/state.yaml
+# Check staleness
+sow refs status
+
+# Output shows which refs behind
+python-style: current
+api-standards: behind by 3 commits
 ```
 
-**Example**:
-```yaml
-project:
-  name: add-authentication
-  branch: feat/add-auth
-  created_at: 2025-10-12T14:30:00Z
-  updated_at: 2025-10-12T16:45:00Z
-  description: Add JWT-based authentication system
+Orchestrator integration:
+```
+You: "Check if our references are up to date"
 
-  complexity:
-    rating: 2
-    metrics:
-      estimated_files: 8
-      cross_cutting: true
-      new_dependencies: true
+Orchestrator: [Runs sow refs status]
+"I checked all references:
+- python-style: current
+- api-standards: behind by 3 commits
 
-  active_phase: implement
+The api-standards ref has updates. Would you like me to update it?"
 
-phases:
-  - name: design
-    status: completed
-    created_at: 2025-10-12T14:32:00Z
-    completed_at: 2025-10-12T15:20:00Z
-    tasks:
-      - id: "010"
-        name: Design authentication flow
-        status: completed
-        parallel: false
+You: "Yes"
 
-  - name: implement
-    status: in_progress
-    created_at: 2025-10-12T15:22:00Z
-    tasks:
-      - id: "010"
-        name: Create User model
-        status: completed
-        parallel: false
-
-      - id: "020"
-        name: Create JWT service
-        status: in_progress
-        parallel: false
-
-      - id: "030"
-        name: Add login endpoint
-        status: pending
-        parallel: true
-
-      - id: "031"
-        name: Add password hashing utility
-        status: pending
-        parallel: true
+[Orchestrator runs sow refs update api-standards]
 ```
 
-**Key Fields**:
-- `active_phase` - Current phase being worked on
-- `phases[].status` - Phase status (pending, in_progress, completed)
-- `phases[].tasks[].status` - Task status
-- `phases[].tasks[].parallel` - Can run in parallel with other tasks
+### How Agents Use Refs
 
-### Interpreting Task States
+During implementation, orchestrator compiles context for tasks. Includes relevant refs in task state references list.
 
-| Status | Meaning |
-|--------|---------|
-| `pending` | Not yet started |
-| `in_progress` | Currently being worked on |
-| `completed` | Successfully finished |
-| `abandoned` | Started but no longer relevant |
-
-**Gap Numbering**:
-- Tasks numbered: 010, 020, 030, 040
-- Allows insertions: 011, 012, 021, 031
-- No renumbering needed when adding tasks
-
-### Reviewing Logs
-
-**Project Log** (orchestrator actions):
-```bash
-cat .sow/project/log.md
-```
-
-**Task Log** (worker actions):
-```bash
-cat .sow/project/phases/implement/tasks/020/log.md
-```
-
-**Example Task Log**:
-```markdown
-# Task Log
-
-Chronological record of all actions taken during this task.
-
----
-
-### 2025-10-12 15:30:42
-
-**Agent**: implementer-3
-**Action**: started_task
-**Result**: success
-
-Started implementing JWT service. Reviewed requirements and acceptance criteria.
-
----
-
-### 2025-10-12 15:35:18
-
-**Agent**: implementer-3
-**Action**: created_file
-**Files**:
-  - src/auth/jwt.py
-**Result**: success
-
-Created initial JWT service file with class structure and method stubs.
-
----
-
-### 2025-10-12 15:42:03
-
-**Agent**: implementer-3
-**Action**: implementation_attempt
-**Files**:
-  - src/auth/jwt.py
-**Result**: error
-
-Attempted to implement token generation. Encountered import error with cryptography library.
-
----
-```
-
-**Use Cases**:
-- Understand what's been tried
-- Debug issues
-- Review progress
-- Audit agent actions
-
----
-
-## Providing Feedback to Agents
-
-### When to Provide Feedback
-
-Provide feedback when:
-- Agent made an incorrect assumption
-- Implementation doesn't meet requirements
-- Code needs specific changes
-- Agent got stuck on wrong approach
-
-**Example Scenarios**:
-- "The JWT service should use RS256, not HS256"
-- "Token expiration should be configurable, not hardcoded"
-- "Need to add user role to token payload"
-- "This approach won't work with our existing auth middleware"
-
-### How Feedback is Stored
-
-Feedback is stored in chronologically numbered files:
-
-```
-.sow/project/phases/implement/tasks/020/feedback/
-├── 001.md
-├── 002.md
-└── 003.md
-```
-
-**Process**:
-1. You explain issue to orchestrator
-2. Orchestrator creates `feedback/00X.md` with your notes
-3. Orchestrator increments task iteration counter
-4. Orchestrator spawns new worker with feedback context
-
-**Example Feedback File**:
-```markdown
-# Feedback 001
-
-**Created**: 2025-10-12 16:30:00
-**Status**: pending
-
-## Issue
-
-The JWT service is using HS256 (symmetric) algorithm, but we need RS256
-(asymmetric) for better security and key management.
-
-## Required Changes
-
-1. Change algorithm from HS256 to RS256
-2. Update to use public/private key pair instead of shared secret
-3. Add key loading from environment variables
-4. Update tests accordingly
-
-## Context
-
-Our infrastructure uses asymmetric keys for all JWT operations.
-Keys are managed via Vault and loaded at startup.
-
-Reference: `.sow/sinks/security-guidelines/jwt-best-practices.md`
-```
-
-### How Agents Use Feedback
-
-**Worker Startup Process**:
-1. Read `state.yaml` (sees iteration=4, meaning 4th attempt)
-2. Read `description.md` (original requirements)
-3. Read `feedback/` directory (all feedback files in order)
-4. Identify pending feedback items
-5. Incorporate feedback into work
-6. Mark feedback as addressed in `state.yaml`
-
-**Feedback Tracking in state.yaml**:
+Example task state:
 ```yaml
 task:
   id: "020"
-  iteration: 4
-  feedback:
-    - id: "001"
-      created_at: 2025-10-12T16:30:00Z
-      status: addressed
-    - id: "002"
-      created_at: 2025-10-12T17:15:00Z
-      status: pending
+  references:
+    - refs/python-style/conventions.md
+    - refs/api-standards/rest-standards.md
+    - refs/security-guide/jwt-best-practices.md
 ```
 
-**Example Conversation**:
-```
-You: "The JWT tokens are expiring immediately instead of after 1 hour"
-
-Orchestrator: "I'll create feedback for the implementer and have them fix this.
-               Creating feedback/002.md and restarting the task..."
-
-Implementer (worker):
-- Reads feedback/002.md
-- Sees: Token expiration issue
-- Checks current implementation
-- Fixes the bug (expiration was set to 0 instead of 3600)
-- Writes test to prevent regression
-- Marks feedback/002 as addressed
-- Reports completion
-
-Orchestrator: "Task 020 complete. The token expiration bug has been fixed
-               and a test added to prevent regression."
-```
+Implementer reads all referenced files at startup. Ensures code follows team standards.
 
 ---
 
-## Completing and Cleaning Up
+## Providing Feedback
 
-### When to Run /cleanup
+### When to Provide Feedback
 
-Run `/cleanup` when:
-- All project tasks are complete
-- Ready to create pull request
-- About to merge to main branch
+Provide feedback when: agent made incorrect assumption, implementation doesn't meet requirements, code needs specific changes, agent got stuck on wrong approach.
 
-**Do NOT run cleanup**:
-- While work is still in progress
-- Before pushing final commits
-- If you want to preserve project state
+### How Feedback Works
 
-### Cleanup Process
+**Process**:
 
+1. You identify issue and explain to orchestrator.
+
+2. Orchestrator creates numbered feedback file in task directory.
+
+3. Orchestrator increments task iteration counter.
+
+4. Orchestrator spawns worker with feedback context.
+
+**Example**:
 ```
-/cleanup
-```
+You: "The token expiration is hardcoded but should be configurable via
+environment variable."
 
-**Validation**:
-```
-⚠️ Warning: 1 task is still pending
-  → implement/040: Add password hashing utility
+Orchestrator: "I'll create feedback for the implementer."
+[Creates feedback/001.md]
+[Increments iteration: 2 → 3]
+[Spawns implementer-3]
 
-Are you sure you want to clean up? [y/n]
-```
-
-**If Confirmed**:
-```
-✓ Deleted .sow/project/
-✓ Staged deletion for commit
-
-Next steps:
-1. Commit cleanup: git commit -m "chore: cleanup sow project state"
-2. Push and create PR
-3. CI will verify no .sow/project/ exists before merge
-
-Note: Recommend squash-merge to keep main branch history clean
+Implementer:
+1. Reads state (sees iteration=3)
+2. Reads feedback/001.md
+3. Makes token expiration configurable
+4. Updates tests
+5. Marks feedback as addressed
+6. Reports completion
 ```
 
-**Git Commands**:
-```bash
-# Cleanup stages the deletion
-git status
-# deleted:    .sow/project/
+### Feedback Storage Format
 
-# Commit the cleanup
-git commit -m "chore: cleanup sow project state"
+Feedback files numbered chronologically (001.md, 002.md, 003.md) in `phases/implementation/tasks/<id>/feedback/`.
 
-# Push to remote
-git push origin feat/add-auth
-```
+Content includes: issue description, required changes, additional context, references to standards or docs.
 
-### Creating Pull Requests
+### Multiple Feedback Rounds
 
-**After Cleanup**:
+Single task can have multiple feedback iterations. Each creates new feedback file. Worker addresses all pending feedback before completing task. Iteration counter tracks attempts.
 
-1. **Push Branch**:
-   ```bash
-   git push origin feat/add-auth
-   ```
+Example progression:
+- Iteration 1: Initial attempt, gets basic approach wrong
+- Feedback 001 created: "Use RS256 not HS256"
+- Iteration 2: Fixes algorithm, discovers missing error handling
+- Feedback 002 created: "Add error handling for expired tokens"
+- Iteration 3: Adds error handling, completes successfully
 
-2. **Create PR** (via GitHub UI or CLI):
-   ```bash
-   gh pr create --title "Add authentication" --body "..."
-   ```
+---
 
-3. **CI Validation**:
-   - CI should check that `.sow/project/` does not exist
-   - If it exists, CI fails (prompts you to run `/cleanup`)
+## Completing and Finalizing
 
-4. **Review and Merge**:
-   - Code review proceeds normally
-   - **Recommend squash-merge** to keep main branch history clean
-   - After merge, delete feature branch
+### When Work is Done
 
-**CI Check Example** (.github/workflows/ci.yml):
+All implementation tasks complete → Review phase runs → Review passes → Finalize phase begins.
+
+### Finalize Phase Workflow
+
+**Documentation Updates**: Orchestrator proposes documentation changes. You approve or decline. Updates made to README, API docs, changelogs as needed.
+
+**Final Checks**: Tests must pass (orchestrator runs full suite). Linters must pass (orchestrator runs configured linters). Git tree must be clean (all work committed).
+
+**Project Deletion**: MANDATORY before completion. Orchestrator deletes `.sow/project/` folder. Creates cleanup commit. This prevents project state from being merged to main.
+
+**Pull Request Creation**: Orchestrator uses GitHub CLI to create PR automatically (if available). Otherwise provides instructions for manual PR creation. PR includes comprehensive description with summary, changes, testing notes, documentation updates.
+
+### Merging and Cleanup
+
+After finalize phase:
+
+1. **Review PR**: Use GitHub UI or local review workflow.
+
+2. **Merge**: Orchestrator recommends squash-merge to keep main history clean. After merge, delete feature branch.
+
+3. **CI Enforcement**: Your CI should check that `.sow/project/` does not exist before allowing merge. If present, CI fails with error.
+
+Example CI check:
 ```yaml
 - name: Ensure no active sow project
   run: |
     if [ -d ".sow/project" ]; then
       echo "Error: .sow/project/ must be removed before merging"
-      echo "Run /cleanup or: rm -rf .sow/project"
       exit 1
     fi
 ```
 
----
+### Starting Next Project
 
-## Working with Sinks
+After merge, start fresh:
 
-### What Are Sinks?
-
-**Sinks** are collections of markdown files providing focused knowledge:
-
-- **Style guides** (Python conventions, Go idioms)
-- **API standards** (REST conventions, GraphQL patterns)
-- **Deployment procedures** (Kubernetes configs, CI/CD)
-- **Security guidelines** (Auth patterns, encryption)
-- **Company policies** (Code review checklist, testing standards)
-
-**Benefits**:
-- Agents automatically reference relevant sinks
-- Ensures consistency across projects
-- Easy to update (just pull latest)
-- Shareable across team
-
-**Location**: `.sow/sinks/` (git-ignored)
-
-### Installing Sinks
-
-**Via CLI** (recommended):
 ```bash
-# Install from git repository
-sow sinks install https://github.com/your-org/python-style-guide
+# Create new feature branch
+git checkout main
+git pull
+git checkout -b feat/next-feature
 
-# Install from git with specific path
-sow sinks install https://github.com/your-org/standards style-guides/python
-
-# Install from local path
-sow sinks install /path/to/local/sink
+# Start new project
+/project:new
 ```
 
-**Via Slash Command**:
-```
-/sync
-# Then select sinks to install
-```
-
-**What Happens**:
-1. Clones or copies sink to `.sow/sinks/<name>/`
-2. Interrogates sink content (what topics covered)
-3. Summarizes sink with "when to use" guidance
-4. Updates `.sow/sinks/index.json` with metadata
-5. Sink is now available to agents
-
-**Example Sink Structure**:
-```
-.sow/sinks/
-├── index.json                  # Auto-maintained by LLM
-├── python-style/
-│   ├── formatting.md
-│   ├── conventions.md
-│   └── testing.md
-├── api-conventions/
-│   ├── rest-standards.md
-│   ├── error-handling.md
-│   └── versioning.md
-└── deployment-guide/
-    ├── kubernetes.md
-    └── ci-cd.md
-```
-
-**Index Example**:
-```json
-{
-  "sinks": [
-    {
-      "name": "python-style",
-      "path": "python-style",
-      "description": "Python code style and conventions",
-      "topics": ["formatting", "naming", "testing", "imports"],
-      "when_to_use": "When writing or reviewing Python code",
-      "version": "v1.2.0",
-      "source": "https://github.com/your-org/python-style-guide"
-    }
-  ]
-}
-```
-
-### Updating Sinks
-
-**Check for Updates**:
-```bash
-sow sinks update
-```
-
-**What Happens**:
-```
-🔍 Checking for updates...
-
-Sinks:
-  ✓ python-style (v1.2.0) - up to date
-  ⬆️ api-conventions (v2.3.0 → v2.4.0) - Added GraphQL conventions
-  ⬆️ deployment-guide (v1.0.0 → v1.1.0) - Updated k8s configs
-
-Update all? [y/n/selective]
-```
-
-**Selective Update**:
-```
-Select sinks to update:
-  [y] api-conventions
-  [n] deployment-guide
-
-Updating...
-✓ api-conventions updated to v2.4.0
-✓ Regenerated index
-
-1 sink updated, 2 unchanged
-```
-
-### Managing Sinks
-
-**List Installed Sinks**:
-```bash
-sow sinks list
-```
-
-**Output**:
-```
-Installed sinks:
-
-  python-style (v1.2.0)
-  - Python code style and conventions
-  - Topics: formatting, naming, testing, imports
-  - Source: https://github.com/your-org/python-style-guide
-
-  api-conventions (v2.4.0)
-  - REST and GraphQL API standards
-  - Topics: endpoints, errors, versioning, graphql
-  - Source: https://github.com/your-org/api-standards
-
-3 sinks installed
-```
-
-**Remove Sink**:
-```bash
-sow sinks remove python-style
-```
-
-**Regenerate Index**:
-```bash
-# If index gets corrupted or out of sync
-sow sinks reindex
-```
-
----
-
-## Working with Linked Repos
-
-### Why Link Repositories?
-
-Link repositories when you need:
-- **Cross-repo context** - Reference code from other services
-- **Shared libraries** - See implementation examples
-- **Multi-repo projects** - Coordinate changes across repos
-- **Pseudo-monorepo** - Work with multiple repos as one
-
-**Location**: `.sow/repos/` (git-ignored)
-
-### Adding Linked Repos
-
-**Via CLI**:
-```bash
-# Clone repository
-sow repos add https://github.com/your-org/auth-service
-
-# Symlink local repository
-sow repos add /path/to/shared-library --symlink
-```
-
-**Via Slash Command**:
-```
-/sync
-# Select repos to add
-```
-
-**What Happens**:
-1. Clones (or symlinks) repository to `.sow/repos/<name>/`
-2. Adds entry to `.sow/repos/index.json`
-3. Repository is now available to agents
-
-**Example Structure**:
-```
-.sow/repos/
-├── index.json
-├── auth-service/          # Cloned repo
-│   ├── src/
-│   └── tests/
-└── shared-library/        # Symlinked repo
-    ├── crypto/
-    └── utils/
-```
-
-**Index Example**:
-```json
-{
-  "repositories": [
-    {
-      "name": "auth-service",
-      "path": "auth-service",
-      "source": "https://github.com/your-org/auth-service",
-      "purpose": "Reference auth implementation patterns",
-      "type": "clone"
-    },
-    {
-      "name": "shared-library",
-      "path": "shared-library",
-      "source": "/Users/you/code/shared-library",
-      "purpose": "Shared cryptography and utility functions",
-      "type": "symlink"
-    }
-  ]
-}
-```
-
-### Syncing Linked Repos
-
-**Update All Repos**:
-```bash
-sow repos sync
-```
-
-**What Happens**:
-```
-🔍 Syncing repositories...
-
-Repositories:
-  ✓ auth-service - up to date
-  ⬆️ shared-library (abc1234 → def5678) - Added new crypto utilities
-
-Update all? [y/n/selective]
-```
-
-**Agent Usage**:
-
-When orchestrator assigns task:
-```yaml
-# Task state.yaml
-references:
-  - repos/shared-library/src/crypto/jwt.py
-  - repos/auth-service/src/auth/middleware.py
-```
-
-Worker reads these files for context and patterns.
-
----
-
-## One-Off Tasks
-
-### When to Use vs Projects
-
-**Use One-Off** (orchestrator direct):
-- Simple changes (fix typo, update config)
-- Quick refactoring (rename function)
-- Small bug fixes (one-line change)
-- Documentation updates
-
-**Use Projects** (structured):
-- New features (multiple files)
-- Complex refactoring (architectural changes)
-- Large bug fixes (requires investigation)
-- Multi-step work
-
-**Decision**: You decide, not the orchestrator
-
-### Orchestrator Direct Mode
-
-**Startup Behavior**:
-
-When Claude Code starts with no project:
-```
-What would you like to work on?
-
-You can describe:
-- One-off task (I'll handle it directly)
-- New project (structured, multi-task work)
-
-Or use:
-- /start-project <name> - Create structured project
-```
-
-**One-Off Example**:
-```
-You: "Fix the typo in README.md line 42 - 'authetication' should be 'authentication'"
-
-Orchestrator:
-- Reads README.md
-- Makes the edit
-- Done
-
-No project structure created.
-```
-
-**When Orchestrator Suggests Project**:
-```
-You: "Add comprehensive authentication with JWT, OAuth, and multi-factor auth"
-
-Orchestrator: "This looks like a complex feature requiring multiple steps.
-               Would you like me to create a structured project? [y/n]"
-
-You: y
-
-Orchestrator: "Great! Let's use /start-project to plan this properly."
-[Guides you through /start-project flow]
-```
-
-**Benefits of Orchestrator Direct Mode**:
-- Fast for simple tasks
-- No overhead
-- Orchestrator still understands sow framework
-- Can escalate to project if needed
+Previous project state gone (deleted during finalize). Each project independent.
 
 ---
 
@@ -1112,106 +678,82 @@ Orchestrator: "Great! Let's use /start-project to plan this properly."
 
 ### Project Scope
 
-**Do**:
-- Keep projects short-lived (hours to days, not weeks)
-- Scope to what fits in one feature branch
-- Delete after merging (cleanup)
-- Create new project for follow-up work
+**Do**: Keep projects short-lived (hours to days, not weeks). Scope to what fits in one feature branch. Delete after merging. Create new project for follow-up work.
 
-**Don't**:
-- Create mega-projects spanning weeks
-- Try to fit unrelated work in one project
-- Keep project state after merge
-- Extend completed projects
+**Don't**: Create mega-projects spanning weeks. Try to fit unrelated work in one project. Keep project state after merge. Extend completed projects.
 
-**Guideline**: If project feels too big, break into multiple feature branches.
+**Guideline**: If project feels too big, break into multiple feature branches with separate projects.
 
 ### Branch Management
 
-**Do**:
-- Always create feature branch before `/start-project`
-- Name branches descriptively (`feat/add-auth`, `fix/token-expiry`)
-- Keep one project per branch (enforced)
-- Clean up before merging
+**Do**: Always create feature branch before starting project. Name branches descriptively (`feat/add-auth`, `fix/token-bug`). Keep one project per branch (enforced by sow). Run finalize phase before merging.
 
-**Don't**:
-- Create projects on main/master
-- Switch branches mid-task without committing
-- Merge with `.sow/project/` still present
-- Reuse project state across branches
+**Don't**: Create projects on main/master. Switch branches mid-work without committing state. Merge with `.sow/project/` still present. Try to reuse project state across branches.
 
 **Pattern**:
 ```bash
 # Good workflow
 git checkout -b feat/my-feature
-/start-project "My feature"
-# ... work ...
-/cleanup
-git commit -m "chore: cleanup sow project state"
+/project:new
+# Work happens through phases
+# Finalize deletes project
 git push
 # Create PR, merge, delete branch
 
 # Bad workflow
-# Work on main branch
-/start-project "Feature"  # ERROR: Can't create on main
+# Work on main
+/project:new  # ERROR: Can't create on main
 ```
 
 ### Commit Hygiene
 
-**Do**:
-- Commit `.sow/project/` regularly during work
-- Push to remote (backup + collaboration)
-- Write clear commit messages for feature work
-- Run `/cleanup` before final merge
+**Do**: Commit `.sow/project/` regularly during work (enables resumability and team collaboration). Push to remote for backup. Finalize phase handles cleanup automatically.
 
-**Don't**:
-- Git-ignore `.sow/project/` (breaks branch switching)
-- Leave uncommitted project state
-- Forget to cleanup before merge
-- Include `.sow/project/` in main branch
+**Don't**: Git-ignore `.sow/project/` (breaks branch switching and resumability). Leave uncommitted project state. Manually delete project folder (use finalize phase instead).
 
 **Commit Strategy**:
 ```bash
 # During work (feature branch)
 git add .sow/project/ src/
 git commit -m "feat: implement JWT service"
+git push
 
-# Before merge
-/cleanup
-git commit -m "chore: cleanup sow project state"
-
-# Squash merge recommended
-gh pr merge --squash
+# Finalize handles cleanup
+# Creates cleanup commit automatically
 ```
 
 ### Team Collaboration
 
-**Do**:
-- Commit `.claude/` configuration (shared agents/commands)
-- Commit `.sow/knowledge/` (shared docs)
-- Commit `.sow/project/` to feature branches (state sharing)
-- Document custom sinks in README
-- Share sink sources with team
+**Do**: Commit `.claude/` configuration (shared agents/commands). Commit `.sow/knowledge/` (shared docs). Commit `.sow/refs/index.json` (ref catalog). Commit `.sow/project/` to feature branches (enables collaboration). Share ref sources with team.
 
-**Don't**:
-- Commit `.sow/sinks/` (personal installations)
-- Commit `.sow/repos/` (too large)
-- Modify `.claude/` structure without team discussion
-- Change shared sinks without coordination
+**Don't**: Commit `.sow/refs/` contents (large, gitignored). Modify `.claude/` without team discussion. Change shared refs without coordination.
 
 **Collaboration Pattern**:
 ```bash
-# Developer A creates feature branch with project
+# Developer A creates feature with project
 git checkout -b feat/auth
-/start-project "Add auth"
-# ... some work ...
-git push origin feat/auth
+/project:new
+# Some work done
+git push
 
-# Developer B picks up the work
+# Developer B continues the work
 git fetch
 git checkout feat/auth
-/continue  # Sees all context, continues work
+sow refs init  # Initialize refs if needed
+/project:continue  # Sees all context, continues seamlessly
 ```
+
+### Using Optional Phases Wisely
+
+**Skip Discovery When**: You have detailed notes or requirements. Work is straightforward. Implementation path completely clear.
+
+**Skip Design When**: Bug fixes (just implement). Small features (1-5 tasks). Minor refactors. Discovery notes provide sufficient detail.
+
+**Use Discovery When**: Problem or requirements unclear. Need to investigate codebase. Research needed for approach. User uncertain about feasibility.
+
+**Use Design When**: Large scope (10+ tasks). New system component. Architectural changes. Multiple integration points. User uncertain about approach.
+
+**Trust the Rubrics**: Orchestrator uses scoring rubrics to make objective recommendations. Trust the assessment but feel free to override if you have specific needs.
 
 ---
 
@@ -1219,189 +761,112 @@ git checkout feat/auth
 
 ### Common Issues
 
-#### Issue: Project won't start on current branch
+**Issue: Can't start project on main branch**
 
-**Symptoms**:
-```
-Error: Cannot create project on main/master branch
-```
+Error: "Cannot create project on main/master branch"
 
-**Solution**:
+Solution: Create feature branch first.
 ```bash
-# Create feature branch
 git checkout -b feat/my-feature
-
-# Then start project
-/start-project "My feature"
+/project:new
 ```
 
-#### Issue: Project already exists
+**Issue: Project already exists**
 
-**Symptoms**:
-```
-A project already exists: 'Old feature'
-```
+Error: "A project already exists: 'Old Project'"
 
-**Solutions**:
+Solutions:
+- Continue existing: `/project:continue`
+- Clean up and start new: Finalize old project first, then `/project:new`
+- New branch: `git checkout -b feat/new-feature` then `/project:new`
 
-Option 1 - Continue existing:
-```
-/continue
-```
+**Issue: Refs not initialized after clone**
 
-Option 2 - Clean up and start new:
-```
-/cleanup
-/start-project "New feature"
-```
+Symptom: References configured but not available.
 
-Option 3 - New branch:
+Solution:
 ```bash
-git checkout -b feat/new-feature
-/start-project "New feature"
+sow refs init
 ```
 
-#### Issue: Version mismatch after plugin upgrade
+Or let orchestrator handle it when prompted.
 
-**Symptoms**:
-```
-⚠️  Version mismatch detected!
-   Repository structure: 0.1.0
-   Plugin version: 0.2.0
-```
+**Issue: Version mismatch**
 
-**Solution**:
-```
-/migrate
-```
+Warning: "Repository structure 0.1.0, Plugin version 0.2.0"
 
-#### Issue: Lost project state after branch switch
+Solution: Migration needed (not yet implemented in new design).
 
-**Symptoms**: Project state different than expected after switching branches
+**Issue: Lost project state after branch switch**
 
-**Cause**: `.sow/project/` wasn't committed
+Symptom: Project state different than expected.
 
-**Solution**:
+Cause: `.sow/project/` wasn't committed.
+
+Solution:
 ```bash
-# Check git status
 git status
-
-# If .sow/project/ is untracked
 git add .sow/project/
 git commit -m "chore: commit project state"
-
-# Now switching branches will work correctly
-```
-
-#### Issue: CLI commands not found
-
-**Symptoms**:
-```bash
-sow: command not found
-```
-
-**Solution**:
-```bash
-# Verify CLI is installed
-ls ~/.local/bin/sow
-
-# If not there, install CLI
-curl -L https://github.com/your-org/sow/releases/download/v0.2.0/sow-macos -o ~/.local/bin/sow
-chmod +x ~/.local/bin/sow
-
-# Ensure ~/.local/bin is in PATH
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-
-# Verify
-sow --version
 ```
 
 ### Recovery Procedures
 
-#### Corrupted Project State
+**Corrupted Project State**:
 
-**Symptoms**: Project state file is malformed or corrupted
-
-**Recovery**:
+Check if YAML valid:
 ```bash
-# Check if YAML is valid
-yq .sow/project/state.yaml
-
-# If corrupted, restore from git
-git checkout HEAD~1 .sow/project/state.yaml
-
-# Or start fresh
-rm -rf .sow/project
-/start-project "Feature name"
+sow validate
 ```
 
-#### Lost Task Progress
-
-**Symptoms**: Work done but not reflected in state
-
-**Recovery**:
-1. Check logs for what was actually done:
-   ```bash
-   cat .sow/project/phases/*/tasks/*/log.md
-   ```
-
-2. Manually update state.yaml if needed:
-   ```bash
-   # Mark task as completed
-   yq -i '.phases[1].tasks[0].status = "completed"' .sow/project/state.yaml
-   ```
-
-3. Commit corrected state:
-   ```bash
-   git add .sow/project/state.yaml
-   git commit -m "fix: correct task status"
-   ```
-
-#### Broken Index Files
-
-**Symptoms**: Sinks or repos not being found by agents
-
-**Recovery**:
+Restore from git if corrupted:
 ```bash
-# Regenerate sink index
-sow sinks reindex
+git checkout HEAD~1 .sow/project/state.yaml
+```
 
-# Regenerate repo index
-sow repos reindex
+Or start fresh (if previous state not critical).
 
-# Verify
-cat .sow/sinks/index.json
-cat .sow/repos/index.json
+**Broken Ref Indexes**:
+
+Regenerate indexes:
+```bash
+sow refs init
+```
+
+**CLI Not Found**:
+
+Verify installation:
+```bash
+ls ~/.local/bin/sow
+```
+
+Ensure PATH includes `~/.local/bin`:
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
 ```
 
 ### Getting Help
 
-1. **Check Documentation**: Start with relevant doc sections
+1. **Check Documentation**: Start with relevant sections in this guide and related docs.
 
-2. **Validate Structure**:
-   ```bash
-   sow validate
-   ```
+2. **Validate Structure**: Run `sow validate` to check for structural issues.
 
-3. **Check Logs**: Review project and task logs for errors
+3. **Review Logs**: Check project and task logs for error details.
 
-4. **GitHub Issues**: Report bugs with:
-   - sow version (`sow --version`)
-   - Plugin version (`.claude/.plugin-version`)
-   - Error messages
-   - Steps to reproduce
+4. **GitHub Issues**: Report bugs with sow version, plugin version, error messages, reproduction steps.
 
-5. **Community**: Join discussions, ask questions
+5. **Community**: Join discussions, ask questions, share solutions.
 
 ---
 
 ## Related Documentation
 
-- **[OVERVIEW.md](./OVERVIEW.md)** - System overview and concepts
-- **[COMMANDS_AND_SKILLS.md](./COMMANDS_AND_SKILLS.md)** - All available commands
-- **[PROJECT_MANAGEMENT.md](./PROJECT_MANAGEMENT.md)** - Project lifecycle details
-- **[HOOKS_AND_INTEGRATIONS.md](./HOOKS_AND_INTEGRATIONS.md)** - Customization and integrations
-- **[DISTRIBUTION.md](./DISTRIBUTION.md)** - Installation and upgrades
-- **[CLI_REFERENCE.md](./CLI_REFERENCE.md)** - CLI command reference
+- **[OVERVIEW.md](./OVERVIEW.md)** - System overview and core concepts
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Design philosophy and architecture
+- **[PROJECT_LIFECYCLE.md](./PROJECT_LIFECYCLE.md)** - Truth table and 5-phase model details
+- **[PHASES/](./PHASES/)** - Individual phase specifications
+- **[REFS.md](./REFS.md)** - External references system
+- **[CLI_REFERENCE.md](./CLI_REFERENCE.md)** - Complete CLI command reference
 - **[SCHEMAS.md](./SCHEMAS.md)** - File format specifications
+- **[AGENTS.md](./AGENTS.md)** - Multi-agent system details

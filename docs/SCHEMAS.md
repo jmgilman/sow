@@ -1,150 +1,153 @@
 # File Format Schemas
 
-**Last Updated**: 2025-10-12
-**Status**: Comprehensive Architecture Documentation
+**Last Updated**: 2025-10-15
+**Purpose**: Complete schema reference for all file formats
+
+This document provides specifications for all file formats used in `sow`. CUE schemas embedded in the CLI are the authoritative source. This document provides human-readable reference.
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [CUE Schema System](#cue-schema-system)
 - [Project State Schema](#project-state-schema)
 - [Task State Schema](#task-state-schema)
-- [Task Description Format](#task-description-format)
-- [Task Log Format](#task-log-format)
-- [Sink Index Schema](#sink-index-schema)
-- [Repository Index Schema](#repository-index-schema)
-- [Version File Schema](#version-file-schema)
-- [Plugin Metadata Schema](#plugin-metadata-schema)
-- [Hooks Configuration Schema](#hooks-configuration-schema)
-- [MCP Configuration Schema](#mcp-configuration-schema)
+- [Refs Index Schemas](#refs-index-schemas)
+- [Accessing and Validating Schemas](#accessing-and-validating-schemas)
 - [Related Documentation](#related-documentation)
 
 ---
 
 ## Overview
 
-This document provides complete specifications for all file formats used in `sow`. All examples use valid YAML, JSON, or Markdown syntax.
+### CUE Schema System
 
-**Note**: CUE schemas embedded in the sow CLI are the authoritative source of truth. This document provides human-readable reference documentation.
+All schemas defined using CUE (Configure, Unify, Execute) and embedded in CLI binary. CUE provides type safety, validation, and documentation generation. Single source of truth (schema definitions in CLI eliminate drift between code and docs). Strong validation (type checking and constraints enforce correctness). Self-documentation (schemas include inline docs). Tooling integration (validation, formatting, conversion).
 
-**File Format Summary**:
+### Automatic Validation
+
+CLI validates files against embedded CUE schemas during: project initialization, task creation, state updates, file operations. Invalid files rejected with detailed error messages.
+
+### File Format Summary
 
 | File | Format | Purpose |
 |------|--------|---------|
-| `state.yaml` (project) | YAML | Project state and task list |
+| `state.yaml` (project) | YAML | Project state with 5-phase structure |
 | `state.yaml` (task) | YAML | Individual task metadata |
 | `description.md` (task) | Markdown | Task requirements |
 | `log.md` | Markdown | Action logs (structured) |
-| `index.json` (sinks) | JSON | Sink catalog |
-| `index.json` (repos) | JSON | Repository references |
-| `.version` | YAML | Version tracking |
-| `plugin.json` | JSON | Plugin metadata |
-| `hooks.json` | JSON | Hook configuration |
-| `mcp.json` | JSON | MCP server configuration |
-
----
-
-## CUE Schema System
-
-All schemas in `sow` are defined using [CUE](https://cuelang.org/) (Configure, Unify, Execute) and embedded directly in the CLI binary. CUE provides type safety, validation, and documentation generation, ensuring consistency across all file formats.
-
-### Why CUE?
-
-CUE offers several advantages for schema management:
-
-- **Single Source of Truth**: Schema definitions are embedded in the CLI, eliminating drift between code and documentation
-- **Strong Validation**: Type checking and constraints enforce correctness at runtime
-- **Self-Documentation**: Schemas include inline documentation that can be extracted and displayed
-- **Tooling Integration**: Native support for validation, formatting, and conversion
-
-### Accessing Schemas
-
-Use the `sow schema` command to view and validate schemas:
-
-```bash
-# View project state schema
-sow schema show project
-
-# View task state schema
-sow schema show task
-
-# Validate a project state file
-sow schema validate project .sow/project/state.yaml
-
-# List all available schemas
-sow schema list
-```
-
-### Schema Validation
-
-The CLI automatically validates files against embedded CUE schemas during:
-
-- **Project initialization** (`sow project init`)
-- **Task creation** (`sow task create`)
-- **State updates** (`sow task update`)
-- **File operations** (reading/writing state files)
-
-Invalid files are rejected with detailed error messages indicating which constraints were violated.
-
-### Relationship to Markdown Documentation
-
-This document provides **human-readable reference documentation** for schemas. The CUE schemas embedded in the CLI are the **authoritative source of truth**. When in doubt:
-
-1. Use `sow schema show <type>` to view the canonical schema
-2. Use `sow schema validate` to check file conformance
-3. Refer to this document for examples and field descriptions
-
-The CLI ensures all generated files conform to the embedded schemas, eliminating manual validation errors.
+| `index.json` (refs committed) | JSON | Remote refs catalog (committed) |
+| `index.json` (refs cache) | JSON | Cache metadata (local only) |
+| `index.local.json` | JSON | Local-only refs (gitignored) |
 
 ---
 
 ## Project State Schema
 
-**Source of Truth**: CUE schema embedded in sow CLI (`sow schema show project`). This documentation provides human-readable reference.
-
 **File**: `.sow/project/state.yaml`
 
-**Purpose**: Central planning document containing all project metadata, phases, and tasks.
+**Purpose**: Central state file for 5-phase project model. Phases are fixed: discovery, design, implementation, review, finalize.
 
-### Full Schema
+### Key Characteristics
+
+**Fixed 5 Phases**: All projects have same five phases (discovery/design optional, implementation/review/finalize required). Phase enablement flags control which phases execute. Simplified structure (no dynamic phase addition).
+
+**Artifact Tracking**: Discovery and design phases produce artifacts requiring human approval. Approval tracked via boolean flag. Phase cannot complete until all artifacts approved.
+
+**Review Iterations**: Review phase supports multiple iterations (loop-back to implementation). Reports numbered sequentially (001, 002, 003). Iteration counter tracks current cycle.
+
+### Complete Schema
 
 ```yaml
-# Project metadata
 project:
-  name: string                    # Project name (kebab-case recommended)
-  branch: string                  # Git branch this project belongs to
-  created_at: timestamp           # ISO 8601: 2025-10-12T14:30:00Z
-  updated_at: timestamp           # ISO 8601: 2025-10-12T16:45:00Z
+  name: string                    # Kebab-case identifier
+  branch: string                  # Git branch name
   description: string             # Human-readable description
+  created_at: timestamp           # ISO 8601
+  updated_at: timestamp           # ISO 8601
 
-  # Complexity assessment (from initial planning)
-  complexity:
-    rating: integer               # 1=simple, 2=moderate, 3=complex
-    metrics:
-      estimated_files: integer    # Estimated number of files
-      cross_cutting: boolean      # Cross-cutting concerns exist
-      new_dependencies: boolean   # New dependencies required
-
-  # Current active phase
-  active_phase: string            # Name of currently active phase
-
-# Phases array
 phases:
-  - name: string                  # Phase name (discovery, design, implement, test, review, deploy, document)
-    status: string                # pending | in_progress | completed
-    created_at: timestamp         # When phase was created
-    completed_at: timestamp | null  # When phase completed (null if not done)
+  discovery:
+    enabled: bool                 # Whether phase enabled
+    status: string                # skipped | pending | in_progress | completed
+    created_at: timestamp
+    started_at: timestamp | null
+    completed_at: timestamp | null
+    discovery_type: string | null # bug | feature | docs | refactor | general
+    artifacts:
+      - path: string              # Relative from .sow/project/
+        approved: bool            # Human approval required
+        created_at: timestamp
 
-    # Tasks within this phase
+  design:
+    enabled: bool
+    status: string                # skipped | pending | in_progress | completed
+    created_at: timestamp
+    started_at: timestamp | null
+    completed_at: timestamp | null
+    architect_used: bool | null   # Whether architect agent used
+    artifacts:
+      - path: string
+        approved: bool
+        created_at: timestamp
+
+  implementation:
+    enabled: true                 # Always true (required phase)
+    status: string                # pending | in_progress | completed
+    created_at: timestamp
+    started_at: timestamp | null
+    completed_at: timestamp | null
+    planner_used: bool | null     # Whether planner agent used
     tasks:
-      - id: string                # Gap-numbered ID (e.g., "010", "020", "030")
-        name: string              # Task name/description
+      - id: string                # Gap-numbered (010, 020, 030)
+        name: string
         status: string            # pending | in_progress | completed | abandoned
-        parallel: boolean         # Can run in parallel with other tasks
-        assigned_agent: string    # Agent role (architect, implementer, etc.)
+        parallel: bool
+        dependencies: [string] | null
+    pending_task_additions: [...] | null  # Tasks awaiting approval
+
+  review:
+    enabled: true                 # Always true (required phase)
+    status: string                # pending | in_progress | completed
+    created_at: timestamp
+    started_at: timestamp | null
+    completed_at: timestamp | null
+    iteration: integer            # Current review iteration (1-indexed)
+    reports:
+      - id: string                # Report number (001, 002, 003)
+        path: string              # Relative from .sow/project/phases/review/
+        created_at: timestamp
+        assessment: string        # pass | fail
+
+  finalize:
+    enabled: true                 # Always true (required phase)
+    status: string                # pending | in_progress | completed
+    created_at: timestamp
+    started_at: timestamp | null
+    completed_at: timestamp | null
+    documentation_updates: [string] | null
+    artifacts_moved: [...] | null
+    project_deleted: bool         # Critical gate (must be true to complete)
+    pr_url: string | null
 ```
+
+### Field Descriptions
+
+**project.branch**: Git branch project belongs to. Orchestrator validates current branch matches this field.
+
+**phases.discovery.enabled / phases.design.enabled**: Whether phase executes. If false, status must be "skipped". If true, status cannot be "skipped".
+
+**phases.*.artifacts**: Outputs requiring human approval. Discovery artifacts (research reports, notes). Design artifacts (ADRs, design docs). Cannot complete phase until all artifacts have `approved: true`.
+
+**phases.implementation.tasks**: Task breakdown with gap numbering. Presence in array indicates human approval to execute.
+
+**phases.implementation.pending_task_additions**: Tasks orchestrator wants to add mid-implementation. Human approval moves them to tasks array (fail-forward mechanism).
+
+**phases.review.iteration**: Tracks review cycle number. Increments each time review loops back to implementation.
+
+**phases.review.reports[].assessment**: "pass" (ready to finalize) or "fail" (loop back to implementation).
+
+**phases.finalize.project_deleted**: Must be true before phase can complete. Enforces cleanup before PR merge.
 
 ### Complete Example
 
@@ -152,743 +155,296 @@ phases:
 project:
   name: add-authentication
   branch: feat/add-auth
-  created_at: 2025-10-12T14:30:00Z
-  updated_at: 2025-10-12T16:45:00Z
-  description: Add JWT-based authentication system with user login and token refresh
-
-  complexity:
-    rating: 2
-    metrics:
-      estimated_files: 8
-      cross_cutting: true
-      new_dependencies: true
-
-  active_phase: implement
+  description: Add JWT-based authentication with user login
+  created_at: "2025-10-14T10:00:00Z"
+  updated_at: "2025-10-14T17:00:00Z"
 
 phases:
-  - name: design
+  discovery:
+    enabled: true
     status: completed
-    created_at: 2025-10-12T14:32:00Z
-    completed_at: 2025-10-12T15:20:00Z
-    tasks:
-      - id: "010"
-        name: Design authentication flow
-        status: completed
-        parallel: false
-        assigned_agent: architect
+    created_at: "2025-10-14T10:05:00Z"
+    started_at: "2025-10-14T10:05:00Z"
+    completed_at: "2025-10-14T11:20:00Z"
+    discovery_type: feature
+    artifacts:
+      - path: phases/discovery/notes.md
+        approved: true
+        created_at: "2025-10-14T11:15:00Z"
 
-  - name: implement
-    status: in_progress
-    created_at: 2025-10-12T15:22:00Z
-    completed_at: null
+  design:
+    enabled: true
+    status: completed
+    created_at: "2025-10-14T11:25:00Z"
+    started_at: "2025-10-14T11:25:00Z"
+    completed_at: "2025-10-14T13:00:00Z"
+    architect_used: true
+    artifacts:
+      - path: phases/design/adrs/001-use-jwt-rs256.md
+        approved: true
+        created_at: "2025-10-14T12:30:00Z"
+
+  implementation:
+    enabled: true
+    status: completed
+    created_at: "2025-10-14T13:05:00Z"
+    started_at: "2025-10-14T13:10:00Z"
+    completed_at: "2025-10-14T16:20:00Z"
+    planner_used: false
     tasks:
       - id: "010"
         name: Create User model
         status: completed
         parallel: false
-        assigned_agent: implementer
-
       - id: "020"
-        name: Create JWT service
-        status: in_progress
+        name: Implement JWT service
+        status: completed
         parallel: false
-        assigned_agent: implementer
-
+        dependencies: ["010"]
       - id: "030"
         name: Add login endpoint
-        status: pending
-        parallel: true
-        assigned_agent: implementer
+        status: completed
+        parallel: false
+        dependencies: ["020"]
 
-      - id: "031"
-        name: Add password hashing utility
-        status: pending
-        parallel: true
-        assigned_agent: implementer
+  review:
+    enabled: true
+    status: completed
+    created_at: "2025-10-14T15:50:00Z"
+    started_at: "2025-10-14T15:50:00Z"
+    completed_at: "2025-10-14T16:30:00Z"
+    iteration: 2
+    reports:
+      - id: "001"
+        path: phases/review/reports/001-review.md
+        created_at: "2025-10-14T15:55:00Z"
+        assessment: fail
+      - id: "002"
+        path: phases/review/reports/002-review.md
+        created_at: "2025-10-14T16:25:00Z"
+        assessment: pass
 
-  - name: test
-    status: pending
-    created_at: null
-    completed_at: null
-    tasks: []
+  finalize:
+    enabled: true
+    status: completed
+    created_at: "2025-10-14T16:35:00Z"
+    started_at: "2025-10-14T16:35:00Z"
+    completed_at: "2025-10-14T17:00:00Z"
+    documentation_updates:
+      - README.md
+      - docs/api-reference.md
+    artifacts_moved:
+      - from: phases/design/adrs/001-use-jwt-rs256.md
+        to: docs/adrs/003-use-jwt-rs256.md
+    project_deleted: true
+    pr_url: https://github.com/org/repo/pull/42
 ```
-
-### Field Descriptions
-
-**project.name**: Unique identifier for project (used in logs, display)
-
-**project.branch**: Git branch name. Orchestrator validates current branch matches this field.
-
-**complexity.rating**:
-- `1` - Simple (few files, focused scope, no new deps)
-- `2` - Moderate (multiple files, some integration, maybe new deps)
-- `3` - Complex (many files, architectural changes, cross-cutting)
-
-**active_phase**: Must match one of the phase names in `phases` array. Orchestrator uses this to determine which phase is currently being worked on.
-
-**phases[].status**:
-- `pending` - Not yet started
-- `in_progress` - Currently active
-- `completed` - All tasks done
-
-**tasks[].status**:
-- `pending` - Not yet started
-- `in_progress` - Currently being worked on
-- `completed` - Successfully finished
-- `abandoned` - Started but deprecated (not deleted)
-
-**tasks[].parallel**: If `true`, can run simultaneously with other `parallel: true` tasks in same phase.
 
 ---
 
 ## Task State Schema
 
-**Source of Truth**: CUE schema embedded in sow CLI (`sow schema show task`). This documentation provides human-readable reference.
+**File**: `.sow/project/phases/implementation/tasks/<id>/state.yaml`
 
-**File**: `.sow/project/phases/<phase>/tasks/<id>/state.yaml`
+**Purpose**: Task-specific metadata for implementation phase tasks only. Schema unchanged from previous versions (works for new 5-phase model).
 
-**Purpose**: Task-specific metadata including iteration tracking, context references, and feedback status.
-
-### Full Schema
+### Complete Schema
 
 ```yaml
 task:
-  id: string                      # Task ID (matches directory name)
+  id: string                      # Task ID (matches directory name, gap-numbered)
   name: string                    # Task name
-  phase: string                   # Phase name this task belongs to
+  phase: "implementation"         # Always implementation in new model
   status: string                  # pending | in_progress | completed | abandoned
-
-  created_at: timestamp           # When task was created
+  created_at: timestamp           # When task created
   started_at: timestamp | null    # When work first began
   updated_at: timestamp           # Last modification
-  completed_at: timestamp | null  # When task completed (null if not done)
-
+  completed_at: timestamp | null  # When completed
   iteration: integer              # Attempt counter (managed by orchestrator)
-  assigned_agent: string          # Agent role
-
-  # Context references (relative to .sow/ root)
-  references: array[string]       # File paths for worker to read
-
-  # Feedback tracking
-  feedback: array
-    - id: string                  # Feedback number (e.g., "001", "002")
-      created_at: timestamp       # When feedback was created
+  references: [string]            # Context file paths (relative to .sow/)
+  feedback:
+    - id: string                  # Feedback number (001, 002, 003)
+      created_at: timestamp
       status: string              # pending | addressed | superseded
-
-  # Files modified (auto-populated by worker)
-  files_modified: array[string]   # Paths to files changed during task
+  files_modified: [string]        # Files changed during task (auto-populated)
 ```
+
+### Field Descriptions
+
+**iteration**: Tracks attempt number. Incremented by orchestrator before spawning worker. Constructs agent ID: `{assigned_agent}-{iteration}`.
+
+**references**: Paths relative to `.sow/` root. Orchestrator compiles this list during context compilation. Worker reads all referenced files at startup.
+
+**feedback**: Human corrections. Worker addresses all pending feedback on next iteration. Status changes from pending to addressed when incorporated.
+
+**files_modified**: Auto-populated by worker using `sow log` command. Tracks complete list of files changed during task execution.
 
 ### Complete Example
 
 ```yaml
 task:
   id: "020"
-  name: Create JWT service
-  phase: implement
+  name: Implement JWT service
+  phase: implementation
   status: in_progress
-
-  created_at: 2025-10-12T15:25:00Z
-  started_at: 2025-10-12T15:30:00Z
-  updated_at: 2025-10-12T16:45:00Z
+  created_at: "2025-10-14T13:15:00Z"
+  started_at: "2025-10-14T13:20:00Z"
+  updated_at: "2025-10-14T14:45:00Z"
   completed_at: null
-
   iteration: 3
-  assigned_agent: implementer
-
   references:
-    - sinks/python-style/conventions.md
-    - sinks/api-conventions/rest-standards.md
-    - knowledge/architecture/auth-design.md
-    - repos/shared-library/src/crypto/jwt.py
-
+    - refs/python-style/conventions.md
+    - refs/api-standards/rest-standards.md
+    - knowledge/adrs/001-use-jwt-rs256.md
   feedback:
     - id: "001"
-      created_at: 2025-10-12T16:30:00Z
+      created_at: "2025-10-14T14:30:00Z"
       status: addressed
     - id: "002"
-      created_at: 2025-10-12T17:15:00Z
+      created_at: "2025-10-14T15:15:00Z"
       status: pending
-
   files_modified:
     - src/auth/jwt.py
     - tests/test_jwt.py
     - requirements.txt
 ```
 
-### Field Descriptions
-
-**iteration**: Tracks attempt number. Incremented by orchestrator before spawning new worker. Used to construct agent ID: `{assigned_agent}-{iteration}` (e.g., `implementer-3`).
-
-**references**: Paths relative to `.sow/` root. Orchestrator compiles this list. Worker reads all referenced files at startup.
-
-**feedback[].status**:
-- `pending` - Not yet addressed by worker
-- `addressed` - Worker has incorporated feedback
-- `superseded` - No longer relevant (newer feedback replaces)
-
-**files_modified**: Auto-populated by worker. Helps track changes and impacts.
-
 ---
 
-## Task Description Format
+## Refs Index Schemas
 
-**File**: `.sow/project/phases/<phase>/tasks/<id>/description.md`
+### Committed Index
 
-**Purpose**: Focused task description with requirements and acceptance criteria.
+**File**: `.sow/refs/index.json`
 
-### Format
+**Purpose**: Categorical metadata about remote refs shared across team via git.
 
-```markdown
-## Task: <Task Name>
-
-<Brief description of what needs to be done>
-
-### Requirements
-
-- Requirement 1
-- Requirement 2
-- ...
-
-### Acceptance Criteria
-
-- [ ] Criterion 1
-- [ ] Criterion 2
-- ...
-
-### Context Notes
-
-<Any additional context, references, or guidance>
+```json
+{
+  "version": "1.0.0",
+  "refs": [
+    {
+      "id": "string",               // Unique identifier
+      "type": "knowledge|code",     // Reference type
+      "source": "string",           // Git URL
+      "branch": "string",           // Branch name
+      "paths": [
+        {
+          "path": "string",         // Subpath within repo
+          "link": "string",         // Symlink name in .sow/refs/
+          "tags": ["string"],       // Topic keywords
+          "description": "string",  // One-sentence summary
+          "summary": "string"       // 2-3 sentence description
+        }
+      ]
+    }
+  ]
+}
 ```
 
-### Complete Example
+### Cache Index
 
-```markdown
-## Task: Create JWT Service
+**File**: `~/.cache/sow/index.json`
 
-Create a JWT token generation and validation service following our API conventions.
+**Purpose**: Transient metadata about cached repos (per-machine, not committed).
 
-### Requirements
-
-- Token expiration: 1 hour
-- Refresh token: 7 days
-- Use RS256 algorithm (asymmetric)
-- Include user ID and role in payload
-- Support token refresh without re-authentication
-- Handle expired tokens gracefully
-
-### Acceptance Criteria
-
-- [ ] Generate access and refresh tokens
-- [ ] Validate token signature
-- [ ] Handle expired tokens gracefully
-- [ ] Extract claims from valid tokens
-- [ ] Unit tests with >90% coverage
-- [ ] Integration tests for token refresh flow
-
-### Context Notes
-
-- Reference the shared JWT library in `shared-library` repo for patterns
-- Follow Python conventions in our style guide
-- Auth flow design is documented in `knowledge/architecture/auth-design.md`
-- Use environment variables for key loading (keys managed via Vault)
-- See security guidelines for JWT best practices
+```json
+{
+  "version": "1.0.0",
+  "repos": [
+    {
+      "source": "string",           // Git URL
+      "branch": "string",           // Branch name
+      "cached_path": "string",      // Relative path in cache
+      "commit_sha": "string",       // Current local SHA
+      "cached_at": "timestamp",     // Initial cache timestamp
+      "last_checked": "timestamp",  // Last staleness check
+      "last_updated": "timestamp",  // Last fetch/pull
+      "status": "string",           // current | behind | ahead | diverged | error
+      "commits_behind": "int|null", // Number behind remote
+      "remote_sha": "string",       // Latest remote SHA
+      "used_by": [
+        {
+          "repo_path": "string",    // Absolute path to consuming repo
+          "link_type": "string",    // symlink | copy
+          "paths": ["string"]       // Subpaths used
+        }
+      ]
+    }
+  ]
+}
 ```
 
-### Guidelines
+### Local Index
 
-- **Be specific**: Clear requirements prevent ambiguity
-- **Actionable criteria**: Worker can verify each item
-- **Provide context**: References to relevant docs/code
-- **Keep focused**: One clear task, not multiple concerns
+**File**: `.sow/refs/index.local.json`
 
----
+**Purpose**: Local-only references not shared with team (gitignored).
 
-## Task Log Format
-
-**File**: `.sow/project/phases/<phase>/tasks/<id>/log.md`
-
-**Purpose**: Chronological record of all actions taken during task execution.
-
-### Format
-
-Each log entry uses structured markdown:
-
-```markdown
-### <Timestamp: YYYY-MM-DD HH:MM:SS>
-
-**Agent**: <agent-id>
-**Action**: <action-type>
-**Files**: (optional)
-  - <file1>
-  - <file2>
-**Result**: <success | error | partial>
-
-<Free-form description/notes>
-
----
+```json
+{
+  "version": "1.0.0",
+  "refs": [
+    {
+      "id": "string",
+      "type": "knowledge|code",
+      "source": "file:///path",     // file:// protocol for local paths
+      "link": "string",
+      "tags": ["string"],
+      "description": "string",
+      "summary": "string"
+    }
+  ]
+}
 ```
 
-### Complete Example
-
-```markdown
-# Task Log
-
-Chronological record of all actions taken during this task.
+**See Also**: [REFS.md](./REFS.md) for complete refs system documentation.
 
 ---
 
-### 2025-10-12 15:30:42
+## Accessing and Validating Schemas
 
-**Agent**: implementer-3
-**Action**: started_task
-**Result**: success
-
-Started implementing JWT service. Reviewed requirements and acceptance criteria.
-
----
-
-### 2025-10-12 15:35:18
-
-**Agent**: implementer-3
-**Action**: created_file
-**Files**:
-  - src/auth/jwt.py
-  - tests/test_jwt.py
-**Result**: success
-
-Created initial JWT service file with class structure and method stubs. Created test file with skeleton test cases.
-
----
-
-### 2025-10-12 15:42:03
-
-**Agent**: implementer-3
-**Action**: implementation_attempt
-**Files**:
-  - src/auth/jwt.py
-  - requirements.txt
-**Result**: error
-
-Attempted to implement token generation. Encountered import error with cryptography library. Added dependency to requirements.txt.
-
----
-
-### 2025-10-12 15:48:15
-
-**Agent**: implementer-3
-**Action**: modified_file
-**Files**:
-  - src/auth/jwt.py
-  - tests/test_jwt.py
-**Result**: success
-
-Fixed import issue. Implemented generate_token() and validate_token() methods using RS256 algorithm. Updated tests.
-
----
-
-### 2025-10-12 15:55:30
-
-**Agent**: implementer-3
-**Action**: test_run
-**Files**:
-  - tests/test_jwt.py
-**Result**: success
-
-Ran unit tests. All 12 tests passing. Coverage: 95%.
-
----
-
-### 2025-10-12 16:00:00
-
-**Agent**: implementer-3
-**Action**: completed_task
-**Result**: success
-
-JWT service implementation complete. All acceptance criteria met.
-
----
-```
-
-### Action Vocabulary
-
-Standard action types (extensible):
-
-| Action | When to Use |
-|--------|-------------|
-| `started_task` | Beginning work |
-| `created_file` | New file created |
-| `modified_file` | Existing file changed |
-| `deleted_file` | File removed |
-| `implementation_attempt` | Attempted implementation |
-| `test_run` | Ran tests |
-| `refactor` | Code refactoring |
-| `debugging` | Debugging session |
-| `research` | Investigation/research |
-| `completed_task` | Task finished |
-| `paused_task` | Paused for feedback |
-
-### CLI Generation
-
-Workers use CLI to generate log entries:
+### View Schemas
 
 ```bash
-sow log \
-  --file src/auth/jwt.py \
-  --action modified_file \
-  --result success \
-  "Implemented token generation with RS256"
+# List all available schemas
+sow schema list
+
+# View project state schema
+sow schema show project
+
+# View task state schema
+sow schema show task
+
+# Export schema to file
+sow schema export project > project-schema.cue
 ```
 
-CLI auto-constructs agent ID and timestamp.
+### Validate Files
 
----
+```bash
+# Validate project state
+sow schema validate project .sow/project/state.yaml
 
-## Sink Index Schema
+# Validate task state
+sow schema validate task .sow/project/phases/implementation/tasks/010/state.yaml
 
-**Source of Truth**: CUE schema embedded in sow CLI (`sow schema show sinks-index`). This documentation provides human-readable reference.
-
-**File**: `.sow/sinks/index.json`
-
-**Purpose**: LLM-maintained catalog of installed sinks with metadata for agent discovery.
-
-### Schema
-
-```json
-{
-  "sinks": [
-    {
-      "name": "string",           // Sink identifier (kebab-case)
-      "path": "string",           // Relative path from .sow/sinks/
-      "description": "string",    // Human-readable description
-      "topics": ["string"],       // Topics covered
-      "when_to_use": "string",    // Guidance for when to reference
-      "version": "string",        // Version or git ref
-      "source": "string",         // Git URL or path
-      "updated_at": "timestamp"   // ISO 8601
-    }
-  ]
-}
+# Validate refs index
+sow schema validate refs-index .sow/refs/index.json
 ```
 
-### Complete Example
+### Error Messages
 
-```json
-{
-  "sinks": [
-    {
-      "name": "python-style",
-      "path": "python-style",
-      "description": "Python code style, formatting conventions, and testing standards",
-      "topics": ["formatting", "naming", "testing", "imports", "docstrings"],
-      "when_to_use": "When writing or reviewing Python code",
-      "version": "v1.2.0",
-      "source": "https://github.com/your-org/python-style-guide",
-      "updated_at": "2025-10-12T14:00:00Z"
-    },
-    {
-      "name": "api-conventions",
-      "path": "api-conventions",
-      "description": "REST and GraphQL API design standards and best practices",
-      "topics": ["endpoints", "errors", "versioning", "graphql", "authentication"],
-      "when_to_use": "When designing or implementing APIs",
-      "version": "v2.4.0",
-      "source": "https://github.com/your-org/api-standards",
-      "updated_at": "2025-10-12T15:30:00Z"
-    },
-    {
-      "name": "deployment-guide",
-      "path": "deployment-guide",
-      "description": "Kubernetes deployment configurations and CI/CD workflows",
-      "topics": ["kubernetes", "ci-cd", "docker", "deployment", "monitoring"],
-      "when_to_use": "When preparing deployments or writing CI/CD configs",
-      "version": "v1.1.0",
-      "source": "https://github.com/your-org/deployment-standards",
-      "updated_at": "2025-10-12T16:00:00Z"
-    }
-  ]
-}
-```
-
-### Usage
-
-**Orchestrator reads index** to determine relevant sinks for tasks.
-
-**Example**: Task requires Python code
-- Orchestrator finds `python-style` via `topics: ["formatting", ...]` and `when_to_use`
-- Adds `sinks/python-style/conventions.md` to task references
-
----
-
-## Repository Index Schema
-
-**Source of Truth**: CUE schema embedded in sow CLI (`sow schema show repos-index`). This documentation provides human-readable reference.
-
-**File**: `.sow/repos/index.json`
-
-**Purpose**: References to linked repositories for cross-repo context.
-
-### Schema
-
-```json
-{
-  "repositories": [
-    {
-      "name": "string",           // Repository identifier (kebab-case)
-      "path": "string",           // Relative path from .sow/repos/
-      "source": "string",         // Git URL or local path
-      "purpose": "string",        // Why this repo is linked
-      "type": "string",           // clone | symlink
-      "branch": "string",         // Branch/ref (optional)
-      "updated_at": "timestamp"   // ISO 8601
-    }
-  ]
-}
-```
-
-### Complete Example
-
-```json
-{
-  "repositories": [
-    {
-      "name": "auth-service",
-      "path": "auth-service",
-      "source": "https://github.com/your-org/auth-service",
-      "purpose": "Reference authentication implementation patterns and middleware",
-      "type": "clone",
-      "branch": "main",
-      "updated_at": "2025-10-12T14:00:00Z"
-    },
-    {
-      "name": "shared-library",
-      "path": "shared-library",
-      "source": "/Users/you/code/shared-library",
-      "purpose": "Shared cryptography and utility functions",
-      "type": "symlink",
-      "branch": null,
-      "updated_at": "2025-10-12T14:00:00Z"
-    }
-  ]
-}
-```
-
-### Type Values
-
-- `clone` - Repository cloned to `.sow/repos/<name>/`
-- `symlink` - Symlink to local repository
-
----
-
-## Version File Schema
-
-**Source of Truth**: CUE schema embedded in sow CLI (`sow schema show version`). This documentation provides human-readable reference.
-
-**File**: `.sow/.version`
-
-**Purpose**: Track structure version and migration history.
-
-### Schema
-
-```yaml
-sow_structure_version: string     # Structure version (semantic)
-plugin_version: string            # Plugin version used
-last_migrated: timestamp          # ISO 8601 (last migration)
-initialized: timestamp            # ISO 8601 (first init)
-```
-
-### Complete Example
-
-```yaml
-sow_structure_version: 0.2.0
-plugin_version: 0.2.0
-last_migrated: 2025-10-12T16:30:00Z
-initialized: 2025-10-12T14:00:00Z
-```
-
-### Usage
-
-- Created by `/init`
-- Updated by `/migrate`
-- Read by SessionStart hook for version checking
-- Committed to git
-
----
-
-## Plugin Metadata Schema
-
-**File**: `.claude-plugin/plugin.json`
-
-**Purpose**: Plugin metadata for distribution via Claude Code marketplace.
-
-### Schema
-
-```json
-{
-  "name": "string",               // Plugin identifier (kebab-case, required)
-  "version": "string",            // Semantic version (required)
-  "description": "string",        // Short description (required)
-  "author": {                     // Author info (required)
-    "name": "string",
-    "email": "string"
-  },
-  "homepage": "string",           // Homepage URL (optional)
-  "repository": "string",         // Git repo URL (optional)
-  "license": "string",            // License identifier (optional)
-  "keywords": ["string"],         // Search keywords (optional)
-  "engines": {                    // Requirements (optional)
-    "claude-code": "string"       // Min version (e.g., ">=1.0.0")
-  }
-}
-```
-
-### Complete Example
-
-```json
-{
-  "name": "sow",
-  "version": "0.2.0",
-  "description": "AI-powered system of work for software engineering",
-  "author": {
-    "name": "sow contributors",
-    "email": "maintainers@example.com"
-  },
-  "homepage": "https://github.com/your-org/sow",
-  "repository": "https://github.com/your-org/sow",
-  "license": "MIT",
-  "keywords": ["productivity", "workflow", "agents", "project-management"],
-  "engines": {
-    "claude-code": ">=1.0.0"
-  }
-}
-```
-
----
-
-## Hooks Configuration Schema
-
-**File**: `hooks.json`
-
-**Purpose**: Configure event-driven hooks for automation.
-
-### Schema
-
-```json
-{
-  "<HookEventName>": {
-    "matcher": "string",          // Pattern to match (* for all)
-    "command": "string"           // Shell command to execute
-  }
-}
-```
-
-### Complete Example
-
-```json
-{
-  "SessionStart": {
-    "matcher": "*",
-    "command": "sow session-info"
-  },
-  "PostToolUse": {
-    "matcher": "Edit",
-    "command": "prettier --write $FILE"
-  },
-  "PreToolUse": {
-    "matcher": "Write",
-    "command": "check-permissions.sh $FILE"
-  },
-  "PreCompact": {
-    "matcher": "*",
-    "command": "sow save-context"
-  }
-}
-```
-
-### Available Hooks
-
-- `SessionStart` - Session starts
-- `SessionEnd` - Session ends
-- `PreToolUse` - Before tool execution
-- `PostToolUse` - After tool execution
-- `UserPromptSubmit` - User submits prompt
-- `Notification` - Notification shown
-- `Stop` - Execution stops
-- `SubagentStop` - Subagent stops
-- `PreCompact` - Before context compaction
-
----
-
-## MCP Configuration Schema
-
-**File**: `mcp.json`
-
-**Purpose**: Configure Model Context Protocol server integrations.
-
-### Schema
-
-```json
-{
-  "mcpServers": {
-    "<server-name>": {
-      "transport": "string",      // http | stdio
-      "url": "string",            // HTTP URL (for http transport)
-      "command": "string",        // Command (for stdio transport)
-      "args": ["string"],         // Args (for stdio transport)
-      "headers": {                // HTTP headers (optional)
-        "string": "string"
-      }
-    }
-  }
-}
-```
-
-### Complete Example
-
-```json
-{
-  "mcpServers": {
-    "github": {
-      "transport": "http",
-      "url": "https://api.github.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${GITHUB_TOKEN}"
-      }
-    },
-    "jira": {
-      "transport": "http",
-      "url": "https://your-domain.atlassian.net/mcp",
-      "headers": {
-        "Authorization": "Bearer ${JIRA_TOKEN}"
-      }
-    },
-    "git-local": {
-      "transport": "stdio",
-      "command": "node",
-      "args": ["/path/to/git-mcp-server/index.js"]
-    }
-  }
-}
-```
-
-### Transport Types
-
-**http**: Remote HTTP-based MCP server
-- Requires `url`
-- Optional `headers` for authentication
-
-**stdio**: Local process-based MCP server
-- Requires `command` and `args`
-- Server runs as subprocess
+Invalid files rejected with detailed messages indicating: which field violated constraint, expected value or type, actual value found, line number in source file (when possible).
 
 ---
 
 ## Related Documentation
 
-- **[PROJECT_MANAGEMENT.md](./PROJECT_MANAGEMENT.md)** - Project lifecycle and state management
-- **[USER_GUIDE.md](./USER_GUIDE.md)** - Day-to-day usage
-- **[COMMANDS_AND_SKILLS.md](./COMMANDS_AND_SKILLS.md)** - Commands and workflows
-- **[HOOKS_AND_INTEGRATIONS.md](./HOOKS_AND_INTEGRATIONS.md)** - Hooks and MCP integrations
-- **[DISTRIBUTION.md](./DISTRIBUTION.md)** - Plugin packaging and versioning
-- **[CLI_REFERENCE.md](./CLI_REFERENCE.md)** - CLI commands
-- **[FILE_STRUCTURE.md](./FILE_STRUCTURE.md)** - Directory layout
+- **[PROJECT_LIFECYCLE.md](./PROJECT_LIFECYCLE.md)** - 5-phase model and lifecycle
+- **[PHASES/](./PHASES/)** - Individual phase specifications
+- **[TASK_MANAGEMENT.md](./TASK_MANAGEMENT.md)** - Task structure
+- **[REFS.md](./REFS.md)** - External references system
+- **[LOGGING_AND_STATE.md](./LOGGING_AND_STATE.md)** - State file management
+- **[FILE_STRUCTURE.md](./FILE_STRUCTURE.md)** - Directory organization
+- **[CLI_REFERENCE.md](./CLI_REFERENCE.md)** - sow schema commands
