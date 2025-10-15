@@ -1,18 +1,20 @@
 # System of Work (sow) - Overview
 
-**Last Updated**: 2025-10-12
-**Status**: Comprehensive Architecture Documentation
+**Last Updated**: 2025-10-15
+**Status**: Architecture Documentation v2
 
 ---
 
 ## What is sow?
 
-`sow` (system of work) is an AI-powered framework for software engineering that provides a structured, opinionated approach to building software with AI assistance. It leverages Claude Code's capabilities to create a unified development experience across projects through:
+`sow` is an AI-powered framework for structured software development. It coordinates specialized AI agents through a 5-phase workflow where humans lead planning and AI executes implementation.
 
-- **Multi-agent orchestration** - Specialized AI agents working together
-- **Progressive planning** - Adaptive project management that evolves with your work
-- **Knowledge integration** - Contextual information from multiple sources
-- **Zero-context resumability** - Pick up where you left off, anytime
+**Core capabilities:**
+- Structured 5-phase workflow (Discovery → Design → Implementation → Review → Finalize)
+- Human-AI collaboration with distinct modes (human-led planning, AI-autonomous execution)
+- Multi-agent orchestration with specialized workers
+- External knowledge integration from team repositories
+- Zero-context resumability from disk state
 
 ---
 
@@ -20,90 +22,47 @@
 
 ### Two-Layer Architecture
 
-`sow` separates behavior from state through a two-layer architecture:
+Execution layer (`.claude/`) contains AI agents, commands, and hooks distributed via plugin. Data layer (`.sow/`) contains project knowledge, external references, and work state.
 
-**Execution Layer** (`.claude/`)
-- AI agents and their behaviors
-- Slash commands and workflows
-- Hooks and automation
-- Distributed via Claude Code Plugin
-- Version-controlled and shared across teams
+**See**: [ARCHITECTURE.md](./ARCHITECTURE.md#two-layer-architecture)
 
-**Data Layer** (`.sow/`)
-- Project knowledge and documentation
-- Imported external knowledge (sinks)
-- Active work state (projects, tasks)
-- Mix of committed and git-ignored content
+### 5-Phase Lifecycle
 
-### Orchestrator + Worker Pattern
+Projects follow a fixed 5-phase lifecycle: Discovery (optional, human-led) → Design (optional, human-led) → Implementation (required, AI-autonomous) → Review (required, AI-autonomous) → Finalize (required, AI-autonomous). Phase selection determined by truth table with scoring rubrics.
 
-`sow` uses a multi-agent system to manage complexity:
+**See**: [PROJECT_LIFECYCLE.md](./PROJECT_LIFECYCLE.md), [PHASES/](./PHASES/)
 
-**Orchestrator**
-- Your main interface - the agent you interact with
-- Handles simple tasks directly
-- Coordinates complex work by delegating to specialists
-- Compiles relevant context for workers
-- Manages project state and progress
+### Multi-Agent System
 
-**Workers** (Specialists)
-- **Architect** - System design and architecture decisions
-- **Implementer** - Code implementation with TDD approach
-- **Integration Tester** - Cross-component and E2E testing
-- **Reviewer** - Code review and refactoring
-- **Documenter** - Documentation updates
+Orchestrator coordinates specialized workers (Researcher, Architect, Planner, Implementer, Reviewer, Documenter). Operates in subservient mode (phases 1-2) or autonomous mode (phases 3-5).
 
-Each worker receives only the context they need, avoiding information overload.
+**See**: [AGENTS.md](./AGENTS.md), [ARCHITECTURE.md](./ARCHITECTURE.md#multi-agent-system)
 
-### Progressive Planning
+### External References
 
-`sow` rejects waterfall planning in favor of adaptive discovery:
+External repositories containing knowledge or code that agents reference during work. Locally cached with automatic staleness detection.
 
-- Start with minimal structure (1-2 phases)
-- Add complexity as you discover needs
-- Human approval gates for significant changes
-- Fail-forward approach (add tasks, don't revert)
+**See**: [REFS.md](./REFS.md), [ARCHITECTURE.md](./ARCHITECTURE.md#external-references-system)
 
-### Phases
+### Single Project Per Branch
 
-Work is organized into phases that guide the type of activity:
+One active project per repository branch. Project state committed to feature branches, deleted before merge (CI enforced).
 
-1. **discovery** - Research and investigation
-2. **design** - Architecture and planning
-3. **implement** - Building features
-4. **test** - Integration and E2E testing
-5. **review** - Code quality improvements
-6. **deploy** - Deployment preparation
-7. **document** - Documentation updates
+**See**: [ARCHITECTURE.md](./ARCHITECTURE.md#single-project-constraint)
 
-Not every project uses all phases. Simple work might only use `implement` and `test`.
+### Zero-Context Resumability
 
-### Information Sinks
+Agents resume work from disk state without conversation history. All context stored in state files, logs, and feedback.
 
-Sinks are collections of markdown files providing focused knowledge:
+**See**: [ARCHITECTURE.md](./ARCHITECTURE.md#zero-context-resumability), [LOGGING_AND_STATE.md](./LOGGING_AND_STATE.md)
 
-- Style guides (language conventions)
-- API design standards
-- Deployment procedures
-- Security guidelines
-- Company policies
+---
 
-Sinks are:
-- Git-versioned repositories
-- Installed per-developer (git-ignored)
-- Indexed for agent discovery
-- Selectively loaded based on task context
+## Quick Start
 
-### One Project Per Branch
+Install the CLI and Claude Code plugin, initialize your repository with `sow init`, create a feature branch, and start a project with `/project:new`. The orchestrator guides you through phase selection and manages execution.
 
-`sow` enforces a strict constraint: **one active project per repository branch**
-
-- Each feature branch has its own project
-- Project state committed to feature branches
-- Deleted before merging (CI enforced)
-- Switch branches = switch project context (automatic via git)
-- Simplifies orchestrator logic
-- Natural cleanup workflow
+**See**: [USER_GUIDE.md](./USER_GUIDE.md) for installation instructions and detailed workflows
 
 ---
 
@@ -111,139 +70,20 @@ Sinks are:
 
 | Term | Definition |
 |------|------------|
-| **Orchestrator** | Main coordinating agent, user-facing |
-| **Worker** | Specialized agent (architect, implementer, etc.) |
-| **Phase** | Stage of work (discovery, design, implement, etc.) |
-| **Task** | Single unit of work within a phase |
-| **Sink** | External knowledge collection (style guides, procedures) |
+| **Orchestrator** | Main coordinating agent, user-facing, has subservient and autonomous modes |
+| **Worker** | Specialized agent (researcher, architect, implementer, planner, reviewer, documenter) |
+| **Phase** | Fixed stage of work (discovery, design, implementation, review, finalize) |
+| **Task** | Single unit of work within implementation phase |
+| **Ref** | External knowledge or code reference (replaces "sinks" and "repos") |
 | **Iteration** | Attempt counter for task completion |
 | **Gap numbering** | Task numbering with gaps (010, 020, 030) allowing insertions |
 | **Execution layer** | AI behavior (agents, commands, hooks) |
 | **Data layer** | Project knowledge and state |
-| **Progressive planning** | Start minimal, add structure as needed |
+| **Truth table** | Decision flow for determining which phases to enable |
+| **Rubric** | Scoring system for objective phase recommendations |
 | **Zero-context resumability** | Ability to resume work without conversation history |
-
----
-
-## Quick Start
-
-### Installation
-
-1. **Install Claude Code Plugin**
-   ```bash
-   /plugin install sow@sow-marketplace
-   ```
-
-2. **Restart Claude Code**
-   ```bash
-   exit
-   claude
-   ```
-
-3. **Initialize Your Repository**
-   ```bash
-   /init
-   ```
-
-### Your First Project
-
-1. **Create a feature branch**
-   ```bash
-   git checkout -b feat/my-feature
-   ```
-
-2. **Start a project**
-   ```
-   /start-project "Add new feature"
-   ```
-
-3. **Let the orchestrator work**
-   - It will assess complexity
-   - Create initial phases and tasks
-   - Start delegating to workers
-
-4. **Continue work**
-   ```
-   /continue
-   ```
-
-5. **Clean up before merging**
-   ```
-   /cleanup
-   ```
-
----
-
-## How It Works
-
-### Simple Tasks (One-Off)
-
-For quick changes, the orchestrator handles everything directly:
-
-```
-You: "Fix the typo in README.md line 42"
-
-Orchestrator:
-- Reads the file
-- Makes the edit
-- Done
-```
-
-No project structure needed.
-
-### Complex Tasks (Projects)
-
-For multi-step work, the orchestrator creates a project:
-
-```
-You: /start-project "Add authentication"
-
-Orchestrator:
-1. Assesses complexity → "moderate"
-2. Selects phases: design, implement, test
-3. Creates initial tasks with gap numbering:
-   - design/010: Design auth flow
-   - implement/010: Create User model
-   - implement/020: Create JWT service
-   - implement/030: Add login endpoint
-4. Assigns appropriate worker to each task
-5. Compiles context for first task
-6. Spawns architect worker
-
-Architect:
-- Reads requirements
-- Reviews relevant sinks (API conventions, security guidelines)
-- Creates design document
-- Logs work
-- Reports completion
-
-Orchestrator:
-- Updates project state
-- Moves to next task
-- Spawns implementer worker
-
-[Process continues...]
-```
-
-### Zero-Context Resumability
-
-Stop and resume anytime:
-
-```
-You: /continue
-
-Orchestrator:
-- Reads .sow/project/state.yaml
-- Sees task 020 is in_progress
-- Reads task log to understand what's been tried
-- Reads any feedback you've provided
-- Compiles fresh context
-- Spawns worker to continue
-
-Worker:
-- Picks up exactly where previous attempt left off
-- No conversation history needed
-```
+| **Subservient mode** | Orchestrator acts as assistant, human leads (discovery/design) |
+| **Autonomous mode** | Orchestrator executes independently (implementation/review/finalize) |
 
 ---
 
@@ -252,170 +92,93 @@ Worker:
 ### Understanding the System
 
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Design decisions, patterns, and architectural philosophy
+- **[PROJECT_LIFECYCLE.md](./PROJECT_LIFECYCLE.md)** - The 5-phase model, truth table, and rubrics
 - **[FILE_STRUCTURE.md](./FILE_STRUCTURE.md)** - Complete directory layout and organization
 
-### Implementing and Configuring
+### Phase Details
 
-- **[AGENTS.md](./AGENTS.md)** - Agent system, roles, and coordination
-- **[COMMANDS_AND_SKILLS.md](./COMMANDS_AND_SKILLS.md)** - Available slash commands and agent skills
-- **[HOOKS_AND_INTEGRATIONS.md](./HOOKS_AND_INTEGRATIONS.md)** - Event automation and external integrations
+- **[PHASES/DISCOVERY.md](./PHASES/DISCOVERY.md)** - Research and investigation phase
+- **[PHASES/DESIGN.md](./PHASES/DESIGN.md)** - Architecture and planning phase
+- **[PHASES/IMPLEMENTATION.md](./PHASES/IMPLEMENTATION.md)** - Building features phase
+- **[PHASES/REVIEW.md](./PHASES/REVIEW.md)** - Quality validation phase
+- **[PHASES/FINALIZE.md](./PHASES/FINALIZE.md)** - Cleanup and PR creation phase
 
-### Using sow
+### System Components
 
-- **[USER_GUIDE.md](./USER_GUIDE.md)** - Day-to-day workflows and best practices
-- **[PROJECT_MANAGEMENT.md](./PROJECT_MANAGEMENT.md)** - Project lifecycle, phases, tasks, and logging
-
-### Publishing and Maintaining
-
-- **[DISTRIBUTION.md](./DISTRIBUTION.md)** - Packaging, versioning, and upgrade workflows
+- **[AGENTS.md](./AGENTS.md)** - Multi-agent system, roles, and coordination
+- **[REFS.md](./REFS.md)** - External references system (knowledge and code)
+- **[TASK_MANAGEMENT.md](./TASK_MANAGEMENT.md)** - Task structure, states, and execution
+- **[FEEDBACK.md](./FEEDBACK.md)** - Human feedback and correction system
+- **[LOGGING_AND_STATE.md](./LOGGING_AND_STATE.md)** - Logging and state management
 
 ### Reference
 
-- **[SCHEMAS.md](./SCHEMAS.md)** - File format specifications
+- **[SCHEMAS.md](./SCHEMAS.md)** - File format specifications (CUE schemas)
 - **[CLI_REFERENCE.md](./CLI_REFERENCE.md)** - CLI command documentation
-- **[../research/CLAUDE_CODE.md](../research/CLAUDE_CODE.md)** - Claude Code feature reference
+- **[USER_GUIDE.md](./USER_GUIDE.md)** - Day-to-day workflows and best practices
 
 ---
 
 ## Design Philosophy
 
+### Human-AI Collaboration
+
+Humans excel at setting constraints, architectural judgment, and scoping. AI excels at execution within boundaries and systematic implementation. The 5-phase model reflects this: phases 1-2 are human-led (Discovery, Design), phases 3-5 are AI-autonomous (Implementation, Review, Finalize).
+
+### Progressive Over Waterfall
+
+Start with minimal phases and add dynamically when needed. Use fail-forward approach (add tasks, don't revert). Human approval required for significant changes.
+
 ### Opinionated but Flexible
 
-`sow` has strong opinions about structure:
-- One project per branch (enforced)
-- Specific phase vocabulary
-- Structured logging format
-- Multi-agent architecture
+Strong opinions on structure: 5 fixed phases, one project per branch, specific logging format, multi-agent architecture. Flexible on phase selection, extensibility through plugins, and customizable knowledge via refs.
 
-But remains flexible where it matters:
-- Progressive planning (not waterfall)
-- Extensible through plugins
-- Customizable knowledge (sinks)
-- Optional CLI enhancements
+### Scope
 
-### Pit of Success
-
-`sow` guides users into good patterns:
-- Can't create projects on main branch
-- Must clean up before merging (CI enforced)
-- Automatic context management
-- Structured feedback mechanism
-
-### Not a Replacement
-
-`sow` complements existing tools, doesn't replace them:
-- **Not replacing**: JIRA, Linear, GitHub Issues
-- **Not replacing**: Sprint planning, roadmaps
-- **Not replacing**: Team communication tools
-
-`sow` is for:
-- Active work coordination
-- AI agent orchestration
-- Short-term execution (hours to days)
+`sow` coordinates active work (hours to days) with AI orchestration. It complements but does not replace project management tools (JIRA, Linear) or long-term planning systems (roadmaps, sprints).
 
 ---
 
 ## Common Workflows
 
-### Starting Work
+**Starting**: Create feature branch, run `/project:new`, answer truth table questions, approve recommended phase plan.
 
-```bash
-# Create feature branch
-git checkout -b feat/add-auth
+**Resuming**: Switch to feature branch, run `/project:continue`. Orchestrator reads disk state and continues work.
 
-# Start project
-/start-project "Add authentication"
+**Feedback**: Provide corrections during any phase. Orchestrator creates feedback file, increments iteration counter, and spawns worker with updated context.
 
-# Orchestrator plans and begins work
-```
+**External References**: Add knowledge or code refs via `sow refs add`. Agents automatically consult refs during work.
 
-### Resuming Work
-
-```bash
-# Switch to feature branch
-git checkout feat/add-auth
-
-# Resume
-/continue
-
-# Orchestrator picks up where you left off
-```
-
-### Providing Feedback
-
-```
-You: "The JWT service should use RS256, not HS256"
-
-Orchestrator:
-- Creates feedback/001.md for current task
-- Increments iteration counter
-- Spawns worker with feedback context
-
-Worker:
-- Reads all feedback
-- Incorporates changes
-- Marks feedback as addressed
-```
-
-### Completing Work
-
-```bash
-# All tasks complete
-/cleanup
-
-# Orchestrator deletes .sow/project/, stages deletion
-# Commit the cleanup
-git commit -m "chore: cleanup sow project state"
-
-# Create PR and merge
-# CI verifies no .sow/project/ exists
-```
+**Completing**: Finalize phase updates documentation, runs checks, creates PR, and deletes project folder. CI enforces cleanup before merge.
 
 ---
 
 ## Benefits
 
-### For Developers
+**For Developers**: Structured workflow with phase boundaries, zero-context resumability, specialized agent expertise, human control over planning with AI execution.
 
-- **Consistent experience** across projects
-- **Clear structure** for complex work
-- **Resume anytime** without losing context
-- **Specialized expertise** via worker agents
-- **Progressive discovery** instead of upfront planning
+**For Teams**: Shared conventions via committed execution layer, centralized knowledge via refs, collaboration through branch-based project state, mandatory quality gates, consistent AI behavior.
 
-### For Teams
-
-- **Shared conventions** via committed execution layer
-- **Knowledge sharing** via sinks
-- **Collaboration** through committed project state on branches
-- **Quality gates** through agent specialization
-- **Reduced onboarding** with standardized structure
-
-### For AI Agents
-
-- **Focused context** - workers receive only relevant information
-- **Clear roles** - each agent has specific expertise
-- **Structured state** - can resume without conversation history
-- **Fail-forward** - can adapt to discoveries and changes
-- **Audit trails** - logs track all actions
+**For AI Agents**: Focused context per worker, clear role boundaries, structured state for resumption, mode-based behavior (subservient/autonomous), comprehensive audit trails.
 
 ---
 
 ## Next Steps
 
 1. **Learn the architecture** → Read [ARCHITECTURE.md](./ARCHITECTURE.md)
-2. **Install and try it** → Follow [USER_GUIDE.md](./USER_GUIDE.md)
-3. **Understand projects** → Review [PROJECT_MANAGEMENT.md](./PROJECT_MANAGEMENT.md)
-4. **Explore customization** → Check [HOOKS_AND_INTEGRATIONS.md](./HOOKS_AND_INTEGRATIONS.md)
+2. **Understand the lifecycle** → Read [PROJECT_LIFECYCLE.md](./PROJECT_LIFECYCLE.md)
+3. **Install and try it** → Follow [USER_GUIDE.md](./USER_GUIDE.md)
+4. **Explore phases** → Review [PHASES/](./PHASES/) directory
+5. **Set up refs** → Check [REFS.md](./REFS.md)
 
 ---
 
 ## Project Status
 
-This documentation represents the comprehensive design for `sow` based on extensive discovery sessions. Implementation is in progress.
+This documentation represents the comprehensive design for `sow` v2 with the 5-phase human-AI collaboration model.
 
-**Current State**: Architecture design complete, implementation pending
+**Current State**: Architecture design complete, implementation in progress
 
-**Repository**: https://github.com/your-org/sow (placeholder)
+**Repository**: https://github.com/your-org/sow
 
 **Feedback**: Issues and discussions welcome

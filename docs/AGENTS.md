@@ -1,410 +1,179 @@
 # sow Agent System
 
-**Last Updated**: 2025-10-12
-**Purpose**: Comprehensive documentation of the multi-agent system
+**Last Updated**: 2025-10-15
+**Purpose**: Multi-agent system, roles, and coordination
 
-This document describes how `sow` uses multiple specialized AI agents to coordinate software development work.
+This document describes how `sow` uses multiple specialized AI agents to coordinate software development work through a hierarchical orchestrator-worker pattern.
 
 ---
 
 ## Table of Contents
 
-- [Agent System Overview](#agent-system-overview)
-- [Orchestrator](#orchestrator)
+- [Architecture Overview](#architecture-overview)
+- [Orchestrator Agent](#orchestrator-agent)
 - [Worker Agents](#worker-agents)
-- [Agent File Format](#agent-file-format)
-- [Task-Level Assignment](#task-level-assignment)
 - [Context Compilation](#context-compilation)
 - [Agent Coordination](#agent-coordination)
-- [Orchestrator System Prompt](#orchestrator-system-prompt)
+- [Agent File Format](#agent-file-format)
+- [Related Documentation](#related-documentation)
 
 ---
 
-## Agent System Overview
+## Architecture Overview
 
-### Architecture
+### Hierarchical Pattern
 
-`sow` uses a hierarchical multi-agent system:
-
-```
-              ┌──────────────┐
-              │ Orchestrator │ ← User interacts here
-              │  (Main Agent)│    (Active Claude Code session)
-              └──────┬───────┘
-                     │
-        ┌────────────┼────────────┬──────────┬──────────┐
-        ↓            ↓            ↓          ↓          ↓
-  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌─────────┐ ┌──────────┐
-  │Architect │ │Implementer│ │Integration│ │Reviewer │ │Documenter│
-  │          │ │           │ │  Tester   │ │         │ │          │
-  └──────────┘ └──────────┘ └──────────┘ └─────────┘ └──────────┘
-       (Specialized workers with focused expertise)
-```
+Orchestrator coordinates specialized workers. Users interact with orchestrator. Workers spawned by orchestrator using Task tool. Workers report back to orchestrator. Clear separation: coordination vs execution.
 
 ### Key Principles
 
-**One Orchestrator**
-- User-facing agent
-- Main Claude Code session
-- Visible to user (not background)
-- Coordinates all work
+**One Orchestrator**: User-facing agent (main Claude Code session visible to user), coordinates all work, manages project state, switches modes based on phase.
 
-**Multiple Workers**
-- Spawned by orchestrator (using Task tool)
-- Specialist expertise
-- Separate context windows
-- Report back to orchestrator
+**Multiple Workers**: Spawned by orchestrator, specialist expertise, separate context windows, receive curated context, report results back.
 
-**Explicit Delegation**
-- Orchestrator assigns tasks to specific agents
-- No automatic delegation
-- Agent type stored in task state.yaml
-- Predictable, auditable workflow
+**Explicit Delegation**: Orchestrator assigns tasks to specific agents, agent type stored in task state, predictable auditable workflow.
 
 ---
 
-## Orchestrator
+## Orchestrator Agent
 
 ### Role
 
-The orchestrator is your main interface to `sow`. It's the agent you see and interact with directly.
+Main interface to `sow`. Agent users see and interact with directly. Mode switches based on active phase.
 
-### Two Modes
+### Two Operating Modes
 
-**Mode 1: Direct Execution (One-Off Tasks)**
+**Subservient Mode** (Discovery, Design phases): Acts as assistant, human leads. Asks questions, points out inconsistencies, helps brainstorm, makes suggestions, takes notes continuously, logs conversation. Never makes unilateral decisions. Waits for approval before advancing phases.
 
-For simple, trivial tasks:
-```
-You: "Fix the typo in README.md line 42"
+**Autonomous Mode** (Implementation, Review, Finalize phases): Executes independently within boundaries. Makes implementation decisions within constraints, updates state automatically, spawns workers without approval. Requests approval only for adding new tasks, going back to previous phases, or blocking issues.
 
-Orchestrator:
-- Handles directly (no project needed)
-- Reads file
-- Makes edit
-- Done
-```
+### Responsibilities by Mode
 
-**Mode 2: Project Coordination (Complex Work)**
+**Subservient Mode**: Check for existing project and prompt continuation, ask clarifying questions, facilitate design alignment, synthesize conversation into notes, spawn specialist workers when requested (researcher for discovery, architect for design), log all conversations chronologically, request human approval for phase transitions.
 
-For multi-step, non-trivial work:
-```
-You: /start-project "Add authentication"
+**Autonomous Mode**: Read project state and identify next action, compile context for workers, spawn workers with curated context (planner for large task breakdowns, implementer for coding, reviewer for validation, documenter for documentation), update project state after worker completion, mark tasks completed, manage task iteration counters, handle fail-forward task additions (with approval), coordinate phase transitions.
 
-Orchestrator:
-- Creates project structure
-- Plans phases and tasks
-- Delegates to workers
-- Coordinates completion
-```
+**Trivial Tasks**: Handle directly without project structure (typo fixes, simple edits). Exception to delegation pattern for efficiency.
 
-### Responsibilities
+### Context Compilation Responsibility
 
-**Startup Behavior**:
-1. Check if `.sow/project/` exists
-2. If exists: Prompt user to continue
-3. If not: Ask what user wants to work on
-4. Determine mode: one-off vs. project
+Orchestrator acts as context compiler: reads project requirements, refs index, knowledge documents, and task descriptions; filters for task-relevant content; packages into task description with file references in state; workers receive minimal targeted context.
 
-**For One-Off Tasks**:
-- Handle directly
-- Write code
-- Make edits
-- No project overhead
-
-**For Projects**:
-- Read project state (`.sow/project/state.yaml`)
-- Compile context from sinks, knowledge, repos
-- Decompose work into tasks
-- Assign appropriate worker for each task
-- Spawn workers with curated context
-- Update project state
-- Request phase changes (with human approval)
-- Manage completion and cleanup
-
-**Does NOT**:
-- Write production code for projects (delegates to implementer)
-- Perform deep research for projects (delegates to appropriate worker)
-- Handle all testing (delegates to integration-tester)
-
-**Exception**: Handles trivial tasks directly without creating projects
-
-### Tools
-
-- Read, Write, Edit (for one-off tasks)
-- Grep, Glob (for exploration)
-- Bash (for git, builds, tests)
-- Task (for spawning workers)
-
-**See Also**: [Orchestrator System Prompt](#orchestrator-system-prompt) below
+**See Also**: [Context Compilation](#context-compilation)
 
 ---
 
 ## Worker Agents
 
-### Roster
+### Agent Roster
 
-`sow` includes 5 specialized worker agents:
+Six specialized worker agents with focused expertise.
 
-#### 1. Architect
+#### Researcher
 
-**Role**: System design and architecture
+**Role**: Discovery research and investigation.
 
-**Responsibilities**:
-- Create design documents
-- Write Architecture Decision Records (ADRs)
-- Plan system architecture
-- Design APIs and interfaces
-- Make technology choices
-- Define data models
+**When Invoked**: Discovery phase when orchestrator suggests or human requests research.
 
-**Skills**:
-- `/create-adr` - Create Architecture Decision Record
-- `/design-doc` - Write design document
+**Responsibilities**: Perform focused research from refs, linked repositories, local codebase, web search. Summarize findings for orchestrator/human review. Ground discussions in real sources.
 
-**Typical Phases**: `discovery`, `design`
+**Output**: Research reports stored in discovery phase (numbered sequentially with topic in filename).
 
-**Tools**: Read, Write, Grep, Glob
+**Typical Phase**: Discovery
 
-#### 2. Implementer
+**See Also**: [PHASES/DISCOVERY.md](./PHASES/DISCOVERY.md#researcher-agent)
 
-**Role**: Code implementation with Test-Driven Development (TDD)
+---
 
-**Responsibilities**:
-- Implement features using TDD approach
-- **Write unit tests FIRST**, then implementation
-- Fix bugs (write failing test, then fix)
-- Integrate with existing code
-- Add dependencies
-- Refactor for functionality
-- Ensure unit test coverage >90%
+#### Architect
 
-**Skills**:
-- `/implement-feature` - Implement new feature with TDD
-- `/fix-bug` - Fix bug (test first, then fix)
+**Role**: System design and architecture.
 
-**Typical Phases**: `implement`, `deploy`
+**When Invoked**: Design phase when orchestrator or human determines design documents needed. Used directly by orchestrator for simple docs, spawned for complex documentation.
 
-**Tools**: Read, Write, Edit, Grep, Glob, Bash
+**Responsibilities**: Transform design alignment notes into formal documentation, create Architecture Decision Records (ADRs), write design documents and API specifications, structure content appropriately within established constraints, produce camera-ready documentation.
 
-**TDD Enforcement**: Agent prompt requires test-first development
-- No implementation without tests
-- Red → Green → Refactor cycle
-- Unit tests are part of implementation
+**Output**: ADRs, design documents, API specifications in design phase.
 
-#### 3. Integration Tester
+**Typical Phase**: Design
 
-**Role**: Cross-component and end-to-end testing
+**See Also**: [PHASES/DESIGN.md](./PHASES/DESIGN.md#architect-agent)
 
-**Responsibilities**:
-- Write integration tests (multiple components)
-- Write end-to-end tests (full user flows)
-- Test API contracts between services
-- Debug integration failures
-- Validate system-wide acceptance criteria
-- Test deployment scenarios
+---
 
-**Skills**:
-- `/write-integration-tests` - Write integration & E2E tests
+#### Planner
 
-**Typical Phases**: `test`
+**Role**: Implementation task breakdown for large projects.
 
-**Tools**: Read, Write, Edit, Grep, Glob, Bash
+**When Invoked**: Implementation phase for very large projects (10+ tasks expected), complex task dependencies, orchestrator uncertain about breakdown, or user requests explicitly.
 
-**Note**: Unit tests handled by implementer during development
+**Responsibilities**: Analyze discovery/design artifacts, suggest logical task breakdown, consider dependencies and ordering, propose parallel vs sequential tasks, output implementation plan document.
 
-**Why Separate?**:
-- Implementer focuses on TDD (unit tests)
-- Integration tests require different expertise
-- Prevents context bloat in implementer
-- Clear separation: implement phase vs. test phase
+**Output**: `implementation-plan.md` with suggested task breakdown (orchestrator reviews and creates actual state file).
 
-#### 4. Reviewer
+**Typical Phase**: Implementation
 
-**Role**: Code quality and improvement
+**Key Distinction**: Planner does NOT write state file directly (orchestrator controls state).
 
-**Responsibilities**:
-- Review code for quality
-- Identify security issues
-- Suggest refactoring
-- Check adherence to standards
-- Validate against sinks (style guides, conventions)
-- Improve performance
-- Enhance readability
+**See Also**: [PHASES/IMPLEMENTATION.md](./PHASES/IMPLEMENTATION.md#planner-agent)
 
-**Skills**:
-- `/review-code` - Review code for quality
+---
 
-**Typical Phases**: `review`
+#### Implementer
 
-**Tools**: Read, Grep, Glob, Bash
+**Role**: Code implementation with Test-Driven Development.
 
-#### 5. Documenter
+**When Invoked**: Implementation phase for all coding tasks (assigned during task breakdown).
 
-**Role**: Documentation maintenance
+**Responsibilities**: Implement features using TDD approach, write tests first then implementation, fix bugs (write failing test then fix), integrate with existing code, refactor for functionality, ensure test coverage.
 
-**Responsibilities**:
-- Update README files
-- Write inline documentation
-- Update API documentation
-- Maintain architectural docs
-- Add code comments
-- Create usage examples
+**Output**: Production code, unit tests, task logs.
 
-**Skills**:
-- `/update-docs` - Update documentation
+**Typical Phase**: Implementation
 
-**Typical Phases**: `document`
+**TDD Enforcement**: Agent prompt requires test-first development (red → green → refactor cycle).
 
-**Tools**: Read, Write, Edit, Grep, Glob
+**See Also**: [PHASES/IMPLEMENTATION.md](./PHASES/IMPLEMENTATION.md#task-execution)
+
+---
+
+#### Reviewer
+
+**Role**: Quality validation.
+
+**When Invoked**: Review phase (optional assistance for orchestrator, invoked for large/complex changes or when orchestrator uncertain).
+
+**Responsibilities**: Review requirements (discovery artifacts, design documents, original intent), review implementation (examine file changes, review task logs, check test coverage, analyze code quality), compare and validate (implementation matches requirements, identify gaps/issues, assess quality), document findings (review report with specific issues and recommendations).
+
+**Output**: Review report document (orchestrator presents to human).
+
+**Typical Phase**: Review
+
+**See Also**: [PHASES/REVIEW.md](./PHASES/REVIEW.md#reviewer-agent)
+
+---
+
+#### Documenter
+
+**Role**: Documentation maintenance.
+
+**When Invoked**: Finalize phase when documentation updates needed, or other phases when explicit documentation tasks assigned.
+
+**Responsibilities**: Update README files, write inline documentation, update API documentation, maintain architectural docs, add code comments, create usage examples.
+
+**Output**: Updated documentation files.
+
+**Typical Phase**: Finalize (documentation subphase)
+
+**See Also**: [PHASES/FINALIZE.md](./PHASES/FINALIZE.md#documentation-subphase)
+
+---
 
 ### Why Multiple Agents?
 
-**Problem**: Single agent with all capabilities
-- Massive system prompt covering all scenarios
-- Context explosion (style guides + testing + architecture + deployment)
-- Poor performance at each individual task
-- Constant compaction/restarts
+**Problem**: Single agent with all capabilities results in massive system prompt covering all scenarios, context explosion (style guides + testing + architecture + deployment), poor performance at each individual task, constant compaction/restarts.
 
-**Solution**: Focused, specialized agents
-- Shorter, more effective prompts
-- Each agent has distinct context needs
-- Better performance (targeted context)
-- Easy to add more (just Markdown files)
-
----
-
-## Agent File Format
-
-### Structure
-
-Agents are defined as Markdown files with YAML frontmatter:
-
-```markdown
----
-name: agent-name
-description: "Description of when this agent should be invoked"
-tools: Read, Write, Grep  # Optional - inherits all if omitted
-model: inherit  # Optional - sonnet, opus, haiku, or inherit
----
-
-# Agent System Prompt
-
-You are a [role description]...
-
-## Your Responsibilities
-
-[Detailed instructions]
-
-## Your Capabilities
-
-[Skills and tools]
-
-[Additional guidance]
-```
-
-### Fields
-
-**`name`** (required)
-- Agent identifier
-- Used when spawning via Task tool
-- Lowercase, hyphen-separated
-- Example: `architect`, `implementer`
-
-**`description`** (required)
-- When this agent should be used
-- Helps orchestrator choose appropriate worker
-- Brief, action-oriented
-
-**`tools`** (optional)
-- Comma-separated list of allowed tools
-- If omitted, agent inherits all tools
-- Examples: `Read, Write, Grep, Glob, Bash`
-
-**`model`** (optional)
-- Which Claude model to use
-- Options: `inherit`, `sonnet`, `opus`, `haiku`
-- Default: `inherit` (same as orchestrator)
-
-### File Location
-
-`.claude/agents/<agent-name>.md`
-
-### Installation
-
-- Plugin installs all agent files
-- Claude Code reads agent descriptions from frontmatter
-- Orchestrator references agents when spawning workers
-
----
-
-## Task-Level Assignment
-
-### Planning Time Assignment
-
-Agents are assigned to tasks during project planning:
-
-```yaml
-# .sow/project/state.yaml
-phases:
-  - name: design
-    tasks:
-      - id: "010"
-        name: Design authentication flow
-        assigned_agent: architect  # Decided at planning time
-
-  - name: implement
-    tasks:
-      - id: "010"
-        name: Create User model
-        assigned_agent: implementer
-
-      - id: "020"
-        name: Write integration tests for user flows
-        assigned_agent: integration-tester
-```
-
-### Assignment Logic
-
-**During Planning** (orchestrator creates initial plan):
-
-1. **Analyze task requirements**
-   - Keywords: "design", "implement", "test", "review", "document"
-   - Complexity indicators
-   - Phase context (hint, not strict)
-
-2. **Match to agent specialty**
-   - "Design X" → architect
-   - "Implement Y" → implementer
-   - "Test Z" → integration-tester
-   - "Review A" → reviewer
-   - "Document B" → documenter
-
-3. **Store assignment**
-   - Write `assigned_agent` field to state.yaml
-   - No ambiguity during execution
-
-### Execution Time
-
-When orchestrator executes task:
-
-1. Read task from state.yaml
-2. See `assigned_agent: implementer`
-3. Compile context (description, references, feedback)
-4. Spawn worker: `Task` tool with agent type + context
-5. Worker completes, reports back
-6. Orchestrator updates state, moves to next task
-
-### Flexibility
-
-**Can Change Agents**:
-- If task requirements change
-- If agent gets stuck
-- If different expertise needed
-
-**Orchestrator decides**:
-- Which agent to use
-- When to change agents
-- When to increment iteration counter
+**Solution**: Focused specialized agents provide shorter more effective prompts, distinct context needs per agent, better performance (targeted context), easy extensibility (just Markdown files).
 
 ---
 
@@ -412,315 +181,80 @@ When orchestrator executes task:
 
 ### Problem
 
-Workers need minimal, curated context to avoid window bloat.
-
-### Solution
-
-Orchestrator acts as "context compiler" - filters what's relevant.
+Workers need minimal curated context to avoid window bloat.
 
 ### Process
 
-**Step 1: Orchestrator Gathers** (broad collection)
-```
-Orchestrator reads:
-- Task requirements (description.md)
-- Sink index (.sow/sinks/index.json)
-- Knowledge documents (.sow/knowledge/)
-- Linked repository files (.sow/repos/)
-- Project context (.sow/project/context/)
-```
+**Orchestrator Gathers** (broad collection): Task requirements (description.md), refs index, knowledge documents, project context, previous task logs.
 
-**Step 2: Orchestrator Filters** (selective curation)
-```
-For THIS specific task, what's relevant?
-- Which sinks apply? (Python style guide? API conventions?)
-- Which knowledge docs? (Auth design? Database schema?)
-- Which code examples? (From linked repos?)
-- Which project decisions? (From context/decisions.md?)
-```
+**Orchestrator Filters** (selective curation): Which refs apply for this specific task? Which knowledge docs relevant? Which code examples needed? Which project decisions matter?
 
-**Step 3: Orchestrator Packages** (structured handoff)
-```
-Creates:
-- Task description.md (requirements, acceptance criteria)
-- Task state.yaml with references list
-- All file paths relative to .sow/ root
-```
+**Orchestrator Packages** (structured handoff): Creates task description.md (requirements, acceptance criteria), creates task state.yaml with references list, all file paths relative to `.sow/` root.
 
-**Step 4: Worker Receives** (focused context)
-```
-Worker reads:
-- state.yaml (iteration, assigned agent, references)
-- description.md (what to do)
-- All referenced files (sinks, knowledge, code)
-- feedback/ (corrections if any)
-
-Worker has everything needed, nothing extra.
-```
-
-### Example
-
-**Scenario**: Task to implement JWT authentication service
-
-**Orchestrator Compiles**:
-```yaml
-# task state.yaml
-references:
-  - sinks/python-style/conventions.md
-  - sinks/api-conventions/rest-standards.md
-  - sinks/security-checklist/checklist.md
-  - knowledge/architecture/auth-design.md
-  - repos/shared-library/src/crypto/jwt.py
-```
-
-**Worker (Implementer) Reads**:
-1. Description: "Create JWT service with RS256, 1hr expiration, ..."
-2. Python conventions (from sink)
-3. API standards (from sink)
-4. Security checklist (from sink)
-5. Auth design doc (from knowledge)
-6. Example JWT implementation (from linked repo)
-
-**Result**: Worker has exactly what's needed, nothing more.
+**Worker Receives** (focused context): Reads state.yaml (iteration, assigned agent, references), reads description.md (what to do), reads all referenced files (refs, knowledge, code), reads feedback if any (human corrections). Worker has everything needed, nothing extra.
 
 ### Benefits
 
-1. **Performance**: Workers don't wade through irrelevant info
-2. **Accuracy**: Focused context = better results
-3. **Efficiency**: No context window bloat
-4. **Scalability**: Can handle large knowledge bases
+Performance (workers don't wade through irrelevant info), accuracy (focused context equals better results), efficiency (no context window bloat), scalability (handles large knowledge bases).
 
 ---
 
 ## Agent Coordination
 
-### User Experience
+### Delegation Pattern
 
-**Hybrid Model**:
-- **90% of cases**: Orchestrator manages everything transparently
-- **Orchestrator = Active Session**: User sits in front of it, sees everything
-- **Workers = Spawned in Background**: Return results to orchestrator
-- **Translation Layer**: User ↔ Orchestrator ↔ Workers
+**Orchestrator spawns workers**: Uses Task tool with agent type and context. Workers run independently. Workers report results back. Orchestrator updates state and continues.
 
-**User sees**:
-```
-Orchestrator: "Starting design phase..."
-Orchestrator: "Spawning architect for task 010..."
-[Worker runs in background]
-Orchestrator: "Architect completed design document."
-Orchestrator: "Moving to implementation phase..."
-```
+**User Experience**: User sits in front of orchestrator (main session), sees orchestrator decisions and summaries, workers run in background, results communicated through orchestrator.
 
-**Visibility**:
-- Normal Claude Code interruption (ESC key) works
-- Session history shows orchestrator decisions
-- Task logs show worker actions
-- Post-facto debugging available
-
-**Escape Hatch**:
-- User can invoke workers directly if orchestrator struggles
-- Example: `/architect "Design auth flow"`
-- Rare, but available
+**Visibility**: Normal Claude Code interruption works, session history shows orchestrator decisions, task logs show worker actions, post-facto debugging available.
 
 ### Error Correction
 
-**User provides feedback to orchestrator**:
-```
-User: "The JWT service should use RS256, not HS256"
+**User provides feedback to orchestrator**: Orchestrator creates feedback file for current task, increments iteration counter, spawns worker with feedback context.
 
-Orchestrator:
-1. Creates feedback/001.md for current task
-2. Increments iteration counter
-3. Spawns worker with feedback context
-```
-
-**Worker reads feedback and incorporates**:
-```
-Worker:
-1. Reads feedback/001.md
-2. Understands correction
-3. Makes changes
-4. Updates state: feedback status = addressed
-```
+**Worker reads feedback**: Understands correction, makes changes, updates feedback status to addressed.
 
 ### Task Routing
 
-**Simple tasks**: Orchestrator handles directly
-- Avoids overhead of spawning worker
-- Faster for trivial changes
-- No project structure needed
+**Simple tasks**: Orchestrator handles directly (avoids overhead, faster for trivial changes, no project structure needed).
 
-**Complex tasks**: Spawn workers
-- Better expertise
-- Separate context
-- Auditable via logs
+**Complex tasks**: Spawn workers (better expertise, separate context, auditable via logs).
 
-**Tradeoff**: Balance context bloat vs. token/latency costs
-
-**Modern context windows** (256k): Simple tasks safe to handle inline
+**Modern context windows** (200k+): Simple tasks safe to handle inline without delegation overhead.
 
 ---
 
-## Orchestrator System Prompt
+## Agent File Format
 
-### Complete Prompt
+### Structure
 
-This is the comprehensive system prompt for the orchestrator agent:
+Agents defined as Markdown files with YAML frontmatter. Located at `.claude/agents/<agent-name>.md`. Installed via Claude Code Plugin.
 
-```markdown
-# .claude/agents/orchestrator.md
----
-name: orchestrator
-description: "Main coordinator for sow system of work"
-tools: Read, Write, Edit, Grep, Glob, Bash, Task
-model: inherit
----
+### Frontmatter Fields
 
-You are the orchestrator for the sow system of work.
+**`name`** (required): Agent identifier used when spawning via Task tool. Lowercase hyphen-separated.
 
-## Your Role
+**`description`** (required): When this agent should be used. Helps orchestrator choose appropriate worker. Brief action-oriented.
 
-You coordinate software development work. You can:
-- Handle one-off tasks directly (simple changes, quick fixes)
-- Coordinate complex work via projects (planning + delegating to workers)
+**`tools`** (optional): Comma-separated list of allowed tools. If omitted agent inherits all tools.
 
-## Available Worker Agents
+**`model`** (optional): Which Claude model to use (inherit, sonnet, opus, haiku). Default inherit (same as orchestrator).
 
-- **architect**: Design, architecture, ADRs, system planning
-- **implementer**: Code implementation with TDD, bug fixes, unit tests
-- **integration-tester**: Integration tests, E2E tests, cross-component testing
-- **reviewer**: Code review, refactoring, quality checks
-- **documenter**: Documentation updates, README, comments
+### Body Content
 
-## Startup Behavior
-
-When session starts:
-1. Check if `.sow/project/` exists
-2. If exists: Prompt user "Continue work on '<project-name>'?"
-3. If not exists: Ask user what they want to work on
-4. Determine work mode:
-   - One-off task → handle directly
-   - Complex work → suggest /start-project
-
-## Workflow
-
-### One-Off Tasks (No Project)
-
-- User describes simple change or quick fix
-- You handle it directly (write code, make edits)
-- No project structure needed
-- Benefit: You understand sow framework, enhances quality
-
-### Project-Based Work (Complex, Multi-Task)
-
-1. **Project Start** (/start-project)
-   - Check not on main/master branch
-   - Check no existing project
-   - Rate complexity (1-3)
-   - **Start with 1-2 phases** (progressive planning, not waterfall)
-     - Available phases: discovery, design, implement, test, review, deploy, document
-     - Don't over-plan: add phases as work progresses
-   - Break initial phase(s) into tasks with gap numbering (010, 020, 030)
-   - Assign agent to each task based on task type
-   - Create .sow/project/state.yaml
-
-2. **Project Continuation** (/continue)
-   - Read .sow/project/state.yaml
-   - Verify branch matches
-   - Identify next pending task
-   - Compile context for assigned worker
-   - Spawn worker with Task tool
-
-3. **Context Compilation** (Before spawning worker)
-   - Read task description.md
-   - Read sink index (.sow/sinks/index.json)
-   - Determine relevant sinks for task
-   - Read relevant knowledge docs
-   - Read linked repo files if needed
-   - Create focused context package
-   - Add file references to task state.yaml
-
-4. **Worker Invocation**
-   - Use Task tool with assigned agent type
-   - Provide: task description, references, feedback
-   - Let worker execute independently
-   - Update state when worker reports completion
-
-5. **Phase Management**
-   - Track current active phase
-   - Enforce forward progression (can't skip ahead with incomplete tasks)
-   - Allow backward movement (can return to previous phase)
-   - Request approval when adding new phases
-   - Provide rationale for phase changes
-
-## Key Rules
-
-- **Progressive Planning**: Start with 1-2 phases, add more as work progresses
-- **No Waterfall**: Don't try to plan entire project upfront
-- Tasks can ONLY be added to current active phase (after initial planning)
-- Forward movement requires all current phase tasks complete
-- When adding new phase, request user approval with rationale
-- Increment task iteration counter before spawning worker
-- Use fail-forward: add tasks instead of reverting
-- Gap numbering: 010, 020, 030 (allows 011, 012 insertions)
-- Mark abandoned tasks, never delete
-
-## Context Management
-
-You are the filter. Workers should receive:
-- Minimal, focused context
-- Only relevant sinks
-- Specific file references
-- Clear acceptance criteria
-
-Avoid overwhelming workers with unnecessary information.
-
-## Iteration Management
-
-Before spawning worker:
-1. Read current iteration from task state.yaml
-2. Increment iteration counter
-3. Update state.yaml
-4. Spawn worker
-
-Worker uses iteration to construct agent ID: `{role}-{iteration}`
-Example: `implementer-3` for third attempt by implementer
-
-## Logging
-
-Workers log via CLI:
-```
-sow log --file <path> --action <action> --result <result> "notes"
-```
-
-You log project-level actions to `.sow/project/log.md`
-
-## Error Handling
-
-If worker gets stuck or fails:
-1. Review worker's log
-2. Determine issue
-3. Provide feedback or change approach
-4. Increment iteration
-5. Spawn worker again (or different agent)
-
-## Completion
-
-When all tasks complete:
-1. Verify all phases done
-2. Remind user to run /cleanup before merge
-3. Confirm readiness for PR
-
-Your role is to orchestrate, not to do all the work yourself.
-Delegate to specialists. Manage the big picture.
-```
+Agent system prompt defining role, responsibilities, capabilities, guidance. Focused instructions for specialized task type.
 
 ---
 
 ## Related Documentation
 
-- **[OVERVIEW.md](./OVERVIEW.md)** - Introduction to sow
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Multi-agent architecture rationale
-- **[COMMANDS_AND_SKILLS.md](./COMMANDS_AND_SKILLS.md)** - Slash commands and skills
-- **[PROJECT_MANAGEMENT.md](./PROJECT_MANAGEMENT.md)** - Project lifecycle
-- **[FILE_STRUCTURE.md](./FILE_STRUCTURE.md)** - Agent file locations
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Multi-agent system rationale and design
+- **[PROJECT_LIFECYCLE.md](./PROJECT_LIFECYCLE.md)** - Orchestrator mode switching across phases
+- **[PHASES/DISCOVERY.md](./PHASES/DISCOVERY.md)** - Researcher agent usage
+- **[PHASES/DESIGN.md](./PHASES/DESIGN.md)** - Architect agent usage
+- **[PHASES/IMPLEMENTATION.md](./PHASES/IMPLEMENTATION.md)** - Planner and implementer agents
+- **[PHASES/REVIEW.md](./PHASES/REVIEW.md)** - Reviewer agent usage
+- **[PHASES/FINALIZE.md](./PHASES/FINALIZE.md)** - Documenter agent usage
+- **[TASK_MANAGEMENT.md](./TASK_MANAGEMENT.md)** - Agent assignment to tasks
+- **[LOGGING_AND_STATE.md](./LOGGING_AND_STATE.md)** - Context compilation details
