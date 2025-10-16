@@ -14,13 +14,14 @@ import (
 // TaskFS provides access to a specific task directory.
 //
 // Task directory structure:
-//   .sow/project/phases/implementation/tasks/{id}/
-//   ├── state.yaml       - Task metadata
-//   ├── description.md   - Task requirements
-//   ├── log.md           - Worker action log
-//   └── feedback/        - Human corrections (optional)
-//       ├── 001.md
-//       └── 002.md
+//
+//	.sow/project/phases/implementation/tasks/{id}/
+//	├── state.yaml       - Task metadata
+//	├── description.md   - Task requirements
+//	├── log.md           - Worker action log
+//	└── feedback/        - Human corrections (optional)
+//	    ├── 001.md
+//	    └── 002.md
 //
 // All paths are relative to the task directory.
 type TaskFS interface {
@@ -91,10 +92,10 @@ type TaskFSImpl struct {
 	validator *schemas.CUEValidator
 }
 
-// Ensure TaskFSImpl implements TaskFS
+// Ensure TaskFSImpl implements TaskFS.
 var _ TaskFS = (*TaskFSImpl)(nil)
 
-// NewTaskFS creates a new TaskFS instance
+// NewTaskFS creates a new TaskFS instance.
 func NewTaskFS(sowFS *SowFSImpl, taskID string, validator *schemas.CUEValidator) *TaskFSImpl {
 	return &TaskFSImpl{
 		sowFS:     sowFS,
@@ -104,12 +105,12 @@ func NewTaskFS(sowFS *SowFSImpl, taskID string, validator *schemas.CUEValidator)
 	}
 }
 
-// ID returns the task ID
+// ID returns the task ID.
 func (t *TaskFSImpl) ID() string {
 	return t.taskID
 }
 
-// State reads the task state
+// State reads the task state.
 func (t *TaskFSImpl) State() (*schemas.TaskState, error) {
 	statePath := filepath.Join(t.taskPath, "state.yaml")
 
@@ -124,7 +125,7 @@ func (t *TaskFSImpl) State() (*schemas.TaskState, error) {
 
 	// Validate against CUE schema
 	if err := t.validator.ValidateTaskState(data); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("task state validation failed: %w", err)
 	}
 
 	// Parse YAML
@@ -136,7 +137,7 @@ func (t *TaskFSImpl) State() (*schemas.TaskState, error) {
 	return &state, nil
 }
 
-// WriteState writes the task state
+// WriteState writes the task state.
 func (t *TaskFSImpl) WriteState(state *schemas.TaskState) error {
 	statePath := filepath.Join(t.taskPath, "state.yaml")
 
@@ -148,7 +149,7 @@ func (t *TaskFSImpl) WriteState(state *schemas.TaskState) error {
 
 	// Validate against CUE schema
 	if err := t.validator.ValidateTaskState(data); err != nil {
-		return err
+		return fmt.Errorf("task state validation failed: %w", err)
 	}
 
 	// Ensure task directory exists
@@ -164,7 +165,7 @@ func (t *TaskFSImpl) WriteState(state *schemas.TaskState) error {
 	return nil
 }
 
-// AppendLog appends to task log
+// AppendLog appends to task log.
 func (t *TaskFSImpl) AppendLog(entry string) error {
 	logPath := filepath.Join(t.taskPath, "log.md")
 
@@ -200,7 +201,7 @@ func (t *TaskFSImpl) AppendLog(entry string) error {
 	return nil
 }
 
-// ReadLog reads the task log
+// ReadLog reads the task log.
 func (t *TaskFSImpl) ReadLog() (string, error) {
 	logPath := filepath.Join(t.taskPath, "log.md")
 
@@ -216,7 +217,7 @@ func (t *TaskFSImpl) ReadLog() (string, error) {
 	return string(data), nil
 }
 
-// ReadDescription reads the task description
+// ReadDescription reads the task description.
 func (t *TaskFSImpl) ReadDescription() (string, error) {
 	descPath := filepath.Join(t.taskPath, "description.md")
 
@@ -228,7 +229,7 @@ func (t *TaskFSImpl) ReadDescription() (string, error) {
 	return string(data), nil
 }
 
-// WriteDescription writes the task description
+// WriteDescription writes the task description.
 func (t *TaskFSImpl) WriteDescription(content string) error {
 	descPath := filepath.Join(t.taskPath, "description.md")
 
@@ -237,10 +238,13 @@ func (t *TaskFSImpl) WriteDescription(content string) error {
 		return fmt.Errorf("failed to create task directory: %w", err)
 	}
 
-	return t.sowFS.fs.WriteFile(descPath, []byte(content), 0644)
+	if err := t.sowFS.fs.WriteFile(descPath, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write description: %w", err)
+	}
+	return nil
 }
 
-// ListFeedback lists feedback files
+// ListFeedback lists feedback files.
 func (t *TaskFSImpl) ListFeedback() ([]string, error) {
 	feedbackPath := filepath.Join(t.taskPath, "feedback")
 
@@ -271,7 +275,7 @@ func (t *TaskFSImpl) ListFeedback() ([]string, error) {
 	return feedbackFiles, nil
 }
 
-// ReadFeedback reads a feedback file
+// ReadFeedback reads a feedback file.
 func (t *TaskFSImpl) ReadFeedback(filename string) (string, error) {
 	// Sanitize filename to prevent path traversal
 	filename = filepath.Base(filename)
@@ -285,7 +289,7 @@ func (t *TaskFSImpl) ReadFeedback(filename string) (string, error) {
 	return string(data), nil
 }
 
-// WriteFeedback writes a feedback file
+// WriteFeedback writes a feedback file.
 func (t *TaskFSImpl) WriteFeedback(filename string, content string) error {
 	// Sanitize filename to prevent path traversal
 	filename = filepath.Base(filename)
@@ -297,10 +301,13 @@ func (t *TaskFSImpl) WriteFeedback(filename string, content string) error {
 		return fmt.Errorf("failed to create feedback directory: %w", err)
 	}
 
-	return t.sowFS.fs.WriteFile(feedbackPath, []byte(content), 0644)
+	if err := t.sowFS.fs.WriteFile(feedbackPath, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write feedback: %w", err)
+	}
+	return nil
 }
 
-// Path returns the absolute path to the task directory
+// Path returns the absolute path to the task directory.
 func (t *TaskFSImpl) Path() string {
 	return t.sowFS.repoRoot + "/.sow/" + t.taskPath
 }

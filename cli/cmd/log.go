@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewLogCmd creates the log command
+// NewLogCmd creates the log command.
 func NewLogCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "log",
@@ -17,7 +17,7 @@ Auto-detects context (task vs project) and writes to the correct log:
 
 Log entries are formatted markdown with timestamp, agent ID, action,
 result, files modified, and optional notes.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			fs := FilesystemFromContext(cmd.Context())
 			_ = fs // TODO: implement
 
@@ -33,8 +33,8 @@ result, files modified, and optional notes.`,
 	cmd.Flags().StringP("notes", "n", "", "Additional notes")
 	cmd.Flags().Bool("project", false, "Force project-level log (ignore task context)")
 
-	cmd.MarkFlagRequired("action")
-	cmd.MarkFlagRequired("result")
+	_ = cmd.MarkFlagRequired("action")
+	_ = cmd.MarkFlagRequired("result")
 
 	return cmd
 }

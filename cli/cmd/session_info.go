@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewSessionInfoCmd creates the session-info command
+// NewSessionInfoCmd creates the session-info command.
 func NewSessionInfoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "session-info",
@@ -20,7 +20,7 @@ Shows:
   - Schema version
 
 Output is JSON for easy consumption by agents and tools.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			fs := FilesystemFromContext(cmd.Context())
 			_ = fs // TODO: implement
 

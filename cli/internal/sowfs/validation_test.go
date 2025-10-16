@@ -11,13 +11,13 @@ import (
 func TestValidateAll_EmptyStructure(t *testing.T) {
 	// Create minimal .sow structure
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/knowledge", 0755)
-	fs.MkdirAll(".sow/refs", 0755)
+	_ = fs.MkdirAll(".sow/knowledge", 0755)
+	_ = fs.MkdirAll(".sow/refs", 0755)
 
 	// Create SowFS
 	sowFS, err := NewSowFSWithFS(fs, "/test")
 	require.NoError(t, err)
-	defer sowFS.Close()
+	defer func() { _ = sowFS.Close() }()
 
 	// Validate all
 	result := sowFS.ValidateAll()
@@ -30,18 +30,18 @@ func TestValidateAll_EmptyStructure(t *testing.T) {
 func TestValidateAll_ValidRefsIndex(t *testing.T) {
 	// Create .sow structure with valid refs index
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/refs", 0755)
+	_ = fs.MkdirAll(".sow/refs", 0755)
 
 	validIndex := `{
 		"version": "1.0.0",
 		"refs": []
 	}`
-	fs.WriteFile(".sow/refs/index.json", []byte(validIndex), 0644)
+	_ = fs.WriteFile(".sow/refs/index.json", []byte(validIndex), 0644)
 
 	// Create SowFS
 	sowFS, err := NewSowFSWithFS(fs, "/test")
 	require.NoError(t, err)
-	defer sowFS.Close()
+	defer func() { _ = sowFS.Close() }()
 
 	// Validate all
 	result := sowFS.ValidateAll()
@@ -53,13 +53,13 @@ func TestValidateAll_ValidRefsIndex(t *testing.T) {
 func TestValidateAll_InvalidRefsIndex(t *testing.T) {
 	// Create .sow structure with invalid refs index
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/refs", 0755)
+	_ = fs.MkdirAll(".sow/refs", 0755)
 
 	invalidIndex := `{
 		"version": "not-semver",
 		"refs": []
 	}`
-	fs.WriteFile(".sow/refs/index.json", []byte(invalidIndex), 0644)
+	_ = fs.WriteFile(".sow/refs/index.json", []byte(invalidIndex), 0644)
 
 	// Create SowFS - should fail during construction due to validation
 	sowFS, err := NewSowFSWithFS(fs, "/test")
@@ -75,18 +75,18 @@ func TestValidateAll_InvalidRefsIndex(t *testing.T) {
 func TestValidateAll_ValidLocalIndex(t *testing.T) {
 	// Create .sow structure with valid local refs index
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/refs", 0755)
+	_ = fs.MkdirAll(".sow/refs", 0755)
 
 	validLocalIndex := `{
 		"version": "1.0.0",
 		"refs": []
 	}`
-	fs.WriteFile(".sow/refs/index.local.json", []byte(validLocalIndex), 0644)
+	_ = fs.WriteFile(".sow/refs/index.local.json", []byte(validLocalIndex), 0644)
 
 	// Create SowFS
 	sowFS, err := NewSowFSWithFS(fs, "/test")
 	require.NoError(t, err)
-	defer sowFS.Close()
+	defer func() { _ = sowFS.Close() }()
 
 	// Validate all
 	result := sowFS.ValidateAll()
@@ -98,13 +98,13 @@ func TestValidateAll_ValidLocalIndex(t *testing.T) {
 func TestValidateAll_InvalidLocalIndex(t *testing.T) {
 	// Create .sow structure with invalid local refs index
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/refs", 0755)
+	_ = fs.MkdirAll(".sow/refs", 0755)
 
 	invalidLocalIndex := `{
 		"version": "bad-version",
 		"refs": []
 	}`
-	fs.WriteFile(".sow/refs/index.local.json", []byte(invalidLocalIndex), 0644)
+	_ = fs.WriteFile(".sow/refs/index.local.json", []byte(invalidLocalIndex), 0644)
 
 	// Create SowFS - should fail during construction due to validation
 	sowFS, err := NewSowFSWithFS(fs, "/test")
@@ -120,7 +120,7 @@ func TestValidateAll_InvalidLocalIndex(t *testing.T) {
 func TestValidateAll_ValidProjectState(t *testing.T) {
 	// Create .sow structure with valid project state
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/project", 0755)
+	_ = fs.MkdirAll(".sow/project", 0755)
 
 	validProjectState := `
 project:
@@ -157,12 +157,12 @@ phases:
     created_at: "2025-10-15T10:00:00Z"
     project_deleted: false
 `
-	fs.WriteFile(".sow/project/state.yaml", []byte(validProjectState), 0644)
+	_ = fs.WriteFile(".sow/project/state.yaml", []byte(validProjectState), 0644)
 
 	// Create SowFS
 	sowFS, err := NewSowFSWithFS(fs, "/test")
 	require.NoError(t, err)
-	defer sowFS.Close()
+	defer func() { _ = sowFS.Close() }()
 
 	// Validate all
 	result := sowFS.ValidateAll()
@@ -174,7 +174,7 @@ phases:
 func TestValidateAll_InvalidProjectState(t *testing.T) {
 	// Create .sow structure with invalid project state
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/project", 0755)
+	_ = fs.MkdirAll(".sow/project", 0755)
 
 	// Invalid: name has uppercase and spaces
 	invalidProjectState := `
@@ -185,7 +185,7 @@ project:
   created_at: "2025-10-15T10:00:00Z"
   updated_at: "2025-10-15T10:00:00Z"
 `
-	fs.WriteFile(".sow/project/state.yaml", []byte(invalidProjectState), 0644)
+	_ = fs.WriteFile(".sow/project/state.yaml", []byte(invalidProjectState), 0644)
 
 	// Create SowFS - should fail during construction due to validation
 	sowFS, err := NewSowFSWithFS(fs, "/test")
@@ -201,7 +201,7 @@ project:
 func TestValidateAll_ValidTaskState(t *testing.T) {
 	// Create .sow structure with valid task state
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/project/phases/implementation/tasks/010", 0755)
+	_ = fs.MkdirAll(".sow/project/phases/implementation/tasks/010", 0755)
 
 	validTaskState := `
 task:
@@ -216,12 +216,12 @@ task:
   feedback: []
   files_modified: []
 `
-	fs.WriteFile(".sow/project/phases/implementation/tasks/010/state.yaml", []byte(validTaskState), 0644)
+	_ = fs.WriteFile(".sow/project/phases/implementation/tasks/010/state.yaml", []byte(validTaskState), 0644)
 
 	// Create SowFS
 	sowFS, err := NewSowFSWithFS(fs, "/test")
 	require.NoError(t, err)
-	defer sowFS.Close()
+	defer func() { _ = sowFS.Close() }()
 
 	// Validate all
 	result := sowFS.ValidateAll()
@@ -344,10 +344,10 @@ phases:
     created_at: "2025-10-15T10:00:00Z"
     project_deleted: false
 `
-	fs.WriteFile(".sow/project/state.yaml", []byte(validProjectState), 0644)
+	_ = fs.WriteFile(".sow/project/state.yaml", []byte(validProjectState), 0644)
 
 	// Create task directory without state.yaml
-	fs.MkdirAll(".sow/project/phases/implementation/tasks/010", 0755)
+	_ = fs.MkdirAll(".sow/project/phases/implementation/tasks/010", 0755)
 	// No state.yaml file created
 
 	// Create SowFS - should fail during construction due to validation
@@ -400,10 +400,10 @@ phases:
     created_at: "2025-10-15T10:00:00Z"
     project_deleted: false
 `
-	fs.WriteFile(".sow/project/state.yaml", []byte(validProjectState), 0644)
+	_ = fs.WriteFile(".sow/project/state.yaml", []byte(validProjectState), 0644)
 
-	fs.MkdirAll(".sow/project/phases/implementation/tasks/010", 0755)
-	fs.MkdirAll(".sow/project/phases/implementation/tasks/020", 0755)
+	_ = fs.MkdirAll(".sow/project/phases/implementation/tasks/010", 0755)
+	_ = fs.MkdirAll(".sow/project/phases/implementation/tasks/020", 0755)
 
 	validTaskState := `task:
   id: "010"
@@ -417,7 +417,7 @@ phases:
   feedback: []
   files_modified: []
 `
-	fs.WriteFile(".sow/project/phases/implementation/tasks/010/state.yaml", []byte(validTaskState), 0644)
+	_ = fs.WriteFile(".sow/project/phases/implementation/tasks/010/state.yaml", []byte(validTaskState), 0644)
 
 	invalidTaskState := `task:
   id: "20"
@@ -431,7 +431,7 @@ phases:
   feedback: []
   files_modified: []
 `
-	fs.WriteFile(".sow/project/phases/implementation/tasks/020/state.yaml", []byte(invalidTaskState), 0644)
+	_ = fs.WriteFile(".sow/project/phases/implementation/tasks/020/state.yaml", []byte(invalidTaskState), 0644)
 
 	// Create SowFS - should fail during construction due to validation
 	sowFS, err := NewSowFSWithFS(fs, "/test")
@@ -446,16 +446,16 @@ phases:
 func TestValidateAll_MultipleErrors(t *testing.T) {
 	// Create .sow structure with multiple invalid files
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/refs", 0755)
-	fs.MkdirAll(".sow/project", 0755)
+	_ = fs.MkdirAll(".sow/refs", 0755)
+	_ = fs.MkdirAll(".sow/project", 0755)
 
 	// Invalid refs index
 	invalidRefsIndex := `{"version": "bad", "refs": []}`
-	fs.WriteFile(".sow/refs/index.json", []byte(invalidRefsIndex), 0644)
+	_ = fs.WriteFile(".sow/refs/index.json", []byte(invalidRefsIndex), 0644)
 
 	// Invalid local refs index
 	invalidLocalIndex := `{"version": "also-bad", "refs": []}`
-	fs.WriteFile(".sow/refs/index.local.json", []byte(invalidLocalIndex), 0644)
+	_ = fs.WriteFile(".sow/refs/index.local.json", []byte(invalidLocalIndex), 0644)
 
 	// Invalid project state
 	invalidProjectState := `
@@ -466,7 +466,7 @@ project:
   created_at: "2025-10-15T10:00:00Z"
   updated_at: "2025-10-15T10:00:00Z"
 `
-	fs.WriteFile(".sow/project/state.yaml", []byte(invalidProjectState), 0644)
+	_ = fs.WriteFile(".sow/project/state.yaml", []byte(invalidProjectState), 0644)
 
 	// Create SowFS - should fail during construction due to validation
 	sowFS, err := NewSowFSWithFS(fs, "/test")

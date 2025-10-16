@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewRefsCmd creates the refs command
+// NewRefsCmd creates the refs command.
 func NewRefsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "refs",
@@ -77,7 +77,7 @@ Creates:
   ~/.cache/sow/index.json - Cache index (empty)
 
 Also creates .gitignore entries for cache and local refs.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			fs := FilesystemFromContext(cmd.Context())
 			_ = fs // TODO: implement
 
@@ -102,7 +102,7 @@ Shows:
 If ref-id is specified, shows detailed status for that ref.
 Otherwise, shows summary for all refs.`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			fs := FilesystemFromContext(cmd.Context())
 			_ = fs // TODO: implement
 
@@ -128,7 +128,7 @@ Otherwise, updates all refs that are behind their remotes.
 
 Does not update local-only refs (file:// sources).`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			fs := FilesystemFromContext(cmd.Context())
 			_ = fs // TODO: implement
 
@@ -156,7 +156,7 @@ Output includes:
   - Symlink name
   - Tags
   - Description`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			fs := FilesystemFromContext(cmd.Context())
 			_ = fs // TODO: implement
 

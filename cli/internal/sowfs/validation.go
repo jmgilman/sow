@@ -17,7 +17,7 @@ type ValidationError struct {
 	Err error
 }
 
-// Error implements the error interface
+// Error implements the error interface.
 func (v ValidationError) Error() string {
 	return fmt.Sprintf("%s (%s): %v", v.Path, v.SchemaType, v.Err)
 }

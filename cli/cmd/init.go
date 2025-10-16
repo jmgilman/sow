@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewInitCmd creates the init command
+// NewInitCmd creates the init command.
 func NewInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
@@ -17,7 +17,7 @@ Creates:
   .sow/.version       - sow structure version file
 
 This command must be run from a git repository root.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			fs := FilesystemFromContext(cmd.Context())
 			_ = fs // TODO: implement
 

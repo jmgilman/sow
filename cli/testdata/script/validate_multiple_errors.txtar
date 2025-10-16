@@ -3,7 +3,7 @@
 
 exec git init
 ! exec sow validate
-stderr 'Error: validation failed'
+stderr 'failed to initialize sow filesystem: validation failed'
 stderr 'refs/index.json'
 stderr 'refs/index.local.json'
 stderr 'project/state.yaml'

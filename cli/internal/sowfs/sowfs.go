@@ -11,35 +11,35 @@ import (
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
-// Common errors for SowFS operations
+// Common errors for SowFS operations.
 var (
-	// ErrNotInGitRepo indicates the current directory is not in a git repository
+	// ErrNotInGitRepo indicates the current directory is not in a git repository.
 	ErrNotInGitRepo = errors.New("not in git repository")
 
-	// ErrSowNotInitialized indicates .sow directory was not found
+	// ErrSowNotInitialized indicates .sow directory was not found.
 	ErrSowNotInitialized = errors.New(".sow directory not found - run 'sow init' first")
 
-	// ErrProjectNotFound indicates no active project exists
+	// ErrProjectNotFound indicates no active project exists.
 	ErrProjectNotFound = errors.New("no active project found")
 
-	// ErrTaskNotFound indicates the requested task does not exist
+	// ErrTaskNotFound indicates the requested task does not exist.
 	ErrTaskNotFound = errors.New("task not found")
 
-	// ErrInvalidTaskID indicates the task ID format is invalid
+	// ErrInvalidTaskID indicates the task ID format is invalid.
 	ErrInvalidTaskID = errors.New("invalid task ID - must be gap-numbered (010, 020, etc)")
 )
 
-// Path constants for .sow directory structure (relative to .sow/)
+// Path constants for .sow directory structure (relative to .sow/).
 const (
-	// Refs paths
+	// Refs paths.
 	pathRefsCommittedIndex = "refs/index.json"
 	pathRefsLocalIndex     = "refs/index.local.json"
 
-	// Project paths
-	pathProjectState   = "project/state.yaml"
+	// Project paths.
+	pathProjectState    = "project/state.yaml"
 	pathProjectTasksDir = "project/phases/implementation/tasks"
 
-	// Task filename
+	// Task filename.
 	fileTaskState = "state.yaml"
 )
 
@@ -206,6 +206,8 @@ func NewSowFSWithFS(fs core.FS, repoRoot string) (*SowFSImpl, error) {
 
 // SowFSImpl is the concrete implementation of SowFS.
 // Exported for type assertions but use via SowFS interface.
+//
+//nolint:revive // Name is intentional: SowFS is the interface, SowFSImpl is the implementation
 type SowFSImpl struct {
 	// fs is chrooted to .sow/ directory
 	fs core.FS
@@ -222,15 +224,15 @@ type SowFSImpl struct {
 	project   *ProjectFSImpl
 }
 
-// Ensure SowFSImpl implements SowFS interface
+// Ensure SowFSImpl implements SowFS interface.
 var _ SowFS = (*SowFSImpl)(nil)
 
-// Knowledge returns the knowledge domain (pre-initialized during construction)
+// Knowledge returns the knowledge domain (pre-initialized during construction).
 func (s *SowFSImpl) Knowledge() KnowledgeFS {
 	return s.knowledge
 }
 
-// Refs returns the refs domain (pre-initialized during construction)
+// Refs returns the refs domain (pre-initialized during construction).
 func (s *SowFSImpl) Refs() RefsFS {
 	return s.refs
 }
@@ -250,12 +252,12 @@ func (s *SowFSImpl) Project() (ProjectFS, error) {
 	return s.project, nil
 }
 
-// RepoRoot returns the repository root path
+// RepoRoot returns the repository root path.
 func (s *SowFSImpl) RepoRoot() string {
 	return s.repoRoot
 }
 
-// Close cleans up resources
+// Close cleans up resources.
 func (s *SowFSImpl) Close() error {
 	// No resources to cleanup currently
 	return nil
@@ -264,9 +266,9 @@ func (s *SowFSImpl) Close() error {
 // initialize eagerly initializes all domain implementations and validates the .sow structure.
 //
 // This method is called by all NewSowFS* constructors to ensure that:
-//   1. All domain implementations are initialized upfront
-//   2. The .sow directory structure is validated before any operations
-//   3. Commands only operate on valid .sow structures (fail-fast)
+//  1. All domain implementations are initialized upfront
+//  2. The .sow directory structure is validated before any operations
+//  3. Commands only operate on valid .sow structures (fail-fast)
 //
 // Returns an error if validation fails, preventing the SowFS from being used.
 func (s *SowFSImpl) initialize() error {
@@ -313,7 +315,7 @@ func (s *SowFSImpl) ValidateAll() *ValidationResult {
 	return result
 }
 
-// validateRefsCommittedIndex validates the committed refs index
+// validateRefsCommittedIndex validates the committed refs index.
 func (s *SowFSImpl) validateRefsCommittedIndex(result *ValidationResult) {
 	// Check if file exists
 	exists, err := s.fs.Exists(pathRefsCommittedIndex)
@@ -339,7 +341,7 @@ func (s *SowFSImpl) validateRefsCommittedIndex(result *ValidationResult) {
 	}
 }
 
-// validateRefsLocalIndex validates the local refs index
+// validateRefsLocalIndex validates the local refs index.
 func (s *SowFSImpl) validateRefsLocalIndex(result *ValidationResult) {
 	// Check if file exists
 	exists, err := s.fs.Exists(pathRefsLocalIndex)
@@ -365,7 +367,7 @@ func (s *SowFSImpl) validateRefsLocalIndex(result *ValidationResult) {
 	}
 }
 
-// validateProject validates the project directory and all its contents
+// validateProject validates the project directory and all its contents.
 func (s *SowFSImpl) validateProject(result *ValidationResult) {
 	// Check if project exists
 	exists, err := s.fs.Exists(pathProjectState)
@@ -393,7 +395,7 @@ func (s *SowFSImpl) validateProject(result *ValidationResult) {
 	s.validateTasks(result)
 }
 
-// validateTasks validates all task state files
+// validateTasks validates all task state files.
 func (s *SowFSImpl) validateTasks(result *ValidationResult) {
 	// Check if tasks directory exists
 	exists, err := s.fs.Exists(pathProjectTasksDir)

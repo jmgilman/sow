@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// ProjectState defines the schema for .sow/project/state.yaml
+// ProjectState defines the schema for .sow/project/state.yaml.
 //
 // This file tracks the state of an active project across all 5 phases.
 // All projects have the same 5 phases; the 'enabled' flag controls
@@ -48,7 +48,7 @@ type ProjectState struct {
 	} `json:"phases"`
 }
 
-// Phase represents common phase fields
+// Phase represents common phase fields.
 type Phase struct {
 	// Phase execution status
 	Status string `json:"status"`
@@ -61,7 +61,7 @@ type Phase struct {
 	Completed_at any/* CUE disjunction: (null|string) */ `json:"completed_at"`
 }
 
-// DiscoveryPhase represents the discovery phase
+// DiscoveryPhase represents the discovery phase.
 type DiscoveryPhase struct {
 	// Phase execution status
 	Status string `json:"status"`
@@ -83,7 +83,7 @@ type DiscoveryPhase struct {
 	Artifacts []Artifact `json:"artifacts"`
 }
 
-// DesignPhase represents the design phase
+// DesignPhase represents the design phase.
 type DesignPhase struct {
 	// Phase execution status
 	Status string `json:"status"`
@@ -105,7 +105,7 @@ type DesignPhase struct {
 	Artifacts []Artifact `json:"artifacts"`
 }
 
-// ImplementationPhase represents the implementation phase
+// ImplementationPhase represents the implementation phase.
 type ImplementationPhase struct {
 	// Phase execution status
 	Status string `json:"status"`
@@ -130,7 +130,7 @@ type ImplementationPhase struct {
 	Pending_task_additions any/* CUE disjunction: (null|list) */ `json:"pending_task_additions"`
 }
 
-// RefsCacheIndex defines the schema for ~/.cache/sow/index.json
+// RefsCacheIndex defines the schema for ~/.cache/sow/index.json.
 //
 // This is the cache index containing transient metadata about cached
 // repositories. Stored per-machine, not committed to git.
@@ -142,7 +142,7 @@ type RefsCacheIndex struct {
 	Repos []CachedRepo `json:"repos"`
 }
 
-// CachedRepo represents a cached repository
+// CachedRepo represents a cached repository.
 type CachedRepo struct {
 	// Git repository URL (must match source from committed index)
 	Source string `json:"source"`
@@ -176,7 +176,7 @@ type CachedRepo struct {
 	Used_by []CacheUsage `json:"used_by"`
 }
 
-// CacheUsage represents a repository using this cached repo
+// CacheUsage represents a repository using this cached repo.
 type CacheUsage struct {
 	// Absolute path to consuming repository
 	Repo_path string `json:"repo_path"`
@@ -188,7 +188,7 @@ type CacheUsage struct {
 	Paths []string `json:"paths"`
 }
 
-// RefsCommittedIndex defines the schema for .sow/refs/index.json
+// RefsCommittedIndex defines the schema for .sow/refs/index.json.
 //
 // This is the committed index containing categorical metadata about
 // remote refs, shared with the team via git. Contains configuration

@@ -3,7 +3,7 @@
 
 exec git init
 ! exec sow validate
-stderr 'Error: validation failed'
+stderr 'failed to initialize sow filesystem: validation failed'
 stderr 'tasks/010/state.yaml'
 stderr 'task-state'
 

@@ -13,7 +13,7 @@ import (
 )
 
 // Gap-numbered task ID regex (010, 020, 030, etc.)
-// Pattern: at least 2 digits followed by a 0 (total minimum 3 digits)
+// Pattern: at least 2 digits followed by a 0 (total minimum 3 digits).
 var taskIDPattern = regexp.MustCompile(`^[0-9]{2,}0$`)
 
 // ProjectFS provides access to the .sow/project/ directory.
@@ -24,7 +24,7 @@ var taskIDPattern = regexp.MustCompile(`^[0-9]{2,}0$`)
 //   - context/ - Project-specific context files
 //   - phases/ - Phase-specific directories with tasks
 //
-// All paths are relative to .sow/project/
+// All paths are relative to .sow/project/.
 type ProjectFS interface {
 	// State reads and validates the project state file.
 	// Returns the parsed and validated ProjectState struct.
@@ -81,10 +81,10 @@ type ProjectFSImpl struct {
 	validator *schemas.CUEValidator
 }
 
-// Ensure ProjectFSImpl implements ProjectFS
+// Ensure ProjectFSImpl implements ProjectFS.
 var _ ProjectFS = (*ProjectFSImpl)(nil)
 
-// NewProjectFS creates a new ProjectFS instance
+// NewProjectFS creates a new ProjectFS instance.
 func NewProjectFS(sowFS *SowFSImpl, validator *schemas.CUEValidator) *ProjectFSImpl {
 	return &ProjectFSImpl{
 		sowFS:     sowFS,
@@ -92,7 +92,7 @@ func NewProjectFS(sowFS *SowFSImpl, validator *schemas.CUEValidator) *ProjectFSI
 	}
 }
 
-// State reads the project state
+// State reads the project state.
 func (p *ProjectFSImpl) State() (*schemas.ProjectState, error) {
 	statePath := "project/state.yaml"
 
@@ -107,7 +107,7 @@ func (p *ProjectFSImpl) State() (*schemas.ProjectState, error) {
 
 	// Validate against CUE schema
 	if err := p.validator.ValidateProjectState(data); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("project state validation failed: %w", err)
 	}
 
 	// Parse YAML
@@ -119,7 +119,7 @@ func (p *ProjectFSImpl) State() (*schemas.ProjectState, error) {
 	return &state, nil
 }
 
-// WriteState writes the project state
+// WriteState writes the project state.
 func (p *ProjectFSImpl) WriteState(state *schemas.ProjectState) error {
 	statePath := "project/state.yaml"
 
@@ -131,7 +131,7 @@ func (p *ProjectFSImpl) WriteState(state *schemas.ProjectState) error {
 
 	// Validate against CUE schema
 	if err := p.validator.ValidateProjectState(data); err != nil {
-		return err
+		return fmt.Errorf("project state validation failed: %w", err)
 	}
 
 	// Ensure project directory exists
@@ -147,7 +147,7 @@ func (p *ProjectFSImpl) WriteState(state *schemas.ProjectState) error {
 	return nil
 }
 
-// AppendLog appends to project log
+// AppendLog appends to project log.
 func (p *ProjectFSImpl) AppendLog(entry string) error {
 	logPath := "project/log.md"
 
@@ -183,7 +183,7 @@ func (p *ProjectFSImpl) AppendLog(entry string) error {
 	return nil
 }
 
-// ReadLog reads the project log
+// ReadLog reads the project log.
 func (p *ProjectFSImpl) ReadLog() (string, error) {
 	logPath := "project/log.md"
 
@@ -199,7 +199,7 @@ func (p *ProjectFSImpl) ReadLog() (string, error) {
 	return string(data), nil
 }
 
-// Task returns a TaskFS for a specific task
+// Task returns a TaskFS for a specific task.
 func (p *ProjectFSImpl) Task(taskID string) (*TaskFSImpl, error) {
 	// Validate task ID format (gap-numbered)
 	if !taskIDPattern.MatchString(taskID) {
@@ -220,7 +220,7 @@ func (p *ProjectFSImpl) Task(taskID string) (*TaskFSImpl, error) {
 	return NewTaskFS(p.sowFS, taskID, p.validator), nil
 }
 
-// Tasks returns all TaskFS instances
+// Tasks returns all TaskFS instances.
 func (p *ProjectFSImpl) Tasks() ([]*TaskFSImpl, error) {
 	tasksPath := "project/phases/implementation/tasks"
 
@@ -256,19 +256,27 @@ func (p *ProjectFSImpl) Tasks() ([]*TaskFSImpl, error) {
 	return tasks, nil
 }
 
-// Exists checks if project exists
+// Exists checks if project exists.
 func (p *ProjectFSImpl) Exists() (bool, error) {
 	statePath := "project/state.yaml"
-	return p.sowFS.fs.Exists(statePath)
+	exists, err := p.sowFS.fs.Exists(statePath)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if project exists: %w", err)
+	}
+	return exists, nil
 }
 
-// ReadContext reads a context file
+// ReadContext reads a context file.
 func (p *ProjectFSImpl) ReadContext(path string) ([]byte, error) {
 	contextPath := filepath.Join("project/context", path)
-	return p.sowFS.fs.ReadFile(contextPath)
+	data, err := p.sowFS.fs.ReadFile(contextPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read context file %s: %w", path, err)
+	}
+	return data, nil
 }
 
-// WriteContext writes a context file
+// WriteContext writes a context file.
 func (p *ProjectFSImpl) WriteContext(path string, data []byte) error {
 	contextPath := filepath.Join("project/context", path)
 
@@ -278,10 +286,13 @@ func (p *ProjectFSImpl) WriteContext(path string, data []byte) error {
 		return fmt.Errorf("failed to create context directories: %w", err)
 	}
 
-	return p.sowFS.fs.WriteFile(contextPath, data, 0644)
+	if err := p.sowFS.fs.WriteFile(contextPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write context file %s: %w", path, err)
+	}
+	return nil
 }
 
-// ListContextFiles lists all context files
+// ListContextFiles lists all context files.
 func (p *ProjectFSImpl) ListContextFiles() ([]string, error) {
 	contextPath := "project/context"
 
@@ -310,7 +321,7 @@ func (p *ProjectFSImpl) ListContextFiles() ([]string, error) {
 		// Make path relative to context directory
 		relPath, err := filepath.Rel(contextPath, path)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to compute relative path for %s: %w", path, err)
 		}
 
 		files = append(files, relPath)

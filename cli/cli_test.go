@@ -1,3 +1,4 @@
+// Package main provides integration tests for the sow CLI using testscript.
 package main
 
 import (
@@ -9,8 +10,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testscript.RunMain(m, map[string]func() int{
-		"sow": func() int {
+	testscript.Main(m, map[string]func(){
+		"sow": func() {
 			// Execute the sow CLI
 			// We need to handle errors gracefully since testscript
 			// expects the return code to indicate success/failure
@@ -18,11 +19,10 @@ func TestMain(m *testing.M) {
 			if err := rootCmd.Execute(); err != nil {
 				// Print error to stderr since SilenceErrors is true
 				rootCmd.PrintErrln("Error:", err)
-				return 1
+				os.Exit(1)
 			}
-			return 0
 		},
-	}))
+	})
 }
 
 func TestScripts(t *testing.T) {

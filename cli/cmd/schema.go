@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewSchemaCmd creates the schema command
+// NewSchemaCmd creates the schema command.
 func NewSchemaCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "schema",
@@ -29,7 +29,7 @@ func newSchemaListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List all available schemas",
 		Long:  `List all embedded CUE schemas with descriptions.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			cmd.Println("Available schemas:")
 			cmd.Println("  project-state    - Project state schema")
 			cmd.Println("  task-state       - Task state schema")

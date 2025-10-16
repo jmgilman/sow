@@ -17,7 +17,7 @@ import (
 //   - index.local.json - Local refs index (git-ignored)
 //   - Symlinks to cached repositories
 //
-// All paths are relative to .sow/refs/
+// All paths are relative to .sow/refs/.
 type RefsFS interface {
 	// CommittedIndex reads and validates the committed refs index.
 	// Returns the parsed and validated RefsCommittedIndex struct.
@@ -72,10 +72,10 @@ type RefsFSImpl struct {
 	validator *schemas.CUEValidator
 }
 
-// Ensure RefsFSImpl implements RefsFS
+// Ensure RefsFSImpl implements RefsFS.
 var _ RefsFS = (*RefsFSImpl)(nil)
 
-// NewRefsFS creates a new RefsFS instance
+// NewRefsFS creates a new RefsFS instance.
 func NewRefsFS(sowFS *SowFSImpl, validator *schemas.CUEValidator) *RefsFSImpl {
 	return &RefsFSImpl{
 		sowFS:     sowFS,
@@ -83,7 +83,7 @@ func NewRefsFS(sowFS *SowFSImpl, validator *schemas.CUEValidator) *RefsFSImpl {
 	}
 }
 
-// billyFS returns the underlying billy filesystem for symlink operations
+// billyFS returns the underlying billy filesystem for symlink operations.
 func (r *RefsFSImpl) billyFS() (gobilly.Filesystem, error) {
 	// Try to unwrap if it's a billy wrapper type
 	type unwrapper interface {
@@ -97,7 +97,7 @@ func (r *RefsFSImpl) billyFS() (gobilly.Filesystem, error) {
 	return nil, fmt.Errorf("filesystem does not support symlink operations")
 }
 
-// CommittedIndex reads the committed refs index
+// CommittedIndex reads the committed refs index.
 func (r *RefsFSImpl) CommittedIndex() (*schemas.RefsCommittedIndex, error) {
 	indexPath := "refs/index.json"
 
@@ -115,7 +115,7 @@ func (r *RefsFSImpl) CommittedIndex() (*schemas.RefsCommittedIndex, error) {
 
 	// Validate against CUE schema
 	if err := r.validator.ValidateRefsCommittedIndex(data); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("committed index validation failed: %w", err)
 	}
 
 	// Parse JSON
@@ -127,7 +127,7 @@ func (r *RefsFSImpl) CommittedIndex() (*schemas.RefsCommittedIndex, error) {
 	return &index, nil
 }
 
-// LocalIndex reads the local refs index
+// LocalIndex reads the local refs index.
 func (r *RefsFSImpl) LocalIndex() (*schemas.RefsLocalIndex, error) {
 	indexPath := "refs/index.local.json"
 
@@ -152,7 +152,7 @@ func (r *RefsFSImpl) LocalIndex() (*schemas.RefsLocalIndex, error) {
 
 	// Validate against CUE schema
 	if err := r.validator.ValidateRefsLocalIndex(data); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("local index validation failed: %w", err)
 	}
 
 	// Parse JSON
@@ -164,7 +164,7 @@ func (r *RefsFSImpl) LocalIndex() (*schemas.RefsLocalIndex, error) {
 	return &index, nil
 }
 
-// WriteCommittedIndex writes the committed refs index
+// WriteCommittedIndex writes the committed refs index.
 func (r *RefsFSImpl) WriteCommittedIndex(index *schemas.RefsCommittedIndex) error {
 	indexPath := "refs/index.json"
 
@@ -176,7 +176,7 @@ func (r *RefsFSImpl) WriteCommittedIndex(index *schemas.RefsCommittedIndex) erro
 
 	// Validate against CUE schema
 	if err := r.validator.ValidateRefsCommittedIndex(data); err != nil {
-		return err
+		return fmt.Errorf("committed index validation failed: %w", err)
 	}
 
 	// Ensure refs directory exists
@@ -192,7 +192,7 @@ func (r *RefsFSImpl) WriteCommittedIndex(index *schemas.RefsCommittedIndex) erro
 	return nil
 }
 
-// WriteLocalIndex writes the local refs index
+// WriteLocalIndex writes the local refs index.
 func (r *RefsFSImpl) WriteLocalIndex(index *schemas.RefsLocalIndex) error {
 	indexPath := "refs/index.local.json"
 
@@ -204,7 +204,7 @@ func (r *RefsFSImpl) WriteLocalIndex(index *schemas.RefsLocalIndex) error {
 
 	// Validate against CUE schema
 	if err := r.validator.ValidateRefsLocalIndex(data); err != nil {
-		return err
+		return fmt.Errorf("local index validation failed: %w", err)
 	}
 
 	// Ensure refs directory exists
@@ -220,7 +220,7 @@ func (r *RefsFSImpl) WriteLocalIndex(index *schemas.RefsLocalIndex) error {
 	return nil
 }
 
-// SymlinkExists checks if a symlink exists
+// SymlinkExists checks if a symlink exists.
 func (r *RefsFSImpl) SymlinkExists(name string) (bool, error) {
 	// Sanitize name to prevent path traversal
 	name = filepath.Base(name)
@@ -250,7 +250,7 @@ func (r *RefsFSImpl) SymlinkExists(name string) (bool, error) {
 	return info.Mode()&os.ModeSymlink != 0, nil
 }
 
-// CreateSymlink creates a symlink
+// CreateSymlink creates a symlink.
 func (r *RefsFSImpl) CreateSymlink(target, name string) error {
 	// Sanitize name to prevent path traversal
 	name = filepath.Base(name)
@@ -275,7 +275,7 @@ func (r *RefsFSImpl) CreateSymlink(target, name string) error {
 	return nil
 }
 
-// RemoveSymlink removes a symlink
+// RemoveSymlink removes a symlink.
 func (r *RefsFSImpl) RemoveSymlink(name string) error {
 	// Sanitize name to prevent path traversal
 	name = filepath.Base(name)
@@ -289,7 +289,7 @@ func (r *RefsFSImpl) RemoveSymlink(name string) error {
 	return nil
 }
 
-// ListSymlinks lists all symlinks
+// ListSymlinks lists all symlinks.
 func (r *RefsFSImpl) ListSymlinks() ([]string, error) {
 	refsPath := "refs"
 
@@ -338,7 +338,7 @@ func (r *RefsFSImpl) ListSymlinks() ([]string, error) {
 	return symlinks, nil
 }
 
-// ReadSymlink reads a symlink target
+// ReadSymlink reads a symlink target.
 func (r *RefsFSImpl) ReadSymlink(name string) (string, error) {
 	// Sanitize name to prevent path traversal
 	name = filepath.Base(name)

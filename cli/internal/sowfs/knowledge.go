@@ -12,7 +12,7 @@ import (
 //   - architecture/ - Architecture documentation
 //   - adrs/ - Architecture Decision Records
 //
-// All paths are relative to .sow/knowledge/
+// All paths are relative to .sow/knowledge/.
 type KnowledgeFS interface {
 	// ReadFile reads a file from the knowledge directory.
 	// Path is relative to .sow/knowledge/
@@ -52,24 +52,28 @@ type KnowledgeFSImpl struct {
 	sowFS *SowFSImpl
 }
 
-// Ensure KnowledgeFSImpl implements KnowledgeFS
+// Ensure KnowledgeFSImpl implements KnowledgeFS.
 var _ KnowledgeFS = (*KnowledgeFSImpl)(nil)
 
 // NewKnowledgeFS creates a new KnowledgeFS instance.
 // validator is not used for KnowledgeFS as it only handles plain markdown files.
-func NewKnowledgeFS(sowFS *SowFSImpl, validator interface{}) *KnowledgeFSImpl {
+func NewKnowledgeFS(sowFS *SowFSImpl, _ interface{}) *KnowledgeFSImpl {
 	return &KnowledgeFSImpl{
 		sowFS: sowFS,
 	}
 }
 
-// ReadFile reads a file from knowledge directory
+// ReadFile reads a file from knowledge directory.
 func (k *KnowledgeFSImpl) ReadFile(path string) ([]byte, error) {
 	fullPath := filepath.Join("knowledge", path)
-	return k.sowFS.fs.ReadFile(fullPath)
+	data, err := k.sowFS.fs.ReadFile(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read knowledge file %s: %w", path, err)
+	}
+	return data, nil
 }
 
-// WriteFile writes a file to knowledge directory
+// WriteFile writes a file to knowledge directory.
 func (k *KnowledgeFSImpl) WriteFile(path string, data []byte) error {
 	fullPath := filepath.Join("knowledge", path)
 
@@ -79,16 +83,23 @@ func (k *KnowledgeFSImpl) WriteFile(path string, data []byte) error {
 		return fmt.Errorf("failed to create parent directories: %w", err)
 	}
 
-	return k.sowFS.fs.WriteFile(fullPath, data, 0644)
+	if err := k.sowFS.fs.WriteFile(fullPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write knowledge file %s: %w", path, err)
+	}
+	return nil
 }
 
-// Exists checks if a path exists in knowledge
+// Exists checks if a path exists in knowledge.
 func (k *KnowledgeFSImpl) Exists(path string) (bool, error) {
 	fullPath := filepath.Join("knowledge", path)
-	return k.sowFS.fs.Exists(fullPath)
+	exists, err := k.sowFS.fs.Exists(fullPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if knowledge path exists %s: %w", path, err)
+	}
+	return exists, nil
 }
 
-// ListADRs lists all ADR files
+// ListADRs lists all ADR files.
 func (k *KnowledgeFSImpl) ListADRs() ([]string, error) {
 	adrPath := "knowledge/adrs"
 
@@ -119,7 +130,7 @@ func (k *KnowledgeFSImpl) ListADRs() ([]string, error) {
 	return adrs, nil
 }
 
-// ReadADR reads an ADR by filename
+// ReadADR reads an ADR by filename.
 func (k *KnowledgeFSImpl) ReadADR(filename string) ([]byte, error) {
 	// Sanitize filename to prevent path traversal
 	filename = filepath.Base(filename)
@@ -127,7 +138,7 @@ func (k *KnowledgeFSImpl) ReadADR(filename string) ([]byte, error) {
 	return k.ReadFile(adrPath)
 }
 
-// WriteADR writes an ADR file
+// WriteADR writes an ADR file.
 func (k *KnowledgeFSImpl) WriteADR(filename string, data []byte) error {
 	// Sanitize filename to prevent path traversal
 	filename = filepath.Base(filename)
@@ -135,8 +146,11 @@ func (k *KnowledgeFSImpl) WriteADR(filename string, data []byte) error {
 	return k.WriteFile(adrPath, data)
 }
 
-// MkdirAll creates directory path in knowledge
+// MkdirAll creates directory path in knowledge.
 func (k *KnowledgeFSImpl) MkdirAll(path string) error {
 	fullPath := filepath.Join("knowledge", path)
-	return k.sowFS.fs.MkdirAll(fullPath, 0755)
+	if err := k.sowFS.fs.MkdirAll(fullPath, 0755); err != nil {
+		return fmt.Errorf("failed to create knowledge directory %s: %w", path, err)
+	}
+	return nil
 }

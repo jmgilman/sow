@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestProjectFS_State tests reading project state
+// TestProjectFS_State tests reading project state.
 func TestProjectFS_State(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -21,7 +21,7 @@ func TestProjectFS_State(t *testing.T) {
 		{
 			name: "read existing state",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project", 0755)
+				_ = fs.MkdirAll(".sow/project", 0755)
 				stateYAML := `project:
   name: test-project
   branch: feature/test
@@ -73,14 +73,14 @@ phases:
     project_deleted: false
     pr_url: null
 `
-				fs.WriteFile(".sow/project/state.yaml", []byte(stateYAML), 0644)
+				_ = fs.WriteFile(".sow/project/state.yaml", []byte(stateYAML), 0644)
 			},
 			wantErr: false,
 		},
 		{
 			name: "project not found",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project", 0755)
+				_ = fs.MkdirAll(".sow/project", 0755)
 				// Don't create state.yaml
 			},
 			wantErr: true,
@@ -117,10 +117,10 @@ phases:
 	}
 }
 
-// TestProjectFS_WriteState tests writing project state
+// TestProjectFS_WriteState tests writing project state.
 func TestProjectFS_WriteState(t *testing.T) {
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/project", 0755)
+	_ = fs.MkdirAll(".sow/project", 0755)
 
 	sowFS, err := NewSowFSWithFS(fs, "/test/repo")
 	require.NoError(t, err)
@@ -191,10 +191,10 @@ func TestProjectFS_WriteState(t *testing.T) {
 	assert.Equal(t, "feature/test", readState.Project.Branch)
 }
 
-// TestProjectFS_AppendLog tests appending to project log
+// TestProjectFS_AppendLog tests appending to project log.
 func TestProjectFS_AppendLog(t *testing.T) {
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/project", 0755)
+	_ = fs.MkdirAll(".sow/project", 0755)
 
 	sowFS, err := NewSowFSWithFS(fs, "/test/repo")
 	require.NoError(t, err)
@@ -216,7 +216,7 @@ func TestProjectFS_AppendLog(t *testing.T) {
 	assert.Contains(t, log, "Second log entry")
 }
 
-// TestProjectFS_ReadLog tests reading project log
+// TestProjectFS_ReadLog tests reading project log.
 func TestProjectFS_ReadLog(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -227,15 +227,15 @@ func TestProjectFS_ReadLog(t *testing.T) {
 		{
 			name: "read existing log",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project", 0755)
-				fs.WriteFile(".sow/project/log.md", []byte("Log content"), 0644)
+				_ = fs.MkdirAll(".sow/project", 0755)
+				_ = fs.WriteFile(".sow/project/log.md", []byte("Log content"), 0644)
 			},
 			want: "Log content",
 		},
 		{
 			name: "log doesn't exist",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project", 0755)
+				_ = fs.MkdirAll(".sow/project", 0755)
 			},
 			want: "",
 		},
@@ -263,7 +263,7 @@ func TestProjectFS_ReadLog(t *testing.T) {
 	}
 }
 
-// TestProjectFS_Task tests getting a specific task
+// TestProjectFS_Task tests getting a specific task.
 func TestProjectFS_Task(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -275,7 +275,7 @@ func TestProjectFS_Task(t *testing.T) {
 		{
 			name: "valid task exists",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project/phases/implementation/tasks/010", 0755)
+				_ = fs.MkdirAll(".sow/project/phases/implementation/tasks/010", 0755)
 			},
 			taskID:  "010",
 			wantErr: false,
@@ -283,7 +283,7 @@ func TestProjectFS_Task(t *testing.T) {
 		{
 			name: "task not found",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project/phases/implementation/tasks", 0755)
+				_ = fs.MkdirAll(".sow/project/phases/implementation/tasks", 0755)
 			},
 			taskID:  "020",
 			wantErr: true,
@@ -292,7 +292,7 @@ func TestProjectFS_Task(t *testing.T) {
 		{
 			name: "invalid task ID format",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project/phases/implementation/tasks", 0755)
+				_ = fs.MkdirAll(".sow/project/phases/implementation/tasks", 0755)
 			},
 			taskID:  "abc",
 			wantErr: true,
@@ -301,7 +301,7 @@ func TestProjectFS_Task(t *testing.T) {
 		{
 			name: "task ID not gap-numbered",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project/phases/implementation/tasks", 0755)
+				_ = fs.MkdirAll(".sow/project/phases/implementation/tasks", 0755)
 			},
 			taskID:  "011",
 			wantErr: true,
@@ -335,7 +335,7 @@ func TestProjectFS_Task(t *testing.T) {
 	}
 }
 
-// TestProjectFS_Tasks tests listing all tasks
+// TestProjectFS_Tasks tests listing all tasks.
 func TestProjectFS_Tasks(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -345,33 +345,33 @@ func TestProjectFS_Tasks(t *testing.T) {
 		{
 			name: "multiple tasks",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project/phases/implementation/tasks/010", 0755)
-				fs.MkdirAll(".sow/project/phases/implementation/tasks/020", 0755)
-				fs.MkdirAll(".sow/project/phases/implementation/tasks/030", 0755)
+				_ = fs.MkdirAll(".sow/project/phases/implementation/tasks/010", 0755)
+				_ = fs.MkdirAll(".sow/project/phases/implementation/tasks/020", 0755)
+				_ = fs.MkdirAll(".sow/project/phases/implementation/tasks/030", 0755)
 			},
 			wantCount: 3,
 		},
 		{
 			name: "no tasks directory",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project", 0755)
+				_ = fs.MkdirAll(".sow/project", 0755)
 			},
 			wantCount: 0,
 		},
 		{
 			name: "empty tasks directory",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project/phases/implementation/tasks", 0755)
+				_ = fs.MkdirAll(".sow/project/phases/implementation/tasks", 0755)
 			},
 			wantCount: 0,
 		},
 		{
 			name: "filters non-gap-numbered directories",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project/phases/implementation/tasks/010", 0755)
-				fs.MkdirAll(".sow/project/phases/implementation/tasks/020", 0755)
-				fs.MkdirAll(".sow/project/phases/implementation/tasks/abc", 0755)
-				fs.WriteFile(".sow/project/phases/implementation/tasks/file.txt", []byte("test"), 0644)
+				_ = fs.MkdirAll(".sow/project/phases/implementation/tasks/010", 0755)
+				_ = fs.MkdirAll(".sow/project/phases/implementation/tasks/020", 0755)
+				_ = fs.MkdirAll(".sow/project/phases/implementation/tasks/abc", 0755)
+				_ = fs.WriteFile(".sow/project/phases/implementation/tasks/file.txt", []byte("test"), 0644)
 			},
 			wantCount: 2,
 		},
@@ -394,7 +394,7 @@ func TestProjectFS_Tasks(t *testing.T) {
 	}
 }
 
-// TestProjectFS_Exists tests checking if project exists
+// TestProjectFS_Exists tests checking if project exists.
 func TestProjectFS_Exists(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -404,7 +404,7 @@ func TestProjectFS_Exists(t *testing.T) {
 		{
 			name: "project exists",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project", 0755)
+				_ = fs.MkdirAll(".sow/project", 0755)
 				// Write valid (minimal) project state
 				validState := `project:
   name: test-project
@@ -440,14 +440,14 @@ phases:
     created_at: "2025-10-15T10:00:00Z"
     project_deleted: false
 `
-				fs.WriteFile(".sow/project/state.yaml", []byte(validState), 0644)
+				_ = fs.WriteFile(".sow/project/state.yaml", []byte(validState), 0644)
 			},
 			exists: true,
 		},
 		{
 			name: "project doesn't exist",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/project", 0755)
+				_ = fs.MkdirAll(".sow/project", 0755)
 			},
 			exists: false,
 		},
@@ -470,10 +470,10 @@ phases:
 	}
 }
 
-// TestProjectFS_Context tests context file operations
+// TestProjectFS_Context tests context file operations.
 func TestProjectFS_Context(t *testing.T) {
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/project", 0755)
+	_ = fs.MkdirAll(".sow/project", 0755)
 
 	sowFS, err := NewSowFSWithFS(fs, "/test/repo")
 	require.NoError(t, err)
@@ -506,10 +506,10 @@ func TestProjectFS_Context(t *testing.T) {
 	assert.Contains(t, files, "dir/nested.md")
 }
 
-// TestProjectFS_ListContextFiles_Empty tests listing when no context files
+// TestProjectFS_ListContextFiles_Empty tests listing when no context files.
 func TestProjectFS_ListContextFiles_Empty(t *testing.T) {
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/project", 0755)
+	_ = fs.MkdirAll(".sow/project", 0755)
 
 	sowFS, err := NewSowFSWithFS(fs, "/test/repo")
 	require.NoError(t, err)

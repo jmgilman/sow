@@ -1,3 +1,4 @@
+//nolint:revive // Generated types use snake_case to match CUE schemas
 package schemas_test
 
 import (
@@ -7,7 +8,7 @@ import (
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
-// Example demonstrating usage of generated types
+// Example demonstrating usage of generated types.
 func TestGeneratedTypes(t *testing.T) {
 	// Create a ProjectState instance using generated types
 	state := schemas.ProjectState{

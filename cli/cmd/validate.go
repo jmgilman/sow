@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/jmgilman/sow/cli/internal/sowfs"
 	"github.com/spf13/cobra"
 )
 
-// NewValidateCmd creates the validate command
+// NewValidateCmd creates the validate command.
 func NewValidateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "validate",
@@ -25,13 +27,17 @@ Exit codes:
   0 - All validations passed
   1 - Validation errors found
   2 - Failed to initialize (not in sow repository)`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Attempt to load .sow structure (validation happens during construction)
 			sowFS, err := sowfs.NewSowFS()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to initialize sow filesystem: %w", err)
 			}
-			defer sowFS.Close()
+			defer func() {
+				if closeErr := sowFS.Close(); closeErr != nil {
+					cmd.PrintErrln("Warning: failed to close sow filesystem:", closeErr)
+				}
+			}()
 
 			// If we got here, validation passed
 			cmd.Println("✓ All validations passed")

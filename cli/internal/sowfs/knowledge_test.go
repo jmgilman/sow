@@ -8,14 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestKnowledgeFS_ReadFile tests reading files from knowledge directory
+// TestKnowledgeFS_ReadFile tests reading files from knowledge directory.
 func TestKnowledgeFS_ReadFile(t *testing.T) {
 	// Setup filesystem with test data
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/knowledge", 0755)
-	fs.WriteFile(".sow/knowledge/overview.md", []byte("# Overview\nTest content"), 0644)
-	fs.MkdirAll(".sow/knowledge/architecture", 0755)
-	fs.WriteFile(".sow/knowledge/architecture/design.md", []byte("# Design"), 0644)
+	_ = fs.MkdirAll(".sow/knowledge", 0755)
+	_ = fs.WriteFile(".sow/knowledge/overview.md", []byte("# Overview\nTest content"), 0644)
+	_ = fs.MkdirAll(".sow/knowledge/architecture", 0755)
+	_ = fs.WriteFile(".sow/knowledge/architecture/design.md", []byte("# Design"), 0644)
 
 	sowFS, err := NewSowFSWithFS(fs, "/test/repo")
 	require.NoError(t, err)
@@ -23,10 +23,10 @@ func TestKnowledgeFS_ReadFile(t *testing.T) {
 	knowledgeFS := sowFS.Knowledge()
 
 	tests := []struct {
-		name     string
-		path     string
-		want     string
-		wantErr  bool
+		name    string
+		path    string
+		want    string
+		wantErr bool
 	}{
 		{
 			name:    "read root file",
@@ -61,10 +61,10 @@ func TestKnowledgeFS_ReadFile(t *testing.T) {
 	}
 }
 
-// TestKnowledgeFS_WriteFile tests writing files to knowledge directory
+// TestKnowledgeFS_WriteFile tests writing files to knowledge directory.
 func TestKnowledgeFS_WriteFile(t *testing.T) {
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/knowledge", 0755)
+	_ = fs.MkdirAll(".sow/knowledge", 0755)
 
 	sowFS, err := NewSowFSWithFS(fs, "/test/repo")
 	require.NoError(t, err)
@@ -101,12 +101,12 @@ func TestKnowledgeFS_WriteFile(t *testing.T) {
 	}
 }
 
-// TestKnowledgeFS_Exists tests checking if files exist
+// TestKnowledgeFS_Exists tests checking if files exist.
 func TestKnowledgeFS_Exists(t *testing.T) {
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/knowledge", 0755)
-	fs.WriteFile(".sow/knowledge/overview.md", []byte("content"), 0644)
-	fs.MkdirAll(".sow/knowledge/architecture", 0755)
+	_ = fs.MkdirAll(".sow/knowledge", 0755)
+	_ = fs.WriteFile(".sow/knowledge/overview.md", []byte("content"), 0644)
+	_ = fs.MkdirAll(".sow/knowledge/architecture", 0755)
 
 	sowFS, err := NewSowFSWithFS(fs, "/test/repo")
 	require.NoError(t, err)
@@ -144,10 +144,10 @@ func TestKnowledgeFS_Exists(t *testing.T) {
 	}
 }
 
-// TestKnowledgeFS_MkdirAll tests creating directories
+// TestKnowledgeFS_MkdirAll tests creating directories.
 func TestKnowledgeFS_MkdirAll(t *testing.T) {
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/knowledge", 0755)
+	_ = fs.MkdirAll(".sow/knowledge", 0755)
 
 	sowFS, err := NewSowFSWithFS(fs, "/test/repo")
 	require.NoError(t, err)
@@ -164,7 +164,7 @@ func TestKnowledgeFS_MkdirAll(t *testing.T) {
 	assert.True(t, exists)
 }
 
-// TestKnowledgeFS_ListADRs tests listing ADR files
+// TestKnowledgeFS_ListADRs tests listing ADR files.
 func TestKnowledgeFS_ListADRs(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -175,16 +175,16 @@ func TestKnowledgeFS_ListADRs(t *testing.T) {
 		{
 			name: "list ADRs",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/knowledge/adrs", 0755)
-				fs.WriteFile(".sow/knowledge/adrs/001-first.md", []byte("content"), 0644)
-				fs.WriteFile(".sow/knowledge/adrs/002-second.md", []byte("content"), 0644)
+				_ = fs.MkdirAll(".sow/knowledge/adrs", 0755)
+				_ = fs.WriteFile(".sow/knowledge/adrs/001-first.md", []byte("content"), 0644)
+				_ = fs.WriteFile(".sow/knowledge/adrs/002-second.md", []byte("content"), 0644)
 			},
 			want: []string{"001-first.md", "002-second.md"},
 		},
 		{
 			name: "no adrs directory",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/knowledge", 0755)
+				_ = fs.MkdirAll(".sow/knowledge", 0755)
 				// Don't create adrs directory
 			},
 			want: []string{},
@@ -192,16 +192,16 @@ func TestKnowledgeFS_ListADRs(t *testing.T) {
 		{
 			name: "empty adrs directory",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/knowledge/adrs", 0755)
+				_ = fs.MkdirAll(".sow/knowledge/adrs", 0755)
 			},
 			want: []string{},
 		},
 		{
 			name: "adrs with subdirectory (filtered out)",
 			setup: func(fs *billy.MemoryFS) {
-				fs.MkdirAll(".sow/knowledge/adrs", 0755)
-				fs.WriteFile(".sow/knowledge/adrs/001-first.md", []byte("content"), 0644)
-				fs.MkdirAll(".sow/knowledge/adrs/archive", 0755)
+				_ = fs.MkdirAll(".sow/knowledge/adrs", 0755)
+				_ = fs.WriteFile(".sow/knowledge/adrs/001-first.md", []byte("content"), 0644)
+				_ = fs.MkdirAll(".sow/knowledge/adrs/archive", 0755)
 			},
 			want: []string{"001-first.md"},
 		},
@@ -229,11 +229,11 @@ func TestKnowledgeFS_ListADRs(t *testing.T) {
 	}
 }
 
-// TestKnowledgeFS_ReadADR tests reading ADR files
+// TestKnowledgeFS_ReadADR tests reading ADR files.
 func TestKnowledgeFS_ReadADR(t *testing.T) {
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/knowledge/adrs", 0755)
-	fs.WriteFile(".sow/knowledge/adrs/001-decision.md", []byte("# ADR 001"), 0644)
+	_ = fs.MkdirAll(".sow/knowledge/adrs", 0755)
+	_ = fs.WriteFile(".sow/knowledge/adrs/001-decision.md", []byte("# ADR 001"), 0644)
 
 	sowFS, err := NewSowFSWithFS(fs, "/test/repo")
 	require.NoError(t, err)
@@ -279,10 +279,10 @@ func TestKnowledgeFS_ReadADR(t *testing.T) {
 	}
 }
 
-// TestKnowledgeFS_WriteADR tests writing ADR files
+// TestKnowledgeFS_WriteADR tests writing ADR files.
 func TestKnowledgeFS_WriteADR(t *testing.T) {
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/knowledge", 0755)
+	_ = fs.MkdirAll(".sow/knowledge", 0755)
 
 	sowFS, err := NewSowFSWithFS(fs, "/test/repo")
 	require.NoError(t, err)
@@ -325,10 +325,10 @@ func TestKnowledgeFS_WriteADR(t *testing.T) {
 	}
 }
 
-// TestKnowledgeFS_Integration tests full workflow
+// TestKnowledgeFS_Integration tests full workflow.
 func TestKnowledgeFS_Integration(t *testing.T) {
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow/knowledge", 0755)
+	_ = fs.MkdirAll(".sow/knowledge", 0755)
 
 	sowFS, err := NewSowFSWithFS(fs, "/test/repo")
 	require.NoError(t, err)

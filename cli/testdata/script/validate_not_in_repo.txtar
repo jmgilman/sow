@@ -2,4 +2,4 @@
 # Should fail with appropriate error message
 
 ! exec sow validate
-stderr 'Error: not in git repository'
+stderr 'failed to initialize sow filesystem: not in git repository'

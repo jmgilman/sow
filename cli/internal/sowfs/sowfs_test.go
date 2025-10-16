@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewSowFSWithFS tests the testing constructor with in-memory filesystem
+// TestNewSowFSWithFS tests the testing constructor with in-memory filesystem.
 func TestNewSowFSWithFS(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -23,8 +23,8 @@ func TestNewSowFSWithFS(t *testing.T) {
 			name: "success - .sow directory exists",
 			setup: func() *billy.MemoryFS {
 				fs := billy.NewMemory()
-				fs.MkdirAll(".sow/knowledge", 0755)
-				fs.MkdirAll(".sow/refs", 0755)
+				_ = fs.MkdirAll(".sow/knowledge", 0755)
+				_ = fs.MkdirAll(".sow/refs", 0755)
 				return fs
 			},
 			repoRoot: "/test/repo",
@@ -54,7 +54,7 @@ func TestNewSowFSWithFS(t *testing.T) {
 			name: "error - .sow is a file not directory",
 			setup: func() *billy.MemoryFS {
 				fs := billy.NewMemory()
-				fs.WriteFile(".sow", []byte("not a directory"), 0644)
+				_ = fs.WriteFile(".sow", []byte("not a directory"), 0644)
 				return fs
 			},
 			repoRoot: "/test/repo",
@@ -82,7 +82,7 @@ func TestNewSowFSWithFS(t *testing.T) {
 	}
 }
 
-// TestFindGitRepoRoot tests git repository root detection
+// TestFindGitRepoRoot tests git repository root detection.
 func TestFindGitRepoRoot(t *testing.T) {
 	// Create a temporary directory structure for testing
 	tmpDir := t.TempDir()
@@ -144,7 +144,7 @@ func TestFindGitRepoRoot(t *testing.T) {
 	}
 }
 
-// TestFindGitRepoRoot_Worktree tests git worktree case where .git is a file
+// TestFindGitRepoRoot_Worktree tests git worktree case where .git is a file.
 func TestFindGitRepoRoot_Worktree(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -159,7 +159,7 @@ func TestFindGitRepoRoot_Worktree(t *testing.T) {
 	assert.Equal(t, tmpDir, root)
 }
 
-// TestNewSowFSFromPath tests creating SowFS from a path
+// TestNewSowFSFromPath tests creating SowFS from a path.
 func TestNewSowFSFromPath(t *testing.T) {
 	// Create temporary git repo with .sow
 	tmpDir := t.TempDir()
@@ -216,13 +216,13 @@ func TestNewSowFSFromPath(t *testing.T) {
 				}
 
 				// Cleanup
-				sowFS.Close()
+				_ = sowFS.Close()
 			}
 		})
 	}
 }
 
-// TestNewSowFSFromPath_NoSowDirectory tests error when .sow missing
+// TestNewSowFSFromPath_NoSowDirectory tests error when .sow missing.
 func TestNewSowFSFromPath_NoSowDirectory(t *testing.T) {
 	// Create git repo WITHOUT .sow
 	tmpDir := t.TempDir()
@@ -235,10 +235,10 @@ func TestNewSowFSFromPath_NoSowDirectory(t *testing.T) {
 	assert.Nil(t, sowFS)
 }
 
-// TestSowFSImpl_Close tests Close method
+// TestSowFSImpl_Close tests Close method.
 func TestSowFSImpl_Close(t *testing.T) {
 	fs := billy.NewMemory()
-	fs.MkdirAll(".sow", 0755)
+	_ = fs.MkdirAll(".sow", 0755)
 
 	sowFS, err := NewSowFSWithFS(fs, "/test")
 	require.NoError(t, err)

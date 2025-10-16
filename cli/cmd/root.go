@@ -1,3 +1,4 @@
+// Package cmd provides the CLI commands for the sow tool.
 package cmd
 
 import (
@@ -9,11 +10,11 @@ import (
 )
 
 var (
-	// Version is set at build time via ldflags
+	// Version is set at build time via ldflags.
 	Version = "dev"
 )
 
-// NewRootCmd creates the root command
+// NewRootCmd creates the root command.
 func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sow",
@@ -26,7 +27,7 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 		Version:       Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			// Initialize adapters
 			fs := billy.NewLocal()
 
@@ -54,7 +55,7 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 	return cmd
 }
 
-// Execute runs the root command
+// Execute runs the root command.
 func Execute() {
 	rootCmd := NewRootCmd()
 	if err := rootCmd.Execute(); err != nil {

@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCacheCmd creates the cache command
+// NewCacheCmd creates the cache command.
 func NewCacheCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cache",
@@ -36,7 +36,7 @@ Shows:
   - Cache directory location
   - Repos using each cached entry
   - Orphaned cache entries (not referenced by any repo)`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			cmd.Println("Cache status:")
 			cmd.Println("  Location: ~/.cache/sow")
 			cmd.Println("  Size: 0 MB")
@@ -59,7 +59,7 @@ func newCachePruneCmd() *cobra.Command {
 This scans all cache entries and removes those not referenced by
 any active sow repository. Useful for cleaning up after removing
 refs or deleting repositories.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			cmd.Println("Cache pruned: 0 entries removed")
 			return nil
 		},
@@ -79,7 +79,7 @@ func newCacheClearCmd() *cobra.Command {
 WARNING: This removes all cached repositories regardless of usage.
 Refs will be re-cloned on next access. Use 'cache prune' to remove
 only unused entries.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			cmd.Println("Cache cleared")
 			return nil
 		},
