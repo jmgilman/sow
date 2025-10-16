@@ -1,0 +1,15 @@
+# Test validation with invalid refs index version
+# Should fail when version is not valid semver
+
+exec git init
+! exec sow validate
+stderr 'Error: validation failed'
+stderr 'refs/index.json'
+stderr 'refs-committed'
+stderr 'not-semver'
+
+-- .sow/refs/index.json --
+{
+  "version": "not-semver",
+  "refs": []
+}

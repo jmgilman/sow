@@ -1,0 +1,9 @@
+# Test validation with minimal empty .sow structure
+# Should pass validation when directory exists but has no files
+
+exec git init
+exec sow validate
+stderr '✓ All validations passed'
+
+-- .sow/knowledge/.gitkeep --
+-- .sow/refs/.gitkeep --

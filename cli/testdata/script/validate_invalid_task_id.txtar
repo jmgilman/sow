@@ -1,0 +1,56 @@
+# Test validation with invalid task ID
+# Should fail when task ID doesn't match gap-numbered pattern (3+ digits)
+
+exec git init
+! exec sow validate
+stderr 'Error: validation failed'
+stderr 'tasks/010/state.yaml'
+stderr 'task-state'
+
+-- .sow/project/state.yaml --
+project:
+  name: test-project
+  branch: feat/test
+  description: Test
+  created_at: "2025-10-15T10:00:00Z"
+  updated_at: "2025-10-15T10:00:00Z"
+phases:
+  discovery:
+    enabled: false
+    status: skipped
+    created_at: "2025-10-15T10:00:00Z"
+    artifacts: []
+  design:
+    enabled: false
+    status: skipped
+    created_at: "2025-10-15T10:00:00Z"
+    artifacts: []
+  implementation:
+    enabled: true
+    status: pending
+    created_at: "2025-10-15T10:00:00Z"
+    tasks: []
+  review:
+    enabled: true
+    status: pending
+    created_at: "2025-10-15T10:00:00Z"
+    iteration: 1
+    reports: []
+  finalize:
+    enabled: true
+    status: pending
+    created_at: "2025-10-15T10:00:00Z"
+    project_deleted: false
+
+-- .sow/project/phases/implementation/tasks/010/state.yaml --
+task:
+  id: "10"
+  name: Test task
+  phase: implementation
+  status: pending
+  created_at: "2025-10-15T10:00:00Z"
+  updated_at: "2025-10-15T10:00:00Z"
+  iteration: 1
+  references: []
+  feedback: []
+  files_modified: []

@@ -1,0 +1,12 @@
+# Test validation with valid refs index
+# Should pass when refs index has correct semver version
+
+exec git init
+exec sow validate
+stderr '✓ All validations passed'
+
+-- .sow/refs/index.json --
+{
+  "version": "1.0.0",
+  "refs": []
+}

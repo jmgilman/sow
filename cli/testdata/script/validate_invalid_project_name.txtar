@@ -1,0 +1,44 @@
+# Test validation with invalid project name
+# Should fail when project name has uppercase letters and spaces
+
+exec git init
+! exec sow validate
+stderr 'Error: validation failed'
+stderr 'project/state.yaml'
+stderr 'project-state'
+stderr 'Invalid Name'
+
+-- .sow/project/state.yaml --
+project:
+  name: "Invalid Name With Spaces"
+  branch: "feat/test"
+  description: "Test"
+  created_at: "2025-10-15T10:00:00Z"
+  updated_at: "2025-10-15T10:00:00Z"
+phases:
+  discovery:
+    enabled: false
+    status: skipped
+    created_at: "2025-10-15T10:00:00Z"
+    artifacts: []
+  design:
+    enabled: false
+    status: skipped
+    created_at: "2025-10-15T10:00:00Z"
+    artifacts: []
+  implementation:
+    enabled: true
+    status: pending
+    created_at: "2025-10-15T10:00:00Z"
+    tasks: []
+  review:
+    enabled: true
+    status: pending
+    created_at: "2025-10-15T10:00:00Z"
+    iteration: 1
+    reports: []
+  finalize:
+    enabled: true
+    status: pending
+    created_at: "2025-10-15T10:00:00Z"
+    project_deleted: false

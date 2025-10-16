@@ -1,0 +1,29 @@
+# Test validation with multiple errors across different files
+# Should report all validation errors together
+
+exec git init
+! exec sow validate
+stderr 'Error: validation failed'
+stderr 'refs/index.json'
+stderr 'refs/index.local.json'
+stderr 'project/state.yaml'
+
+-- .sow/refs/index.json --
+{
+  "version": "bad-version",
+  "refs": []
+}
+
+-- .sow/refs/index.local.json --
+{
+  "version": "also-bad",
+  "refs": []
+}
+
+-- .sow/project/state.yaml --
+project:
+  name: "Bad Name"
+  branch: ""
+  description: "Test"
+  created_at: "2025-10-15T10:00:00Z"
+  updated_at: "2025-10-15T10:00:00Z"
