@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// ProjectState defines the schema for .sow/project/state.yaml.
+// ProjectState defines the schema for .sow/project/state.yaml
 //
 // This file tracks the state of an active project across all 5 phases.
 // All projects have the same 5 phases; the 'enabled' flag controls
@@ -48,7 +48,7 @@ type ProjectState struct {
 	} `json:"phases"`
 }
 
-// Phase represents common phase fields.
+// Phase represents common phase fields
 type Phase struct {
 	// Phase execution status
 	Status string `json:"status"`
@@ -61,7 +61,7 @@ type Phase struct {
 	Completed_at any/* CUE disjunction: (null|string) */ `json:"completed_at"`
 }
 
-// DiscoveryPhase represents the discovery phase.
+// DiscoveryPhase represents the discovery phase
 type DiscoveryPhase struct {
 	// Phase execution status
 	Status string `json:"status"`
@@ -83,7 +83,7 @@ type DiscoveryPhase struct {
 	Artifacts []Artifact `json:"artifacts"`
 }
 
-// DesignPhase represents the design phase.
+// DesignPhase represents the design phase
 type DesignPhase struct {
 	// Phase execution status
 	Status string `json:"status"`
@@ -105,7 +105,7 @@ type DesignPhase struct {
 	Artifacts []Artifact `json:"artifacts"`
 }
 
-// ImplementationPhase represents the implementation phase.
+// ImplementationPhase represents the implementation phase
 type ImplementationPhase struct {
 	// Phase execution status
 	Status string `json:"status"`
@@ -130,53 +130,71 @@ type ImplementationPhase struct {
 	Pending_task_additions any/* CUE disjunction: (null|list) */ `json:"pending_task_additions"`
 }
 
-// RefsCacheIndex defines the schema for ~/.cache/sow/index.json.
+// RefsCacheIndex defines the schema for ~/.cache/sow/index.json
 //
 // This is the cache index containing transient metadata about cached
-// repositories. Stored per-machine, not committed to git.
+// references. Stored per-machine, not committed to git.
 type RefsCacheIndex struct {
 	// Schema version (semantic versioning)
 	Version string `json:"version"`
 
-	// Cached repository metadata
-	Repos []CachedRepo `json:"repos"`
+	// Cached reference metadata
+	Refs []CachedRef `json:"refs"`
 }
 
-// CachedRepo represents a cached repository.
-type CachedRepo struct {
-	// Git repository URL (must match source from committed index)
-	Source string `json:"source"`
+// CachedRef represents a cached reference
+type CachedRef struct {
+	// Reference ID (matches ID from committed or local index)
+	Id string `json:"id"`
 
-	// Branch name
-	Branch string `json:"branch"`
+	// Type inferred from source URL (stored for quick lookup)
+	Type string `json:"type"`
 
-	// Relative path in cache (from ~/.cache/sow/)
-	Cached_path string `json:"cached_path"`
+	// Absolute cache path (e.g., /Users/josh/.cache/sow/refs/git/abc123/)
+	Cache_path string `json:"cache_path"`
 
+	// Last updated timestamp
+	Last_updated time.Time `json:"last_updated"`
+
+	// Repositories using this cached ref
+	Used_by []CacheUsage `json:"used_by"`
+
+	// Type-specific metadata
+	Metadata CacheMetadata `json:"metadata"`
+}
+
+// CacheMetadata is polymorphic based on type
+type CacheMetadata struct {
+	// Git type metadata
+	Git *GitMetadata `json:"git,omitempty"`
+
+	// File type metadata
+	File *FileMetadata `json:"file,omitempty"`
+}
+
+// GitMetadata contains git-specific cache data
+type GitMetadata struct {
 	// Current local commit SHA
 	Commit_sha string `json:"commit_sha"`
 
-	// Timestamps
-	Cached_at time.Time `json:"cached_at"`
+	// Latest remote commit SHA (updated on status check)
+	Remote_sha string `json:"remote_sha,omitempty"`
 
-	Last_checked time.Time `json:"last_checked"`
-
-	Last_updated time.Time `json:"last_updated"`
+	// Last time remote was checked
+	Last_checked time.Time `json:"last_checked,omitempty"`
 
 	// Staleness status
 	Status string `json:"status"`
 
-	// Number of commits behind remote (null if current)
-	Commits_behind any/* CUE disjunction: (null|int) */ `json:"commits_behind"`
-
-	// Latest remote commit SHA
-	Remote_sha string `json:"remote_sha"`
-
-	// Repositories using this cache
-	Used_by []CacheUsage `json:"used_by"`
+	// Number of commits behind remote (0 if current)
+	Commits_behind int64 `json:"commits_behind"`
 }
 
-// CacheUsage represents a repository using this cached repo.
+// FileMetadata contains file-specific cache data
+type FileMetadata struct {
+}
+
+// CacheUsage represents a repository using this cached ref
 type CacheUsage struct {
 	// Absolute path to consuming repository
 	Repo_path string `json:"repo_path"`
@@ -184,21 +202,71 @@ type CacheUsage struct {
 	// How the cache is linked (symlink on Unix, copy on Windows)
 	Link_type string `json:"link_type"`
 
-	// Subpaths from this cache used by the consuming repo
-	Paths []string `json:"paths"`
+	// Link name in the consuming repo's .sow/refs/ directory
+	Link_name string `json:"link_name"`
 }
 
-// RefsCommittedIndex defines the schema for .sow/refs/index.json.
+// RefsCommittedIndex defines the schema for .sow/refs/index.json
 //
 // This is the committed index containing categorical metadata about
-// remote refs, shared with the team via git. Contains configuration
+// refs, shared with the team via git. Contains configuration
 // but not transient data like SHAs or timestamps.
 type RefsCommittedIndex struct {
 	// Schema version (semantic versioning)
 	Version string `json:"version"`
 
-	// Remote reference definitions
-	Refs []RemoteRef `json:"refs"`
+	// Reference definitions
+	Refs []Ref `json:"refs"`
+}
+
+// Ref represents a reference to external content
+type Ref struct {
+	// Unique identifier (auto-generated)
+	Id string `json:"id"`
+
+	// Source URL with scheme that determines type
+	// Examples:
+	//   - git+https://github.com/org/repo
+	//   - git+ssh://git@github.com/org/repo
+	//   - git@github.com:org/repo (auto-converted to git+ssh://)
+	//   - file:///absolute/path
+	Source string `json:"source"`
+
+	// Semantic type (what the content represents)
+	Semantic string `json:"semantic"`
+
+	// Symlink name in .sow/refs/
+	Link string `json:"link"`
+
+	// Topic keywords for categorization
+	Tags []string `json:"tags"`
+
+	// One-sentence description
+	Description string `json:"description"`
+
+	// 2-3 sentence summary (optional)
+	Summary string `json:"summary"`
+
+	// Type-specific configuration
+	// Structure depends on URL scheme
+	Config RefConfig `json:"config"`
+}
+
+// RefConfig is a polymorphic config structure
+// Validation depends on the source URL scheme
+type RefConfig struct {
+	// Git type config (for git+https://, git+ssh://, git@ URLs)
+	// Branch name (optional, defaults to repo default)
+	Branch string `json:"branch,omitempty"`
+
+	// Subpath within repository (optional, defaults to root)
+	// Use "" or omit for root
+	//
+	// Future type configs would be added here
+	// For example, web type:
+	// scrape_depth?: int & >=1
+	// follow_links?: bool
+	Path string `json:"path,omitempty"`
 }
 
 // RefsLocalIndex defines the schema for .sow/refs/index.local.json
@@ -206,72 +274,16 @@ type RefsCommittedIndex struct {
 // This is the local-only index for references that should not be
 // shared with the team (e.g., work-in-progress docs, personal notes).
 // This file is git-ignored.
+//
+// Note: File refs are typically added as local refs since they
+// reference paths on the local machine.
 type RefsLocalIndex struct {
 	// Schema version (semantic versioning)
 	Version string `json:"version"`
 
 	// Local reference definitions
-	Refs []LocalRef `json:"refs"`
-}
-
-// LocalRef represents a local-only reference
-type LocalRef struct {
-	// Unique identifier
-	Id string `json:"id"`
-
-	// Reference type
-	Type string `json:"type"`
-
-	// Local file path using file:// protocol
-	Source string `json:"source"`
-
-	// Symlink name in .sow/refs/
-	Link string `json:"link"`
-
-	// Topic keywords for categorization
-	Tags []string `json:"tags"`
-
-	// One-sentence description
-	Description string `json:"description"`
-
-	// 2-3 sentence summary
-	Summary string `json:"summary"`
-}
-
-// RemoteRef represents a remote repository reference
-type RemoteRef struct {
-	// Unique identifier (generated from source+branch)
-	Id string `json:"id"`
-
-	// Reference type
-	Type string `json:"type"`
-
-	// Git repository URL (https or ssh)
-	Source string `json:"source"`
-
-	// Branch name
-	Branch string `json:"branch"`
-
-	// Subpaths within the repository
-	Paths []RefPath `json:"paths"`
-}
-
-// RefPath represents a subpath within a remote repository
-type RefPath struct {
-	// Subdirectory path within repo (empty string or "/" for root)
-	Path string `json:"path"`
-
-	// Symlink name in .sow/refs/
-	Link string `json:"link"`
-
-	// Topic keywords for categorization
-	Tags []string `json:"tags"`
-
-	// One-sentence description
-	Description string `json:"description"`
-
-	// 2-3 sentence summary
-	Summary string `json:"summary"`
+	// Uses same structure as committed refs
+	Refs []Ref `json:"refs"`
 }
 
 // ReviewPhase represents the review phase

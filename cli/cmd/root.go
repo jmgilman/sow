@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/jmgilman/go/fs/billy"
+	"github.com/jmgilman/sow/cli/internal/sowfs"
 	"github.com/spf13/cobra"
 )
 
@@ -41,8 +42,16 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 				return fmt.Errorf("failed to chroot filesystem: %w", err)
 			}
 
-			// Add adapters to context
 			ctx := WithFilesystem(cmd.Context(), fs)
+
+			// Try to initialize SowFS (optional - will be nil if not in .sow directory)
+			// This allows commands to optionally use SowFS when available
+			sfs, err := sowfs.NewSowFS()
+			if err == nil {
+				ctx = WithSowFS(ctx, sfs)
+			}
+			// Silently ignore errors - not all commands require SowFS
+
 			cmd.SetContext(ctx)
 
 			return nil

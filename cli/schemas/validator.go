@@ -109,3 +109,19 @@ func (v *CUEValidator) ValidateRefsLocalIndex(data []byte) error {
 
 	return nil
 }
+
+// ValidateRefsCacheIndex validates cache index JSON against the RefsCacheIndex schema.
+func (v *CUEValidator) ValidateRefsCacheIndex(data []byte) error {
+	// Lookup the RefsCacheIndex definition
+	schema := v.pkg.LookupPath(cue.ParsePath("#RefsCacheIndex"))
+	if !schema.Exists() {
+		return fmt.Errorf("RefsCacheIndex schema not found")
+	}
+
+	// Validate JSON against schema (yaml.Validate works for JSON too)
+	if err := cueyaml.Validate(data, schema); err != nil {
+		return fmt.Errorf("cache index validation failed: %w", err)
+	}
+
+	return nil
+}

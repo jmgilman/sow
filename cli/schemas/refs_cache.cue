@@ -5,48 +5,70 @@ import "time"
 // RefsCacheIndex defines the schema for ~/.cache/sow/index.json
 //
 // This is the cache index containing transient metadata about cached
-// repositories. Stored per-machine, not committed to git.
+// references. Stored per-machine, not committed to git.
 #RefsCacheIndex: {
 	// Schema version (semantic versioning)
 	version: string & =~"^[0-9]+\\.[0-9]+\\.[0-9]+$"
 
-	// Cached repository metadata
-	repos: [...#CachedRepo]
+	// Cached reference metadata
+	refs: [...#CachedRef]
 }
 
-// CachedRepo represents a cached repository
-#CachedRepo: {
-	// Git repository URL (must match source from committed index)
-	source: string & !=""
+// CachedRef represents a cached reference
+#CachedRef: {
+	// Reference ID (matches ID from committed or local index)
+	id: string & =~"^[a-z0-9-]+$"
 
-	// Branch name
-	branch: string & !=""
+	// Type inferred from source URL (stored for quick lookup)
+	type: "git" | "file"
 
-	// Relative path in cache (from ~/.cache/sow/)
-	cached_path: string & !=""
+	// Absolute cache path (e.g., /Users/josh/.cache/sow/refs/git/abc123/)
+	cache_path: string & !=""
 
+	// Last updated timestamp
+	last_updated: time.Time
+
+	// Repositories using this cached ref
+	used_by: [...#CacheUsage]
+
+	// Type-specific metadata
+	metadata: #CacheMetadata
+}
+
+// CacheMetadata is polymorphic based on type
+#CacheMetadata: {
+	// Git type metadata
+	git?: #GitMetadata
+
+	// File type metadata
+	file?: #FileMetadata
+}
+
+// GitMetadata contains git-specific cache data
+#GitMetadata: {
 	// Current local commit SHA
 	commit_sha: string & =~"^[a-f0-9]{40}$"
 
-	// Timestamps
-	cached_at:    time.Time // Initial cache time
-	last_checked: time.Time // Last staleness check
-	last_updated: time.Time // Last fetch/pull
+	// Latest remote commit SHA (updated on status check)
+	remote_sha?: string & =~"^[a-f0-9]{40}$"
+
+	// Last time remote was checked
+	last_checked?: time.Time
 
 	// Staleness status
 	status: "current" | "behind" | "ahead" | "diverged" | "error"
 
-	// Number of commits behind remote (null if current)
-	commits_behind: *null | int & >=0
-
-	// Latest remote commit SHA
-	remote_sha: string & =~"^[a-f0-9]{40}$"
-
-	// Repositories using this cache
-	used_by: [...#CacheUsage]
+	// Number of commits behind remote (0 if current)
+	commits_behind: int & >=0
 }
 
-// CacheUsage represents a repository using this cached repo
+// FileMetadata contains file-specific cache data
+#FileMetadata: {
+	// File refs don't need additional metadata
+	// Kept as struct for consistency and future expansion
+}
+
+// CacheUsage represents a repository using this cached ref
 #CacheUsage: {
 	// Absolute path to consuming repository
 	repo_path: string & !=""
@@ -54,6 +76,6 @@ import "time"
 	// How the cache is linked (symlink on Unix, copy on Windows)
 	link_type: "symlink" | "copy"
 
-	// Subpaths from this cache used by the consuming repo
-	paths: [...string]
+	// Link name in the consuming repo's .sow/refs/ directory
+	link_name: string & !=""
 }

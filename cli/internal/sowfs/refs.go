@@ -107,7 +107,7 @@ func (r *RefsFSImpl) CommittedIndex() (*schemas.RefsCommittedIndex, error) {
 		if os.IsNotExist(err) {
 			// Return empty index if file doesn't exist
 			return &schemas.RefsCommittedIndex{
-				Refs: []schemas.RemoteRef{},
+				Refs: []schemas.Ref{},
 			}, nil
 		}
 		return nil, fmt.Errorf("failed to read committed index: %w", err)
@@ -140,7 +140,7 @@ func (r *RefsFSImpl) LocalIndex() (*schemas.RefsLocalIndex, error) {
 	// Return empty index if file doesn't exist (local index is optional)
 	if !exists {
 		return &schemas.RefsLocalIndex{
-			Refs: []schemas.LocalRef{},
+			Refs: []schemas.Ref{},
 		}, nil
 	}
 

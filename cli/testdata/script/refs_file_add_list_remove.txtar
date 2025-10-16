@@ -1,0 +1,46 @@
+# Test file ref lifecycle: add, list, remove
+
+# Set HOME to test workspace so cache can be created
+env HOME=$WORK
+
+exec git init
+exec git config user.email 'test@test.com'
+exec git config user.name 'Test'
+exec sow init
+
+# Create a test directory with content
+mkdir test-docs
+exec sh -c 'echo documentation > test-docs/README.md'
+
+# Add file ref
+exec sow refs file add test-docs --id=docs --semantic=knowledge --description='Test docs'
+stderr '✓ Added file ref: docs'
+
+# List refs
+exec sow refs file list
+stdout 'docs'
+stdout 'knowledge'
+stdout 'test-docs'
+
+# Verify symlink exists in workspace
+exists .sow/refs/docs
+
+# Verify cache symlink was created
+exists $HOME/.cache/sow/refs/file/docs
+
+# Verify content is accessible through workspace symlink
+exists .sow/refs/docs/README.md
+
+# Remove ref
+exec sow refs file remove docs
+stderr '✓ Removed file ref: docs'
+
+# Verify workspace symlink removed
+! exists .sow/refs/docs
+
+# Verify cache cleaned up
+! exists $HOME/.cache/sow/refs/file/docs
+
+# Verify list shows no refs
+exec sow refs file list
+stdout 'No file refs configured'

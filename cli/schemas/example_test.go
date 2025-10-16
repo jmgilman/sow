@@ -96,21 +96,19 @@ func TestGeneratedTypes(t *testing.T) {
 
 	// Test RefsCommittedIndex
 	index := schemas.RefsCommittedIndex{
-		Version: "0.1.0",
-		Refs: []schemas.RemoteRef{
+		Version: "1.0.0",
+		Refs: []schemas.Ref{
 			{
-				Id:     "style-guide",
-				Type:   "knowledge",
-				Source: "https://github.com/org/style-guide",
-				Branch: "main",
-				Paths: []schemas.RefPath{
-					{
-						Path:        "docs/go",
-						Link:        "go-style",
-						Tags:        []string{"go", "style"},
-						Description: "Go style guide",
-						Summary:     "Comprehensive Go coding standards and best practices for the team.",
-					},
+				Id:          "style-guide",
+				Source:      "git+https://github.com/org/style-guide",
+				Semantic:    "knowledge",
+				Link:        "go-style",
+				Tags:        []string{"go", "style"},
+				Description: "Go style guide",
+				Summary:     "Comprehensive Go coding standards and best practices for the team.",
+				Config: schemas.RefConfig{
+					Branch: "main",
+					Path:   "docs/go",
 				},
 			},
 		},

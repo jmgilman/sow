@@ -53,6 +53,9 @@ type SowFS interface {
 	// RepoRoot returns the absolute path to the git repository root.
 	RepoRoot() string
 
+	// SowDir returns the absolute path to the .sow directory.
+	SowDir() string
+
 	// Close cleans up any resources held by the filesystem.
 	// Should be called when done using SowFS.
 	Close() error
@@ -242,6 +245,11 @@ func (s *SowFSImpl) Project() (ProjectFS, error) {
 // RepoRoot returns the repository root path.
 func (s *SowFSImpl) RepoRoot() string {
 	return s.repoRoot
+}
+
+// SowDir returns the .sow directory path.
+func (s *SowFSImpl) SowDir() string {
+	return filepath.Join(s.repoRoot, ".sow")
 }
 
 // Close cleans up resources.

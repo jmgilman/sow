@@ -1,0 +1,49 @@
+# Test git ref with local repository
+
+# Set HOME to test workspace so cache can be created
+env HOME=$WORK
+
+exec git init
+exec git config user.email 'test@test.com'
+exec git config user.name 'Test'
+exec sow init
+
+# Create a local git repo to use as source
+mkdir source-repo
+cd source-repo
+exec git init
+exec git config user.email 'test@test.com'
+exec git config user.name 'Test'
+exec sh -c 'echo "source content" > README.md'
+exec git add .
+exec git commit -m 'Initial commit'
+cd ..
+
+# Add git ref using file:// URL pointing to the source repo
+exec sow refs git add file://$WORK/source-repo --id=local-repo --semantic=code --description='Local repo'
+stderr '✓ Added git ref: local-repo'
+
+# Verify workspace symlink was created
+exists .sow/refs/local-repo
+
+# Verify cloned content exists and is accessible
+exists .sow/refs/local-repo/README.md
+exec cat .sow/refs/local-repo/README.md
+stdout 'source content'
+
+# List git refs
+exec sow refs git list
+stdout 'local-repo'
+stdout 'code'
+stdout 'file://'
+
+# Update the ref
+exec sow refs git update local-repo
+stderr '✓ Updated git ref: local-repo'
+
+# Remove the ref
+exec sow refs git remove local-repo
+stderr '✓ Removed git ref: local-repo'
+
+# Verify cleanup
+! exists .sow/refs/local-repo
