@@ -1,0 +1,35 @@
+# Test successful initialization
+# Should create .sow structure with all required files and directories
+
+exec git init
+exec sow init
+stderr '✓ sow initialized successfully'
+
+# Verify directory structure
+exists .sow
+exists .sow/knowledge
+exists .sow/refs
+
+# Verify files
+exists .sow/.version
+exists .sow/refs/index.json
+exists .sow/refs/.gitignore
+
+# Verify version file content
+exec cat .sow/.version
+stdout '1.0.0'
+
+# Verify refs index is valid JSON and empty
+exec cat .sow/refs/index.json
+stdout '"version": "1.0.0"'
+stdout '"refs": \[\]'
+
+# Verify gitignore content
+exec cat .sow/refs/.gitignore
+stdout 'Ignore all symlinks'
+stdout '!index.json'
+stdout '!index.local.json'
+
+# Verify that sow validate passes
+exec sow validate
+stderr '✓ All validations passed'

@@ -1,0 +1,5 @@
+# Test initialization outside a git repository
+# Should fail with appropriate error message
+
+! exec sow init
+stderr 'initialization failed: not in git repository'

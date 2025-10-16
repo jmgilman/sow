@@ -28,8 +28,18 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			// Initialize adapters
-			fs := billy.NewLocal()
+			// Get current working directory
+			cwd, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("failed to get current directory: %w", err)
+			}
+
+			// Create filesystem rooted at current working directory
+			baseFS := billy.NewLocal()
+			fs, err := baseFS.Chroot(cwd)
+			if err != nil {
+				return fmt.Errorf("failed to chroot filesystem: %w", err)
+			}
 
 			// Add adapters to context
 			ctx := WithFilesystem(cmd.Context(), fs)
@@ -46,7 +56,6 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 	// Add subcommands
 	cmd.AddCommand(NewInitCmd())
 	cmd.AddCommand(NewValidateCmd())
-	cmd.AddCommand(NewSchemaCmd())
 	cmd.AddCommand(NewLogCmd())
 	cmd.AddCommand(NewSessionInfoCmd())
 	cmd.AddCommand(NewRefsCmd())

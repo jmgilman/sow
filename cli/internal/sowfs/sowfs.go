@@ -29,19 +29,6 @@ var (
 	ErrInvalidTaskID = errors.New("invalid task ID - must be gap-numbered (010, 020, etc)")
 )
 
-// Path constants for .sow directory structure (relative to .sow/).
-const (
-	// Refs paths.
-	pathRefsCommittedIndex = "refs/index.json"
-	pathRefsLocalIndex     = "refs/index.local.json"
-
-	// Project paths.
-	pathProjectState    = "project/state.yaml"
-	pathProjectTasksDir = "project/phases/implementation/tasks"
-
-	// Task filename.
-	fileTaskState = "state.yaml"
-)
 
 // SowFS provides access to the .sow directory structure with domain-specific abstractions.
 //
@@ -318,9 +305,9 @@ func (s *SowFSImpl) ValidateAll() *ValidationResult {
 // validateRefsCommittedIndex validates the committed refs index.
 func (s *SowFSImpl) validateRefsCommittedIndex(result *ValidationResult) {
 	// Check if file exists
-	exists, err := s.fs.Exists(pathRefsCommittedIndex)
+	exists, err := s.fs.Exists(FileRefsCommittedIndex)
 	if err != nil {
-		result.Add(pathRefsCommittedIndex, "refs-committed", fmt.Errorf("failed to check file: %w", err))
+		result.Add(FileRefsCommittedIndex, "refs-committed", fmt.Errorf("failed to check file: %w", err))
 		return
 	}
 	if !exists {
@@ -329,24 +316,24 @@ func (s *SowFSImpl) validateRefsCommittedIndex(result *ValidationResult) {
 	}
 
 	// Read file
-	data, err := s.fs.ReadFile(pathRefsCommittedIndex)
+	data, err := s.fs.ReadFile(FileRefsCommittedIndex)
 	if err != nil {
-		result.Add(pathRefsCommittedIndex, "refs-committed", fmt.Errorf("failed to read file: %w", err))
+		result.Add(FileRefsCommittedIndex, "refs-committed", fmt.Errorf("failed to read file: %w", err))
 		return
 	}
 
 	// Validate against schema
 	if err := s.validator.ValidateRefsCommittedIndex(data); err != nil {
-		result.Add(pathRefsCommittedIndex, "refs-committed", err)
+		result.Add(FileRefsCommittedIndex, "refs-committed", err)
 	}
 }
 
 // validateRefsLocalIndex validates the local refs index.
 func (s *SowFSImpl) validateRefsLocalIndex(result *ValidationResult) {
 	// Check if file exists
-	exists, err := s.fs.Exists(pathRefsLocalIndex)
+	exists, err := s.fs.Exists(FileRefsLocalIndex)
 	if err != nil {
-		result.Add(pathRefsLocalIndex, "refs-local", fmt.Errorf("failed to check file: %w", err))
+		result.Add(FileRefsLocalIndex, "refs-local", fmt.Errorf("failed to check file: %w", err))
 		return
 	}
 	if !exists {
@@ -355,24 +342,24 @@ func (s *SowFSImpl) validateRefsLocalIndex(result *ValidationResult) {
 	}
 
 	// Read file
-	data, err := s.fs.ReadFile(pathRefsLocalIndex)
+	data, err := s.fs.ReadFile(FileRefsLocalIndex)
 	if err != nil {
-		result.Add(pathRefsLocalIndex, "refs-local", fmt.Errorf("failed to read file: %w", err))
+		result.Add(FileRefsLocalIndex, "refs-local", fmt.Errorf("failed to read file: %w", err))
 		return
 	}
 
 	// Validate against schema
 	if err := s.validator.ValidateRefsLocalIndex(data); err != nil {
-		result.Add(pathRefsLocalIndex, "refs-local", err)
+		result.Add(FileRefsLocalIndex, "refs-local", err)
 	}
 }
 
 // validateProject validates the project directory and all its contents.
 func (s *SowFSImpl) validateProject(result *ValidationResult) {
 	// Check if project exists
-	exists, err := s.fs.Exists(pathProjectState)
+	exists, err := s.fs.Exists(FileProjectState)
 	if err != nil {
-		result.Add(pathProjectState, "project-state", fmt.Errorf("failed to check file: %w", err))
+		result.Add(FileProjectState, "project-state", fmt.Errorf("failed to check file: %w", err))
 		return
 	}
 	if !exists {
@@ -381,14 +368,14 @@ func (s *SowFSImpl) validateProject(result *ValidationResult) {
 	}
 
 	// Validate project state
-	data, err := s.fs.ReadFile(pathProjectState)
+	data, err := s.fs.ReadFile(FileProjectState)
 	if err != nil {
-		result.Add(pathProjectState, "project-state", fmt.Errorf("failed to read file: %w", err))
+		result.Add(FileProjectState, "project-state", fmt.Errorf("failed to read file: %w", err))
 		return
 	}
 
 	if err := s.validator.ValidateProjectState(data); err != nil {
-		result.Add(pathProjectState, "project-state", err)
+		result.Add(FileProjectState, "project-state", err)
 	}
 
 	// Validate all tasks
@@ -398,9 +385,9 @@ func (s *SowFSImpl) validateProject(result *ValidationResult) {
 // validateTasks validates all task state files.
 func (s *SowFSImpl) validateTasks(result *ValidationResult) {
 	// Check if tasks directory exists
-	exists, err := s.fs.Exists(pathProjectTasksDir)
+	exists, err := s.fs.Exists(PathProjectTasksDir)
 	if err != nil {
-		result.Add(pathProjectTasksDir, "tasks", fmt.Errorf("failed to check directory: %w", err))
+		result.Add(PathProjectTasksDir, "tasks", fmt.Errorf("failed to check directory: %w", err))
 		return
 	}
 	if !exists {
@@ -409,9 +396,9 @@ func (s *SowFSImpl) validateTasks(result *ValidationResult) {
 	}
 
 	// Read directory entries
-	entries, err := s.fs.ReadDir(pathProjectTasksDir)
+	entries, err := s.fs.ReadDir(PathProjectTasksDir)
 	if err != nil {
-		result.Add(pathProjectTasksDir, "tasks", fmt.Errorf("failed to read directory: %w", err))
+		result.Add(PathProjectTasksDir, "tasks", fmt.Errorf("failed to read directory: %w", err))
 		return
 	}
 
@@ -422,7 +409,7 @@ func (s *SowFSImpl) validateTasks(result *ValidationResult) {
 		}
 
 		taskID := entry.Name()
-		taskStatePath := filepath.Join(pathProjectTasksDir, taskID, fileTaskState)
+		taskStatePath := filepath.Join(PathProjectTasksDir, taskID, FileTaskState)
 
 		// Check if state file exists
 		exists, err := s.fs.Exists(taskStatePath)
@@ -431,7 +418,7 @@ func (s *SowFSImpl) validateTasks(result *ValidationResult) {
 			continue
 		}
 		if !exists {
-			result.Add(taskStatePath, "task-state", fmt.Errorf("task directory exists but %s is missing", fileTaskState))
+			result.Add(taskStatePath, "task-state", fmt.Errorf("task directory exists but %s is missing", FileTaskState))
 			continue
 		}
 

@@ -1,0 +1,10 @@
+# Test initialization when .sow already exists
+# Should fail with appropriate error message
+
+exec git init
+exec sow init
+stderr '✓ sow initialized successfully'
+
+# Try to initialize again
+! exec sow init
+stderr 'initialization failed: .sow directory already exists - repository already initialized'
