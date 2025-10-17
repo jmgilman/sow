@@ -56,6 +56,18 @@ type ContextFS interface {
 	// Detect determines the workspace context from the current working directory.
 	// Returns WorkspaceContext with detected context information.
 	Detect() (*WorkspaceContext, error)
+
+	// InferTaskID infers the task ID for task commands that make ID optional.
+	//
+	// Inference strategy (in order):
+	//   1. Current directory: If in task directory, use that task ID
+	//   2. Active task: If exactly one task has status "in_progress", use that ID
+	//   3. Error: If neither applies or multiple tasks in progress
+	//
+	// Returns:
+	//   - Task ID if successfully inferred
+	//   - Error with helpful message if inference fails
+	InferTaskID() (string, error)
 }
 
 // ContextFSImpl is the concrete implementation of ContextFS.
@@ -135,4 +147,53 @@ func (c *ContextFSImpl) isInTaskDirectory(currentPath string) (string, bool) {
 	}
 
 	return taskID, true
+}
+
+// InferTaskID infers the task ID for commands with optional task ID.
+func (c *ContextFSImpl) InferTaskID() (string, error) {
+	// Step 1: Check current directory
+	ctx, err := c.Detect()
+	if err != nil {
+		return "", fmt.Errorf("failed to detect context: %w", err)
+	}
+
+	// If we're in a task directory, use that task ID
+	if ctx.Type == ContextTask {
+		return ctx.TaskID, nil
+	}
+
+	// Step 2: Check for active task in project state
+	// Get project filesystem
+	projectFS, err := c.sowFS.Project()
+	if err != nil {
+		return "", fmt.Errorf("cannot infer task ID: no active project - run 'sow project init' first")
+	}
+
+	// Read project state
+	state, err := projectFS.State()
+	if err != nil {
+		return "", fmt.Errorf("failed to read project state: %w", err)
+	}
+
+	// Find tasks with status "in_progress"
+	var inProgressTasks []string
+	for _, task := range state.Phases.Implementation.Tasks {
+		if task.Status == "in_progress" {
+			inProgressTasks = append(inProgressTasks, task.Id)
+		}
+	}
+
+	// Step 3: Validate result
+	if len(inProgressTasks) == 0 {
+		return "", fmt.Errorf("cannot infer task ID: no task currently in progress - use --id flag or run from task directory")
+	}
+
+	if len(inProgressTasks) > 1 {
+		// Format list of IDs
+		idList := strings.Join(inProgressTasks, ", ")
+		return "", fmt.Errorf("cannot infer task ID: multiple tasks in progress (%s) - use --id flag to specify", idList)
+	}
+
+	// Exactly one in_progress task
+	return inProgressTasks[0], nil
 }

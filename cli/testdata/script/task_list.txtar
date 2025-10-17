@@ -1,0 +1,48 @@
+# Test task list command
+# Should display all tasks in implementation phase
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-feature
+exec sow init
+exec sow project init my-feature --description 'Add new feature'
+
+# Test list with no tasks
+exec sow task list
+stderr 'No tasks yet'
+
+# Add multiple tasks
+exec sow task add 'Add authentication' --description 'Implement JWT auth'
+exec sow task add 'Create database schema' --description 'Set up PostgreSQL schema'
+exec sow task add 'Add API endpoints' --description 'REST API endpoints'
+
+# Test list shows all tasks
+exec sow task list
+stderr 'Tasks:'
+stderr 'ID   Status        Name'
+stderr '010  pending       Add authentication'
+stderr '020  pending       Create database schema'
+stderr '030  pending       Add API endpoints'
+
+# Update task status
+exec sow task update 010 --status in_progress
+
+# Verify list shows updated status
+exec sow task list
+stderr '010  in_progress   Add authentication'
+
+# Test JSON output
+exec sow task list --format json
+stderr '"id": "010"'
+stderr '"name": "Add authentication"'
+stderr '"status": "in_progress"'
+stderr '"id": "020"'
+stderr '"name": "Create database schema"'
+stderr '"status": "pending"'
+
+# Test invalid format
+! exec sow task list --format xml
+stderr 'invalid format'
+stderr 'must be .text. or .json.'

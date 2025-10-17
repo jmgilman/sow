@@ -1,0 +1,45 @@
+# Test successful project initialization
+# Should create project state with all 5 phases
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-feature
+exec sow init
+
+# Initialize a project
+exec sow project init my-feature --description 'Add new feature'
+stderr '✓ Initialized project ''my-feature'' on branch ''feat/test-feature'''
+
+# Verify project directory structure
+exists .sow/project
+exists .sow/project/state.yaml
+exists .sow/project/log.md
+
+# Verify state file content
+exec cat .sow/project/state.yaml
+stdout 'name: my-feature'
+stdout 'branch: feat/test-feature'
+stdout 'description: Add new feature'
+
+# Verify phases are configured correctly
+stdout 'discovery:'
+stdout 'enabled: false'
+stdout 'status: skipped'
+stdout 'design:'
+stdout 'implementation:'
+stdout 'enabled: true'
+stdout 'status: pending'
+stdout 'review:'
+stdout 'iteration: 1'
+stdout 'finalize:'
+stdout 'project_deleted: false'
+
+# Verify log file exists and has content
+exec cat .sow/project/log.md
+stdout 'Project Log'
+
+# Verify state validates
+exec sow validate
+stderr '✓ All validations passed'

@@ -51,6 +51,11 @@ type SowFS interface {
 	// Returns ErrProjectNotFound if no project is currently active.
 	Project() (ProjectFS, error)
 
+	// ProjectUnchecked returns the project filesystem without checking if project exists.
+	// This is useful for operations that need to create the initial project state.
+	// Use Project() for normal operations that require an existing project.
+	ProjectUnchecked() ProjectFS
+
 	// Context returns the context domain for detecting workspace context.
 	// Determines if we're in a task directory, project root, etc.
 	Context() ContextFS
@@ -254,6 +259,13 @@ func (s *SowFSImpl) Project() (ProjectFS, error) {
 	}
 
 	return s.project, nil
+}
+
+// ProjectUnchecked returns the project filesystem without checking if project exists.
+// This is useful for operations that need to create the initial project state.
+// Use Project() for normal operations that require an existing project.
+func (s *SowFSImpl) ProjectUnchecked() ProjectFS {
+	return s.project
 }
 
 // Context returns the context domain (pre-initialized during construction).

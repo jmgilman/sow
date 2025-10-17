@@ -6,7 +6,9 @@ import (
 	"os"
 
 	"github.com/jmgilman/go/fs/billy"
+	"github.com/jmgilman/sow/cli/cmd/project"
 	"github.com/jmgilman/sow/cli/cmd/refs"
+	"github.com/jmgilman/sow/cli/cmd/task"
 	"github.com/jmgilman/sow/cli/internal/sowfs"
 	"github.com/spf13/cobra"
 )
@@ -69,6 +71,8 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 	cmd.AddCommand(NewLogCmd())
 	cmd.AddCommand(NewSessionInfoCmd())
 	cmd.AddCommand(refs.NewRefsCmd(SowFSFromContext))
+	cmd.AddCommand(project.NewProjectCmd(SowFSFromContext))
+	cmd.AddCommand(task.NewTaskCmd(SowFSFromContext))
 
 	return cmd
 }

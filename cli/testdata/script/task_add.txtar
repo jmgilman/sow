@@ -1,0 +1,84 @@
+# Test task add command
+# Should create new tasks with gap-numbered IDs
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-feature
+exec sow init
+exec sow project init my-feature --description 'Add new feature'
+
+# Add first task (should get ID 010)
+exec sow task add 'Add authentication' --description 'Implement JWT auth'
+stderr '✓ Created task 010: Add authentication'
+stderr 'ID:           010'
+stderr 'Status:       pending'
+stderr 'Agent:        implementer'
+stderr 'Parallel:     false'
+stderr 'Dependencies: none'
+
+# Verify task directory structure
+exists .sow/project/phases/implementation/tasks/010
+exists .sow/project/phases/implementation/tasks/010/state.yaml
+exists .sow/project/phases/implementation/tasks/010/description.md
+exists .sow/project/phases/implementation/tasks/010/log.md
+
+# Verify task state content
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'id: "010"'
+stdout 'name: Add authentication'
+stdout 'status: pending'
+stdout 'assigned_agent: implementer'
+
+# Verify task description
+exec cat .sow/project/phases/implementation/tasks/010/description.md
+stdout 'Task 010: Add authentication'
+stdout 'Implement JWT auth'
+
+# Verify task appears in project state
+exec cat .sow/project/state.yaml
+stdout 'tasks:'
+stdout '  - id: "010"'
+stdout '    name: Add authentication'
+stdout '    status: pending'
+
+# Add second task (should get ID 020)
+exec sow task add 'Create database schema' --description 'Set up PostgreSQL schema'
+stderr '✓ Created task 020: Create database schema'
+
+# Add third task with custom agent
+exec sow task add 'Review auth code' --description 'Code review' --agent reviewer
+stderr '✓ Created task 030: Review auth code'
+stderr 'Agent:        reviewer'
+
+# Add task with dependencies
+exec sow task add 'Deploy to staging' --description 'Deploy changes' --dependencies 010,020
+stderr '✓ Created task 040: Deploy to staging'
+stderr 'Dependencies: 010, 020'
+
+# Add parallel task
+exec sow task add 'Update docs' --description 'Document changes' --parallel
+stderr '✓ Created task 050: Update docs'
+stderr 'Parallel:     true'
+
+# Add task with custom ID
+exec sow task add 'Hotfix bug' --description 'Fix critical bug' --id 015
+stderr '✓ Created task 015: Hotfix bug'
+
+# Test adding task with invalid ID (too short)
+! exec sow task add 'Invalid task' --description 'Should fail' --id 01
+stderr 'invalid task ID'
+stderr 'must be 3 digits'
+
+# Test adding task with duplicate ID
+! exec sow task add 'Duplicate task' --description 'Should fail' --id 010
+stderr 'already exists'
+
+# Test adding task with non-existent dependency
+! exec sow task add 'Bad dependency' --description 'Should fail' --dependencies 999
+stderr 'not found'
+
+# Verify all tasks validate
+exec sow validate
+stderr '✓ All validations passed'

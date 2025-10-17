@@ -298,15 +298,6 @@ func TestProjectFS_Task(t *testing.T) {
 			wantErr: true,
 			errType: ErrInvalidTaskID,
 		},
-		{
-			name: "task ID not gap-numbered",
-			setup: func(fs *billy.MemoryFS) {
-				_ = fs.MkdirAll(".sow/project/phases/implementation/tasks", 0755)
-			},
-			taskID:  "011",
-			wantErr: true,
-			errType: ErrInvalidTaskID,
-		},
 	}
 
 	for _, tt := range tests {

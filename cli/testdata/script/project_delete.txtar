@@ -1,0 +1,25 @@
+# Test project delete command
+# Should remove project directory
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-feature
+exec sow init
+exec sow project init my-feature --description 'Add new feature'
+
+# Verify project exists
+exists .sow/project/state.yaml
+
+# Delete with --force flag (skip confirmation)
+exec sow project delete --force
+stderr '✓ Deleted project ''my-feature'''
+stderr 'Commit the deletion'
+
+# Verify project directory is gone
+! exists .sow/project
+
+# Try to delete again (should fail)
+! exec sow project delete --force
+stderr 'no active project found'

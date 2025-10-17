@@ -98,6 +98,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/protocolbuffers/txtpbfmt v0.0.0-20250627152318-f293424e46b5 h1:WWs1ZFnGobK5ZXNu+N9If+8PDNVB9xAqrib/stUXsV4=
 github.com/protocolbuffers/txtpbfmt v0.0.0-20250627152318-f293424e46b5/go.mod h1:BnHogPTyzYAReeQLZrOxyxzS739DaTNtTvohVdbENmA=
+github.com/qmuntal/stateless v1.7.2 h1:FqCErOP+Hf+/FByJt/S4UOLHFJeTf8CbMrEE0AkYT8k=
+github.com/qmuntal/stateless v1.7.2/go.mod h1:n1HjRBM/cq4uCr3rfUjaMkgeGcd+ykAZwkjLje6jGBM=
 github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=

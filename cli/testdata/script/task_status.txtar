@@ -1,0 +1,78 @@
+# Test task status command
+# Should display detailed information about a specific task
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-feature
+exec sow init
+exec sow project init my-feature --description 'Add new feature'
+
+# Add a task
+exec sow task add 'Add authentication' --description 'Implement JWT auth' --agent implementer
+
+# Test status for pending task
+exec sow task status 010
+stderr 'Task: 010 - Add authentication'
+stderr 'Status: pending'
+stderr 'Phase: implementation'
+stderr 'Timestamps:'
+stderr 'Created:'
+stderr 'Started:   not started'
+stderr 'Completed: not completed'
+stderr 'Updated:'
+stderr 'Iteration: 1'
+stderr 'Assigned Agent: implementer'
+
+# Update task to in_progress
+exec sow task update 010 --status in_progress
+
+# Test status shows started timestamp
+exec sow task status 010
+stderr 'Status: in_progress'
+stderr 'Started:'
+! stderr 'not started'
+stderr 'Completed: not completed'
+
+# Update task to completed
+exec sow task update 010 --status completed
+
+# Test status shows completed timestamp
+exec sow task status 010
+stderr 'Status: completed'
+stderr 'Completed:'
+! stderr 'not completed'
+
+# Test JSON output
+exec sow task status 010 --format json
+stderr '"id": "010"'
+stderr '"name": "Add authentication"'
+stderr '"status": "completed"'
+stderr '"phase": "implementation"'
+stderr '"assigned_agent": "implementer"'
+stderr '"started_at":'
+stderr '"completed_at":'
+
+# Test invalid task ID format
+! exec sow task status 01
+stderr 'invalid task ID'
+stderr 'must be 3 digits'
+
+# Test non-existent task
+! exec sow task status 990
+stderr 'not found'
+
+# Test invalid format
+! exec sow task status 010 --format yaml
+stderr 'invalid format'
+stderr 'must be .text. or .json.'
+
+# Test inference: Add a task and set to in_progress
+exec sow task add 'Inference test' --description 'Test inference'
+exec sow task update 020 --status in_progress
+
+# Test status with inference (no task ID provided)
+exec sow task status
+stderr 'Task: 020 - Inference test'
+stderr 'Status: in_progress'

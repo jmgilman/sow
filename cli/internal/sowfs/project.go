@@ -13,8 +13,9 @@ import (
 )
 
 // Gap-numbered task ID regex (010, 020, 030, etc.)
-// Pattern: at least 2 digits followed by a 0 (total minimum 3 digits).
-var taskIDPattern = regexp.MustCompile(`^[0-9]{2,}0$`)
+// Pattern: at least 3 digits.
+// Auto-generated IDs use increments of 10, but manual IDs can be any 3+ digit number.
+var taskIDPattern = regexp.MustCompile(`^[0-9]{3,}$`)
 
 // ProjectFS provides access to the .sow/project/ directory.
 //
@@ -51,6 +52,12 @@ type ProjectFS interface {
 	// Returns ErrInvalidTaskID if taskID format is invalid
 	Task(taskID string) (*TaskFSImpl, error)
 
+	// TaskUnchecked returns a TaskFS for a specific task without checking existence.
+	// This should be used when creating a new task.
+	// taskID should be gap-numbered (e.g., "010", "020")
+	// Returns ErrInvalidTaskID if taskID format is invalid
+	TaskUnchecked(taskID string) (*TaskFSImpl, error)
+
 	// Tasks returns TaskFS instances for all tasks.
 	// Only includes tasks in the implementation phase.
 	Tasks() ([]*TaskFSImpl, error)
@@ -70,6 +77,12 @@ type ProjectFS interface {
 	// ListContextFiles lists all files in .sow/project/context/
 	// Returns paths relative to .sow/project/context/
 	ListContextFiles() ([]string, error)
+
+	// Delete removes the entire project directory.
+	// This is typically called during the finalize phase before creating a PR.
+	// The design requires no project files to be present in merged code.
+	// Returns an error if deletion fails.
+	Delete() error
 }
 
 // ProjectFSImpl is the concrete implementation of ProjectFS.
@@ -220,6 +233,18 @@ func (p *ProjectFSImpl) Task(taskID string) (*TaskFSImpl, error) {
 	return NewTaskFS(p.sowFS, taskID, p.validator), nil
 }
 
+// TaskUnchecked returns a TaskFS for a specific task without checking if it exists.
+// This should be used when creating a new task.
+func (p *ProjectFSImpl) TaskUnchecked(taskID string) (*TaskFSImpl, error) {
+	// Validate task ID format (gap-numbered)
+	if !taskIDPattern.MatchString(taskID) {
+		return nil, ErrInvalidTaskID
+	}
+
+	// Return TaskFS instance without existence check
+	return NewTaskFS(p.sowFS, taskID, p.validator), nil
+}
+
 // Tasks returns all TaskFS instances.
 func (p *ProjectFSImpl) Tasks() ([]*TaskFSImpl, error) {
 	tasksPath := "project/phases/implementation/tasks"
@@ -333,4 +358,25 @@ func (p *ProjectFSImpl) ListContextFiles() ([]string, error) {
 	}
 
 	return files, nil
+}
+
+// Delete removes the entire project directory.
+func (p *ProjectFSImpl) Delete() error {
+	projectPath := "project"
+
+	// Check if project exists
+	exists, err := p.sowFS.fs.Exists(projectPath)
+	if err != nil {
+		return fmt.Errorf("failed to check if project exists: %w", err)
+	}
+	if !exists {
+		return ErrProjectNotFound
+	}
+
+	// Remove the entire project directory
+	if err := p.sowFS.fs.RemoveAll(projectPath); err != nil {
+		return fmt.Errorf("failed to delete project directory: %w", err)
+	}
+
+	return nil
 }

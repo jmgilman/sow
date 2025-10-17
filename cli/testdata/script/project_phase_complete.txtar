@@ -1,0 +1,58 @@
+# Test project phase complete command
+# Should mark phases as completed after validation
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-feature
+exec sow init
+exec sow project init my-feature --description 'Add new feature'
+
+# Test completing implementation with no tasks (should succeed)
+exec sow project phase complete implementation
+stderr '✓ Completed implementation phase'
+
+# Verify phase is marked completed
+exec sow project phase status
+stderr 'Implementation.*completed'
+
+# Test completing implementation again (should fail - already completed)
+! exec sow project phase complete implementation
+stderr 'already completed'
+
+# Test completing review with no reports (should fail)
+! exec sow project phase complete review
+stderr 'no review reports'
+
+# Test completing finalize without project_deleted (should fail)
+! exec sow project phase complete finalize
+stderr 'project must be deleted'
+
+# Test completing discovery when not enabled (should fail)
+! exec sow project phase complete discovery
+stderr 'not enabled'
+
+# Enable discovery phase
+exec sow project phase enable discovery --type feature
+
+# Test completing discovery with no artifacts (should succeed)
+exec sow project phase complete discovery
+stderr '✓ Completed discovery phase'
+
+# Verify discovery is marked completed
+exec sow project phase status
+stderr 'Discovery.*completed'
+
+# Enable design phase and complete it
+exec sow project phase enable design
+exec sow project phase complete design
+stderr '✓ Completed design phase'
+
+# Test invalid phase name
+! exec sow project phase complete invalid-phase
+stderr 'invalid phase'
+
+# Test completing review with no reports (should fail)
+! exec sow project phase complete review
+stderr 'no review reports'
