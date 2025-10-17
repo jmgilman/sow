@@ -13,7 +13,7 @@ This document provides specifications for all file formats used in `sow`. CUE sc
 - [Project State Schema](#project-state-schema)
 - [Task State Schema](#task-state-schema)
 - [Refs Index Schemas](#refs-index-schemas)
-- [Accessing and Validating Schemas](#accessing-and-validating-schemas)
+- [Validating Files](#validating-files)
 - [Related Documentation](#related-documentation)
 
 ---
@@ -402,35 +402,13 @@ task:
 
 ---
 
-## Accessing and Validating Schemas
+## Validating Files
 
-### View Schemas
-
-```bash
-# List all available schemas
-sow schema list
-
-# View project state schema
-sow schema show project
-
-# View task state schema
-sow schema show task
-
-# Export schema to file
-sow schema export project > project-schema.cue
-```
-
-### Validate Files
+The `sow validate` command validates your entire `.sow/` structure against the embedded CUE schemas:
 
 ```bash
-# Validate project state
-sow schema validate project .sow/project/state.yaml
-
-# Validate task state
-sow schema validate task .sow/project/phases/implementation/tasks/010/state.yaml
-
-# Validate refs index
-sow schema validate refs-index .sow/refs/index.json
+# Validate entire structure
+sow validate
 ```
 
 ### Error Messages
@@ -447,4 +425,4 @@ Invalid files rejected with detailed messages indicating: which field violated c
 - **[REFS.md](./REFS.md)** - External references system
 - **[LOGGING_AND_STATE.md](./LOGGING_AND_STATE.md)** - State file management
 - **[FILE_STRUCTURE.md](./FILE_STRUCTURE.md)** - Directory organization
-- **[CLI_REFERENCE.md](./CLI_REFERENCE.md)** - sow schema commands
+- **[CLI_REFERENCE.md](./CLI_REFERENCE.md)** - CLI command reference

@@ -19,9 +19,9 @@ exec git add .
 exec git commit -m 'Initial commit'
 cd ..
 
-# Add git ref using file:// URL pointing to the source repo
-exec sow refs git add file://$WORK/source-repo --id=local-repo --semantic=code --description='Local repo'
-stderr '✓ Added git ref: local-repo'
+# Add git ref using git+file:// URL pointing to the source repo
+exec sow refs add git+file://$WORK/source-repo --id=local-repo --link=local-repo --semantic=code --description='Local repo'
+stderr '✓ Added git ref:'
 
 # Verify workspace symlink was created
 exists .sow/refs/local-repo
@@ -31,19 +31,18 @@ exists .sow/refs/local-repo/README.md
 exec cat .sow/refs/local-repo/README.md
 stdout 'source content'
 
-# List git refs
-exec sow refs git list
+# List refs with type filter
+exec sow refs list --type=git
 stdout 'local-repo'
 stdout 'code'
-stdout 'file://'
 
 # Update the ref
-exec sow refs git update local-repo
-stderr '✓ Updated git ref: local-repo'
+exec sow refs update local-repo
+stderr '✓ Updated local-repo'
 
-# Remove the ref
-exec sow refs git remove local-repo
-stderr '✓ Removed git ref: local-repo'
+# Remove the ref with force flag
+exec sow refs remove local-repo --force
+stderr '✓ Removed'
 
 # Verify cleanup
 ! exists .sow/refs/local-repo

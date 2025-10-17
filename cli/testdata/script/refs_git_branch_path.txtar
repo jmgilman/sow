@@ -28,8 +28,8 @@ exec git commit -m 'Initial commit'
 cd ..
 
 # Add ref pointing to just the docs subdirectory
-exec sow refs git add file://$WORK/source-repo --id=repo-docs --path=docs --semantic=knowledge --description='Repo docs only'
-stderr '✓ Added git ref: repo-docs'
+exec sow refs add git+file://$WORK/source-repo --id=repo-docs --link=repo-docs --path=docs --semantic=knowledge --description='Repo docs only'
+stderr '✓ Added git ref:'
 
 # Verify workspace symlink points to the subpath
 exists .sow/refs/repo-docs
@@ -45,10 +45,10 @@ stdout 'documentation'
 ! exists .sow/refs/repo-docs/root.txt
 
 # List should show path info
-exec sow refs git list
+exec sow refs list
 stdout 'repo-docs'
 stdout 'path: docs'
 
-# Remove the ref
-exec sow refs git remove repo-docs
-stderr '✓ Removed git ref: repo-docs'
+# Remove the ref with force flag
+exec sow refs remove repo-docs --force
+stderr '✓ Removed'

@@ -13,7 +13,6 @@ This document provides comprehensive reference for all `sow` CLI commands and or
 - [Core Commands](#core-commands)
 - [Logging Commands](#logging-commands)
 - [Refs Commands](#refs-commands)
-- [Cache Commands](#cache-commands)
 - [Slash Commands](#slash-commands)
 - [Exit Codes](#exit-codes)
 - [Environment Variables](#environment-variables)
@@ -23,7 +22,7 @@ This document provides comprehensive reference for all `sow` CLI commands and or
 
 ## Overview
 
-The `sow` CLI provides: schema management (embedded CUE schemas as source of truth), structure initialization (materializes `.sow/` from schemas), validation (validates files against embedded schemas), fast logging (instant log entries), refs management (external references system), session information (current project status).
+The `sow` CLI provides: structure initialization (materializes `.sow/` directory structure), validation (validates files against embedded schemas), fast logging (instant log entries), refs management (external references system), session information (current project status).
 
 **Installation**: Download appropriate binary for platform from GitHub releases. Place in PATH. Verify with `sow version`.
 
@@ -56,34 +55,6 @@ Initialize sow structure in repository.
 **Output**: Confirmation of created structure and git commit.
 
 **Error Cases**: Already initialized, not in git repository.
-
----
-
-### sow schema
-
-View and validate embedded CUE schemas.
-
-**Commands**:
-
-`sow schema list` - List all available schemas.
-
-`sow schema show <type>` - Display specific schema. Types: `project`, `task`, `refs-index`, `refs-cache`, `refs-local`, `version`.
-
-`sow schema validate <type> <file>` - Validate file against schema.
-
-**Examples**:
-```bash
-# List schemas
-sow schema list
-
-# View project state schema
-sow schema show project
-
-# Validate project state file
-sow schema validate project .sow/project/state.yaml
-```
-
-**Purpose**: Inspect embedded schemas, understand file formats, debug validation errors.
 
 ---
 
@@ -270,48 +241,6 @@ Remove reference from repository.
 **Behavior**: Confirms with user (unless `--force`), removes index entry, removes symlink or copy, updates cache index, optionally prunes cache.
 
 **Output**: Confirmation prompt, removal confirmation, note about cache pruning.
-
----
-
-## Cache Commands
-
-### sow cache status
-
-Show cache usage and statistics.
-
-**Usage**: `sow cache status`
-
-**Output**: Cache location, list of cached repositories with size/timestamps/status/usage, total size, orphaned cache identification.
-
-**Purpose**: Inspect cache state, identify orphaned repos, check disk usage.
-
----
-
-### sow cache prune
-
-Remove cached repos not used by any repository.
-
-**Usage**: `sow cache prune [--dry-run]`
-
-**Flags**: `--dry-run` - Show what would be removed without removing.
-
-**Behavior**: Identifies orphaned repos (used_by array empty), shows what will be removed, confirms with user, deletes and updates index.
-
-**Safety**: Dry-run by default or requires confirmation, lists what will be removed, allows `--force` to skip confirmation.
-
----
-
-### sow cache clear
-
-Remove all cached repositories.
-
-**Usage**: `sow cache clear [--force]`
-
-**Warning**: Breaks symlinks in all repositories until `sow refs init` run.
-
-**Behavior**: Shows warning and lists all repos to be removed, requires explicit confirmation (type 'yes'), removes all caches, clears cache index.
-
-**Output**: Warning message, confirmation prompt, removal summary, reminder to run `sow refs init`.
 
 ---
 

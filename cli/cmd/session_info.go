@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/sowfs"
@@ -131,7 +132,7 @@ func runSessionInfo(cmd *cobra.Command) error {
 		currentPhase, status := determineCurrentPhaseAndStatus(state)
 		info.Project.Phase = currentPhase
 		info.Project.Status = status
-	} else if err != sowfs.ErrProjectNotFound {
+	} else if !errors.Is(err, sowfs.ErrProjectNotFound) {
 		// Unexpected error (not just "no project")
 		return fmt.Errorf("failed to check project: %w", err)
 	}
@@ -178,7 +179,7 @@ func determineCurrentPhaseAndStatus(state *schemas.ProjectState) (string, string
 }
 
 // getAvailableCommands returns a list of relevant commands based on context.
-func getAvailableCommands(contextType string, hasProject bool) []string {
+func getAvailableCommands(_ string, hasProject bool) []string {
 	commands := []string{
 		"sow validate",
 		"sow refs",

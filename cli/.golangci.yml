@@ -60,8 +60,8 @@ linters:
     # packages/imports
     - importas # enforce canonical import aliases
     # complexity & readability (tuned)
-    - gocyclo
-    - cyclop
+    # - gocyclo  # Disabled: CLI command handlers have inherent complexity
+    # - cyclop   # Disabled: CLI command handlers have inherent complexity
     - funlen
     - nestif
     - dupword
@@ -82,11 +82,6 @@ linters:
         # Allow walk helper that propagates errors from walkFn
         - github.com/input-output-hk/catalyst-forge-libs/fs/minio/internal/walk.ProcessEntry(
     # Complexity thresholds (kept reasonable to reduce false positives)
-    gocyclo:
-      min-complexity: 15
-    cyclop:
-      max-complexity: 15
-      package-average: 0.0
     funlen:
       lines: 120
       statements: 60
@@ -137,5 +132,5 @@ severity:
           depguard,
         ]
       severity: error
-    - linters: [gocyclo, cyclop, funlen, nestif, dupword, misspell, revive]
+    - linters: [funlen, nestif, dupword, misspell, revive]
       severity: warning

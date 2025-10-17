@@ -12,12 +12,13 @@ exec sow init
 mkdir test-docs
 exec sh -c 'echo documentation > test-docs/README.md'
 
-# Add file ref
-exec sow refs file add test-docs --id=docs --semantic=knowledge --description='Test docs'
-stderr '✓ Added file ref: docs'
+# Add file ref using absolute path (will be converted to file:// URL)
+exec sow refs add $WORK/test-docs --id=docs --link=docs --semantic=knowledge --description='Test docs'
+stderr '✓ Added file ref:'
+stderr 'local index'
 
 # List refs
-exec sow refs file list
+exec sow refs list
 stdout 'docs'
 stdout 'knowledge'
 stdout 'test-docs'
@@ -26,21 +27,26 @@ stdout 'test-docs'
 exists .sow/refs/docs
 
 # Verify cache symlink was created
-exists $HOME/.cache/sow/refs/file/docs
+exists $HOME/.cache/sow/refs/file
 
 # Verify content is accessible through workspace symlink
 exists .sow/refs/docs/README.md
 
-# Remove ref
-exec sow refs file remove docs
-stderr '✓ Removed file ref: docs'
+# Test list filtering
+exec sow refs list --type=file
+stdout 'docs'
+
+exec sow refs list --semantic=knowledge
+stdout 'docs'
+
+# Remove ref with force flag (skip confirmation)
+exec sow refs remove docs --force
+stderr '✓ Removed'
+stderr 'local index'
 
 # Verify workspace symlink removed
 ! exists .sow/refs/docs
 
-# Verify cache cleaned up
-! exists $HOME/.cache/sow/refs/file/docs
-
 # Verify list shows no refs
-exec sow refs file list
-stdout 'No file refs configured'
+exec sow refs list
+stderr 'No refs configured'

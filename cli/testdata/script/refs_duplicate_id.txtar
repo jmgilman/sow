@@ -12,15 +12,15 @@ mkdir source
 exec sh -c 'echo test > source/file.txt'
 
 # Add first ref successfully
-exec sow refs file add source --id=test-ref --semantic=knowledge --description='First ref'
+exec sow refs add $WORK/source --link=test-ref --id=test-ref --semantic=knowledge --description='First ref'
 stderr '✓ Added file ref: test-ref'
 
-# Verify it was added to index
-exec cat .sow/refs/index.json
+# Verify it was added to local index (file refs always go to local)
+exec cat .sow/refs/index.local.json
 stdout '"id": "test-ref"'
 
 # Try adding duplicate with same ID - should fail immediately
-! exec sow refs file add source --id=test-ref --semantic=knowledge --description='Duplicate ref'
+! exec sow refs add $WORK/source --link=dup --id=test-ref --semantic=knowledge --description='Duplicate ref'
 stderr 'ref with ID "test-ref" already exists'
 
 # Verify cache has only one entry (no orphaned duplicates)
@@ -28,7 +28,7 @@ exec sh -c 'ls $HOME/.cache/sow/refs/file/ | wc -l'
 stdout '1'
 
 # Verify index still has only one entry
-exec cat .sow/refs/index.json
+exec cat .sow/refs/index.local.json
 stdout '"refs":'
 stdout '"id": "test-ref"'
 stdout '"source": "file://'
@@ -36,7 +36,7 @@ stdout '"source": "file://'
 # Try adding a different source with same ID - should also fail
 mkdir other-source
 exec sh -c 'echo other > other-source/file.txt'
-! exec sow refs file add other-source --id=test-ref --semantic=code --description='Another duplicate'
+! exec sow refs add $WORK/other-source --link=dup2 --id=test-ref --semantic=code --description='Another duplicate'
 stderr 'ref with ID "test-ref" already exists'
 
 # Verify still only one cache entry
@@ -44,7 +44,7 @@ exec sh -c 'ls $HOME/.cache/sow/refs/file/ | wc -l'
 stdout '1'
 
 # Adding with different ID should succeed
-exec sow refs file add other-source --id=different-ref --semantic=code --description='Different ref'
+exec sow refs add $WORK/other-source --link=different-ref --id=different-ref --semantic=code --description='Different ref'
 stderr '✓ Added file ref: different-ref'
 
 # Verify we now have two entries

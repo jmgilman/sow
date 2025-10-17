@@ -45,10 +45,16 @@ func InferTypeFromScheme(scheme string) string {
 //   - git+ssh://git@github.com/org/repo
 //   - git@github.com:org/repo (auto-converted to git+ssh://)
 //   - file:///absolute/path
+//   - /absolute/path (treated as file)
 func InferTypeFromURL(rawURL string) (string, error) {
 	// Check for git SSH shorthand first (git@host:path)
 	if gitSSHShorthandRegex.MatchString(rawURL) {
 		return "git", nil
+	}
+
+	// Check if it's an absolute file path (starts with /)
+	if strings.HasPrefix(rawURL, "/") {
+		return "file", nil
 	}
 
 	// Parse as URL
