@@ -560,7 +560,7 @@ func TestFormatTaskStatus(t *testing.T) {
 	})
 }
 
-// Helper function to create a test project state
+// Helper function to create a test project state.
 func createTestProjectState() *schemas.ProjectState {
 	now := time.Now()
 	state := &schemas.ProjectState{}

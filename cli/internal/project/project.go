@@ -12,7 +12,7 @@ import (
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
-// Phase name constants
+// Phase name constants.
 const (
 	PhaseDiscovery      = "discovery"
 	PhaseDesign         = "design"
@@ -21,7 +21,7 @@ const (
 	PhaseFinalize       = "finalize"
 )
 
-// validPhases maps phase names to their validity
+// validPhases maps phase names to their validity.
 var validPhases = map[string]bool{
 	PhaseDiscovery:      true,
 	PhaseDesign:         true,
@@ -30,7 +30,7 @@ var validPhases = map[string]bool{
 	PhaseFinalize:       true,
 }
 
-// validDiscoveryTypes lists valid discovery type values
+// validDiscoveryTypes lists valid discovery type values.
 var validDiscoveryTypes = map[string]bool{
 	"bug":      true,
 	"feature":  true,
@@ -211,49 +211,55 @@ func FormatStatus(state *schemas.ProjectState) string {
 	}
 
 	// Task summary
-	if len(state.Phases.Implementation.Tasks) > 0 {
-		total := len(state.Phases.Implementation.Tasks)
-		completed := 0
-		inProgress := 0
-		pending := 0
-		abandoned := 0
-
-		for _, task := range state.Phases.Implementation.Tasks {
-			switch task.Status {
-			case "completed":
-				completed++
-			case "in_progress":
-				inProgress++
-			case "pending":
-				pending++
-			case "abandoned":
-				abandoned++
-			}
-		}
-
-		fmt.Fprintf(&b, "\nTasks: %d total", total)
-		details := []string{}
-		if completed > 0 {
-			details = append(details, fmt.Sprintf("%d completed", completed))
-		}
-		if inProgress > 0 {
-			details = append(details, fmt.Sprintf("%d in_progress", inProgress))
-		}
-		if pending > 0 {
-			details = append(details, fmt.Sprintf("%d pending", pending))
-		}
-		if abandoned > 0 {
-			details = append(details, fmt.Sprintf("%d abandoned", abandoned))
-		}
-		if len(details) > 0 {
-			fmt.Fprintf(&b, " (%s)", strings.Join(details, ", "))
-		}
-		fmt.Fprintln(&b)
-	} else {
-		fmt.Fprintln(&b, "\nTasks: none yet")
-	}
+	formatTaskSummary(&b, state.Phases.Implementation.Tasks)
 
 	return b.String()
+}
+
+// formatTaskSummary formats the task summary section.
+func formatTaskSummary(b *strings.Builder, tasks []schemas.Task) {
+	if len(tasks) == 0 {
+		fmt.Fprintln(b, "\nTasks: none yet")
+		return
+	}
+
+	total := len(tasks)
+	completed := 0
+	inProgress := 0
+	pending := 0
+	abandoned := 0
+
+	for _, task := range tasks {
+		switch task.Status {
+		case "completed":
+			completed++
+		case "in_progress":
+			inProgress++
+		case "pending":
+			pending++
+		case "abandoned":
+			abandoned++
+		}
+	}
+
+	fmt.Fprintf(b, "\nTasks: %d total", total)
+	details := []string{}
+	if completed > 0 {
+		details = append(details, fmt.Sprintf("%d completed", completed))
+	}
+	if inProgress > 0 {
+		details = append(details, fmt.Sprintf("%d in_progress", inProgress))
+	}
+	if pending > 0 {
+		details = append(details, fmt.Sprintf("%d pending", pending))
+	}
+	if abandoned > 0 {
+		details = append(details, fmt.Sprintf("%d abandoned", abandoned))
+	}
+	if len(details) > 0 {
+		fmt.Fprintf(b, " (%s)", strings.Join(details, ", "))
+	}
+	fmt.Fprintln(b)
 }
 
 // ValidatePhase checks if the given phase name is valid.

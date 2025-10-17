@@ -62,12 +62,12 @@ func runUpdate(cmd *cobra.Command, args []string, accessor SowFSAccessor) error 
 	// Resolve task ID (either from args or inferred)
 	taskID, err := taskutil.ResolveTaskIDFromArgs(sowFS, args)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to resolve task ID: %w", err)
 	}
 
 	// Validate task ID format
 	if err := task.ValidateTaskID(taskID); err != nil {
-		return err
+		return fmt.Errorf("invalid task ID: %w", err)
 	}
 
 	// Get project (must exist)
@@ -103,12 +103,12 @@ func runUpdate(cmd *cobra.Command, args []string, accessor SowFSAccessor) error 
 
 		// Update detailed task state (with timestamps)
 		if err := task.UpdateTaskStatus(taskState, statusFlag); err != nil {
-			return err
+			return fmt.Errorf("failed to update task status: %w", err)
 		}
 
 		// Update lightweight project state entry
 		if err := task.UpdateTaskStatusInProject(projectState, taskID, statusFlag); err != nil {
-			return err
+			return fmt.Errorf("failed to update project state: %w", err)
 		}
 
 		updated = append(updated, fmt.Sprintf("status: %s → %s", oldStatus, statusFlag))

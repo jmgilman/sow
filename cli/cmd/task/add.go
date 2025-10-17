@@ -87,7 +87,7 @@ func runAdd(cmd *cobra.Command, args []string, accessor SowFSAccessor) error {
 	} else {
 		// Validate provided ID
 		if err := task.ValidateTaskID(taskID); err != nil {
-			return err
+			return fmt.Errorf("task ID validation failed: %w", err)
 		}
 	}
 
@@ -98,7 +98,7 @@ func runAdd(cmd *cobra.Command, args []string, accessor SowFSAccessor) error {
 
 	// Add task to project state (lightweight entry)
 	if err := task.AddTaskToProjectState(state, taskID, name, parallel, dependencies); err != nil {
-		return err
+		return fmt.Errorf("failed to add task to project: %w", err)
 	}
 
 	// Write updated project state

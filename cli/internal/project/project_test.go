@@ -364,8 +364,8 @@ func TestEnablePhase(t *testing.T) {
 	})
 }
 
-func TestValidatePhaseCompletion(t *testing.T) {
-	t.Run("discovery phase - not enabled", func(t *testing.T) {
+func TestValidatePhaseCompletion_Discovery(t *testing.T) {
+	t.Run("not enabled", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 
 		err := ValidatePhaseCompletion(state, PhaseDiscovery)
@@ -373,7 +373,7 @@ func TestValidatePhaseCompletion(t *testing.T) {
 		assert.Contains(t, err.Error(), "not enabled")
 	})
 
-	t.Run("discovery phase - already completed", func(t *testing.T) {
+	t.Run("already completed", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 		state.Phases.Discovery.Enabled = true
 		state.Phases.Discovery.Status = "completed"
@@ -383,7 +383,7 @@ func TestValidatePhaseCompletion(t *testing.T) {
 		assert.Contains(t, err.Error(), "already completed")
 	})
 
-	t.Run("discovery phase - artifact not approved", func(t *testing.T) {
+	t.Run("artifact not approved", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 		state.Phases.Discovery.Enabled = true
 		state.Phases.Discovery.Status = "in_progress"
@@ -396,7 +396,7 @@ func TestValidatePhaseCompletion(t *testing.T) {
 		assert.Contains(t, err.Error(), "not approved")
 	})
 
-	t.Run("discovery phase - all artifacts approved", func(t *testing.T) {
+	t.Run("all artifacts approved", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 		state.Phases.Discovery.Enabled = true
 		state.Phases.Discovery.Status = "in_progress"
@@ -407,8 +407,10 @@ func TestValidatePhaseCompletion(t *testing.T) {
 		err := ValidatePhaseCompletion(state, PhaseDiscovery)
 		require.NoError(t, err)
 	})
+}
 
-	t.Run("design phase - artifact not approved", func(t *testing.T) {
+func TestValidatePhaseCompletion_Design(t *testing.T) {
+	t.Run("artifact not approved", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 		state.Phases.Design.Enabled = true
 		state.Phases.Design.Status = "in_progress"
@@ -420,8 +422,10 @@ func TestValidatePhaseCompletion(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not approved")
 	})
+}
 
-	t.Run("implementation phase - task not completed", func(t *testing.T) {
+func TestValidatePhaseCompletion_Implementation(t *testing.T) {
+	t.Run("task not completed", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 		state.Phases.Implementation.Status = "in_progress"
 		state.Phases.Implementation.Tasks = []schemas.Task{
@@ -434,7 +438,7 @@ func TestValidatePhaseCompletion(t *testing.T) {
 		assert.Contains(t, err.Error(), "not completed or abandoned")
 	})
 
-	t.Run("implementation phase - all tasks completed", func(t *testing.T) {
+	t.Run("all tasks completed", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 		state.Phases.Implementation.Status = "in_progress"
 		state.Phases.Implementation.Tasks = []schemas.Task{
@@ -446,7 +450,7 @@ func TestValidatePhaseCompletion(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("implementation phase - tasks completed and abandoned", func(t *testing.T) {
+	t.Run("tasks completed and abandoned", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 		state.Phases.Implementation.Status = "in_progress"
 		state.Phases.Implementation.Tasks = []schemas.Task{
@@ -457,8 +461,10 @@ func TestValidatePhaseCompletion(t *testing.T) {
 		err := ValidatePhaseCompletion(state, PhaseImplementation)
 		require.NoError(t, err)
 	})
+}
 
-	t.Run("review phase - no reports", func(t *testing.T) {
+func TestValidatePhaseCompletion_Review(t *testing.T) {
+	t.Run("no reports", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 		state.Phases.Review.Status = "in_progress"
 
@@ -467,7 +473,7 @@ func TestValidatePhaseCompletion(t *testing.T) {
 		assert.Contains(t, err.Error(), "no review reports exist")
 	})
 
-	t.Run("review phase - latest report not pass", func(t *testing.T) {
+	t.Run("latest report not pass", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 		state.Phases.Review.Status = "in_progress"
 		now := time.Now()
@@ -485,7 +491,7 @@ func TestValidatePhaseCompletion(t *testing.T) {
 		assert.Contains(t, err.Error(), "must be 'pass'")
 	})
 
-	t.Run("review phase - latest report pass", func(t *testing.T) {
+	t.Run("latest report pass", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 		state.Phases.Review.Status = "in_progress"
 		now := time.Now()
@@ -501,8 +507,10 @@ func TestValidatePhaseCompletion(t *testing.T) {
 		err := ValidatePhaseCompletion(state, PhaseReview)
 		require.NoError(t, err)
 	})
+}
 
-	t.Run("finalize phase - project not deleted", func(t *testing.T) {
+func TestValidatePhaseCompletion_Finalize(t *testing.T) {
+	t.Run("project not deleted", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 		state.Phases.Finalize.Status = "in_progress"
 		state.Phases.Finalize.Project_deleted = false
@@ -512,7 +520,7 @@ func TestValidatePhaseCompletion(t *testing.T) {
 		assert.Contains(t, err.Error(), "project must be deleted")
 	})
 
-	t.Run("finalize phase - project deleted", func(t *testing.T) {
+	t.Run("project deleted", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 		state.Phases.Finalize.Status = "in_progress"
 		state.Phases.Finalize.Project_deleted = true
@@ -520,7 +528,9 @@ func TestValidatePhaseCompletion(t *testing.T) {
 		err := ValidatePhaseCompletion(state, PhaseFinalize)
 		require.NoError(t, err)
 	})
+}
 
+func TestValidatePhaseCompletion_Invalid(t *testing.T) {
 	t.Run("invalid phase name", func(t *testing.T) {
 		state := NewProjectState("test", "feat/test", "test")
 

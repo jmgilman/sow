@@ -41,7 +41,7 @@ Example:
 
 			// Validate phase name
 			if err := project.ValidatePhase(phase); err != nil {
-				return err
+				return fmt.Errorf("phase validation failed: %w", err)
 			}
 
 			// Get SowFS from context
@@ -53,7 +53,7 @@ Example:
 			// Get project filesystem
 			projectFS, err := sowFS.Project()
 			if err != nil {
-				return err
+				return fmt.Errorf("no active project - run 'sow project init' first: %w", err)
 			}
 
 			// Read current state
@@ -64,7 +64,7 @@ Example:
 
 			// Complete the phase (validates and updates state)
 			if err := project.CompletePhase(state, phase); err != nil {
-				return err
+				return fmt.Errorf("failed to complete phase: %w", err)
 			}
 
 			// Write updated state

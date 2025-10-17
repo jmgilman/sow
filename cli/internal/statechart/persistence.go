@@ -1,6 +1,7 @@
 package statechart
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -18,12 +19,12 @@ func Load() (*Machine, error) {
 			// No project yet - start with NoProject state
 			return NewMachine(nil), nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to read state file: %w", err)
 	}
 
 	var state ProjectState
 	if err := yaml.Unmarshal(data, &state); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal state: %w", err)
 	}
 
 	// Create machine starting from the stored state
@@ -43,20 +44,24 @@ func (m *Machine) Save() error {
 	// Marshal to YAML
 	data, err := yaml.Marshal(m.projectState)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal state: %w", err)
 	}
 
 	// Ensure directory exists
 	dir := filepath.Dir(stateFilePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
+		return fmt.Errorf("failed to create state directory: %w", err)
 	}
 
 	// Atomic write: write to temp file, then rename
 	tmpFile := stateFilePath + ".tmp"
 	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
-		return err
+		return fmt.Errorf("failed to write state file: %w", err)
 	}
 
-	return os.Rename(tmpFile, stateFilePath)
+	if err := os.Rename(tmpFile, stateFilePath); err != nil {
+		return fmt.Errorf("failed to rename state file: %w", err)
+	}
+
+	return nil
 }

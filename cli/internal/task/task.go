@@ -15,7 +15,7 @@ import (
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
-// Task status constants
+// Task status constants.
 const (
 	StatusPending    = "pending"
 	StatusInProgress = "in_progress"
@@ -23,7 +23,7 @@ const (
 	StatusAbandoned  = "abandoned"
 )
 
-// validStatuses maps status names to their validity
+// validStatuses maps status names to their validity.
 var validStatuses = map[string]bool{
 	StatusPending:    true,
 	StatusInProgress: true,

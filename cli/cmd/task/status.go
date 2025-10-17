@@ -66,12 +66,12 @@ func runTaskStatus(cmd *cobra.Command, args []string, accessor SowFSAccessor) er
 	// Resolve task ID (either from args or inferred)
 	taskID, err := taskutil.ResolveTaskIDFromArgs(sowFS, args)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to resolve task ID: %w", err)
 	}
 
 	// Validate task ID format
 	if err := task.ValidateTaskID(taskID); err != nil {
-		return err
+		return fmt.Errorf("invalid task ID: %w", err)
 	}
 
 	// Get project (must exist)

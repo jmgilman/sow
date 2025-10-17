@@ -3,12 +3,12 @@ package statechart
 // ProjectState is a minimal representation of project state for guard evaluation.
 // This will be replaced with the actual project state schema from internal/schemas.
 type ProjectState struct {
-	Statechart StatechartMeta `yaml:"_statechart"`
-	Phases     Phases         `yaml:"phases"`
+	Statechart Meta   `yaml:"_statechart"`
+	Phases     Phases `yaml:"phases"`
 }
 
-// StatechartMeta tracks the current state machine position.
-type StatechartMeta struct {
+// Meta tracks the current state machine position.
+type Meta struct {
 	CurrentState State `yaml:"current_state"`
 }
 

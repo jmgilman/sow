@@ -62,7 +62,7 @@ func runInit(cmd *cobra.Command, args []string, accessor SowFSAccessor) error {
 
 	// Validate branch is not protected (main/master)
 	if err := project.ValidateBranch(branch); err != nil {
-		return err
+		return fmt.Errorf("branch validation failed: %w", err)
 	}
 
 	// Check if project already exists

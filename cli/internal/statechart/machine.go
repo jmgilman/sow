@@ -102,7 +102,7 @@ func (m *Machine) configure() {
 
 // onEntry creates an entry action that outputs the contextual prompt for a state.
 func (m *Machine) onEntry(state State) func(context.Context, ...any) error {
-	return func(ctx context.Context, args ...any) error {
+	return func(_ context.Context, _ ...any) error {
 		prompt := GeneratePrompt(PromptContext{
 			State:        state,
 			ProjectState: m.projectState,
@@ -114,49 +114,49 @@ func (m *Machine) onEntry(state State) func(context.Context, ...any) error {
 
 // Guard wrapper functions
 
-func (m *Machine) discoveryComplete(ctx context.Context, args ...any) bool {
+func (m *Machine) discoveryComplete(_ context.Context, _ ...any) bool {
 	if m.projectState == nil {
 		return false
 	}
 	return ArtifactsApproved(m.projectState.Phases.Discovery)
 }
 
-func (m *Machine) designComplete(ctx context.Context, args ...any) bool {
+func (m *Machine) designComplete(_ context.Context, _ ...any) bool {
 	if m.projectState == nil {
 		return false
 	}
 	return ArtifactsApproved(m.projectState.Phases.Design)
 }
 
-func (m *Machine) hasAtLeastOneTask(ctx context.Context, args ...any) bool {
+func (m *Machine) hasAtLeastOneTask(_ context.Context, _ ...any) bool {
 	if m.projectState == nil {
 		return false
 	}
 	return HasAtLeastOneTask(m.projectState)
 }
 
-func (m *Machine) allTasksComplete(ctx context.Context, args ...any) bool {
+func (m *Machine) allTasksComplete(_ context.Context, _ ...any) bool {
 	if m.projectState == nil {
 		return false
 	}
 	return AllTasksComplete(m.projectState)
 }
 
-func (m *Machine) documentationAssessed(ctx context.Context, args ...any) bool {
+func (m *Machine) documentationAssessed(_ context.Context, _ ...any) bool {
 	if m.projectState == nil {
 		return false
 	}
 	return DocumentationAssessed(m.projectState)
 }
 
-func (m *Machine) checksAssessed(ctx context.Context, args ...any) bool {
+func (m *Machine) checksAssessed(_ context.Context, _ ...any) bool {
 	if m.projectState == nil {
 		return false
 	}
 	return ChecksAssessed(m.projectState)
 }
 
-func (m *Machine) projectDeleted(ctx context.Context, args ...any) bool {
+func (m *Machine) projectDeleted(_ context.Context, _ ...any) bool {
 	if m.projectState == nil {
 		return false
 	}
@@ -165,35 +165,49 @@ func (m *Machine) projectDeleted(ctx context.Context, args ...any) bool {
 
 // Fire triggers an event, causing a state transition if valid.
 func (m *Machine) Fire(event Event) error {
-	return m.sm.Fire(event)
+	if err := m.sm.Fire(event); err != nil {
+		return fmt.Errorf("failed to fire event %s: %w", event, err)
+	}
+	return nil
 }
 
 // State returns the current state.
 func (m *Machine) State() State {
-	return m.sm.MustState().(State)
+	state := m.sm.MustState()
+	if s, ok := state.(State); ok {
+		return s
+	}
+	// This should never happen if the state machine is properly configured
+	return NoProject
 }
 
 // CanFire checks if an event can be fired from the current state.
 func (m *Machine) CanFire(event Event) (bool, error) {
-	return m.sm.CanFire(event)
+	can, err := m.sm.CanFire(event)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if event %s can fire: %w", event, err)
+	}
+	return can, nil
 }
 
 // PermittedTriggers returns all events that can be fired from the current state.
 func (m *Machine) PermittedTriggers() ([]Event, error) {
 	triggers, err := m.sm.PermittedTriggers()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get permitted triggers: %w", err)
 	}
-	events := make([]Event, len(triggers))
-	for i, t := range triggers {
-		events[i] = t.(Event)
+	events := make([]Event, 0, len(triggers))
+	for _, t := range triggers {
+		if e, ok := t.(Event); ok {
+			events = append(events, e)
+		}
 	}
 	return events, nil
 }
 
 // determineCurrentState infers the current state from project state.
 // This is used when resuming an existing project.
-func determineCurrentState(state *ProjectState) State {
+func determineCurrentState(_ *ProjectState) State {
 	// This is a simplified version - real implementation would inspect
 	// the actual project state to determine current position in lifecycle.
 

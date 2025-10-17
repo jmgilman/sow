@@ -30,7 +30,7 @@ Displays:
 Output formats:
   - text: Human-readable table (default)
   - json: Machine-readable JSON`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Validate format
 			if format != "text" && format != "json" {
 				return fmt.Errorf("invalid format '%s': must be 'text' or 'json'", format)
@@ -45,7 +45,7 @@ Output formats:
 			// Get project filesystem
 			projectFS, err := sowFS.Project()
 			if err != nil {
-				return err
+				return fmt.Errorf("no active project - run 'sow project init' first: %w", err)
 			}
 
 			// Read current state
