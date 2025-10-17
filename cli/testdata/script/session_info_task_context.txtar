@@ -1,0 +1,97 @@
+# Test session-info command from within a task directory
+# Should show task context information
+
+exec git init
+
+-- .sow/.version --
+1.0.0
+
+-- .sow/refs/index.json --
+{
+  "version": "1.0.0",
+  "refs": []
+}
+
+-- .sow/project/state.yaml --
+project:
+  name: test-project
+  branch: main
+  description: Test project
+  created_at: 2025-10-16T10:00:00Z
+  updated_at: 2025-10-16T10:00:00Z
+phases:
+  discovery:
+    status: skipped
+    enabled: false
+    created_at: 2025-10-16T10:00:00Z
+    started_at: null
+    completed_at: null
+    discovery_type: null
+    artifacts: []
+  design:
+    status: skipped
+    enabled: false
+    created_at: 2025-10-16T10:00:00Z
+    started_at: null
+    completed_at: null
+    architect_used: null
+    artifacts: []
+  implementation:
+    status: in_progress
+    enabled: true
+    created_at: 2025-10-16T10:00:00Z
+    started_at: 2025-10-16T10:00:00Z
+    completed_at: null
+    planner_used: null
+    tasks: []
+    pending_task_additions: null
+  review:
+    status: pending
+    enabled: true
+    created_at: 2025-10-16T10:00:00Z
+    started_at: null
+    completed_at: null
+    iteration: 1
+    reports: []
+  finalize:
+    status: pending
+    enabled: true
+    created_at: 2025-10-16T10:00:00Z
+    started_at: null
+    completed_at: null
+    project_deleted: false
+    pr_url: null
+
+-- .sow/project/phases/implementation/tasks/010/state.yaml --
+task:
+  id: "010"
+  name: test-task
+  description: Test task
+  status: in_progress
+  assigned_agent: implementer
+  created_at: 2025-10-16T10:00:00Z
+  started_at: 2025-10-16T10:00:00Z
+  completed_at: null
+  iteration: 1
+  references: []
+  files_modified: []
+  feedback: []
+
+-- .sow/project/phases/implementation/tasks/010/description.md --
+# Test Task
+
+This is a test task for session-info.
+
+# Change directory to task
+cd .sow/project/phases/implementation/tasks/010
+
+# Run session-info from task directory
+exec sow session-info
+stdout '"type": "task"'
+stdout '"task_id": "010"'
+stdout '"root":'
+stdout '"branch":'
+
+# Should still show project info
+stdout '"project":'
+stdout '"name": "test-project"'

@@ -1,0 +1,9 @@
+# Test session-info command when .sow is not initialized
+# Should return an error
+
+exec git init
+
+# Try to run session-info without initializing
+! exec sow session-info
+stderr 'not in a sow repository'
+stderr 'run .sow init. first'

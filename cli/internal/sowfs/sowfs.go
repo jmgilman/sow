@@ -8,6 +8,7 @@ import (
 
 	"github.com/jmgilman/go/fs/billy"
 	"github.com/jmgilman/go/fs/core"
+	"github.com/jmgilman/go/git"
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
@@ -53,6 +54,11 @@ type SowFS interface {
 	// Context returns the context domain for detecting workspace context.
 	// Determines if we're in a task directory, project root, etc.
 	Context() ContextFS
+
+	// Repo returns the git repository for this sow workspace.
+	// The repository is lazily initialized on first access and cached.
+	// Returns an error if the repository cannot be opened.
+	Repo() (*git.Repository, error)
 
 	// RepoRoot returns the absolute path to the git repository root.
 	RepoRoot() string
@@ -212,6 +218,9 @@ type SowFSImpl struct {
 	// validator provides CUE schema validation
 	validator *schemas.CUEValidator
 
+	// repo is the git repository (lazily initialized)
+	repo *git.Repository
+
 	// Domain-specific implementations (eagerly initialized during NewSowFS*)
 	knowledge *KnowledgeFSImpl
 	refs      *RefsFSImpl
@@ -250,6 +259,20 @@ func (s *SowFSImpl) Project() (ProjectFS, error) {
 // Context returns the context domain (pre-initialized during construction).
 func (s *SowFSImpl) Context() ContextFS {
 	return s.context
+}
+
+// Repo returns the git repository for this sow workspace.
+// The repository is lazily initialized on first access and cached for subsequent calls.
+func (s *SowFSImpl) Repo() (*git.Repository, error) {
+	// Lazy initialization: only open repository on first access
+	if s.repo == nil {
+		repo, err := git.Open(s.repoRoot)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open git repository: %w", err)
+		}
+		s.repo = repo
+	}
+	return s.repo, nil
 }
 
 // RepoRoot returns the repository root path.

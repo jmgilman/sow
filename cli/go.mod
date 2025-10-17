@@ -8,7 +8,7 @@ require (
 	github.com/jmgilman/go/cue v0.1.0
 	github.com/jmgilman/go/fs/billy v0.1.0
 	github.com/jmgilman/go/fs/core v0.1.0
-	github.com/jmgilman/go/git v0.2.0
+	github.com/jmgilman/go/git v0.3.1
 	github.com/rogpeppe/go-internal v1.14.1
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.11.1
