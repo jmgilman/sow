@@ -12,6 +12,8 @@ This document provides comprehensive reference for all `sow` CLI commands and or
 - [Overview](#overview)
 - [Core Commands](#core-commands)
 - [Logging Commands](#logging-commands)
+- [Project Commands](#project-commands)
+- [Task Commands](#task-commands)
 - [Refs Commands](#refs-commands)
 - [Slash Commands](#slash-commands)
 - [Exit Codes](#exit-codes)
@@ -128,6 +130,361 @@ Display current session information for SessionStart hook.
 **Version mismatch**: Shows warning with structure version and plugin version, migration instructions.
 
 **Purpose**: Provide context on session start via SessionStart hook.
+
+---
+
+## Project Commands
+
+Project commands manage project lifecycle, phases, and artifacts. Primary users are AI agents (orchestrator), but commands are available for manual intervention.
+
+### sow project init
+
+Initialize new project in current branch.
+
+**Usage**: `sow project init <name> --description "<description>"`
+
+**Arguments**:
+- `<name>`: Project name (kebab-case)
+- `--description`: Project description (quoted string)
+
+**Behavior**:
+- Validates current branch is NOT default branch (main/master)
+- Checks no existing project exists
+- Creates `.sow/project/state.yaml` with initial state
+- Creates `.sow/project/log.md` and `.sow/project/context/` directory
+- All 5 phases present (discovery/design disabled, implementation/review/finalize enabled)
+
+**Validation**: Current branch != main/master, no existing project, valid project name (kebab-case), description not empty
+
+**Output**: `✓ Initialized project '<name>' on branch '<branch>'`
+
+---
+
+### sow project status
+
+Show project summary.
+
+**Usage**: `sow project status [--format json]`
+
+**Output** (default): Project name, branch, description, phase statuses, task breakdown, pending artifacts
+
+**Output** (JSON): Full state.yaml as JSON
+
+---
+
+### sow project delete
+
+Delete project folder.
+
+**Usage**: `sow project delete [--force]`
+
+**Behavior**:
+- Confirms with user (unless `--force`)
+- Sets `phases.finalize.project_deleted: true`
+- Deletes entire `.sow/project/` directory
+- Prints reminder to commit deletion
+
+**Validation**: Project exists, finalize phase completed (unless forced)
+
+---
+
+### sow project phase enable
+
+Enable a phase.
+
+**Usage**: `sow project phase enable <phase> [--type <discovery-type>]`
+
+**Arguments**:
+- `<phase>`: Phase name (discovery, design, implementation, review, finalize)
+- `--type`: Discovery type (required if phase=discovery): bug, feature, docs, refactor, general
+
+**Behavior**: Sets `phases.<phase>.enabled: true`, sets status to `pending`, updates timestamps
+
+**Validation**: Valid phase name, valid discovery type (if discovery), implementation/review/finalize already enabled
+
+---
+
+### sow project phase status
+
+Show status of all phases.
+
+**Usage**: `sow project phase status [--format json]`
+
+**Output**: Enabled/disabled status and current state for each phase
+
+---
+
+### sow project phase complete
+
+Mark phase as complete.
+
+**Usage**: `sow project phase complete <phase>`
+
+**Behavior**: Sets `status: completed` and `completed_at` timestamp
+
+**Validation**: Phase enabled, phase in_progress or pending, completion requirements met (all artifacts approved, all tasks completed, review passed)
+
+---
+
+### sow project artifact add
+
+Add artifact to phase.
+
+**Usage**: `sow project artifact add <path> --phase <phase> [--approved]`
+
+**Arguments**:
+- `<path>`: Path to artifact (relative to `.sow/project/`)
+- `--phase`: Phase name (discovery or design)
+- `--approved`: Mark as approved immediately (optional)
+
+**Behavior**: Adds to `phases.<phase>.artifacts[]` array
+
+**Validation**: Phase is discovery or design, path exists, path not already in artifacts
+
+---
+
+### sow project artifact approve
+
+Approve artifact.
+
+**Usage**: `sow project artifact approve <path> --phase <phase>`
+
+**Behavior**: Finds artifact in phase and sets `approved: true`
+
+**Validation**: Artifact exists in phase, phase is discovery or design
+
+---
+
+### sow project artifact list
+
+List artifacts for phase(s).
+
+**Usage**: `sow project artifact list [--phase <phase>] [--format json]`
+
+**Output**: Artifacts grouped by phase with approval status
+
+---
+
+### sow project review increment
+
+Increment review iteration counter.
+
+**Usage**: `sow project review increment`
+
+**Behavior**: Increments `phases.review.iteration` by 1
+
+---
+
+### sow project review add-report
+
+Add review report.
+
+**Usage**: `sow project review add-report <path> --assessment <pass|fail>`
+
+**Arguments**:
+- `<path>`: Path to report (relative to `.sow/project/phases/review/`)
+- `--assessment`: pass or fail
+
+**Behavior**: Generates report ID (001, 002, 003...) and adds to `phases.review.reports[]`
+
+**Validation**: Assessment is 'pass' or 'fail', path is relative to review directory
+
+---
+
+### sow project finalize add-document
+
+Add documentation file that was updated.
+
+**Usage**: `sow project finalize add-document <path>`
+
+**Behavior**: Adds to `phases.finalize.documentation_updates[]` array
+
+---
+
+### sow project finalize move-artifact
+
+Record artifact moved to knowledge.
+
+**Usage**: `sow project finalize move-artifact <from> <to>`
+
+**Arguments**:
+- `<from>`: Source path (relative to `.sow/project/`)
+- `<to>`: Destination path (relative to `.sow/`)
+
+**Behavior**: Records move in `phases.finalize.artifacts_moved[]` array
+
+**Validation**: Source exists, destination is under `.sow/knowledge/`
+
+---
+
+## Task Commands
+
+Task commands manage tasks within the implementation phase. Task ID is optional for most commands—inferred from active task or current directory.
+
+### Task ID Inference
+
+When task ID is omitted, it's inferred from:
+1. **Current directory**: If in `.sow/project/phases/implementation/tasks/<id>/`, use that ID
+2. **Active task**: If project state has task with `status: in_progress`, use that ID
+3. **Error**: If neither applies, command fails requesting explicit ID
+
+### sow task init
+
+Create new task.
+
+**Usage**: `sow task init <name> [--id <id>]`
+
+**Arguments**:
+- `<name>`: Task name
+- `--id`: Task ID (optional, auto-generated if omitted)
+
+**Behavior**:
+- Generates gap-numbered ID if not provided (010, 020, 030...)
+- Adds to project state `phases.implementation.tasks[]`
+- Creates task directory with state.yaml, description.md, log.md
+
+**Validation**: Project exists, implementation enabled, ID not used, name not empty
+
+---
+
+### sow task list
+
+List all tasks.
+
+**Usage**: `sow task list [--status <status>] [--format json]`
+
+**Flags**:
+- `--status`: Filter by status (pending, in_progress, completed, abandoned)
+- `--format`: Output format (table, json)
+
+**Output** (table): ID, status, name columns
+
+---
+
+### sow task show
+
+Show task details.
+
+**Usage**: `sow task show [<id>] [--format json]`
+
+**Arguments**: `<id>` - Task ID (optional, inferred if omitted)
+
+**Output**: Task metadata, references, feedback, modified files
+
+---
+
+### sow task set-status
+
+Set task status.
+
+**Usage**: `sow task set-status <status> [<id>]`
+
+**Arguments**:
+- `<status>`: New status (pending, in_progress, completed, abandoned)
+- `<id>`: Task ID (optional, inferred if omitted)
+
+**Behavior**:
+- Updates status in both project state and task state
+- Sets timestamps (started_at, completed_at) appropriately
+
+**Validation**: Valid status enum, task exists
+
+---
+
+### sow task abandon
+
+Mark task as abandoned.
+
+**Usage**: `sow task abandon [<id>]`
+
+**Behavior**: Equivalent to `sow task set-status abandoned [<id>]`
+
+---
+
+### sow task state increment
+
+Increment task iteration counter.
+
+**Usage**: `sow task state increment [<id>]`
+
+**Behavior**: Increments `task.iteration` by 1
+
+---
+
+### sow task state set-agent
+
+Set assigned agent.
+
+**Usage**: `sow task state set-agent <agent> [<id>]`
+
+**Arguments**:
+- `<agent>`: Agent name (implementer, architect, etc.)
+- `<id>`: Task ID (optional, inferred)
+
+**Validation**: Agent name valid
+
+---
+
+### sow task state add-reference
+
+Add reference to task.
+
+**Usage**: `sow task state add-reference <path> [<id>]`
+
+**Arguments**:
+- `<path>`: Reference path (relative to `.sow/`)
+- `<id>`: Task ID (optional, inferred)
+
+**Behavior**: Adds to `task.references[]` if not present
+
+**Validation**: Reference path exists
+
+---
+
+### sow task state add-file
+
+Add modified file.
+
+**Usage**: `sow task state add-file <path> [<id>]`
+
+**Arguments**:
+- `<path>`: File path (relative to repo root)
+- `<id>`: Task ID (optional, inferred)
+
+**Behavior**: Adds to `task.files_modified[]` if not present
+
+---
+
+### sow task feedback add
+
+Add feedback to task.
+
+**Usage**: `sow task feedback add <message> [<id>]`
+
+**Arguments**:
+- `<message>`: Feedback message
+- `<id>`: Task ID (optional, inferred)
+
+**Behavior**:
+- Generates feedback ID (001, 002, 003...)
+- Adds to `task.feedback[]` with status `pending`
+- Creates feedback file at `feedback/<id>.md`
+
+---
+
+### sow task feedback mark-addressed
+
+Mark feedback as addressed.
+
+**Usage**: `sow task feedback mark-addressed <feedback-id> [<id>]`
+
+**Arguments**:
+- `<feedback-id>`: Feedback ID (001, 002, etc.)
+- `<id>`: Task ID (optional, inferred)
+
+**Behavior**: Sets feedback status to `addressed`
+
+**Validation**: Feedback exists
 
 ---
 

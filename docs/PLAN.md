@@ -332,6 +332,20 @@ This plan outlines the restructuring of sow documentation to support the new 5-p
 - Logging commands
   - `sow log`
   - `sow session-info`
+- Project commands
+  - `sow project init`
+  - `sow project status`
+  - `sow project delete`
+  - `sow project phase enable/status/complete`
+  - `sow project artifact add/approve/list`
+  - `sow project review increment/add-report`
+  - `sow project finalize add-document/move-artifact`
+- Task commands
+  - `sow task init`
+  - `sow task list/show`
+  - `sow task set-status/abandon`
+  - `sow task state increment/set-agent/add-reference/add-file`
+  - `sow task feedback add/mark-addressed`
 - Refs commands
   - `sow refs add`
   - `sow refs init`
