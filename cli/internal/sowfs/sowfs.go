@@ -50,6 +50,10 @@ type SowFS interface {
 	// Returns ErrProjectNotFound if no project is currently active.
 	Project() (ProjectFS, error)
 
+	// Context returns the context domain for detecting workspace context.
+	// Determines if we're in a task directory, project root, etc.
+	Context() ContextFS
+
 	// RepoRoot returns the absolute path to the git repository root.
 	RepoRoot() string
 
@@ -212,6 +216,7 @@ type SowFSImpl struct {
 	knowledge *KnowledgeFSImpl
 	refs      *RefsFSImpl
 	project   *ProjectFSImpl
+	context   *ContextFSImpl
 }
 
 // Ensure SowFSImpl implements SowFS interface.
@@ -240,6 +245,11 @@ func (s *SowFSImpl) Project() (ProjectFS, error) {
 	}
 
 	return s.project, nil
+}
+
+// Context returns the context domain (pre-initialized during construction).
+func (s *SowFSImpl) Context() ContextFS {
+	return s.context
 }
 
 // RepoRoot returns the repository root path.
@@ -271,6 +281,7 @@ func (s *SowFSImpl) initialize() error {
 	s.knowledge = NewKnowledgeFS(s, s.validator)
 	s.refs = NewRefsFS(s, s.validator)
 	s.project = NewProjectFS(s, s.validator)
+	s.context = NewContextFS(s)
 
 	// Validate entire .sow structure
 	result := s.ValidateAll()

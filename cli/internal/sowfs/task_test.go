@@ -45,6 +45,7 @@ func TestTaskFS_State(t *testing.T) {
   updated_at: 2024-01-02T00:00:00Z
   completed_at: null
   iteration: 1
+  assigned_agent: implementer
   references: []
   feedback: []
   files_modified: []
@@ -109,6 +110,7 @@ func TestTaskFS_WriteState(t *testing.T) {
 	state.Task.Created_at = time.Now()
 	state.Task.Updated_at = time.Now()
 	state.Task.Iteration = 1
+	state.Task.Assigned_agent = "implementer"
 	state.Task.References = []string{}
 	state.Task.Feedback = []schemas.Feedback{}
 	state.Task.Files_modified = []string{}
@@ -320,6 +322,7 @@ func TestTaskFS_Integration(t *testing.T) {
 	state.Task.Created_at = time.Now()
 	state.Task.Updated_at = time.Now()
 	state.Task.Iteration = 1
+	state.Task.Assigned_agent = "implementer"
 	state.Task.References = []string{"refs/style-guide"}
 	state.Task.Feedback = []schemas.Feedback{}
 	state.Task.Files_modified = []string{"src/main.go"}

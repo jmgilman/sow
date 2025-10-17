@@ -30,6 +30,10 @@ import "time"
 		// Used to construct agent ID: {assigned_agent}-{iteration}
 		iteration: int & >=1
 
+		// Agent assigned to this task (e.g., "implementer", "architect")
+		// Used to construct agent ID: {assigned_agent}-{iteration}
+		assigned_agent: string & !=""
+
 		// Context file paths (relative to .sow/)
 		// Compiled by orchestrator during context preparation
 		references: [...string]

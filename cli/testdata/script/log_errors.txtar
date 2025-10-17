@@ -1,0 +1,26 @@
+# Test error cases for sow log command
+
+exec git init
+exec sow init
+
+# Test invalid action
+! exec sow log --action invalid_action --result success
+stderr 'invalid action'
+
+# Test invalid result
+! exec sow log --action created_file --result invalid_result
+stderr 'invalid result'
+
+# Test missing required flags
+! exec sow log --action created_file
+stderr 'required flag.*result'
+
+! exec sow log --result success
+stderr 'required flag.*action'
+
+# Test logging outside sow repository
+cd ..
+mkdir non-sow-dir
+cd non-sow-dir
+! exec sow log --action created_file --result success
+stderr 'not in a sow repository'

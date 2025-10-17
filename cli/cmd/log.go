@@ -1,6 +1,11 @@
 package cmd
 
 import (
+	"fmt"
+	"time"
+
+	"github.com/jmgilman/sow/cli/internal/logging"
+	"github.com/jmgilman/sow/cli/internal/sowfs"
 	"github.com/spf13/cobra"
 )
 
@@ -17,12 +22,8 @@ Auto-detects context (task vs project) and writes to the correct log:
 
 Log entries are formatted markdown with timestamp, agent ID, action,
 result, files modified, and optional notes.`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			fs := FilesystemFromContext(cmd.Context())
-			_ = fs // TODO: implement
-
-			cmd.Println("Log entry created")
-			return nil
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runLog(cmd, args)
 		},
 	}
 
@@ -37,4 +38,149 @@ result, files modified, and optional notes.`,
 	_ = cmd.MarkFlagRequired("result")
 
 	return cmd
+}
+
+func runLog(cmd *cobra.Command, _ []string) error {
+	// Get flags
+	action, _ := cmd.Flags().GetString("action")
+	result, _ := cmd.Flags().GetString("result")
+	files, _ := cmd.Flags().GetStringSlice("files")
+	notes, _ := cmd.Flags().GetString("notes")
+	forceProject, _ := cmd.Flags().GetBool("project")
+
+	// Validate action and result early
+	if err := logging.ValidateAction(action); err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	if err := logging.ValidateResult(result); err != nil {
+		return fmt.Errorf("%w", err)
+	}
+
+	// Get SowFS from context
+	sowFS := SowFSFromContext(cmd.Context())
+	if sowFS == nil {
+		return fmt.Errorf("not in a sow repository - run 'sow init' first")
+	}
+
+	// Detect workspace context using SowFS
+	wsContext, err := sowFS.Context().Detect()
+	if err != nil {
+		return fmt.Errorf("failed to detect workspace context: %w", err)
+	}
+
+	// Determine agent ID based on context
+	agentID, err := determineAgentID(wsContext, sowFS, forceProject)
+	if err != nil {
+		return fmt.Errorf("failed to determine agent ID: %w", err)
+	}
+
+	// Create log entry
+	entry := logging.LogEntry{
+		Timestamp: time.Now(),
+		AgentID:   agentID,
+		Action:    action,
+		Result:    result,
+		Files:     files,
+		Notes:     notes,
+	}
+
+	// Validate entry
+	if err := entry.Validate(); err != nil {
+		return fmt.Errorf("invalid log entry: %w", err)
+	}
+
+	// Format entry
+	formatted := entry.Format()
+
+	// Append to appropriate log
+	if err := appendToLog(wsContext, sowFS, formatted, forceProject); err != nil {
+		return fmt.Errorf("failed to append log entry: %w", err)
+	}
+
+	// Success message
+	logType := "task"
+	if wsContext.Type == sowfs.ContextProject || forceProject {
+		logType = "project"
+	}
+	cmd.Printf("✓ Log entry added to %s log\n", logType)
+
+	return nil
+}
+
+// determineAgentID constructs the agent ID based on workspace context.
+//
+// For task context: reads iteration from task state and builds "{role}-{iteration}".
+// For project context: uses "orchestrator".
+func determineAgentID(wsContext *sowfs.WorkspaceContext, sfs sowfs.SowFS, forceProject bool) (string, error) {
+	// If forcing project level, always use orchestrator
+	if forceProject || wsContext.Type == sowfs.ContextProject {
+		return "orchestrator", nil
+	}
+
+	// We're in a task context - need to read iteration from task state
+	if wsContext.Type == sowfs.ContextTask {
+		// Get project filesystem
+		projectFS, err := sfs.Project()
+		if err != nil {
+			return "", fmt.Errorf("failed to access project: %w", err)
+		}
+
+		// Get task filesystem
+		taskFS, err := projectFS.Task(wsContext.TaskID)
+		if err != nil {
+			return "", fmt.Errorf("failed to access task %s: %w", wsContext.TaskID, err)
+		}
+
+		// Read task state
+		state, err := taskFS.State()
+		if err != nil {
+			return "", fmt.Errorf("failed to read task state: %w", err)
+		}
+
+		// Extract agent and iteration from state
+		agentRole := state.Task.Assigned_agent
+		iteration := int(state.Task.Iteration)
+
+		// Build agent ID: {assigned_agent}-{iteration}
+		return logging.BuildAgentID(agentRole, iteration), nil
+	}
+
+	return "", fmt.Errorf("unknown context type: %v", wsContext.Type)
+}
+
+// appendToLog writes the formatted entry to the appropriate log file.
+func appendToLog(wsContext *sowfs.WorkspaceContext, sfs sowfs.SowFS, entry string, forceProject bool) error {
+	// Force project level
+	if forceProject || wsContext.Type == sowfs.ContextProject {
+		projectFS, err := sfs.Project()
+		if err != nil {
+			return fmt.Errorf("failed to access project: %w", err)
+		}
+
+		if err := projectFS.AppendLog(entry); err != nil {
+			return fmt.Errorf("failed to append to project log: %w", err)
+		}
+		return nil
+	}
+
+	// Task level
+	if wsContext.Type == sowfs.ContextTask {
+		projectFS, err := sfs.Project()
+		if err != nil {
+			return fmt.Errorf("failed to access project: %w", err)
+		}
+
+		// Get task filesystem
+		taskFS, err := projectFS.Task(wsContext.TaskID)
+		if err != nil {
+			return fmt.Errorf("failed to access task: %w", err)
+		}
+
+		if err := taskFS.AppendLog(entry); err != nil {
+			return fmt.Errorf("failed to append to task log: %w", err)
+		}
+		return nil
+	}
+
+	return fmt.Errorf("cannot append log in context type: %v", wsContext.Type)
 }

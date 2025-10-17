@@ -212,6 +212,7 @@ task:
   created_at: "2025-10-15T10:00:00Z"
   updated_at: "2025-10-15T10:00:00Z"
   iteration: 1
+  assigned_agent: implementer
   references: []
   feedback: []
   files_modified: []
@@ -287,6 +288,7 @@ phases:
   created_at: "2025-10-15T10:00:00Z"
   updated_at: "2025-10-15T10:00:00Z"
   iteration: 1
+  assigned_agent: implementer
   references: []
   feedback: []
   files_modified: []
@@ -413,6 +415,7 @@ phases:
   created_at: "2025-10-15T10:00:00Z"
   updated_at: "2025-10-15T10:00:00Z"
   iteration: 1
+  assigned_agent: implementer
   references: []
   feedback: []
   files_modified: []
@@ -427,6 +430,7 @@ phases:
   created_at: "2025-10-15T10:00:00Z"
   updated_at: "2025-10-15T10:00:00Z"
   iteration: 1
+  assigned_agent: implementer
   references: []
   feedback: []
   files_modified: []

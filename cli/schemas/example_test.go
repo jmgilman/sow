@@ -75,18 +75,20 @@ func TestGeneratedTypes(t *testing.T) {
 			Updated_at     time.Time           `json:"updated_at"`
 			Completed_at   any                 `json:"completed_at"`
 			Iteration      int64               `json:"iteration"`
+			Assigned_agent string              `json:"assigned_agent"`
 			References     []string            `json:"references"`
 			Feedback       []schemas.Feedback  `json:"feedback"`
 			Files_modified []string            `json:"files_modified"`
 		}{
-			Id:         "010",
-			Name:       "Test task",
-			Phase:      "implementation",
-			Status:     "in_progress",
-			Created_at: time.Now(),
-			Updated_at: time.Now(),
-			Iteration:  1,
-			References: []string{".sow/knowledge/overview.md"},
+			Id:             "010",
+			Name:           "Test task",
+			Phase:          "implementation",
+			Status:         "in_progress",
+			Created_at:     time.Now(),
+			Updated_at:     time.Now(),
+			Iteration:      1,
+			Assigned_agent: "implementer",
+			References:     []string{".sow/knowledge/overview.md"},
 		},
 	}
 

@@ -412,6 +412,10 @@ type TaskState struct {
 		// Used to construct agent ID: {assigned_agent}-{iteration}
 		Iteration int64 `json:"iteration"`
 
+		// Agent assigned to this task (e.g., "implementer", "architect")
+		// Used to construct agent ID: {assigned_agent}-{iteration}
+		Assigned_agent string `json:"assigned_agent"`
+
 		// Context file paths (relative to .sow/)
 		// Compiled by orchestrator during context preparation
 		References []string `json:"references"`
