@@ -1,0 +1,57 @@
+# Test task state add-file command
+# Should track modified files in task state
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-feature
+exec sow init
+exec sow project init my-feature --description 'Add new feature'
+
+# Add a task
+exec sow task add 'Add authentication' --description 'Implement JWT auth'
+stderr '✓ Created task 010'
+
+# Verify no files initially
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'files_modified: \[\]'
+
+# Add first file
+exec sow task state add-file src/auth/jwt.py 010
+stderr '✓ Added modified file: src/auth/jwt.py'
+
+# Verify file was added
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'src/auth/jwt.py'
+
+# Add second file
+exec sow task state add-file src/auth/jwt_test.py 010
+stderr '✓ Added modified file: src/auth/jwt_test.py'
+
+# Verify both files exist
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'src/auth/jwt.py'
+stdout 'src/auth/jwt_test.py'
+
+# Add third file
+exec sow task state add-file docs/api/auth.md 010
+stderr '✓ Added modified file: docs/api/auth.md'
+
+# Try adding duplicate (should be idempotent)
+exec sow task state add-file src/auth/jwt.py 010
+stderr 'already tracked'
+
+# Verify still only 3 files
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'src/auth/jwt.py'
+stdout 'src/auth/jwt_test.py'
+stdout 'docs/api/auth.md'
+
+# Test with non-existent task
+! exec sow task state add-file src/test.go 099
+stderr 'not found'
+
+# Verify state validates
+exec sow validate
+stderr '✓ All validations passed'

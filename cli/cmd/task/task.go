@@ -36,6 +36,8 @@ between existing ones if needed. Each task has:
 	cmd.AddCommand(NewListCmd(accessor))
 	cmd.AddCommand(NewStatusCmd(accessor))
 	cmd.AddCommand(NewUpdateCmd(accessor))
+	cmd.AddCommand(newStateCmd(accessor))
+	cmd.AddCommand(newFeedbackCmd(accessor))
 
 	return cmd
 }

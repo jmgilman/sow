@@ -560,6 +560,319 @@ func TestFormatTaskStatus(t *testing.T) {
 	})
 }
 
+func TestIncrementTaskIteration(t *testing.T) {
+	t.Run("increment from initial value", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		assert.Equal(t, int64(1), taskState.Task.Iteration)
+
+		err := IncrementTaskIteration(taskState)
+		require.NoError(t, err)
+
+		assert.Equal(t, int64(2), taskState.Task.Iteration)
+	})
+
+	t.Run("increment multiple times", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+
+		_ = IncrementTaskIteration(taskState)
+		_ = IncrementTaskIteration(taskState)
+		_ = IncrementTaskIteration(taskState)
+
+		assert.Equal(t, int64(4), taskState.Task.Iteration)
+	})
+
+	t.Run("updates updated_at timestamp", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		originalTime := taskState.Task.Updated_at
+		time.Sleep(10 * time.Millisecond)
+
+		_ = IncrementTaskIteration(taskState)
+
+		assert.True(t, taskState.Task.Updated_at.After(originalTime))
+	})
+}
+
+func TestSetTaskAgent(t *testing.T) {
+	t.Run("change agent successfully", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		assert.Equal(t, "implementer", taskState.Task.Assigned_agent)
+
+		err := SetTaskAgent(taskState, "reviewer")
+		require.NoError(t, err)
+
+		assert.Equal(t, "reviewer", taskState.Task.Assigned_agent)
+	})
+
+	t.Run("empty agent name fails", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+
+		err := SetTaskAgent(taskState, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot be empty")
+	})
+
+	t.Run("updates updated_at timestamp", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		originalTime := taskState.Task.Updated_at
+		time.Sleep(10 * time.Millisecond)
+
+		_ = SetTaskAgent(taskState, "architect")
+
+		assert.True(t, taskState.Task.Updated_at.After(originalTime))
+	})
+}
+
+func TestAddTaskReference(t *testing.T) {
+	t.Run("add first reference", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		assert.Empty(t, taskState.Task.References)
+
+		err := AddTaskReference(taskState, "refs/python-style/conventions.md")
+		require.NoError(t, err)
+
+		assert.Len(t, taskState.Task.References, 1)
+		assert.Equal(t, "refs/python-style/conventions.md", taskState.Task.References[0])
+	})
+
+	t.Run("add multiple references", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+
+		_ = AddTaskReference(taskState, "refs/python-style/conventions.md")
+		_ = AddTaskReference(taskState, "knowledge/adrs/001.md")
+		_ = AddTaskReference(taskState, "knowledge/architecture/system.md")
+
+		assert.Len(t, taskState.Task.References, 3)
+	})
+
+	t.Run("duplicate reference is ignored", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+
+		_ = AddTaskReference(taskState, "refs/python-style/conventions.md")
+		err := AddTaskReference(taskState, "refs/python-style/conventions.md")
+		require.NoError(t, err)
+
+		assert.Len(t, taskState.Task.References, 1)
+	})
+
+	t.Run("empty path fails", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+
+		err := AddTaskReference(taskState, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot be empty")
+	})
+
+	t.Run("updates updated_at timestamp", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		originalTime := taskState.Task.Updated_at
+		time.Sleep(10 * time.Millisecond)
+
+		_ = AddTaskReference(taskState, "refs/test.md")
+
+		assert.True(t, taskState.Task.Updated_at.After(originalTime))
+	})
+}
+
+func TestAddModifiedFile(t *testing.T) {
+	t.Run("add first file", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		assert.Empty(t, taskState.Task.Files_modified)
+
+		err := AddModifiedFile(taskState, "src/auth/jwt.py")
+		require.NoError(t, err)
+
+		assert.Len(t, taskState.Task.Files_modified, 1)
+		assert.Equal(t, "src/auth/jwt.py", taskState.Task.Files_modified[0])
+	})
+
+	t.Run("add multiple files", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+
+		_ = AddModifiedFile(taskState, "src/auth/jwt.py")
+		_ = AddModifiedFile(taskState, "src/auth/jwt_test.py")
+		_ = AddModifiedFile(taskState, "docs/auth.md")
+
+		assert.Len(t, taskState.Task.Files_modified, 3)
+	})
+
+	t.Run("duplicate file is ignored", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+
+		_ = AddModifiedFile(taskState, "src/auth/jwt.py")
+		err := AddModifiedFile(taskState, "src/auth/jwt.py")
+		require.NoError(t, err)
+
+		assert.Len(t, taskState.Task.Files_modified, 1)
+	})
+
+	t.Run("empty path fails", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+
+		err := AddModifiedFile(taskState, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot be empty")
+	})
+
+	t.Run("updates updated_at timestamp", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		originalTime := taskState.Task.Updated_at
+		time.Sleep(10 * time.Millisecond)
+
+		_ = AddModifiedFile(taskState, "src/test.go")
+
+		assert.True(t, taskState.Task.Updated_at.After(originalTime))
+	})
+}
+
+func TestGenerateNextFeedbackID(t *testing.T) {
+	t.Run("first feedback", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+
+		id := GenerateNextFeedbackID(taskState)
+		assert.Equal(t, "001", id)
+	})
+
+	t.Run("second feedback", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		taskState.Task.Feedback = []schemas.Feedback{
+			{Id: "001", Created_at: time.Now(), Status: "pending"},
+		}
+
+		id := GenerateNextFeedbackID(taskState)
+		assert.Equal(t, "002", id)
+	})
+
+	t.Run("multiple feedback items", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		taskState.Task.Feedback = []schemas.Feedback{
+			{Id: "001", Created_at: time.Now(), Status: "pending"},
+			{Id: "002", Created_at: time.Now(), Status: "addressed"},
+			{Id: "003", Created_at: time.Now(), Status: "pending"},
+		}
+
+		id := GenerateNextFeedbackID(taskState)
+		assert.Equal(t, "004", id)
+	})
+
+	t.Run("gaps in numbering", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		taskState.Task.Feedback = []schemas.Feedback{
+			{Id: "001", Created_at: time.Now(), Status: "pending"},
+			{Id: "005", Created_at: time.Now(), Status: "pending"},
+		}
+
+		id := GenerateNextFeedbackID(taskState)
+		// Should generate 006, not fill the gap
+		assert.Equal(t, "006", id)
+	})
+}
+
+func TestAddFeedback(t *testing.T) {
+	t.Run("add first feedback", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		assert.Empty(t, taskState.Task.Feedback)
+
+		err := AddFeedback(taskState, "001")
+		require.NoError(t, err)
+
+		assert.Len(t, taskState.Task.Feedback, 1)
+		assert.Equal(t, "001", taskState.Task.Feedback[0].Id)
+		assert.Equal(t, "pending", taskState.Task.Feedback[0].Status)
+		assert.WithinDuration(t, time.Now(), taskState.Task.Feedback[0].Created_at, time.Second)
+	})
+
+	t.Run("add multiple feedback items", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+
+		_ = AddFeedback(taskState, "001")
+		_ = AddFeedback(taskState, "002")
+		_ = AddFeedback(taskState, "003")
+
+		assert.Len(t, taskState.Task.Feedback, 3)
+	})
+
+	t.Run("duplicate ID fails", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		_ = AddFeedback(taskState, "001")
+
+		err := AddFeedback(taskState, "001")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "already exists")
+	})
+
+	t.Run("invalid ID length fails", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+
+		err := AddFeedback(taskState, "01")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be 3 digits")
+	})
+
+	t.Run("non-numeric ID fails", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+
+		err := AddFeedback(taskState, "abc")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be numeric")
+	})
+
+	t.Run("updates updated_at timestamp", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		originalTime := taskState.Task.Updated_at
+		time.Sleep(10 * time.Millisecond)
+
+		_ = AddFeedback(taskState, "001")
+
+		assert.True(t, taskState.Task.Updated_at.After(originalTime))
+	})
+}
+
+func TestMarkFeedbackAddressed(t *testing.T) {
+	t.Run("mark feedback as addressed", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		_ = AddFeedback(taskState, "001")
+
+		err := MarkFeedbackAddressed(taskState, "001")
+		require.NoError(t, err)
+
+		assert.Equal(t, "addressed", taskState.Task.Feedback[0].Status)
+	})
+
+	t.Run("mark specific feedback in multiple items", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		_ = AddFeedback(taskState, "001")
+		_ = AddFeedback(taskState, "002")
+		_ = AddFeedback(taskState, "003")
+
+		err := MarkFeedbackAddressed(taskState, "002")
+		require.NoError(t, err)
+
+		assert.Equal(t, "pending", taskState.Task.Feedback[0].Status)
+		assert.Equal(t, "addressed", taskState.Task.Feedback[1].Status)
+		assert.Equal(t, "pending", taskState.Task.Feedback[2].Status)
+	})
+
+	t.Run("feedback not found fails", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		_ = AddFeedback(taskState, "001")
+
+		err := MarkFeedbackAddressed(taskState, "999")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("updates updated_at timestamp", func(t *testing.T) {
+		taskState := NewTaskState("010", "Task 1", "implementer")
+		_ = AddFeedback(taskState, "001")
+		originalTime := taskState.Task.Updated_at
+		time.Sleep(10 * time.Millisecond)
+
+		_ = MarkFeedbackAddressed(taskState, "001")
+
+		assert.True(t, taskState.Task.Updated_at.After(originalTime))
+	})
+}
+
 // Helper function to create a test project state.
 func createTestProjectState() *schemas.ProjectState {
 	now := time.Now()

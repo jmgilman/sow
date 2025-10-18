@@ -394,6 +394,104 @@ func FormatTaskList(tasks []schemas.Task) string {
 	return b.String()
 }
 
+// IncrementTaskIteration increments the task's iteration counter.
+//
+// Increments the iteration field and updates the updated_at timestamp.
+// This is typically called when an implementer needs to retry a task
+// with human feedback.
+//
+// Parameters:
+//   - taskState: Task state to modify
+//
+// Returns:
+//   - nil on success
+func IncrementTaskIteration(taskState *schemas.TaskState) error {
+	taskState.Task.Iteration++
+	taskState.Task.Updated_at = time.Now()
+	return nil
+}
+
+// SetTaskAgent updates the assigned agent for a task.
+//
+// Changes which agent type should execute this task and updates
+// the updated_at timestamp.
+//
+// Parameters:
+//   - taskState: Task state to modify
+//   - agent: New agent name (e.g., "implementer", "reviewer", "architect")
+//
+// Returns:
+//   - error if agent name is empty
+func SetTaskAgent(taskState *schemas.TaskState, agent string) error {
+	if agent == "" {
+		return fmt.Errorf("agent name cannot be empty")
+	}
+	taskState.Task.Assigned_agent = agent
+	taskState.Task.Updated_at = time.Now()
+	return nil
+}
+
+// AddTaskReference adds a context reference path to the task.
+//
+// References are paths relative to .sow/ that the agent should read
+// when executing the task (e.g., refs, knowledge, or other context).
+// Duplicates are automatically filtered out.
+//
+// Parameters:
+//   - taskState: Task state to modify
+//   - path: Path relative to .sow/ (e.g., "refs/python-style/conventions.md")
+//
+// Returns:
+//   - error if path is empty
+func AddTaskReference(taskState *schemas.TaskState, path string) error {
+	if path == "" {
+		return fmt.Errorf("reference path cannot be empty")
+	}
+
+	// Check for duplicates
+	for _, existing := range taskState.Task.References {
+		if existing == path {
+			// Already exists, no-op
+			return nil
+		}
+	}
+
+	// Add reference
+	taskState.Task.References = append(taskState.Task.References, path)
+	taskState.Task.Updated_at = time.Now()
+	return nil
+}
+
+// AddModifiedFile tracks a file that was modified during task execution.
+//
+// Workers use this to record which files they changed. Paths should be
+// relative to the repository root. Duplicates are automatically filtered out.
+//
+// Parameters:
+//   - taskState: Task state to modify
+//   - path: Path relative to repo root (e.g., "src/auth/jwt.py")
+//
+// Returns:
+//   - error if path is empty
+func AddModifiedFile(taskState *schemas.TaskState, path string) error {
+	if path == "" {
+		return fmt.Errorf("file path cannot be empty")
+	}
+
+	// Check for duplicates
+	for _, existing := range taskState.Task.Files_modified {
+		if existing == path {
+			// Already exists, no-op
+			return nil
+		}
+	}
+
+	// Add file
+	taskState.Task.Files_modified = append(taskState.Task.Files_modified, path)
+	taskState.Task.Updated_at = time.Now()
+	return nil
+}
+
 // FormatTaskStatus generates a detailed human-readable task status.
 //
 // Output format:
@@ -466,4 +564,108 @@ func FormatTaskStatus(taskState *schemas.TaskState) string {
 	}
 
 	return b.String()
+}
+
+// GenerateNextFeedbackID generates the next feedback ID for a task.
+//
+// Feedback IDs are zero-padded 3-digit numbers (001, 002, 003...) that
+// increment sequentially for each piece of feedback.
+//
+// Parameters:
+//   - taskState: Task state to examine
+//
+// Returns:
+//   - Next available feedback ID (e.g., "001", "002", "003")
+func GenerateNextFeedbackID(taskState *schemas.TaskState) string {
+	if len(taskState.Task.Feedback) == 0 {
+		return "001"
+	}
+
+	// Find the highest ID
+	maxID := 0
+	for _, feedback := range taskState.Task.Feedback {
+		// Parse ID as integer
+		id, err := strconv.Atoi(feedback.Id)
+		if err != nil {
+			continue
+		}
+		if id > maxID {
+			maxID = id
+		}
+	}
+
+	// Generate next ID
+	nextID := maxID + 1
+	return fmt.Sprintf("%03d", nextID)
+}
+
+// AddFeedback creates a new feedback entry in the task state.
+//
+// Adds a Feedback struct to the task's feedback array with status "pending"
+// and updates the updated_at timestamp.
+//
+// Parameters:
+//   - taskState: Task state to modify
+//   - feedbackID: Feedback ID (e.g., "001", "002")
+//
+// Returns:
+//   - error if feedback ID is invalid or already exists
+func AddFeedback(taskState *schemas.TaskState, feedbackID string) error {
+	// Validate feedback ID format (must be 3 digits)
+	if len(feedbackID) != 3 {
+		return fmt.Errorf("invalid feedback ID '%s': must be 3 digits (e.g., '001')", feedbackID)
+	}
+	if _, err := strconv.Atoi(feedbackID); err != nil {
+		return fmt.Errorf("invalid feedback ID '%s': must be numeric", feedbackID)
+	}
+
+	// Check for duplicates
+	for _, existing := range taskState.Task.Feedback {
+		if existing.Id == feedbackID {
+			return fmt.Errorf("feedback '%s' already exists", feedbackID)
+		}
+	}
+
+	// Create feedback entry
+	feedback := schemas.Feedback{
+		Id:         feedbackID,
+		Created_at: time.Now(),
+		Status:     "pending",
+	}
+
+	// Add to task state
+	taskState.Task.Feedback = append(taskState.Task.Feedback, feedback)
+	taskState.Task.Updated_at = time.Now()
+
+	return nil
+}
+
+// MarkFeedbackAddressed updates a feedback's status to "addressed".
+//
+// Finds the feedback by ID and changes its status from "pending" to "addressed".
+// Updates the task's updated_at timestamp.
+//
+// Parameters:
+//   - taskState: Task state to modify
+//   - feedbackID: Feedback ID to mark as addressed
+//
+// Returns:
+//   - error if feedback not found
+func MarkFeedbackAddressed(taskState *schemas.TaskState, feedbackID string) error {
+	// Find feedback by ID
+	found := false
+	for i := range taskState.Task.Feedback {
+		if taskState.Task.Feedback[i].Id == feedbackID {
+			taskState.Task.Feedback[i].Status = "addressed"
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("feedback '%s' not found", feedbackID)
+	}
+
+	taskState.Task.Updated_at = time.Now()
+	return nil
 }

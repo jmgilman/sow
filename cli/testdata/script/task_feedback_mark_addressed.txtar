@@ -1,0 +1,65 @@
+# Test task feedback mark-addressed command
+# Should update feedback status to addressed
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-feature
+exec sow init
+exec sow project init my-feature --description 'Add new feature'
+
+# Add a task
+exec sow task add 'Add authentication' --description 'Implement JWT auth'
+stderr '✓ Created task 010'
+
+# Add multiple feedback items
+exec sow task feedback add 'Use RS256 instead of HS256' 010
+stderr '✓ Created feedback 001'
+exec sow task feedback add 'Add error handling' 010
+stderr '✓ Created feedback 002'
+exec sow task feedback add 'Follow PEP 8 style' 010
+stderr '✓ Created feedback 003'
+
+# Verify all feedback is pending
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'id: "001"'
+stdout 'id: "002"'
+stdout 'id: "003"'
+! stdout 'status: addressed'
+
+# Mark first feedback as addressed
+exec sow task feedback mark-addressed 001 010
+stderr '✓ Marked feedback 001 as addressed'
+
+# Verify feedback 001 is now addressed
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'id: "001"'
+
+# Find the feedback 001 entry and check its status
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'status: addressed'
+
+# Mark second feedback as addressed
+exec sow task feedback mark-addressed 002 010
+stderr '✓ Marked feedback 002 as addressed'
+
+# Verify feedback 003 is still pending but others are addressed
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'id: "003"'
+
+# Mark third feedback as addressed
+exec sow task feedback mark-addressed 003 010
+stderr '✓ Marked feedback 003 as addressed'
+
+# Test marking non-existent feedback
+! exec sow task feedback mark-addressed 099 010
+stderr 'not found'
+
+# Test with non-existent task
+! exec sow task feedback mark-addressed 001 099
+stderr 'not found'
+
+# Verify state validates
+exec sow validate
+stderr '✓ All validations passed'

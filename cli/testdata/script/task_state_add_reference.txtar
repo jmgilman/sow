@@ -1,0 +1,57 @@
+# Test task state add-reference command
+# Should add context references to task state
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-feature
+exec sow init
+exec sow project init my-feature --description 'Add new feature'
+
+# Add a task
+exec sow task add 'Add authentication' --description 'Implement JWT auth'
+stderr '✓ Created task 010'
+
+# Verify no references initially
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'references: \[\]'
+
+# Add first reference
+exec sow task state add-reference refs/python-style/conventions.md 010
+stderr '✓ Added reference: refs/python-style/conventions.md'
+
+# Verify reference was added
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'refs/python-style/conventions.md'
+
+# Add second reference
+exec sow task state add-reference knowledge/adrs/001-use-jwt.md 010
+stderr '✓ Added reference: knowledge/adrs/001-use-jwt.md'
+
+# Verify both references exist
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'refs/python-style/conventions.md'
+stdout 'knowledge/adrs/001-use-jwt.md'
+
+# Add third reference
+exec sow task state add-reference knowledge/architecture/auth-system.md 010
+stderr '✓ Added reference: knowledge/architecture/auth-system.md'
+
+# Try adding duplicate (should be idempotent)
+exec sow task state add-reference refs/python-style/conventions.md 010
+stderr 'already exists'
+
+# Verify still only 3 references
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'refs/python-style/conventions.md'
+stdout 'knowledge/adrs/001-use-jwt.md'
+stdout 'knowledge/architecture/auth-system.md'
+
+# Test with non-existent task
+! exec sow task state add-reference refs/test.md 099
+stderr 'not found'
+
+# Verify state validates
+exec sow validate
+stderr '✓ All validations passed'
