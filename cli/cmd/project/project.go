@@ -36,6 +36,9 @@ All projects follow the 5-phase model:
 	cmd.AddCommand(NewStatusCmd(accessor))
 	cmd.AddCommand(NewDeleteCmd(accessor))
 	cmd.AddCommand(newPhaseCmd(accessor))
+	cmd.AddCommand(newArtifactCmd(accessor))
+	cmd.AddCommand(newReviewCmd(accessor))
+	cmd.AddCommand(newFinalizeCmd(accessor))
 
 	return cmd
 }

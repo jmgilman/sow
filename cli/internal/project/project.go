@@ -544,3 +544,380 @@ func FormatPhaseStatus(state *schemas.ProjectState) string {
 
 	return b.String()
 }
+
+// ============================================================================
+// Artifact Management
+// ============================================================================
+
+// AddArtifact adds an artifact to a phase (discovery or design).
+//
+// Parameters:
+//   - state: Project state to modify
+//   - phase: Phase name (discovery or design)
+//   - path: Artifact path (relative to .sow/project/)
+//   - approved: Whether artifact is pre-approved
+//
+// Returns:
+//   - nil on success
+//   - error if validation fails or artifact already exists
+func AddArtifact(state *schemas.ProjectState, phase, path string, approved bool) error {
+	now := time.Now()
+
+	// Validate phase
+	if phase != PhaseDiscovery && phase != PhaseDesign {
+		return fmt.Errorf("artifacts can only be added to discovery or design phases, got: %s", phase)
+	}
+
+	// Get the appropriate artifact list
+	var artifacts *[]schemas.Artifact
+	var enabled bool
+
+	if phase == PhaseDiscovery {
+		artifacts = &state.Phases.Discovery.Artifacts
+		enabled = state.Phases.Discovery.Enabled
+	} else {
+		artifacts = &state.Phases.Design.Artifacts
+		enabled = state.Phases.Design.Enabled
+	}
+
+	// Check phase is enabled
+	if !enabled {
+		return fmt.Errorf("%s phase is not enabled", phase)
+	}
+
+	// Check if artifact already exists
+	for _, artifact := range *artifacts {
+		if artifact.Path == path {
+			return fmt.Errorf("artifact '%s' already exists in %s phase", path, phase)
+		}
+	}
+
+	// Create new artifact
+	newArtifact := schemas.Artifact{
+		Path:       path,
+		Approved:   approved,
+		Created_at: now,
+	}
+
+	// Append to list
+	*artifacts = append(*artifacts, newArtifact)
+
+	// Update project timestamp
+	state.Project.Updated_at = now
+
+	return nil
+}
+
+// ApproveArtifact marks an artifact as approved in a phase.
+//
+// Parameters:
+//   - state: Project state to modify
+//   - phase: Phase name (discovery or design)
+//   - path: Artifact path to approve
+//
+// Returns:
+//   - nil on success
+//   - error if artifact not found or already approved
+func ApproveArtifact(state *schemas.ProjectState, phase, path string) error {
+	now := time.Now()
+
+	// Validate phase
+	if phase != PhaseDiscovery && phase != PhaseDesign {
+		return fmt.Errorf("artifacts can only exist in discovery or design phases, got: %s", phase)
+	}
+
+	// Get the appropriate artifact list
+	var artifacts *[]schemas.Artifact
+	var enabled bool
+
+	if phase == PhaseDiscovery {
+		artifacts = &state.Phases.Discovery.Artifacts
+		enabled = state.Phases.Discovery.Enabled
+	} else {
+		artifacts = &state.Phases.Design.Artifacts
+		enabled = state.Phases.Design.Enabled
+	}
+
+	// Check phase is enabled
+	if !enabled {
+		return fmt.Errorf("%s phase is not enabled", phase)
+	}
+
+	// Find and approve the artifact
+	found := false
+	for i := range *artifacts {
+		if (*artifacts)[i].Path == path {
+			if (*artifacts)[i].Approved {
+				return fmt.Errorf("artifact '%s' is already approved", path)
+			}
+			(*artifacts)[i].Approved = true
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("artifact '%s' not found in %s phase", path, phase)
+	}
+
+	// Update project timestamp
+	state.Project.Updated_at = now
+
+	return nil
+}
+
+// FormatArtifactList generates a human-readable artifact list.
+//
+// Parameters:
+//   - state: Project state to format
+//   - phase: Phase to show artifacts for (empty string = all phases)
+//
+// Returns:
+//   - Formatted string ready for display
+func FormatArtifactList(state *schemas.ProjectState, phase string) string {
+	var b strings.Builder
+
+	if phase == "" || phase == PhaseDiscovery {
+		formatPhaseArtifacts(&b, "Discovery", state.Phases.Discovery.Enabled, state.Phases.Discovery.Artifacts)
+	}
+
+	if phase == "" || phase == PhaseDesign {
+		if phase == "" && b.Len() > 0 {
+			fmt.Fprintln(&b)
+		}
+		formatPhaseArtifacts(&b, "Design", state.Phases.Design.Enabled, state.Phases.Design.Artifacts)
+	}
+
+	if b.Len() == 0 {
+		return "No artifacts\n"
+	}
+
+	return b.String()
+}
+
+// formatPhaseArtifacts formats artifacts for a single phase.
+func formatPhaseArtifacts(b *strings.Builder, phaseName string, enabled bool, artifacts []schemas.Artifact) {
+	if !enabled {
+		fmt.Fprintf(b, "%s Phase (disabled)\n", phaseName)
+		return
+	}
+
+	fmt.Fprintf(b, "%s Phase:\n", phaseName)
+
+	if len(artifacts) == 0 {
+		fmt.Fprintln(b, "  No artifacts")
+		return
+	}
+
+	fmt.Fprintln(b, "  [approved] Path")
+	for _, artifact := range artifacts {
+		approvedMark := " "
+		if artifact.Approved {
+			approvedMark = "✓"
+		}
+		fmt.Fprintf(b, "  [%s] %s\n", approvedMark, artifact.Path)
+	}
+}
+
+// ============================================================================
+// Review Management
+// ============================================================================
+
+// IncrementReviewIteration increments the review iteration counter.
+//
+// Parameters:
+//   - state: Project state to modify
+//
+// Returns:
+//   - nil on success
+func IncrementReviewIteration(state *schemas.ProjectState) error {
+	now := time.Now()
+
+	state.Phases.Review.Iteration++
+	state.Project.Updated_at = now
+
+	return nil
+}
+
+// AddReviewReport adds a review report to the review phase.
+//
+// Parameters:
+//   - state: Project state to modify
+//   - path: Report path (relative to .sow/project/phases/review/)
+//   - assessment: Assessment result ("pass" or "fail")
+//
+// Returns:
+//   - nil on success
+//   - error if validation fails
+func AddReviewReport(state *schemas.ProjectState, path, assessment string) error {
+	now := time.Now()
+
+	// Validate assessment
+	if assessment != "pass" && assessment != "fail" {
+		return fmt.Errorf("invalid assessment '%s': must be 'pass' or 'fail'", assessment)
+	}
+
+	// Generate next report ID
+	reportID := nextReviewReportID(state)
+
+	// Create new report
+	newReport := schemas.ReviewReport{
+		Id:         reportID,
+		Path:       path,
+		Created_at: now,
+		Assessment: assessment,
+	}
+
+	// Append to reports list
+	state.Phases.Review.Reports = append(state.Phases.Review.Reports, newReport)
+
+	// Update project timestamp
+	state.Project.Updated_at = now
+
+	return nil
+}
+
+// nextReviewReportID calculates the next review report ID (001, 002, 003...).
+func nextReviewReportID(state *schemas.ProjectState) string {
+	count := len(state.Phases.Review.Reports)
+	return fmt.Sprintf("%03d", count+1)
+}
+
+// ============================================================================
+// Finalize Management
+// ============================================================================
+
+// AddDocumentationUpdate adds a documentation file to the finalize phase tracking.
+//
+// Parameters:
+//   - state: Project state to modify
+//   - path: Path to documentation file (relative to repo root)
+//
+// Returns:
+//   - nil on success
+//   - error if path already tracked
+func AddDocumentationUpdate(state *schemas.ProjectState, path string) error {
+	now := time.Now()
+
+	// Get existing list or create empty slice
+	docs := extractDocumentationUpdates(state.Phases.Finalize.Documentation_updates)
+
+	// Check if already tracked
+	for _, doc := range docs {
+		if doc == path {
+			return fmt.Errorf("documentation file '%s' is already tracked", path)
+		}
+	}
+
+	// Append to list
+	docs = append(docs, path)
+	state.Phases.Finalize.Documentation_updates = docs
+
+	// Update project timestamp
+	state.Project.Updated_at = now
+
+	return nil
+}
+
+// extractDocumentationUpdates converts the any type to []string.
+func extractDocumentationUpdates(value any) []string {
+	if value == nil {
+		return []string{}
+	}
+
+	// Type assert from any to []interface{} then convert to []string
+	if docsList, ok := value.([]interface{}); ok {
+		docs := make([]string, len(docsList))
+		for i, doc := range docsList {
+			if docStr, ok := doc.(string); ok {
+				docs[i] = docStr
+			}
+		}
+		return docs
+	}
+
+	// Already the correct type
+	if docsList, ok := value.([]string); ok {
+		return docsList
+	}
+
+	return []string{}
+}
+
+// MovedArtifact represents an artifact moved from project to knowledge.
+type MovedArtifact struct {
+	From string `json:"from" yaml:"from"`
+	To   string `json:"to" yaml:"to"`
+}
+
+// AddMovedArtifact records an artifact that was moved from project to knowledge.
+//
+// Parameters:
+//   - state: Project state to modify
+//   - from: Source path (relative to .sow/project/)
+//   - to: Destination path (relative to .sow/)
+//
+// Returns:
+//   - nil on success
+//   - error if validation fails
+func AddMovedArtifact(state *schemas.ProjectState, from, to string) error {
+	now := time.Now()
+
+	// Validate destination is under .sow/knowledge/
+	if !strings.HasPrefix(to, "knowledge/") {
+		return fmt.Errorf("destination '%s' must be under knowledge/ directory", to)
+	}
+
+	// Get existing list or create empty slice
+	artifacts := extractMovedArtifacts(state.Phases.Finalize.Artifacts_moved)
+
+	// Create moved artifact record
+	movedArtifact := MovedArtifact{
+		From: from,
+		To:   to,
+	}
+
+	// Append to list
+	artifacts = append(artifacts, movedArtifact)
+	state.Phases.Finalize.Artifacts_moved = artifacts
+
+	// Update project timestamp
+	state.Project.Updated_at = now
+
+	return nil
+}
+
+// extractMovedArtifacts converts the any type to []MovedArtifact.
+func extractMovedArtifacts(value any) []MovedArtifact {
+	if value == nil {
+		return []MovedArtifact{}
+	}
+
+	// Already the correct type
+	if artifactsList, ok := value.([]MovedArtifact); ok {
+		return artifactsList
+	}
+
+	// Type assert from any to []interface{} then convert to []MovedArtifact
+	if artifactsList, ok := value.([]interface{}); ok {
+		return convertToMovedArtifacts(artifactsList)
+	}
+
+	return []MovedArtifact{}
+}
+
+// convertToMovedArtifacts converts []interface{} to []MovedArtifact.
+func convertToMovedArtifacts(list []interface{}) []MovedArtifact {
+	artifacts := make([]MovedArtifact, len(list))
+	for i, artifact := range list {
+		if artifactMap, ok := artifact.(map[string]interface{}); ok {
+			if from, ok := artifactMap["from"].(string); ok {
+				artifacts[i].From = from
+			}
+			if to, ok := artifactMap["to"].(string); ok {
+				artifacts[i].To = to
+			}
+		}
+	}
+	return artifacts
+}
