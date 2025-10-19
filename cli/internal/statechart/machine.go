@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-git/go-billy/v5"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/qmuntal/stateless"
 )
@@ -12,6 +13,7 @@ import (
 type Machine struct {
 	sm           *stateless.StateMachine
 	projectState *schemas.ProjectState
+	fs           billy.Filesystem // Optional filesystem for testability
 }
 
 // NewMachine creates a new state machine for project lifecycle management.
