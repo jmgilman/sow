@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/jmgilman/go/fs/billy"
 	"github.com/jmgilman/sow/cli/cmd/project"
 	"github.com/jmgilman/sow/cli/cmd/refs"
 	"github.com/jmgilman/sow/cli/cmd/task"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/internal/sowfs"
 	"github.com/spf13/cobra"
 )
@@ -38,17 +40,25 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 				return fmt.Errorf("failed to get current directory: %w", err)
 			}
 
-			// Create filesystem rooted at current working directory
+			// Create raw billy filesystem for Sow instance
+			rawBillyFS := osfs.New(cwd)
+
+			// Create unified Sow instance
+			sowInstance := sow.New(rawBillyFS)
+
+			// Create wrapped filesystem for backwards compatibility
 			baseFS := billy.NewLocal()
-			fs, err := baseFS.Chroot(cwd)
+			wrappedFS, err := baseFS.Chroot(cwd)
 			if err != nil {
 				return fmt.Errorf("failed to chroot filesystem: %w", err)
 			}
 
-			ctx := WithFilesystem(cmd.Context(), fs)
+			// Add to context
+			ctx := WithFilesystem(cmd.Context(), wrappedFS)
+			ctx = WithSow(ctx, sowInstance)
 
-			// Try to initialize SowFS (optional - will be nil if not in .sow directory)
-			// This allows commands to optionally use SowFS when available
+			// Keep SowFS for backwards compatibility during migration
+			// This will be removed once all commands are migrated
 			sfs, err := sowfs.NewSowFS()
 			if err == nil {
 				ctx = WithSowFS(ctx, sfs)
