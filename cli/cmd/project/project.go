@@ -4,6 +4,7 @@ package project
 import (
 	"context"
 
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/internal/sowfs"
 	"github.com/spf13/cobra"
 )
@@ -11,6 +12,20 @@ import (
 // SowFSAccessor is a function type that retrieves SowFS from context.
 // This allows commands to be tested with different SowFS implementations.
 type SowFSAccessor func(ctx context.Context) sowfs.SowFS
+
+// sowFromContext retrieves the Sow instance from the command context.
+// Panics if not found (should always be available via root command setup).
+func sowFromContext(ctx context.Context) *sow.Sow {
+	// Use the context key from cmd package
+	type contextKey string
+	const sowKey contextKey = "sow"
+
+	s, ok := ctx.Value(sowKey).(*sow.Sow)
+	if !ok {
+		panic("sow instance not found in context")
+	}
+	return s
+}
 
 // NewProjectCmd creates the root project command.
 func NewProjectCmd(accessor SowFSAccessor) *cobra.Command {

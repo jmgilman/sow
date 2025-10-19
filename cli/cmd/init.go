@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/sowfs"
 	"github.com/spf13/cobra"
 )
 
@@ -21,10 +20,10 @@ Creates:
 
 This command must be run from a git repository root.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			fs := FilesystemFromContext(cmd.Context())
+			sow := SowFromContext(cmd.Context())
 
 			// Initialize .sow structure
-			if err := sowfs.Initialize(fs); err != nil {
+			if err := sow.Init(); err != nil {
 				return fmt.Errorf("initialization failed: %w", err)
 			}
 
