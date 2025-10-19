@@ -9,8 +9,23 @@ exec git checkout -b feat/test-feature
 exec sow init
 exec sow project init my-feature --description 'Add new feature'
 
-# Add a task
+# Transition to implementation phase
+exec sow project phase enable discovery --type feature
+exec sow project phase complete discovery
+exec sow project phase enable design
+exec sow project phase complete design
+
+# Add first task
 exec sow task add 'Add authentication' --description 'Implement JWT auth'
+
+# Add second task (before completing first to avoid auto-transition to review)
+exec sow task add 'Create database' --description 'Set up database'
+
+# Add third task
+exec sow task add 'Review code' --description 'Code review'
+
+# Add fourth task for inference testing
+exec sow task add 'Inference test' --description 'Test inference'
 
 # Test updating status to in_progress
 exec sow task update 010 --status in_progress
@@ -28,7 +43,7 @@ exec cat .sow/project/state.yaml
 stdout '  - id: "010"'
 stdout '    status: in_progress'
 
-# Test updating status to completed
+# Test updating status to completed (won't auto-transition since other tasks still pending)
 exec sow task update 010 --status completed
 stderr '✓ Updated task 010'
 stderr 'status: in_progress → completed'
@@ -38,9 +53,6 @@ exec cat .sow/project/phases/implementation/tasks/010/state.yaml
 stdout 'status: completed'
 stdout 'completed_at:'
 ! stdout 'completed_at: null'
-
-# Add another task
-exec sow task add 'Create database' --description 'Set up database'
 
 # Test updating directly from pending to completed (sets both started_at and completed_at)
 exec sow task update 020 --status completed
@@ -52,9 +64,6 @@ stdout 'started_at:'
 stdout 'completed_at:'
 ! stdout 'started_at: null'
 ! stdout 'completed_at: null'
-
-# Add third task
-exec sow task add 'Review code' --description 'Code review'
 
 # Test updating to abandoned
 exec sow task update 030 --status abandoned
@@ -78,8 +87,7 @@ stderr 'not found'
 ! exec sow task update 010
 stderr 'at least one update flag must be specified'
 
-# Test inference: Add a task and set to in_progress
-exec sow task add 'Inference test' --description 'Test inference'
+# Test inference: Set task 040 to in_progress
 exec sow task update 040 --status in_progress
 
 # Test update with inference (no task ID provided)

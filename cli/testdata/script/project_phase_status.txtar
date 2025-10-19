@@ -45,11 +45,12 @@ stderr '"status": "skipped"'
 
 # Enable discovery and design phases
 exec sow project phase enable discovery --type feature
+exec sow project phase complete discovery
 exec sow project phase enable design
 
 # Test status after enabling phases
 exec sow project phase status
-stderr '\[✓\] Discovery.*pending'
+stderr '\[✓\] Discovery.*completed'
 stderr '\[✓\] Design.*pending'
 
 # Test JSON output with enabled phases

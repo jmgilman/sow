@@ -6,6 +6,8 @@ exec sow validate
 stderr '✓ All validations passed'
 
 -- .sow/project/state.yaml --
+statechart:
+  current_state: ImplementationPlanning
 project:
   name: test-project
   branch: feat/test

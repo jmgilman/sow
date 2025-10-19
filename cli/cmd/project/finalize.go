@@ -10,6 +10,7 @@ import (
 //   sow project finalize <subcommand>
 //
 // Subcommands:
+//   - complete: Complete a finalize subphase (documentation or checks)
 //   - add-document: Track a documentation file update
 //   - move-artifact: Record an artifact moved to knowledge
 func newFinalizeCmd(accessor SowFSAccessor) *cobra.Command {
@@ -29,6 +30,7 @@ These commands track changes made during finalization for audit purposes.`,
 	}
 
 	// Add subcommands
+	cmd.AddCommand(newFinalizeCompleteCmd(accessor))
 	cmd.AddCommand(newFinalizeAddDocumentCmd(accessor))
 	cmd.AddCommand(newFinalizeMoveArtifactCmd(accessor))
 

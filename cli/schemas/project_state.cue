@@ -8,6 +8,12 @@ import "time"
 // All projects have the same 5 phases; the 'enabled' flag controls
 // which phases actually execute.
 #ProjectState: {
+	// Statechart metadata (tracks state machine position)
+	statechart: {
+		// Current state in the lifecycle state machine
+		current_state: "NoProject" | "DiscoveryDecision" | "DiscoveryActive" | "DesignDecision" | "DesignActive" | "ImplementationPlanning" | "ImplementationExecuting" | "ReviewActive" | "FinalizeDocumentation" | "FinalizeChecks" | "FinalizeDelete"
+	}
+
 	// Project metadata
 	project: {
 		// Kebab-case project identifier

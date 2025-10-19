@@ -123,6 +123,8 @@ func TestValidateAll_ValidProjectState(t *testing.T) {
 	_ = fs.MkdirAll(".sow/project", 0755)
 
 	validProjectState := `
+statechart:
+  current_state: ImplementationExecuting
 project:
   name: my-feature
   branch: feat/my-feature
@@ -238,7 +240,9 @@ func TestValidateAll_InvalidTaskState(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a minimal valid project state so validateProject runs
-	validProjectState := `project:
+	validProjectState := `statechart:
+  current_state: ImplementationExecuting
+project:
   name: test-project
   branch: feat/test
   description: Test
@@ -312,7 +316,9 @@ func TestValidateAll_TaskDirectoryWithoutStateFile(t *testing.T) {
 	fs := billy.NewMemory()
 
 	// Create a minimal valid project state so validateProject runs
-	validProjectState := `project:
+	validProjectState := `statechart:
+  current_state: ImplementationExecuting
+project:
   name: test-project
   branch: feat/test
   description: Test
@@ -368,7 +374,9 @@ func TestValidateAll_MultipleTasks(t *testing.T) {
 	fs := billy.NewMemory()
 
 	// Create a minimal valid project state so validateProject runs
-	validProjectState := `project:
+	validProjectState := `statechart:
+  current_state: ImplementationExecuting
+project:
   name: test-project
   branch: feat/test
   description: Test

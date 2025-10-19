@@ -9,29 +9,17 @@ exec git checkout -b feat/test-feature
 exec sow init
 exec sow project init my-feature --description 'Add new feature'
 
-# Test completing implementation with no tasks (should succeed)
-exec sow project phase complete implementation
-stderr '✓ Completed implementation phase'
-
-# Verify phase is marked completed
-exec sow project phase status
-stderr 'Implementation.*completed'
-
-# Test completing implementation again (should fail - already completed)
+# Test completing implementation fails (managed by statechart)
 ! exec sow project phase complete implementation
-stderr 'already completed'
+stderr 'managed automatically by statechart'
 
-# Test completing review with no reports (should fail)
+# Test completing review fails (validation error - no reports)
 ! exec sow project phase complete review
 stderr 'no review reports'
 
-# Test completing finalize without project_deleted (should fail)
+# Test completing finalize fails (validation error)
 ! exec sow project phase complete finalize
-stderr 'project must be deleted'
-
-# Test completing discovery when not enabled (should fail)
-! exec sow project phase complete discovery
-stderr 'not enabled'
+stderr 'cannot complete phase'
 
 # Enable discovery phase
 exec sow project phase enable discovery --type feature

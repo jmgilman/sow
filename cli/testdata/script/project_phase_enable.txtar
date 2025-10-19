@@ -17,6 +17,9 @@ stderr '✓ Enabled discovery phase'
 exec sow project phase status
 stderr '\[✓\] Discovery.*pending'
 
+# Complete discovery to transition to design decision
+exec sow project phase complete discovery
+
 # Test enabling design phase
 exec sow project phase enable design
 stderr '✓ Enabled design phase'
@@ -25,21 +28,21 @@ stderr '✓ Enabled design phase'
 exec sow project phase status
 stderr '\[✓\] Design.*pending'
 
-# Test enabling discovery without type fails
+# Test enabling discovery again fails (wrong state)
 ! exec sow project phase enable discovery --type bug
-stderr 'already enabled'
+stderr 'cannot enable discovery'
 
-# Test enabling implementation phase fails (always enabled)
+# Test enabling implementation phase fails (not manually enabled)
 ! exec sow project phase enable implementation
-stderr 'always enabled'
+stderr 'only discovery and design'
 
-# Test enabling review phase fails (always enabled)
+# Test enabling review phase fails (not manually enabled)
 ! exec sow project phase enable review
-stderr 'always enabled'
+stderr 'only discovery and design'
 
-# Test enabling finalize phase fails (always enabled)
+# Test enabling finalize phase fails (not manually enabled)
 ! exec sow project phase enable finalize
-stderr 'always enabled'
+stderr 'only discovery and design'
 
 # Test invalid phase name
 ! exec sow project phase enable invalid-phase
@@ -50,7 +53,7 @@ exec sow project delete --force
 exec git checkout -b feat/test-no-type
 exec sow project init test-no-type --description 'Test without type'
 ! exec sow project phase enable discovery
-stderr 'discovery_type is required'
+stderr 'discovery type required'
 
 # Test all valid discovery types
 exec sow project delete --force
@@ -82,4 +85,4 @@ exec sow project delete --force
 exec git checkout -b feat/test-invalid-type
 exec sow project init invalid-type --description 'Test invalid type'
 ! exec sow project phase enable discovery --type invalid-type
-stderr 'invalid discovery_type'
+stderr 'invalid discovery type'

@@ -9,6 +9,12 @@ exec git checkout -b feat/test-feature
 exec sow init
 exec sow project init my-feature --description 'Test inference'
 
+# Transition to implementation phase
+exec sow project phase enable discovery --type feature
+exec sow project phase complete discovery
+exec sow project phase enable design
+exec sow project phase complete design
+
 # Add three tasks
 exec sow task add 'First task' --description 'Task 010' --agent implementer
 exec sow task add 'Second task' --description 'Task 020' --agent implementer

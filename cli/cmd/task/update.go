@@ -3,6 +3,7 @@ package task
 import (
 	"fmt"
 
+	"github.com/jmgilman/sow/cli/internal/statechart"
 	"github.com/jmgilman/sow/cli/internal/task"
 	"github.com/jmgilman/sow/cli/internal/taskutil"
 	"github.com/spf13/cobra"
@@ -121,6 +122,35 @@ func runUpdate(cmd *cobra.Command, args []string, accessor SowFSAccessor) error 
 
 	if err := projectFS.WriteState(projectState); err != nil {
 		return fmt.Errorf("failed to write project state: %w", err)
+	}
+
+	// === STATECHART INTEGRATION: Auto-fire EventAllTasksComplete ===
+	// Check if status was updated to completed or abandoned
+	if statusFlag == "completed" || statusFlag == "abandoned" {
+		// Check if ALL tasks are now complete
+		if statechart.AllTasksComplete(projectState) {
+			// Load statechart machine
+			machine, err := statechart.Load()
+			if err != nil {
+				return fmt.Errorf("failed to load statechart: %w", err)
+			}
+
+			// Verify we're in ImplementationExecuting state
+			currentState := machine.State()
+			if currentState == statechart.ImplementationExecuting {
+				// Fire event to transition to ReviewActive
+				if err := machine.Fire(statechart.EventAllTasksComplete); err != nil {
+					return fmt.Errorf("failed to transition to review: %w", err)
+				}
+
+				// Save state with new statechart state
+				if err := machine.Save(); err != nil {
+					return fmt.Errorf("failed to save statechart state: %w", err)
+				}
+
+				cmd.Printf("\n✓ All tasks complete. Transitioning to review phase.\n")
+			}
+		}
 	}
 
 	// Print success message

@@ -9,6 +9,12 @@ exec git checkout -b feat/test-feature
 exec sow init
 exec sow project init my-feature --description 'Add new feature'
 
+# Transition to implementation phase
+exec sow project phase enable discovery --type feature
+exec sow project phase complete discovery
+exec sow project phase enable design
+exec sow project phase complete design
+
 # Add a task
 exec sow task add 'Add authentication' --description 'Implement JWT auth' --agent implementer
 
@@ -35,7 +41,11 @@ stderr 'Started:'
 ! stderr 'not started'
 stderr 'Completed: not completed'
 
-# Update task to completed
+# Test inference: Add a second task before completing the first (to avoid auto-transition to review)
+exec sow task add 'Inference test' --description 'Test inference'
+exec sow task update 020 --status in_progress
+
+# Update first task to completed (won't auto-transition since task 020 is still in_progress)
 exec sow task update 010 --status completed
 
 # Test status shows completed timestamp
@@ -67,10 +77,6 @@ stderr 'not found'
 ! exec sow task status 010 --format yaml
 stderr 'invalid format'
 stderr 'must be .text. or .json.'
-
-# Test inference: Add a task and set to in_progress
-exec sow task add 'Inference test' --description 'Test inference'
-exec sow task update 020 --status in_progress
 
 # Test status with inference (no task ID provided)
 exec sow task status

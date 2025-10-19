@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/statechart"
 	"github.com/spf13/cobra"
 )
 
@@ -50,29 +51,56 @@ Example:
 				return fmt.Errorf("not in a sow repository - run 'sow init' first")
 			}
 
-			// Get project filesystem
-			projectFS, err := sowFS.Project()
+			// Verify project exists
+			_, err := sowFS.Project()
 			if err != nil {
 				return fmt.Errorf("no active project - run 'sow project init' first: %w", err)
 			}
 
-			// Read current state
-			state, err := projectFS.State()
+			// === STATECHART INTEGRATION START ===
+
+			// Load machine
+			machine, err := statechart.Load()
 			if err != nil {
-				return fmt.Errorf("failed to read project state: %w", err)
+				return fmt.Errorf("failed to load statechart: %w", err)
 			}
 
-			// Complete the phase (validates and updates state)
+			state := machine.ProjectState()
+
+			// Validate phase completion requirements
+			if err := project.ValidatePhaseCompletion(state, phase); err != nil {
+				return fmt.Errorf("cannot complete phase: %w", err)
+			}
+
+			// Determine which event to fire based on phase
+			var event statechart.Event
+			switch phase {
+			case "discovery":
+				event = statechart.EventCompleteDiscovery
+			case "design":
+				event = statechart.EventCompleteDesign
+			default:
+				return fmt.Errorf("phase '%s' completion is managed automatically by statechart", phase)
+			}
+
+			// Update phase status before firing event
 			if err := project.CompletePhase(state, phase); err != nil {
-				return fmt.Errorf("failed to complete phase: %w", err)
+				return fmt.Errorf("failed to update phase status: %w", err)
 			}
 
-			// Write updated state
-			if err := projectFS.WriteState(state); err != nil {
-				return fmt.Errorf("failed to write project state: %w", err)
+			// Fire event (validates transition, outputs prompt)
+			if err := machine.Fire(event); err != nil {
+				return fmt.Errorf("failed to complete %s phase: %w", phase, err)
 			}
 
-			cmd.Printf("✓ Completed %s phase for project '%s'\n", phase, state.Project.Name)
+			// Save state
+			if err := machine.Save(); err != nil {
+				return fmt.Errorf("failed to save state: %w", err)
+			}
+
+			// === STATECHART INTEGRATION END ===
+
+			cmd.Printf("\n✓ Completed %s phase\n", phase)
 			return nil
 		},
 	}

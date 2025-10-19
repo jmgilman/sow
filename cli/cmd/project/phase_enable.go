@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/statechart"
 	"github.com/spf13/cobra"
 )
 
@@ -48,41 +49,80 @@ Example:
 				return fmt.Errorf("phase validation failed: %w", err)
 			}
 
+			// Only discovery and design can be manually enabled
+			if phase != "discovery" && phase != "design" {
+				return fmt.Errorf("only discovery and design phases can be manually enabled")
+			}
+
 			// Get SowFS from context
 			sowFS := accessor(cmd.Context())
 			if sowFS == nil {
 				return fmt.Errorf("not in a sow repository - run 'sow init' first")
 			}
 
-			// Get project filesystem
-			projectFS, err := sowFS.Project()
+			// Verify project exists
+			_, err := sowFS.Project()
 			if err != nil {
 				return fmt.Errorf("no active project - run 'sow project init' first: %w", err)
 			}
 
-			// Read current state
-			state, err := projectFS.State()
+			// === STATECHART INTEGRATION START ===
+
+			// Load machine
+			machine, err := statechart.Load()
 			if err != nil {
-				return fmt.Errorf("failed to read project state: %w", err)
+				return fmt.Errorf("failed to load statechart: %w", err)
 			}
 
-			// Prepare discovery type pointer if needed
-			var discoveryTypePtr *string
-			if discoveryType != "" {
-				discoveryTypePtr = &discoveryType
+			state := machine.ProjectState()
+
+			// Validate current state allows enabling phases
+			currentState := machine.State()
+			if phase == "discovery" && currentState != statechart.DiscoveryDecision {
+				return fmt.Errorf("cannot enable discovery in current state: %s (expected DiscoveryDecision)", currentState)
+			}
+			if phase == "design" && currentState != statechart.DesignDecision {
+				return fmt.Errorf("cannot enable design in current state: %s (expected DesignDecision)", currentState)
 			}
 
-			// Enable the phase
-			if err := project.EnablePhase(state, phase, discoveryTypePtr); err != nil {
-				return fmt.Errorf("failed to enable phase: %w", err)
+			// Update state based on phase
+			var event statechart.Event
+			if phase == "discovery" {
+				if discoveryType == "" {
+					return fmt.Errorf("discovery type required (use --type flag)")
+				}
+				// Validate discovery type
+				validTypes := map[string]bool{
+					"bug": true, "feature": true, "docs": true, "refactor": true, "general": true,
+				}
+				if !validTypes[discoveryType] {
+					return fmt.Errorf("invalid discovery type: %s", discoveryType)
+				}
+
+				state.Phases.Discovery.Enabled = true
+				state.Phases.Discovery.Status = "pending"
+				state.Phases.Discovery.Discovery_type = &discoveryType
+				event = statechart.EventEnableDiscovery
+
+			} else { // design
+				state.Phases.Design.Enabled = true
+				state.Phases.Design.Status = "pending"
+				event = statechart.EventEnableDesign
 			}
 
-			// Write updated state
-			if err := projectFS.WriteState(state); err != nil {
-				return fmt.Errorf("failed to write project state: %w", err)
+			// Fire event (validates transition, outputs prompt)
+			if err := machine.Fire(event); err != nil {
+				return fmt.Errorf("failed to enable %s phase: %w", phase, err)
 			}
 
-			cmd.Printf("✓ Enabled %s phase for project '%s'\n", phase, state.Project.Name)
+			// Save state
+			if err := machine.Save(); err != nil {
+				return fmt.Errorf("failed to save state: %w", err)
+			}
+
+			// === STATECHART INTEGRATION END ===
+
+			cmd.Printf("\n✓ Enabled %s phase\n", phase)
 			return nil
 		},
 	}

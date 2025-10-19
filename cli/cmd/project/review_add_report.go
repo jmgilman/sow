@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/statechart"
 	"github.com/spf13/cobra"
 )
 
@@ -76,6 +77,36 @@ Examples:
 				return fmt.Errorf("failed to write project state: %w", err)
 			}
 
+			// === STATECHART INTEGRATION: Fire review events ===
+			// Load statechart machine
+			machine, err := statechart.Load()
+			if err != nil {
+				return fmt.Errorf("failed to load statechart: %w", err)
+			}
+
+			// Verify we're in ReviewActive state
+			currentState := machine.State()
+			if currentState != statechart.ReviewActive {
+				return fmt.Errorf("cannot add review report in current state: %s (expected ReviewActive)", currentState)
+			}
+
+			// Fire appropriate event based on assessment
+			var event statechart.Event
+			if assessment == "pass" {
+				event = statechart.EventReviewPass
+			} else {
+				event = statechart.EventReviewFail
+			}
+
+			if err := machine.Fire(event); err != nil {
+				return fmt.Errorf("failed to fire review event: %w", err)
+			}
+
+			// Save statechart state
+			if err := machine.Save(); err != nil {
+				return fmt.Errorf("failed to save statechart state: %w", err)
+			}
+
 			// Get the report ID (last report added)
 			reportID := state.Phases.Review.Reports[len(state.Phases.Review.Reports)-1].Id
 
@@ -83,9 +114,9 @@ Examples:
 			cmd.Printf("  %s\n", reportPath)
 
 			if assessment == "pass" {
-				cmd.Println("\n→ Review passed. Ready to proceed to finalize phase.")
+				cmd.Println("\n→ Review passed. Transitioning to finalize phase.")
 			} else {
-				cmd.Println("\n→ Review failed. Consider looping back to implementation.")
+				cmd.Println("\n→ Review failed. Looping back to implementation planning.")
 			}
 
 			return nil

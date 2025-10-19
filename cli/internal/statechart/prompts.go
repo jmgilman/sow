@@ -5,6 +5,8 @@ import (
 	"embed"
 	"fmt"
 	"text/template"
+
+	"github.com/jmgilman/sow/cli/schemas"
 )
 
 // Embed all prompt templates from the prompts/ directory
@@ -52,7 +54,7 @@ func init() {
 // PromptContext contains all information needed to generate contextual prompts.
 type PromptContext struct {
 	State        State
-	ProjectState *ProjectState
+	ProjectState *schemas.ProjectState
 }
 
 // GeneratePrompt generates a contextual prompt for the current state using templates.

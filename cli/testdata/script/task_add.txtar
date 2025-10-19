@@ -9,6 +9,12 @@ exec git checkout -b feat/test-feature
 exec sow init
 exec sow project init my-feature --description 'Add new feature'
 
+# Transition to implementation phase
+exec sow project phase enable discovery --type feature
+exec sow project phase complete discovery
+exec sow project phase enable design
+exec sow project phase complete design
+
 # Add first task (should get ID 010)
 exec sow task add 'Add authentication' --description 'Implement JWT auth'
 stderr '✓ Created task 010: Add authentication'

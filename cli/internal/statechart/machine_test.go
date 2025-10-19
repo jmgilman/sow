@@ -3,22 +3,42 @@ package statechart
 import (
 	"os"
 	"testing"
+
+	"github.com/jmgilman/sow/cli/schemas"
 )
 
 // TestProjectLifecycle demonstrates a complete project lifecycle through the state machine.
 func TestProjectLifecycle(t *testing.T) {
 	// Start with no project
-	state := &ProjectState{
-		Phases: Phases{
-			Discovery:      PhaseState{Enabled: false},
-			Design:         PhaseState{Enabled: false},
-			Implementation: ImplementationPhase{Enabled: true},
-			Review:         ReviewPhase{Enabled: true, Iteration: 1},
-			Finalize: FinalizePhase{
-				Enabled:               true,
-				DocumentationAssessed: false,
-				ChecksAssessed:        false,
-				ProjectDeleted:        false,
+	state := &schemas.ProjectState{
+		Phases: struct {
+			Discovery      schemas.DiscoveryPhase      `json:"discovery"`
+			Design         schemas.DesignPhase         `json:"design"`
+			Implementation schemas.ImplementationPhase `json:"implementation"`
+			Review         schemas.ReviewPhase         `json:"review"`
+			Finalize       schemas.FinalizePhase       `json:"finalize"`
+		}{
+			Discovery: schemas.DiscoveryPhase{
+				Enabled: false,
+				Status:  "skipped",
+			},
+			Design: schemas.DesignPhase{
+				Enabled: false,
+				Status:  "skipped",
+			},
+			Implementation: schemas.ImplementationPhase{
+				Enabled: true,
+				Status:  "pending",
+			},
+			Review: schemas.ReviewPhase{
+				Enabled:   true,
+				Iteration: 1,
+				Status:    "pending",
+			},
+			Finalize: schemas.FinalizePhase{
+				Enabled:         true,
+				Status:          "pending",
+				Project_deleted: false,
 			},
 		},
 	}
@@ -57,8 +77,8 @@ func TestProjectLifecycle(t *testing.T) {
 	// Step 4: Create tasks and transition to executing
 	// Update the machine's project state to have at least one task
 	machine.projectState = state
-	state.Phases.Implementation.Tasks = []Task{
-		{ID: "010", Name: "Create model", Status: "pending"},
+	state.Phases.Implementation.Tasks = []schemas.Task{
+		{Id: "010", Name: "Create model", Status: "pending", Parallel: false},
 	}
 
 	if err := machine.Fire(EventTaskCreated); err != nil {
@@ -86,8 +106,8 @@ func TestProjectLifecycle(t *testing.T) {
 		t.Errorf("Expected FinalizeDocumentation after review pass, got %s", machine.State())
 	}
 
-	// Step 7: Documentation assessed
-	state.Phases.Finalize.DocumentationAssessed = true
+	// Step 7: Documentation assessed (simplified - just update status)
+	state.Phases.Finalize.Status = "in_progress"
 
 	if err := machine.Fire(EventDocumentationDone); err != nil {
 		t.Fatalf("Failed to complete documentation: %v", err)
@@ -96,9 +116,7 @@ func TestProjectLifecycle(t *testing.T) {
 		t.Errorf("Expected FinalizeChecks after documentation, got %s", machine.State())
 	}
 
-	// Step 8: Checks assessed
-	state.Phases.Finalize.ChecksAssessed = true
-
+	// Step 8: Checks assessed (guards return true automatically)
 	if err := machine.Fire(EventChecksDone); err != nil {
 		t.Fatalf("Failed to complete checks: %v", err)
 	}
@@ -107,7 +125,7 @@ func TestProjectLifecycle(t *testing.T) {
 	}
 
 	// Step 9: Delete project
-	state.Phases.Finalize.ProjectDeleted = true
+	state.Phases.Finalize.Project_deleted = true
 
 	if err := machine.Fire(EventProjectDelete); err != nil {
 		t.Fatalf("Failed to delete project: %v", err)
@@ -119,14 +137,12 @@ func TestProjectLifecycle(t *testing.T) {
 
 // TestDiscoveryPhase tests the discovery phase workflow.
 func TestDiscoveryPhase(t *testing.T) {
-	state := &ProjectState{
-		Phases: Phases{
-			Discovery: PhaseState{
-				Enabled: true,
-				Artifacts: []Artifact{
-					{Path: "phases/discovery/notes.md", Approved: false},
-				},
-			},
+	state := &schemas.ProjectState{}
+	state.Phases.Discovery = schemas.DiscoveryPhase{
+		Enabled: true,
+		Status:  "pending",
+		Artifacts: []schemas.Artifact{
+			{Path: "phases/discovery/notes.md", Approved: false},
 		},
 	}
 
@@ -160,19 +176,18 @@ func TestDiscoveryPhase(t *testing.T) {
 
 // TestReviewLoop tests the review fail → implementation loop.
 func TestReviewLoop(t *testing.T) {
-	state := &ProjectState{
-		Phases: Phases{
-			Implementation: ImplementationPhase{
-				Enabled: true,
-				Tasks: []Task{
-					{ID: "010", Name: "Fix bug", Status: "completed"},
-				},
-			},
-			Review: ReviewPhase{
-				Enabled:   true,
-				Iteration: 1,
-			},
+	state := &schemas.ProjectState{}
+	state.Phases.Implementation = schemas.ImplementationPhase{
+		Enabled: true,
+		Status:  "completed",
+		Tasks: []schemas.Task{
+			{Id: "010", Name: "Fix bug", Status: "completed", Parallel: false},
 		},
+	}
+	state.Phases.Review = schemas.ReviewPhase{
+		Enabled:   true,
+		Iteration: 1,
+		Status:    "pending",
 	}
 
 	machine := NewMachine(state)
@@ -221,13 +236,11 @@ func TestReviewLoop(t *testing.T) {
 
 // TestGuardPreventsInvalidTransition tests that guards properly block transitions.
 func TestGuardPreventsInvalidTransition(t *testing.T) {
-	state := &ProjectState{
-		Phases: Phases{
-			Implementation: ImplementationPhase{
-				Enabled: true,
-				Tasks:   []Task{}, // No tasks
-			},
-		},
+	state := &schemas.ProjectState{}
+	state.Phases.Implementation = schemas.ImplementationPhase{
+		Enabled: true,
+		Status:  "pending",
+		Tasks:   []schemas.Task{}, // No tasks
 	}
 
 	machine := NewMachine(state)
@@ -299,16 +312,15 @@ func TestPersistence(t *testing.T) {
 
 	// Create a machine and advance through some states
 	machine := NewMachine(nil)
-	machine.projectState = &ProjectState{
-		Phases: Phases{
-			Implementation: ImplementationPhase{
-				Enabled: true,
-				Tasks: []Task{
-					{ID: "010", Name: "Test task", Status: "pending"},
-				},
-			},
+	state := &schemas.ProjectState{}
+	state.Phases.Implementation = schemas.ImplementationPhase{
+		Enabled: true,
+		Status:  "pending",
+		Tasks: []schemas.Task{
+			{Id: "010", Name: "Test task", Status: "pending", Parallel: false},
 		},
 	}
+	machine.projectState = state
 
 	// Advance to ImplementationExecuting
 	_ = machine.Fire(EventProjectInit)

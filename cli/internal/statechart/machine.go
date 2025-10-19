@@ -4,18 +4,19 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/qmuntal/stateless"
 )
 
 // Machine wraps the stateless state machine with project-specific context.
 type Machine struct {
 	sm           *stateless.StateMachine
-	projectState *ProjectState
+	projectState *schemas.ProjectState
 }
 
 // NewMachine creates a new state machine for project lifecycle management.
 // The initial state is determined from the project state (or NoProject if nil).
-func NewMachine(projectState *ProjectState) *Machine {
+func NewMachine(projectState *schemas.ProjectState) *Machine {
 	var initialState State
 	if projectState == nil {
 		initialState = NoProject
@@ -28,7 +29,7 @@ func NewMachine(projectState *ProjectState) *Machine {
 
 // NewMachineAt creates a new state machine starting at a specific state.
 // This is useful when loading state from disk where the state is explicitly stored.
-func NewMachineAt(initialState State, projectState *ProjectState) *Machine {
+func NewMachineAt(initialState State, projectState *schemas.ProjectState) *Machine {
 	sm := stateless.NewStateMachine(initialState)
 	m := &Machine{
 		sm:           sm,
@@ -37,6 +38,16 @@ func NewMachineAt(initialState State, projectState *ProjectState) *Machine {
 
 	m.configure()
 	return m
+}
+
+// ProjectState returns the machine's project state for modification.
+func (m *Machine) ProjectState() *schemas.ProjectState {
+	return m.projectState
+}
+
+// SetProjectState sets the machine's project state.
+func (m *Machine) SetProjectState(state *schemas.ProjectState) {
+	m.projectState = state
 }
 
 // configure sets up all state transitions, guards, and entry actions.
@@ -125,7 +136,7 @@ func (m *Machine) designComplete(_ context.Context, _ ...any) bool {
 	if m.projectState == nil {
 		return false
 	}
-	return ArtifactsApproved(m.projectState.Phases.Design)
+	return ArtifactsApprovedDesign(m.projectState.Phases.Design)
 }
 
 func (m *Machine) hasAtLeastOneTask(_ context.Context, _ ...any) bool {
@@ -207,7 +218,7 @@ func (m *Machine) PermittedTriggers() ([]Event, error) {
 
 // determineCurrentState infers the current state from project state.
 // This is used when resuming an existing project.
-func determineCurrentState(_ *ProjectState) State {
+func determineCurrentState(_ *schemas.ProjectState) State {
 	// This is a simplified version - real implementation would inspect
 	// the actual project state to determine current position in lifecycle.
 

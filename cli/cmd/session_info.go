@@ -6,17 +6,19 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/sowfs"
+	"github.com/jmgilman/sow/cli/internal/statechart"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/spf13/cobra"
 )
 
 // SessionInfo represents the session information output structure.
 type SessionInfo struct {
-	Repository  RepositoryInfo  `json:"repository"`
-	Context     ContextInfo     `json:"context"`
-	Project     *ProjectInfo    `json:"project,omitempty"`
-	Versions    VersionInfo     `json:"versions"`
-	Available   []string        `json:"available_commands,omitempty"`
+	Repository  RepositoryInfo   `json:"repository"`
+	Context     ContextInfo      `json:"context"`
+	Project     *ProjectInfo     `json:"project,omitempty"`
+	Statechart  *StatechartInfo  `json:"statechart,omitempty"`
+	Versions    VersionInfo      `json:"versions"`
+	Available   []string         `json:"available_commands,omitempty"`
 }
 
 // RepositoryInfo contains git repository information.
@@ -40,6 +42,12 @@ type ProjectInfo struct {
 	Status      string `json:"status,omitempty"`
 }
 
+// StatechartInfo contains statechart state information.
+type StatechartInfo struct {
+	CurrentState string   `json:"current_state"`
+	Permitted    []string `json:"permitted_events,omitempty"`
+}
+
 // VersionInfo contains version information.
 type VersionInfo struct {
 	CLI       string `json:"cli"`
@@ -59,6 +67,7 @@ Shows:
   - Current context (task or project)
   - Task details (if in task context)
   - Project details (if project exists)
+  - Statechart state (current state, mode, permitted events)
   - CLI version
   - Schema version
 
@@ -136,6 +145,29 @@ func runSessionInfo(cmd *cobra.Command) error {
 		// Unexpected error (not just "no project")
 		return fmt.Errorf("failed to check project: %w", err)
 	}
+
+	// Load statechart information
+	machine, err := statechart.Load()
+	if err == nil {
+		// Statechart loaded successfully
+		currentState := machine.State()
+
+		// Get permitted triggers
+		triggers, err := machine.PermittedTriggers()
+		if err == nil {
+			// Convert triggers to strings
+			permittedEvents := make([]string, len(triggers))
+			for i, trigger := range triggers {
+				permittedEvents[i] = string(trigger)
+			}
+
+			info.Statechart = &StatechartInfo{
+				CurrentState: string(currentState),
+				Permitted:    permittedEvents,
+			}
+		}
+	}
+	// If statechart fails to load, we just omit it from output (graceful degradation)
 
 	// Add available commands based on context
 	info.Available = getAvailableCommands(info.Context.Type, info.Project != nil)

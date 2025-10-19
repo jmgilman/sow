@@ -1,0 +1,136 @@
+# Test the complete statechart lifecycle from project init through implementation
+
+exec git init
+exec git config user.email test@test.com
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test
+
+# Initialize sow repository
+exec sow init
+exists .sow/.version
+
+# Initialize project - should transition to DiscoveryDecision
+exec sow project init test-project --description 'Test project for statechart'
+stdout 'DISCOVERY PHASE DECISION'
+stderr '✓ Initialized project ''test-project'''
+exists .sow/project/state.yaml
+
+# Verify initial statechart state in YAML
+exec cat .sow/project/state.yaml
+stdout 'current_state: DiscoveryDecision'
+
+# Verify session-info reports correct state
+exec sow session-info
+stderr '"current_state": "DiscoveryDecision"'
+
+# Enable discovery phase - should transition to DiscoveryActive
+exec sow project phase enable discovery --type feature
+stdout 'DISCOVERY PHASE \(Subservient Mode\)'
+stderr '✓ Enabled discovery phase'
+
+# Verify discovery active state
+exec cat .sow/project/state.yaml
+stdout 'current_state: DiscoveryActive'
+
+# Complete discovery - should transition to DesignDecision
+exec sow project phase complete discovery
+stdout 'DESIGN PHASE DECISION'
+stderr '✓ Completed discovery phase'
+
+# Verify design decision state
+exec cat .sow/project/state.yaml
+stdout 'current_state: DesignDecision'
+
+# Enable design phase - should transition to DesignActive
+exec sow project phase enable design
+stdout 'DESIGN PHASE \(Subservient Mode\)'
+stderr '✓ Enabled design phase'
+
+# Verify design active state
+exec cat .sow/project/state.yaml
+stdout 'current_state: DesignActive'
+
+# Complete design - should transition to ImplementationPlanning
+exec sow project phase complete design
+stdout 'IMPLEMENTATION PLANNING \(Autonomous Mode\)'
+stderr '✓ Completed design phase'
+
+# Verify implementation planning state
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# Add first task - should transition to ImplementationExecuting
+exec sow task add 'Create feature' --description 'Build the feature' --agent implementer
+stdout 'IMPLEMENTATION EXECUTING \(Autonomous Mode\)'
+stderr '✓ Created task 010'
+exists .sow/project/phases/implementation/tasks/010/state.yaml
+
+# Verify implementation executing state in YAML
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationExecuting'
+
+# Verify session-info shows implementation executing state
+exec sow session-info
+stderr '"current_state": "ImplementationExecuting"'
+
+# Complete task - should auto-transition to ReviewActive
+exec sow task update 010 --status completed
+stdout 'REVIEW PHASE \(Autonomous Mode\)'
+stderr '✓ All tasks complete. Transitioning to review phase.'
+stderr '✓ Updated task 010'
+
+# Verify review active state in YAML
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+stdout 'status: completed'
+
+# Add passing review report - should transition to FinalizeDocumentation
+exec mkdir -p .sow/project/phases/review/reports
+exec sh -c 'echo "# Review Report\n\nImplementation looks good." > .sow/project/phases/review/reports/001-review.md'
+exec sow project review add-report reports/001-review.md --assessment pass
+stdout 'FINALIZE: DOCUMENTATION \(Autonomous Mode\)'
+stderr '✓ Added review report 001 \(pass\)'
+stderr 'Review passed. Transitioning to finalize phase.'
+
+# Verify finalize documentation state
+exec cat .sow/project/state.yaml
+stdout 'current_state: FinalizeDocumentation'
+stdout 'assessment: pass'
+
+# Complete documentation - should transition to FinalizeChecks
+exec sow project finalize complete documentation
+stdout 'FINALIZE: CHECKS \(Autonomous Mode\)'
+stderr '✓ Completed documentation subphase'
+
+# Verify finalize checks state
+exec cat .sow/project/state.yaml
+stdout 'current_state: FinalizeChecks'
+
+# Complete checks - should transition to FinalizeDelete
+exec sow project finalize complete checks
+stdout 'FINALIZE: PROJECT DELETION \(Autonomous Mode\)'
+stderr '✓ Completed checks subphase'
+
+# Verify finalize delete state
+exec cat .sow/project/state.yaml
+stdout 'current_state: FinalizeDelete'
+
+# Delete project - should transition to NoProject
+exec sow project delete --force
+stdout 'NO ACTIVE PROJECT'
+stderr '✓ State machine transitioned to NoProject'
+stderr '✓ Deleted project ''test-project'''
+
+# Verify project directory is gone
+! exists .sow/project
+
+# Test we can start a new project (back to NoProject state)
+exec sow project init second-project --description 'Second project test'
+stdout 'DISCOVERY PHASE DECISION'
+stderr '✓ Initialized project ''second-project'''
+
+# Verify new project started at DiscoveryDecision
+exec cat .sow/project/state.yaml
+stdout 'current_state: DiscoveryDecision'
+stdout 'name: second-project'

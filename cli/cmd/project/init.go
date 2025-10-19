@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/statechart"
 	"github.com/spf13/cobra"
 )
 
@@ -76,27 +77,45 @@ func runInit(cmd *cobra.Command, args []string, accessor SowFSAccessor) error {
 		return fmt.Errorf("project '%s' already exists on branch '%s'", state.Project.Name, state.Project.Branch)
 	}
 
+	// === STATECHART INTEGRATION START ===
+
+	// Load statechart (should be NoProject state)
+	machine, err := statechart.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load statechart: %w", err)
+	}
+
+	// Verify we're in NoProject state
+	if machine.State() != statechart.NoProject {
+		return fmt.Errorf("unexpected state: %s (expected NoProject)", machine.State())
+	}
+
 	// Create initial project state
 	state := project.NewProjectState(name, branch, description)
 
-	// Get ProjectFS without existence check (since we're creating it)
+	// Set state in machine
+	machine.SetProjectState(state)
+
+	// Create file structure BEFORE firing event (easier rollback)
 	projectFS = sowFS.ProjectUnchecked()
-
-	// Write state (this will create the project directory structure)
-	if err := projectFS.WriteState(state); err != nil {
-		return fmt.Errorf("failed to write project state: %w", err)
-	}
-
-	// Create empty log file
 	if err := projectFS.AppendLog("# Project Log\n\nOrchestrator actions will be logged here.\n"); err != nil {
 		return fmt.Errorf("failed to create project log: %w", err)
 	}
 
-	// Print success message
-	cmd.Printf("✓ Initialized project '%s' on branch '%s'\n", name, branch)
-	cmd.Printf("\nNext steps:\n")
-	cmd.Printf("  1. Run '/project:new' to start the project workflow\n")
-	cmd.Printf("  2. The orchestrator will guide you through phase selection\n")
+	// Fire event (validates transition, outputs prompt to stdout)
+	if err := machine.Fire(statechart.EventProjectInit); err != nil {
+		return fmt.Errorf("failed to transition to DiscoveryDecision: %w", err)
+	}
+
+	// Save state atomically (writes state.yaml with statechart field)
+	if err := machine.Save(); err != nil {
+		return fmt.Errorf("failed to save project state: %w", err)
+	}
+
+	// === STATECHART INTEGRATION END ===
+
+	// Success message (prompt already output by statechart)
+	cmd.Printf("\n✓ Initialized project '%s' on branch '%s'\n", name, branch)
 
 	return nil
 }

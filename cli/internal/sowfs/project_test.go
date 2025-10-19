@@ -22,7 +22,9 @@ func TestProjectFS_State(t *testing.T) {
 			name: "read existing state",
 			setup: func(fs *billy.MemoryFS) {
 				_ = fs.MkdirAll(".sow/project", 0755)
-				stateYAML := `project:
+				stateYAML := `statechart:
+  current_state: ImplementationExecuting
+project:
   name: test-project
   branch: feature/test
   description: Test project
@@ -130,6 +132,10 @@ func TestProjectFS_WriteState(t *testing.T) {
 	// Create test state
 	now := time.Now()
 	state := &schemas.ProjectState{}
+
+	// Statechart state (required)
+	state.Statechart.Current_state = "ImplementationExecuting"
+
 	state.Project.Name = "test-project"
 	state.Project.Branch = "feature/test"
 	state.Project.Description = "Test project"
@@ -397,7 +403,9 @@ func TestProjectFS_Exists(t *testing.T) {
 			setup: func(fs *billy.MemoryFS) {
 				_ = fs.MkdirAll(".sow/project", 0755)
 				// Write valid (minimal) project state
-				validState := `project:
+				validState := `statechart:
+  current_state: ImplementationExecuting
+project:
   name: test-project
   branch: feat/test
   description: Test

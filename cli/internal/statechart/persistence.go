@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jmgilman/sow/cli/schemas"
 	"gopkg.in/yaml.v3"
 )
 
@@ -22,13 +23,14 @@ func Load() (*Machine, error) {
 		return nil, fmt.Errorf("failed to read state file: %w", err)
 	}
 
-	var state ProjectState
+	var state schemas.ProjectState
 	if err := yaml.Unmarshal(data, &state); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal state: %w", err)
 	}
 
 	// Create machine starting from the stored state
-	m := NewMachineAt(state.Statechart.CurrentState, &state)
+	currentState := State(state.Statechart.Current_state)
+	m := NewMachineAt(currentState, &state)
 	return m, nil
 }
 
@@ -39,7 +41,7 @@ func (m *Machine) Save() error {
 	}
 
 	// Update the statechart metadata with current state
-	m.projectState.Statechart.CurrentState = m.State()
+	m.projectState.Statechart.Current_state = string(m.State())
 
 	// Marshal to YAML
 	data, err := yaml.Marshal(m.projectState)

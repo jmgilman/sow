@@ -1,0 +1,73 @@
+# Test review loop-back when assessment is fail
+# Tests EventReviewFail → ImplementationPlanning transition
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-loopback
+exec sow init
+
+# Initialize project and skip to implementation
+exec sow project init loopback-test --description 'Test review loop-back'
+exec sow project phase skip discovery
+stderr '✓ Skipped discovery phase'
+exec sow project phase skip design
+stderr '✓ Skipped design phase'
+
+# Verify we're in ImplementationPlanning
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# Add and complete a task
+exec sow task add 'First task' --description 'Initial implementation'
+exec sow task update 010 --status completed
+stderr '✓ All tasks complete. Transitioning to review phase.'
+
+# Verify we're in ReviewActive
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+
+# Add FAILING review report - should loop back to ImplementationPlanning
+exec mkdir -p .sow/project/phases/review/reports
+exec sh -c 'echo "# Review Report 001\n\nIssues found. Need fixes." > .sow/project/phases/review/reports/001-review.md'
+exec sow project review add-report reports/001-review.md --assessment fail
+stderr '✓ Added review report 001 \(fail\)'
+stderr 'Review failed. Looping back to implementation planning.'
+
+# Verify we looped back to ImplementationPlanning
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+stdout 'assessment: fail'
+
+# Add new task to fix issues
+exec sow task add 'Fix issues' --description 'Address review feedback'
+stderr '✓ Created task 020'
+
+# Verify we're back in ImplementationExecuting
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationExecuting'
+
+# Complete the fix task
+exec sow task update 020 --status completed
+stderr '✓ All tasks complete. Transitioning to review phase.'
+
+# Verify we're back in ReviewActive (second iteration)
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+
+# Add PASSING review report this time
+exec sh -c 'echo "# Review Report 002\n\nAll issues fixed." > .sow/project/phases/review/reports/002-review.md'
+exec sow project review add-report reports/002-review.md --assessment pass
+stderr '✓ Added review report 002 \(pass\)'
+stderr 'Review passed. Transitioning to finalize phase.'
+
+# Verify we're in FinalizeDocumentation
+exec cat .sow/project/state.yaml
+stdout 'current_state: FinalizeDocumentation'
+stdout 'id: "002"'
+stdout 'assessment: pass'
+
+# Verify both review reports exist
+stdout 'id: "001"'
+stdout 'id: "002"'

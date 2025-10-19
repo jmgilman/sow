@@ -212,6 +212,9 @@ func createProjectWithTasks(t *testing.T, fs core.FS, taskIDs []string, statuses
 	now := time.Now()
 	state := &schemas.ProjectState{}
 
+	// Statechart state (required)
+	state.Statechart.Current_state = "ImplementationExecuting"
+
 	state.Project.Name = "test-project"
 	state.Project.Branch = "feat/test"
 	state.Project.Description = "Test project"

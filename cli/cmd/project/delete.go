@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/jmgilman/sow/cli/internal/statechart"
 	"github.com/spf13/cobra"
 )
 
@@ -79,7 +80,41 @@ func runDelete(cmd *cobra.Command, _ []string, accessor SowFSAccessor) error {
 		}
 	}
 
-	// Delete the project directory
+	// === STATECHART INTEGRATION: Fire EventProjectDelete BEFORE deletion ===
+	// Load machine
+	machine, err := statechart.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load statechart: %w", err)
+	}
+
+	// When --force is used, skip state validation but still try to transition
+	currentState := machine.State()
+	if !force && currentState != statechart.FinalizeDelete {
+		return fmt.Errorf("cannot delete project in current state: %s (expected FinalizeDelete)", currentState)
+	}
+
+	// Set project_deleted flag in state (required by guard)
+	projectState := machine.ProjectState()
+	projectState.Phases.Finalize.Project_deleted = true
+
+	// Fire event (this will work from FinalizeDelete, and --force allows other states)
+	if err := machine.Fire(statechart.EventProjectDelete); err != nil {
+		// If --force is used and we're not in the right state, just proceed with deletion
+		if !force {
+			return fmt.Errorf("failed to fire project delete event: %w", err)
+		}
+		// With --force, ignore transition errors and just delete
+	} else {
+		// Transition succeeded - save state with transition recorded
+		// NOTE: This saves the state BEFORE deletion, recording the transition to NoProject
+		if err := machine.Save(); err != nil {
+			return fmt.Errorf("failed to save statechart state: %w", err)
+		}
+
+		cmd.Printf("✓ State machine transitioned to NoProject\n")
+	}
+
+	// NOW delete the project directory
 	if err := projectFS.Delete(); err != nil {
 		return fmt.Errorf("failed to delete project: %w", err)
 	}

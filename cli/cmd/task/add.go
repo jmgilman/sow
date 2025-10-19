@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jmgilman/sow/cli/internal/statechart"
 	"github.com/jmgilman/sow/cli/internal/task"
 	"github.com/spf13/cobra"
 )
@@ -68,72 +69,86 @@ func runAdd(cmd *cobra.Command, args []string, accessor SowFSAccessor) error {
 		return fmt.Errorf("no active project - run 'sow project init' first")
 	}
 
-	// Read current project state
-	state, err := projectFS.State()
+	// === STATECHART INTEGRATION START ===
+
+	// Load machine
+	machine, err := statechart.Load()
 	if err != nil {
-		return fmt.Errorf("failed to read project state: %w", err)
+		return fmt.Errorf("failed to load statechart: %w", err)
 	}
 
-	// Validate implementation phase is enabled
+	state := machine.ProjectState()
+
+	// Validate implementation phase enabled
 	if !state.Phases.Implementation.Enabled {
-		return fmt.Errorf("implementation phase is not enabled")
+		return fmt.Errorf("implementation phase not enabled")
+	}
+
+	// Validate we're in planning or executing state
+	currentState := machine.State()
+	if currentState != statechart.ImplementationPlanning && currentState != statechart.ImplementationExecuting {
+		return fmt.Errorf("cannot add tasks in current state: %s", currentState)
 	}
 
 	// Generate or validate task ID
 	taskID := idFlag
 	if taskID == "" {
-		// Auto-generate next ID
 		taskID = task.GenerateNextTaskID(state.Phases.Implementation.Tasks)
 	} else {
-		// Validate provided ID
 		if err := task.ValidateTaskID(taskID); err != nil {
-			return fmt.Errorf("task ID validation failed: %w", err)
+			return fmt.Errorf("invalid task ID: %w", err)
 		}
 	}
 
-	// Trim dependencies (in case of whitespace)
+	// Trim dependencies
 	for i, dep := range dependencies {
 		dependencies[i] = strings.TrimSpace(dep)
 	}
 
-	// Add task to project state (lightweight entry)
+	// Add task to state IN MEMORY
 	if err := task.AddTaskToProjectState(state, taskID, name, parallel, dependencies); err != nil {
-		return fmt.Errorf("failed to add task to project: %w", err)
+		return fmt.Errorf("failed to add task: %w", err)
 	}
 
-	// Write updated project state
-	if err := projectFS.WriteState(state); err != nil {
-		return fmt.Errorf("failed to write project state: %w", err)
+	// Fire event if we're in ImplementationPlanning (triggers transition to ImplementationExecuting)
+	// This handles both the initial case (first task) and loop-back from review (additional tasks)
+	if currentState == statechart.ImplementationPlanning {
+		if err := machine.Fire(statechart.EventTaskCreated); err != nil {
+			return fmt.Errorf("failed to transition to executing: %w", err)
+		}
 	}
 
-	// Create detailed task state
+	// Save state atomically
+	if err := machine.Save(); err != nil {
+		return fmt.Errorf("failed to save state: %w", err)
+	}
+
+	// === STATECHART INTEGRATION END ===
+
+	// NOW create task files (idempotent on retry)
 	taskState := task.NewTaskState(taskID, name, agent)
 
-	// Get TaskFS for this task (unchecked since we're creating it)
 	taskFS, err := projectFS.TaskUnchecked(taskID)
 	if err != nil {
 		return fmt.Errorf("failed to create task filesystem: %w", err)
 	}
 
-	// Write task state
 	if err := taskFS.WriteState(taskState); err != nil {
-		return fmt.Errorf("failed to write task state: %w", err)
+		return fmt.Errorf("task in state but files failed: %w", err)
 	}
 
-	// Write task description
 	descContent := fmt.Sprintf("# Task %s: %s\n\n%s\n", taskID, name, description)
 	if err := taskFS.WriteDescription(descContent); err != nil {
-		return fmt.Errorf("failed to write task description: %w", err)
+		return fmt.Errorf("task in state but files failed: %w", err)
 	}
 
-	// Create task log
 	logHeader := fmt.Sprintf("# Task %s Log\n\nWorker actions will be logged here.\n", taskID)
 	if err := taskFS.AppendLog(logHeader); err != nil {
-		return fmt.Errorf("failed to create task log: %w", err)
+		return fmt.Errorf("task in state but files failed: %w", err)
 	}
 
-	// Print success message
-	cmd.Printf("✓ Created task %s: %s\n", taskID, name)
+	// Success
+	cmd.Printf("\n✓ Created task %s: %s\n", taskID, name)
 	cmd.Printf("\nTask Details:\n")
 	cmd.Printf("  ID:           %s\n", taskID)
 	cmd.Printf("  Name:         %s\n", name)

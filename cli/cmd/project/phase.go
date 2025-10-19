@@ -11,6 +11,7 @@ import (
 //
 // Subcommands:
 //   - enable: Enable an optional phase (discovery or design)
+//   - skip: Skip an optional phase (discovery or design)
 //   - status: Show phase status
 //   - complete: Mark a phase as completed
 func newPhaseCmd(accessor SowFSAccessor) *cobra.Command {
@@ -32,6 +33,7 @@ Only discovery and design can be optionally enabled.`,
 
 	// Add subcommands
 	cmd.AddCommand(newPhaseEnableCmd(accessor))
+	cmd.AddCommand(newPhaseSkipCmd(accessor))
 	cmd.AddCommand(newPhaseStatusCmd(accessor))
 	cmd.AddCommand(newPhaseCompleteCmd(accessor))
 
