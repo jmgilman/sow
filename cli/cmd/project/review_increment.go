@@ -3,7 +3,6 @@ package project
 import (
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/project"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +14,7 @@ import (
 // This command increments the review iteration counter when looping back
 // from review to implementation. The counter tracks how many review cycles
 // have occurred.
-func newReviewIncrementCmd(accessor SowFSAccessor) *cobra.Command {
+func newReviewIncrementCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "increment",
 		Short: "Increment review iteration counter",
@@ -32,37 +31,27 @@ Example:
   sow project review increment`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Get SowFS from context
-			sowFS := accessor(cmd.Context())
-			if sowFS == nil {
-				return fmt.Errorf("not in a sow repository - run 'sow init' first")
-			}
+			// Get Sow from context
+			s := sowFromContext(cmd.Context())
 
-			// Get project filesystem
-			projectFS, err := sowFS.Project()
+			// Get project
+			proj, err := s.GetProject()
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first: %w", err)
+				return fmt.Errorf("no active project - run 'sow project init' first")
 			}
 
-			// Read current state
-			state, err := projectFS.State()
-			if err != nil {
-				return fmt.Errorf("failed to read project state: %w", err)
+			// Get current iteration before incrementing
+			oldIteration := proj.State().Phases.Review.Iteration
+
+			// Increment review iteration (auto-saves)
+			if err := proj.IncrementReviewIteration(); err != nil {
+				return err
 			}
 
-			oldIteration := state.Phases.Review.Iteration
+			// Get new iteration after increment
+			newIteration := proj.State().Phases.Review.Iteration
 
-			// Increment review iteration
-			if err := project.IncrementReviewIteration(state); err != nil {
-				return fmt.Errorf("failed to increment review iteration: %w", err)
-			}
-
-			// Write updated state
-			if err := projectFS.WriteState(state); err != nil {
-				return fmt.Errorf("failed to write project state: %w", err)
-			}
-
-			cmd.Printf("✓ Incremented review iteration: %d → %d\n", oldIteration, state.Phases.Review.Iteration)
+			cmd.Printf("✓ Incremented review iteration: %d → %d\n", oldIteration, newIteration)
 
 			return nil
 		},

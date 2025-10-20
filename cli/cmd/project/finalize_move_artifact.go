@@ -3,7 +3,6 @@ package project
 import (
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/project"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +16,7 @@ import (
 //   <to>: Destination path (relative to .sow/)
 //
 // This command tracks artifacts moved from project directory to knowledge directory.
-func newFinalizeMoveArtifactCmd(accessor SowFSAccessor) *cobra.Command {
+func newFinalizeMoveArtifactCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "move-artifact <from> <to>",
 		Short: "Record an artifact moved to knowledge",
@@ -44,32 +43,18 @@ Examples:
 			fromPath := args[0]
 			toPath := args[1]
 
-			// Get SowFS from context
-			sowFS := accessor(cmd.Context())
-			if sowFS == nil {
-				return fmt.Errorf("not in a sow repository - run 'sow init' first")
-			}
+			// Get Sow from context
+			s := sowFromContext(cmd.Context())
 
-			// Get project filesystem
-			projectFS, err := sowFS.Project()
+			// Get project
+			proj, err := s.GetProject()
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first: %w", err)
+				return fmt.Errorf("no active project - run 'sow project init' first")
 			}
 
-			// Read current state
-			state, err := projectFS.State()
-			if err != nil {
-				return fmt.Errorf("failed to read project state: %w", err)
-			}
-
-			// Record moved artifact
-			if err := project.AddMovedArtifact(state, fromPath, toPath); err != nil {
-				return fmt.Errorf("failed to record moved artifact: %w", err)
-			}
-
-			// Write updated state
-			if err := projectFS.WriteState(state); err != nil {
-				return fmt.Errorf("failed to write project state: %w", err)
+			// Record moved artifact (auto-saves)
+			if err := proj.MoveArtifact(fromPath, toPath); err != nil {
+				return err
 			}
 
 			cmd.Printf("✓ Recorded artifact move\n")

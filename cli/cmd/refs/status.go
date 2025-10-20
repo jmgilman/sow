@@ -1,17 +1,12 @@
 package refs
 
 import (
-	"context"
 	"fmt"
-	"os"
 
-	"github.com/jmgilman/sow/cli/internal/refs"
-	"github.com/jmgilman/sow/cli/internal/sowfs"
-	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/spf13/cobra"
 )
 
-func newStatusCmd(sowFSFromContext func(context.Context) sowfs.SowFS) *cobra.Command {
+func newStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status [id]",
 		Short: "Check reference staleness",
@@ -24,115 +19,74 @@ If no ID specified, checks all refs that support staleness checking (e.g., git r
 			if len(args) > 0 {
 				refID = args[0]
 			}
-			return runRefsStatus(cmd.Context(), cmd, refID, sowFSFromContext)
+			return runRefsStatus(cmd, refID)
 		},
 	}
 
 	return cmd
 }
 
-//nolint:funlen // Command handlers have inherent complexity
-func runRefsStatus(ctx context.Context, cmd *cobra.Command, refID string, sowFSFromContext func(context.Context) sowfs.SowFS) error {
-	// Get SowFS from context
-	sfs := sowFSFromContext(ctx)
-	if sfs == nil {
-		return fmt.Errorf(".sow directory not found - run 'sow init' first")
-	}
+func runRefsStatus(cmd *cobra.Command, refID string) error {
+	ctx := cmd.Context()
 
-	refsFS := sfs.Refs()
+	// Get Sow from context
+	s := sowFromContext(ctx)
 
-	// Load all refs from both indexes
-	var refsToCheck []schemas.Ref
-
-	// Load committed refs
-	committedIndex, err := refsFS.CommittedIndex()
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to load committed index: %w", err)
-	}
-	if committedIndex != nil {
-		refsToCheck = append(refsToCheck, committedIndex.Refs...)
-	}
-
-	// Load local refs
-	localIndex, err := refsFS.LocalIndex()
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to load local index: %w", err)
-	}
-	if localIndex != nil {
-		refsToCheck = append(refsToCheck, localIndex.Refs...)
-	}
-
-	// Filter to specific ref if ID provided
+	// Check specific ref or all refs
 	if refID != "" {
-		found := false
-		for _, ref := range refsToCheck {
-			if ref.Id == refID {
-				refsToCheck = []schemas.Ref{ref}
-				found = true
-				break
-			}
+		// Get specific ref
+		ref, err := s.GetRef(refID)
+		if err != nil {
+			return fmt.Errorf("ref not found: %w", err)
 		}
-		if !found {
-			return fmt.Errorf("ref with ID %q not found", refID)
+
+		// Check status
+		isStale, err := ref.Status(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to check status: %w", err)
 		}
+
+		if isStale {
+			cmd.Printf("⚠ %s is STALE (updates available)\n", refID)
+			cmd.Println("\nRun 'sow refs update " + refID + "' to update")
+		} else {
+			cmd.Printf("✓ %s is current\n", refID)
+		}
+
+		return nil
 	}
 
-	if len(refsToCheck) == 0 {
+	// Check all refs
+	refs, err := s.ListRefs()
+	if err != nil {
+		return fmt.Errorf("failed to list refs: %w", err)
+	}
+
+	if len(refs) == 0 {
 		cmd.Println("No refs to check")
 		return nil
 	}
 
-	// Get cache dir for checking staleness
-	cacheDir, err := refs.DefaultCacheDir()
-	if err != nil {
-		return fmt.Errorf("failed to get cache dir: %w", err)
-	}
-
-	// Check each ref
 	current := 0
 	stale := 0
 	skipped := 0
 
-	for _, ref := range refsToCheck {
-		// Infer type
-		typeName, err := refs.InferTypeFromURL(ref.Source)
-		if err != nil {
-			cmd.Printf("⚠ Skipped %s: failed to infer type\n", ref.Id)
-			skipped++
-			continue
-		}
-
-		// Get type implementation
-		refType, err := refs.GetType(typeName)
-		if err != nil {
-			cmd.Printf("⚠ Skipped %s: unknown type %s\n", ref.Id, typeName)
-			skipped++
-			continue
-		}
-
-		// Check if type is enabled
-		enabled, err := refType.IsEnabled(ctx)
-		if err != nil || !enabled {
-			cmd.Printf("⚠ Skipped %s: type %s not enabled\n", ref.Id, typeName)
-			skipped++
-			continue
-		}
+	for _, ref := range refs {
+		id := ref.ID()
 
 		// Check staleness
-		// Note: We need a cached ref structure. For now, we'll pass nil and
-		// let the type implementation handle it
-		isStale, err := refType.IsStale(ctx, cacheDir, &ref, nil)
+		isStale, err := ref.Status(ctx)
 		if err != nil {
-			cmd.Printf("✗ Error checking %s: %v\n", ref.Id, err)
+			cmd.Printf("✗ Error checking %s: %v\n", id, err)
 			skipped++
 			continue
 		}
 
 		if isStale {
-			cmd.Printf("⚠ %s is STALE (updates available)\n", ref.Id)
+			cmd.Printf("⚠ %s is STALE (updates available)\n", id)
 			stale++
 		} else {
-			cmd.Printf("✓ %s is current\n", ref.Id)
+			cmd.Printf("✓ %s is current\n", id)
 			current++
 		}
 	}

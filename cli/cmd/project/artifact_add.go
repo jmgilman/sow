@@ -3,7 +3,6 @@ package project
 import (
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/project"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +17,7 @@ import (
 // Flags:
 //   --phase: Phase name (discovery or design, required)
 //   --approved: Mark artifact as approved immediately (optional)
-func newArtifactAddCmd(accessor SowFSAccessor) *cobra.Command {
+func newArtifactAddCmd() *cobra.Command {
 	var phaseName string
 	var approved bool
 
@@ -40,42 +39,23 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			artifactPath := args[0]
 
-			// Validate phase name
-			if err := project.ValidatePhase(phaseName); err != nil {
-				return fmt.Errorf("phase validation failed: %w", err)
-			}
-
 			// Artifact can only be added to discovery or design
-			if phaseName != project.PhaseDiscovery && phaseName != project.PhaseDesign {
+			if phaseName != "discovery" && phaseName != "design" {
 				return fmt.Errorf("artifacts can only be added to discovery or design phases, got: %s", phaseName)
 			}
 
-			// Get SowFS from context
-			sowFS := accessor(cmd.Context())
-			if sowFS == nil {
-				return fmt.Errorf("not in a sow repository - run 'sow init' first")
-			}
+			// Get Sow from context
+			s := sowFromContext(cmd.Context())
 
-			// Get project filesystem
-			projectFS, err := sowFS.Project()
+			// Get project
+			project, err := s.GetProject()
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first: %w", err)
+				return fmt.Errorf("no active project - run 'sow project init' first")
 			}
 
-			// Read current state
-			state, err := projectFS.State()
-			if err != nil {
-				return fmt.Errorf("failed to read project state: %w", err)
-			}
-
-			// Add the artifact
-			if err := project.AddArtifact(state, phaseName, artifactPath, approved); err != nil {
-				return fmt.Errorf("failed to add artifact: %w", err)
-			}
-
-			// Write updated state
-			if err := projectFS.WriteState(state); err != nil {
-				return fmt.Errorf("failed to write project state: %w", err)
+			// Add artifact (handles validation, auto-save)
+			if err := project.AddArtifact(phaseName, artifactPath, approved); err != nil {
+				return err
 			}
 
 			approvalStatus := "pending approval"

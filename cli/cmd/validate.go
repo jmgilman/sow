@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/sowfs"
 	"github.com/spf13/cobra"
 )
 
@@ -28,16 +27,22 @@ Exit codes:
   1 - Validation errors found
   2 - Failed to initialize (not in sow repository)`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Attempt to load .sow structure (validation happens during construction)
-			sowFS, err := sowfs.NewSowFS()
-			if err != nil {
-				return fmt.Errorf("failed to initialize sow filesystem: %w", err)
+			// Get Sow from context
+			s := SowFromContext(cmd.Context())
+			if s == nil {
+				return fmt.Errorf("not in a sow repository - run 'sow init' first")
 			}
-			defer func() {
-				if closeErr := sowFS.Close(); closeErr != nil {
-					cmd.PrintErrln("Warning: failed to close sow filesystem:", closeErr)
-				}
-			}()
+
+			// Validate entire structure
+			result, err := s.Validate()
+			if err != nil {
+				return fmt.Errorf("validation failed: %w", err)
+			}
+
+			// Check for validation errors
+			if result.HasErrors() {
+				return fmt.Errorf("%w", result)
+			}
 
 			// If we got here, validation passed
 			cmd.Println("✓ All validations passed")

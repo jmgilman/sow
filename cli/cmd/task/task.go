@@ -4,16 +4,34 @@ package task
 import (
 	"context"
 
-	"github.com/jmgilman/sow/cli/internal/sowfs"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
-// SowFSAccessor is a function type that retrieves SowFS from context.
-// This allows commands to be tested with different SowFS implementations.
-type SowFSAccessor func(ctx context.Context) sowfs.SowFS
+// sowFromContext retrieves the Sow instance from the command context.
+// Panics if not found (should always be available via root command setup).
+func sowFromContext(ctx context.Context) *sow.Sow {
+	s, ok := ctx.Value("sow").(*sow.Sow)
+	if !ok {
+		panic("sow instance not found in context")
+	}
+	return s
+}
+
+// resolveTaskID resolves the task ID from args or infers it.
+// If args contains a task ID, it's returned.
+// Otherwise, the task ID is inferred from the project.
+func resolveTaskID(project *sow.Project, args []string) (string, error) {
+	if len(args) > 0 {
+		return args[0], nil
+	}
+
+	// Infer task ID
+	return project.InferTaskID()
+}
 
 // NewTaskCmd creates the root task command.
-func NewTaskCmd(accessor SowFSAccessor) *cobra.Command {
+func NewTaskCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "task",
 		Short: "Manage project tasks",
@@ -32,12 +50,12 @@ between existing ones if needed. Each task has:
 	}
 
 	// Add subcommands
-	cmd.AddCommand(NewAddCmd(accessor))
-	cmd.AddCommand(NewListCmd(accessor))
-	cmd.AddCommand(NewStatusCmd(accessor))
-	cmd.AddCommand(NewUpdateCmd(accessor))
-	cmd.AddCommand(newStateCmd(accessor))
-	cmd.AddCommand(newFeedbackCmd(accessor))
+	cmd.AddCommand(NewAddCmd())
+	cmd.AddCommand(NewListCmd())
+	cmd.AddCommand(NewStatusCmd())
+	cmd.AddCommand(NewUpdateCmd())
+	cmd.AddCommand(newStateCmd())
+	cmd.AddCommand(newFeedbackCmd())
 
 	return cmd
 }

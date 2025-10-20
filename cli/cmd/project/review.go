@@ -12,7 +12,7 @@ import (
 // Subcommands:
 //   - increment: Increment review iteration counter
 //   - add-report: Add a review report with assessment
-func newReviewCmd(accessor SowFSAccessor) *cobra.Command {
+func newReviewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "review",
 		Short: "Manage review phase",
@@ -33,8 +33,8 @@ Review loop-back workflow:
 	}
 
 	// Add subcommands
-	cmd.AddCommand(newReviewIncrementCmd(accessor))
-	cmd.AddCommand(newReviewAddReportCmd(accessor))
+	cmd.AddCommand(newReviewIncrementCmd())
+	cmd.AddCommand(newReviewAddReportCmd())
 
 	return cmd
 }

@@ -3,13 +3,11 @@ package task
 import (
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/task"
-	"github.com/jmgilman/sow/cli/internal/taskutil"
 	"github.com/spf13/cobra"
 )
 
 // newStateAddFileCmd creates the state add-file command.
-func newStateAddFileCmd(accessor SowFSAccessor) *cobra.Command {
+func newStateAddFileCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-file <path> [task-id]",
 		Short: "Track a file that was modified during task execution",
@@ -41,56 +39,46 @@ Examples:
   sow task state add-file docs/api/auth.md`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStateAddFile(cmd, args, accessor)
+			return runStateAddFile(cmd, args)
 		},
 	}
 
 	return cmd
 }
 
-func runStateAddFile(cmd *cobra.Command, args []string, accessor SowFSAccessor) error {
+func runStateAddFile(cmd *cobra.Command, args []string) error {
 	// First arg is always the file path
 	filePath := args[0]
 
 	// Remaining args are for task ID resolution
 	taskIDArgs := args[1:]
 
-	// Get SowFS from context
-	sowFS := accessor(cmd.Context())
-	if sowFS == nil {
-		return fmt.Errorf("not in a sow repository - run 'sow init' first")
-	}
+	// Get Sow from context
+	s := sowFromContext(cmd.Context())
 
-	// Resolve task ID (either from args or inferred)
-	taskID, err := taskutil.ResolveTaskIDFromArgs(sowFS, taskIDArgs)
-	if err != nil {
-		return fmt.Errorf("failed to resolve task ID: %w", err)
-	}
-
-	// Validate task ID format
-	if err := task.ValidateTaskID(taskID); err != nil {
-		return fmt.Errorf("invalid task ID: %w", err)
-	}
-
-	// Get project (must exist)
-	projectFS, err := sowFS.Project()
+	// Get project
+	proj, err := s.GetProject()
 	if err != nil {
 		return fmt.Errorf("no active project - run 'sow project init' first")
 	}
 
-	// Get TaskFS
-	taskFS, err := projectFS.Task(taskID)
+	// Resolve task ID (from args or infer)
+	taskID, err := resolveTaskID(proj, taskIDArgs)
+	if err != nil {
+		return fmt.Errorf("failed to resolve task ID: %w", err)
+	}
+
+	// Get task
+	t, err := proj.GetTask(taskID)
 	if err != nil {
 		return fmt.Errorf("task '%s' not found: %w", taskID, err)
 	}
 
-	// Read task state
-	taskState, err := taskFS.State()
+	// Check if already exists (for better messaging)
+	taskState, err := t.State()
 	if err != nil {
 		return fmt.Errorf("failed to read task state: %w", err)
 	}
-
-	// Check if already exists (for better messaging)
 	alreadyExists := false
 	for _, file := range taskState.Task.Files_modified {
 		if file == filePath {
@@ -99,14 +87,9 @@ func runStateAddFile(cmd *cobra.Command, args []string, accessor SowFSAccessor) 
 		}
 	}
 
-	// Add file
-	if err := task.AddModifiedFile(taskState, filePath); err != nil {
-		return fmt.Errorf("failed to add modified file: %w", err)
-	}
-
-	// Write updated state
-	if err := taskFS.WriteState(taskState); err != nil {
-		return fmt.Errorf("failed to write task state: %w", err)
+	// Add file (auto-saves)
+	if err := t.AddFile(filePath); err != nil {
+		return err
 	}
 
 	// Print success message

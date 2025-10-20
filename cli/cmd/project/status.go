@@ -9,7 +9,7 @@ import (
 )
 
 // NewStatusCmd creates the project status command.
-func NewStatusCmd(accessor SowFSAccessor) *cobra.Command {
+func NewStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show project status",
@@ -28,7 +28,7 @@ Example:
   sow project status
   sow project status --format json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStatus(cmd, args, accessor)
+			return runStatus(cmd, args)
 		},
 	}
 
@@ -38,7 +38,7 @@ Example:
 	return cmd
 }
 
-func runStatus(cmd *cobra.Command, _ []string, accessor SowFSAccessor) error {
+func runStatus(cmd *cobra.Command, _ []string) error {
 	format, _ := cmd.Flags().GetString("format")
 
 	// Validate format
@@ -46,23 +46,17 @@ func runStatus(cmd *cobra.Command, _ []string, accessor SowFSAccessor) error {
 		return fmt.Errorf("invalid format '%s': must be 'text' or 'json'", format)
 	}
 
-	// Get SowFS from context
-	sowFS := accessor(cmd.Context())
-	if sowFS == nil {
-		return fmt.Errorf("not in a sow repository - run 'sow init' first")
-	}
+	// Get Sow from context
+	sow := sowFromContext(cmd.Context())
 
-	// Get ProjectFS (will error if no project exists)
-	projectFS, err := sowFS.Project()
+	// Get project
+	proj, err := sow.GetProject()
 	if err != nil {
 		return fmt.Errorf("no active project found - run 'sow project init' to create one")
 	}
 
-	// Read project state
-	state, err := projectFS.State()
-	if err != nil {
-		return fmt.Errorf("failed to read project state: %w", err)
-	}
+	// Get project state
+	state := proj.State()
 
 	// Output based on format
 	if format == "json" {
@@ -71,11 +65,11 @@ func runStatus(cmd *cobra.Command, _ []string, accessor SowFSAccessor) error {
 		if err != nil {
 			return fmt.Errorf("failed to marshal project state to JSON: %w", err)
 		}
-		cmd.Println(string(jsonData))
+		fmt.Fprintln(cmd.OutOrStdout(), string(jsonData))
 	} else {
 		// Text output: use formatted display
 		output := project.FormatStatus(state)
-		cmd.Print(output)
+		fmt.Fprint(cmd.OutOrStdout(), output)
 	}
 
 	return nil

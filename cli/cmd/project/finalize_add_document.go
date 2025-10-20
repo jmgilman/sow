@@ -3,7 +3,6 @@ package project
 import (
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/project"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +15,7 @@ import (
 //   <path>: Path to documentation file (relative to repo root)
 //
 // This command tracks which documentation files were updated during finalization.
-func newFinalizeAddDocumentCmd(accessor SowFSAccessor) *cobra.Command {
+func newFinalizeAddDocumentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-document <path>",
 		Short: "Track a documentation file update",
@@ -41,32 +40,18 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			docPath := args[0]
 
-			// Get SowFS from context
-			sowFS := accessor(cmd.Context())
-			if sowFS == nil {
-				return fmt.Errorf("not in a sow repository - run 'sow init' first")
-			}
+			// Get Sow from context
+			s := sowFromContext(cmd.Context())
 
-			// Get project filesystem
-			projectFS, err := sowFS.Project()
+			// Get project
+			proj, err := s.GetProject()
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first: %w", err)
+				return fmt.Errorf("no active project - run 'sow project init' first")
 			}
 
-			// Read current state
-			state, err := projectFS.State()
-			if err != nil {
-				return fmt.Errorf("failed to read project state: %w", err)
-			}
-
-			// Add documentation update
-			if err := project.AddDocumentationUpdate(state, docPath); err != nil {
-				return fmt.Errorf("failed to add documentation update: %w", err)
-			}
-
-			// Write updated state
-			if err := projectFS.WriteState(state); err != nil {
-				return fmt.Errorf("failed to write project state: %w", err)
+			// Add documentation update (auto-saves)
+			if err := proj.AddDocumentation(docPath); err != nil {
+				return err
 			}
 
 			cmd.Printf("✓ Tracked documentation update\n")

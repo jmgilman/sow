@@ -163,20 +163,88 @@ func (p *Project) CompletePhase(phaseName string) error {
 	return p.save()
 }
 
+// SkipPhase marks an optional phase as skipped and transitions the state machine.
+func (p *Project) SkipPhase(phaseName string) error {
+	state := p.State()
+
+	switch phaseName {
+	case "discovery":
+		state.Phases.Discovery.Enabled = false
+		state.Phases.Discovery.Status = "skipped"
+
+		// Fire state machine event
+		if err := p.machine.Fire(statechart.EventSkipDiscovery); err != nil {
+			return fmt.Errorf("state transition failed: %w", err)
+		}
+
+	case "design":
+		state.Phases.Design.Enabled = false
+		state.Phases.Design.Status = "skipped"
+
+		// Fire state machine event
+		if err := p.machine.Fire(statechart.EventSkipDesign); err != nil {
+			return fmt.Errorf("state transition failed: %w", err)
+		}
+
+	default:
+		return fmt.Errorf("only discovery and design phases can be skipped")
+	}
+
+	// Auto-save
+	return p.save()
+}
+
+// CompleteFinalizeSubphase completes a finalize subphase (documentation or checks).
+func (p *Project) CompleteFinalizeSubphase(subphase string) error {
+	var event statechart.Event
+
+	switch subphase {
+	case "documentation":
+		event = statechart.EventDocumentationDone
+	case "checks":
+		event = statechart.EventChecksDone
+	default:
+		return fmt.Errorf("invalid finalize subphase: must be 'documentation' or 'checks'")
+	}
+
+	// Fire state machine event
+	if err := p.machine.Fire(event); err != nil {
+		return fmt.Errorf("state transition failed: %w", err)
+	}
+
+	// Auto-save
+	return p.save()
+}
+
 // AddTask creates a new implementation task.
 func (p *Project) AddTask(name string, opts ...TaskOption) (*Task, error) {
 	state := p.State()
-
-	// Generate task ID (gap-numbered: 010, 020, 030...)
-	id := p.generateTaskID()
 
 	// Apply options
 	cfg := &taskConfig{
 		status:   "pending",
 		parallel: false,
+		agent:    "implementer", // Default agent
 	}
 	for _, opt := range opts {
 		opt(cfg)
+	}
+
+	// Determine task ID (explicit or auto-generated)
+	id := cfg.id
+	if id == "" {
+		id = p.generateTaskID()
+	} else {
+		// Validate explicit ID format (gap-numbered: 010, 020, etc.)
+		if !isValidTaskID(id) {
+			return nil, fmt.Errorf("invalid task ID format: %s (must be gap-numbered like 010, 020)", id)
+		}
+		// Check for duplicates
+		for _, t := range state.Phases.Implementation.Tasks {
+			if t.Id == id {
+				return nil, fmt.Errorf("task ID already exists: %s", id)
+			}
+		}
 	}
 
 	// Create task
@@ -191,8 +259,8 @@ func (p *Project) AddTask(name string, opts ...TaskOption) (*Task, error) {
 	// Add to state
 	state.Phases.Implementation.Tasks = append(state.Phases.Implementation.Tasks, task)
 
-	// Create task directory structure
-	if err := p.createTaskStructure(id); err != nil {
+	// Create task directory structure and files
+	if err := p.createTaskStructure(id, name, cfg); err != nil {
 		return nil, fmt.Errorf("failed to create task structure: %w", err)
 	}
 
@@ -498,7 +566,7 @@ func (p *Project) createPhaseStructure(phaseName string) error {
 }
 
 // createTaskStructure creates the directory structure for a task.
-func (p *Project) createTaskStructure(id string) error {
+func (p *Project) createTaskStructure(id, name string, cfg *taskConfig) error {
 	taskDir := filepath.Join(".sow/project/phases/implementation/tasks", id)
 
 	// Create task directory
@@ -506,16 +574,16 @@ func (p *Project) createTaskStructure(id string) error {
 		return err
 	}
 
-	// Create state.yaml
+	// Create state.yaml with actual values
 	taskState := schemas.TaskState{}
 	taskState.Task.Id = id
-	taskState.Task.Name = ""  // Will be set later
+	taskState.Task.Name = name
 	taskState.Task.Phase = "implementation"
-	taskState.Task.Status = "pending"
+	taskState.Task.Status = cfg.status
 	taskState.Task.Created_at = time.Now()
 	taskState.Task.Updated_at = time.Now()
 	taskState.Task.Iteration = 1
-	taskState.Task.Assigned_agent = ""
+	taskState.Task.Assigned_agent = cfg.agent
 	taskState.Task.References = []string{}
 	taskState.Task.Feedback = []schemas.Feedback{}
 	taskState.Task.Files_modified = []string{}
@@ -525,17 +593,17 @@ func (p *Project) createTaskStructure(id string) error {
 		return err
 	}
 
-	// Create description.md
+	// Create description.md with actual description
 	descPath := filepath.Join(taskDir, "description.md")
-	descContent := []byte("# Task Description\n\nDescription will be added here.\n")
-	if err := p.sow.writeFile(descPath, descContent, 0644); err != nil {
+	descContent := fmt.Sprintf("# Task %s: %s\n\n%s\n", id, name, cfg.description)
+	if err := p.sow.writeFile(descPath, []byte(descContent), 0644); err != nil {
 		return err
 	}
 
 	// Create log.md
 	logPath := filepath.Join(taskDir, "log.md")
-	logContent := []byte("# Task Log\n\n")
-	if err := p.sow.writeFile(logPath, logContent, 0644); err != nil {
+	logContent := fmt.Sprintf("# Task %s Log\n\nWorker actions will be logged here.\n", id)
+	if err := p.sow.writeFile(logPath, []byte(logContent), 0644); err != nil {
 		return err
 	}
 
@@ -565,4 +633,42 @@ func (p *Project) generateTaskID() string {
 	// Next ID is maxID + 10
 	nextID := maxID + 10
 	return fmt.Sprintf("%03d", nextID)
+}
+
+// isValidTaskID validates that a task ID follows the gap-numbered format (010, 020, etc.).
+func isValidTaskID(id string) bool {
+	// Must be 3 digits
+	if len(id) != 3 {
+		return false
+	}
+
+	// Must be numeric
+	var num int
+	if _, err := fmt.Sscanf(id, "%d", &num); err != nil {
+		return false
+	}
+
+	// Must be divisible by 10 (gap-numbered)
+	return num%10 == 0 && num > 0
+}
+
+// AppendLog appends a log entry to the project log file.
+func (p *Project) AppendLog(entry string) error {
+	logPath := ".sow/project/log.md"
+
+	// Read existing content
+	existing, err := p.sow.readFile(logPath)
+	if err != nil {
+		return fmt.Errorf("failed to read project log: %w", err)
+	}
+
+	// Append new entry
+	updated := append(existing, []byte(entry)...)
+
+	// Write back
+	if err := p.sow.writeFile(logPath, updated, 0644); err != nil {
+		return fmt.Errorf("failed to write project log: %w", err)
+	}
+
+	return nil
 }

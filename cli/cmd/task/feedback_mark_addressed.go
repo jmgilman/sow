@@ -3,13 +3,11 @@ package task
 import (
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/task"
-	"github.com/jmgilman/sow/cli/internal/taskutil"
 	"github.com/spf13/cobra"
 )
 
 // newFeedbackMarkAddressedCmd creates the feedback mark-addressed command.
-func newFeedbackMarkAddressedCmd(accessor SowFSAccessor) *cobra.Command {
+func newFeedbackMarkAddressedCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "mark-addressed <feedback-id> [task-id]",
 		Short: "Mark feedback as addressed",
@@ -43,63 +41,44 @@ Examples:
   sow task feedback mark-addressed 001`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runFeedbackMarkAddressed(cmd, args, accessor)
+			return runFeedbackMarkAddressed(cmd, args)
 		},
 	}
 
 	return cmd
 }
 
-func runFeedbackMarkAddressed(cmd *cobra.Command, args []string, accessor SowFSAccessor) error {
+func runFeedbackMarkAddressed(cmd *cobra.Command, args []string) error {
 	// First arg is always the feedback ID
 	feedbackID := args[0]
 
 	// Remaining args are for task ID resolution
 	taskIDArgs := args[1:]
 
-	// Get SowFS from context
-	sowFS := accessor(cmd.Context())
-	if sowFS == nil {
-		return fmt.Errorf("not in a sow repository - run 'sow init' first")
-	}
+	// Get Sow from context
+	s := sowFromContext(cmd.Context())
 
-	// Resolve task ID (either from args or inferred)
-	taskID, err := taskutil.ResolveTaskIDFromArgs(sowFS, taskIDArgs)
-	if err != nil {
-		return fmt.Errorf("failed to resolve task ID: %w", err)
-	}
-
-	// Validate task ID format
-	if err := task.ValidateTaskID(taskID); err != nil {
-		return fmt.Errorf("invalid task ID: %w", err)
-	}
-
-	// Get project (must exist)
-	projectFS, err := sowFS.Project()
+	// Get project
+	proj, err := s.GetProject()
 	if err != nil {
 		return fmt.Errorf("no active project - run 'sow project init' first")
 	}
 
-	// Get TaskFS
-	taskFS, err := projectFS.Task(taskID)
+	// Resolve task ID (from args or infer)
+	taskID, err := resolveTaskID(proj, taskIDArgs)
+	if err != nil {
+		return fmt.Errorf("failed to resolve task ID: %w", err)
+	}
+
+	// Get task
+	t, err := proj.GetTask(taskID)
 	if err != nil {
 		return fmt.Errorf("task '%s' not found: %w", taskID, err)
 	}
 
-	// Read task state
-	taskState, err := taskFS.State()
-	if err != nil {
-		return fmt.Errorf("failed to read task state: %w", err)
-	}
-
-	// Mark feedback as addressed
-	if err := task.MarkFeedbackAddressed(taskState, feedbackID); err != nil {
-		return fmt.Errorf("failed to mark feedback as addressed: %w", err)
-	}
-
-	// Write updated state
-	if err := taskFS.WriteState(taskState); err != nil {
-		return fmt.Errorf("failed to write task state: %w", err)
+	// Mark feedback as addressed (auto-saves)
+	if err := t.MarkFeedbackAddressed(feedbackID); err != nil {
+		return err
 	}
 
 	// Print success message

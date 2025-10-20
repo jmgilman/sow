@@ -13,7 +13,7 @@ import (
 //   - complete: Complete a finalize subphase (documentation or checks)
 //   - add-document: Track a documentation file update
 //   - move-artifact: Record an artifact moved to knowledge
-func newFinalizeCmd(accessor SowFSAccessor) *cobra.Command {
+func newFinalizeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "finalize",
 		Short: "Manage finalize phase",
@@ -30,9 +30,9 @@ These commands track changes made during finalization for audit purposes.`,
 	}
 
 	// Add subcommands
-	cmd.AddCommand(newFinalizeCompleteCmd(accessor))
-	cmd.AddCommand(newFinalizeAddDocumentCmd(accessor))
-	cmd.AddCommand(newFinalizeMoveArtifactCmd(accessor))
+	cmd.AddCommand(newFinalizeCompleteCmd())
+	cmd.AddCommand(newFinalizeAddDocumentCmd())
+	cmd.AddCommand(newFinalizeMoveArtifactCmd())
 
 	return cmd
 }

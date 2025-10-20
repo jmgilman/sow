@@ -16,7 +16,7 @@ import (
 // Flags:
 //   --phase: Phase to filter by (optional, shows all if not specified)
 //   --format: Output format (text or json, default: text)
-func newArtifactListCmd(accessor SowFSAccessor) *cobra.Command {
+func newArtifactListCmd() *cobra.Command {
 	var phaseName string
 	var format string
 
@@ -49,33 +49,23 @@ Examples:
 
 			// Validate phase name if provided
 			if phaseName != "" {
-				if err := project.ValidatePhase(phaseName); err != nil {
-					return fmt.Errorf("phase validation failed: %w", err)
-				}
-
 				// Artifact can only exist in discovery or design
-				if phaseName != project.PhaseDiscovery && phaseName != project.PhaseDesign {
+				if phaseName != "discovery" && phaseName != "design" {
 					return fmt.Errorf("artifacts can only exist in discovery or design phases, got: %s", phaseName)
 				}
 			}
 
-			// Get SowFS from context
-			sowFS := accessor(cmd.Context())
-			if sowFS == nil {
-				return fmt.Errorf("not in a sow repository - run 'sow init' first")
+			// Get Sow from context
+			s := sowFromContext(cmd.Context())
+
+			// Get project
+			proj, err := s.GetProject()
+			if err != nil {
+				return fmt.Errorf("no active project - run 'sow project init' first")
 			}
 
-			// Get project filesystem
-			projectFS, err := sowFS.Project()
-			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first: %w", err)
-			}
-
-			// Read current state
-			state, err := projectFS.State()
-			if err != nil {
-				return fmt.Errorf("failed to read project state: %w", err)
-			}
+			// Get state
+			state := proj.State()
 
 			// Output based on format
 			if format == "json" {
@@ -83,9 +73,9 @@ Examples:
 				var artifacts interface{}
 
 				switch phaseName {
-				case project.PhaseDiscovery:
+				case "discovery":
 					artifacts = state.Phases.Discovery.Artifacts
-				case project.PhaseDesign:
+				case "design":
 					artifacts = state.Phases.Design.Artifacts
 				default:
 					// All artifacts

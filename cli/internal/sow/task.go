@@ -242,3 +242,24 @@ func (t *Task) MarkFeedbackAddressed(feedbackID string) error {
 
 	return fmt.Errorf("feedback not found: %s", feedbackID)
 }
+
+// AppendLog appends a log entry to the task log file.
+func (t *Task) AppendLog(entry string) error {
+	logPath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "log.md")
+
+	// Read existing content
+	existing, err := t.project.sow.readFile(logPath)
+	if err != nil {
+		return fmt.Errorf("failed to read task log: %w", err)
+	}
+
+	// Append new entry
+	updated := append(existing, []byte(entry)...)
+
+	// Write back
+	if err := t.project.sow.writeFile(logPath, updated, 0644); err != nil {
+		return fmt.Errorf("failed to write task log: %w", err)
+	}
+
+	return nil
+}

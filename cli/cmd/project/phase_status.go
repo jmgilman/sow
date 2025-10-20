@@ -14,7 +14,7 @@ import (
 //   sow project phase status [--format text|json]
 //
 // Displays the status of all 5 project phases.
-func newPhaseStatusCmd(accessor SowFSAccessor) *cobra.Command {
+func newPhaseStatusCmd() *cobra.Command {
 	var format string
 
 	cmd := &cobra.Command{
@@ -36,23 +36,17 @@ Output formats:
 				return fmt.Errorf("invalid format '%s': must be 'text' or 'json'", format)
 			}
 
-			// Get SowFS from context
-			sowFS := accessor(cmd.Context())
-			if sowFS == nil {
-				return fmt.Errorf("not in a sow repository - run 'sow init' first")
+			// Get Sow from context
+			s := sowFromContext(cmd.Context())
+
+			// Get project
+			proj, err := s.GetProject()
+			if err != nil {
+				return fmt.Errorf("no active project - run 'sow project init' first")
 			}
 
-			// Get project filesystem
-			projectFS, err := sowFS.Project()
-			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first: %w", err)
-			}
-
-			// Read current state
-			state, err := projectFS.State()
-			if err != nil {
-				return fmt.Errorf("failed to read project state: %w", err)
-			}
+			// Get state
+			state := proj.State()
 
 			// Output based on format
 			switch format {

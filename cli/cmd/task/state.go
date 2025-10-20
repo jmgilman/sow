@@ -14,7 +14,7 @@ import (
 //   - set-agent: Change the assigned agent
 //   - add-reference: Add a context reference
 //   - add-file: Track a modified file
-func newStateCmd(accessor SowFSAccessor) *cobra.Command {
+func newStateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "state",
 		Short: "Manage task state properties",
@@ -37,10 +37,10 @@ Task ID inference:
 	}
 
 	// Add subcommands
-	cmd.AddCommand(newStateIncrementCmd(accessor))
-	cmd.AddCommand(newStateSetAgentCmd(accessor))
-	cmd.AddCommand(newStateAddReferenceCmd(accessor))
-	cmd.AddCommand(newStateAddFileCmd(accessor))
+	cmd.AddCommand(newStateIncrementCmd())
+	cmd.AddCommand(newStateSetAgentCmd())
+	cmd.AddCommand(newStateAddReferenceCmd())
+	cmd.AddCommand(newStateAddFileCmd())
 
 	return cmd
 }

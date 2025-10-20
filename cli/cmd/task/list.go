@@ -9,7 +9,7 @@ import (
 )
 
 // NewListCmd creates the task list command.
-func NewListCmd(accessor SowFSAccessor) *cobra.Command {
+func NewListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all tasks in the implementation phase",
@@ -25,7 +25,7 @@ Example:
   sow task list
   sow task list --format json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(cmd, args, accessor)
+			return runList(cmd, args)
 		},
 	}
 
@@ -35,7 +35,7 @@ Example:
 	return cmd
 }
 
-func runList(cmd *cobra.Command, _ []string, accessor SowFSAccessor) error {
+func runList(cmd *cobra.Command, _ []string) error {
 	format, _ := cmd.Flags().GetString("format")
 
 	// Validate format
@@ -43,23 +43,17 @@ func runList(cmd *cobra.Command, _ []string, accessor SowFSAccessor) error {
 		return fmt.Errorf("invalid format '%s': must be 'text' or 'json'", format)
 	}
 
-	// Get SowFS from context
-	sowFS := accessor(cmd.Context())
-	if sowFS == nil {
-		return fmt.Errorf("not in a sow repository - run 'sow init' first")
-	}
+	// Get Sow from context
+	s := sowFromContext(cmd.Context())
 
-	// Get project (must exist)
-	projectFS, err := sowFS.Project()
+	// Get project
+	proj, err := s.GetProject()
 	if err != nil {
 		return fmt.Errorf("no active project - run 'sow project init' first")
 	}
 
-	// Read project state
-	state, err := projectFS.State()
-	if err != nil {
-		return fmt.Errorf("failed to read project state: %w", err)
-	}
+	// Get state
+	state := proj.State()
 
 	// Get tasks from implementation phase
 	tasks := state.Phases.Implementation.Tasks

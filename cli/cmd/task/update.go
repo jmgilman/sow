@@ -3,14 +3,11 @@ package task
 import (
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/statechart"
-	"github.com/jmgilman/sow/cli/internal/task"
-	"github.com/jmgilman/sow/cli/internal/taskutil"
 	"github.com/spf13/cobra"
 )
 
 // NewUpdateCmd creates the task update command.
-func NewUpdateCmd(accessor SowFSAccessor) *cobra.Command {
+func NewUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update [task-id]",
 		Short: "Update task properties",
@@ -36,7 +33,7 @@ Examples:
   sow task update --status completed        # Update inferred task`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpdate(cmd, args, accessor)
+			return runUpdate(cmd, args)
 		},
 	}
 
@@ -46,53 +43,33 @@ Examples:
 	return cmd
 }
 
-func runUpdate(cmd *cobra.Command, args []string, accessor SowFSAccessor) error {
+func runUpdate(cmd *cobra.Command, args []string) error {
 	statusFlag, _ := cmd.Flags().GetString("status")
 
-	// At least one flag must be provided
+	// At least one flag must be specified
 	if statusFlag == "" {
 		return fmt.Errorf("at least one update flag must be specified (--status)")
 	}
 
-	// Get SowFS from context
-	sowFS := accessor(cmd.Context())
-	if sowFS == nil {
-		return fmt.Errorf("not in a sow repository - run 'sow init' first")
-	}
+	// Get Sow from context
+	s := sowFromContext(cmd.Context())
 
-	// Resolve task ID (either from args or inferred)
-	taskID, err := taskutil.ResolveTaskIDFromArgs(sowFS, args)
-	if err != nil {
-		return fmt.Errorf("failed to resolve task ID: %w", err)
-	}
-
-	// Validate task ID format
-	if err := task.ValidateTaskID(taskID); err != nil {
-		return fmt.Errorf("invalid task ID: %w", err)
-	}
-
-	// Get project (must exist)
-	projectFS, err := sowFS.Project()
+	// Get project
+	proj, err := s.GetProject()
 	if err != nil {
 		return fmt.Errorf("no active project - run 'sow project init' first")
 	}
 
-	// Read project state
-	projectState, err := projectFS.State()
+	// Resolve task ID (from args or infer)
+	taskID, err := resolveTaskID(proj, args)
 	if err != nil {
-		return fmt.Errorf("failed to read project state: %w", err)
+		return fmt.Errorf("failed to resolve task ID: %w", err)
 	}
 
-	// Get TaskFS
-	taskFS, err := projectFS.Task(taskID)
+	// Get task
+	t, err := proj.GetTask(taskID)
 	if err != nil {
 		return fmt.Errorf("task '%s' not found: %w", taskID, err)
-	}
-
-	// Read task state
-	taskState, err := taskFS.State()
-	if err != nil {
-		return fmt.Errorf("failed to read task state: %w", err)
 	}
 
 	// Track what was updated
@@ -100,55 +77,22 @@ func runUpdate(cmd *cobra.Command, args []string, accessor SowFSAccessor) error 
 
 	// Update status if provided
 	if statusFlag != "" {
-		oldStatus := taskState.Task.Status
+		oldStatus := t.Status()
 
-		// Update detailed task state (with timestamps)
-		if err := task.UpdateTaskStatus(taskState, statusFlag); err != nil {
-			return fmt.Errorf("failed to update task status: %w", err)
-		}
-
-		// Update lightweight project state entry
-		if err := task.UpdateTaskStatusInProject(projectState, taskID, statusFlag); err != nil {
-			return fmt.Errorf("failed to update project state: %w", err)
+		// Update status (handles project state, task state, timestamps, and state machine transitions)
+		if err := t.SetStatus(statusFlag); err != nil {
+			return err
 		}
 
 		updated = append(updated, fmt.Sprintf("status: %s → %s", oldStatus, statusFlag))
-	}
 
-	// Write updated states
-	if err := taskFS.WriteState(taskState); err != nil {
-		return fmt.Errorf("failed to write task state: %w", err)
-	}
-
-	if err := projectFS.WriteState(projectState); err != nil {
-		return fmt.Errorf("failed to write project state: %w", err)
-	}
-
-	// === STATECHART INTEGRATION: Auto-fire EventAllTasksComplete ===
-	// Check if status was updated to completed or abandoned
-	if statusFlag == "completed" || statusFlag == "abandoned" {
-		// Check if ALL tasks are now complete
-		if statechart.AllTasksComplete(projectState) {
-			// Load statechart machine
-			machine, err := statechart.Load()
-			if err != nil {
-				return fmt.Errorf("failed to load statechart: %w", err)
-			}
-
-			// Verify we're in ImplementationExecuting state
-			currentState := machine.State()
-			if currentState == statechart.ImplementationExecuting {
-				// Fire event to transition to ReviewActive
-				if err := machine.Fire(statechart.EventAllTasksComplete); err != nil {
-					return fmt.Errorf("failed to transition to review: %w", err)
-				}
-
-				// Save state with new statechart state
-				if err := machine.Save(); err != nil {
-					return fmt.Errorf("failed to save statechart state: %w", err)
-				}
-
-				cmd.Printf("\n✓ All tasks complete. Transitioning to review phase.\n")
+		// Check if we transitioned to review phase
+		if statusFlag == "completed" || statusFlag == "abandoned" {
+			// The SetStatus method already handles the state machine transition if all tasks are complete
+			// Just provide user feedback if we're now in review
+			currentState := proj.Machine().State()
+			if currentState.String() == "ReviewActive" {
+				cmd.Printf("\n✓ All tasks complete. Transitioned to review phase.\n")
 			}
 		}
 	}

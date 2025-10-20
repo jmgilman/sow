@@ -6,12 +6,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/statechart"
 	"github.com/spf13/cobra"
 )
 
 // NewDeleteCmd creates the project delete command.
-func NewDeleteCmd(accessor SowFSAccessor) *cobra.Command {
+func NewDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete",
 		Short: "Delete the project directory",
@@ -30,7 +29,7 @@ Example:
   sow project delete
   sow project delete --force`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDelete(cmd, args, accessor)
+			return runDelete(cmd, args)
 		},
 	}
 
@@ -40,32 +39,25 @@ Example:
 	return cmd
 }
 
-func runDelete(cmd *cobra.Command, _ []string, accessor SowFSAccessor) error {
+func runDelete(cmd *cobra.Command, _ []string) error {
 	force, _ := cmd.Flags().GetBool("force")
 
-	// Get SowFS from context
-	sowFS := accessor(cmd.Context())
-	if sowFS == nil {
-		return fmt.Errorf("not in a sow repository - run 'sow init' first")
-	}
+	// Get Sow from context
+	sow := sowFromContext(cmd.Context())
 
-	// Get ProjectFS (will error if no project exists)
-	projectFS, err := sowFS.Project()
+	// Get project to retrieve name for confirmation
+	project, err := sow.GetProject()
 	if err != nil {
 		return fmt.Errorf("no active project found - nothing to delete")
 	}
 
-	// Read project state to get project name
-	state, err := projectFS.State()
-	if err != nil {
-		return fmt.Errorf("failed to read project state: %w", err)
-	}
+	projectName := project.Name()
 
 	// Confirm deletion unless --force
 	if !force {
-		cmd.Printf("WARNING: This will permanently delete project '%s'\n", state.Project.Name)
-		cmd.Printf("This action cannot be undone (though it remains in git history).\n\n")
-		cmd.Printf("Delete project? (yes/no): ")
+		fmt.Fprintf(cmd.OutOrStdout(), "WARNING: This will permanently delete project '%s'\n", projectName)
+		fmt.Fprintf(cmd.OutOrStdout(), "This action cannot be undone (though it remains in git history).\n\n")
+		fmt.Fprintf(cmd.OutOrStdout(), "Delete project? (yes/no): ")
 
 		reader := bufio.NewReader(os.Stdin)
 		response, err := reader.ReadString('\n')
@@ -75,55 +67,22 @@ func runDelete(cmd *cobra.Command, _ []string, accessor SowFSAccessor) error {
 
 		response = strings.TrimSpace(strings.ToLower(response))
 		if response != "yes" && response != "y" {
-			cmd.Println("Deletion cancelled.")
+			fmt.Fprintln(cmd.OutOrStdout(), "Deletion cancelled.")
 			return nil
 		}
 	}
 
-	// === STATECHART INTEGRATION: Fire EventProjectDelete BEFORE deletion ===
-	// Load machine
-	machine, err := statechart.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load statechart: %w", err)
-	}
-
-	// When --force is used, skip state validation but still try to transition
-	currentState := machine.State()
-	if !force && currentState != statechart.FinalizeDelete {
-		return fmt.Errorf("cannot delete project in current state: %s (expected FinalizeDelete)", currentState)
-	}
-
-	// Set project_deleted flag in state (required by guard)
-	projectState := machine.ProjectState()
-	projectState.Phases.Finalize.Project_deleted = true
-
-	// Fire event (this will work from FinalizeDelete, and --force allows other states)
-	if err := machine.Fire(statechart.EventProjectDelete); err != nil {
-		// If --force is used and we're not in the right state, just proceed with deletion
-		if !force {
-			return fmt.Errorf("failed to fire project delete event: %w", err)
-		}
-		// With --force, ignore transition errors and just delete
-	} else {
-		// Transition succeeded - save state with transition recorded
-		// NOTE: This saves the state BEFORE deletion, recording the transition to NoProject
-		if err := machine.Save(); err != nil {
-			return fmt.Errorf("failed to save statechart state: %w", err)
-		}
-
-		cmd.Printf("✓ State machine transitioned to NoProject\n")
-	}
-
-	// NOW delete the project directory
-	if err := projectFS.Delete(); err != nil {
+	// Delete project (handles state machine transition and cleanup)
+	if err := sow.DeleteProject(); err != nil {
 		return fmt.Errorf("failed to delete project: %w", err)
 	}
 
 	// Print success message
-	cmd.Printf("✓ Deleted project '%s'\n", state.Project.Name)
-	cmd.Printf("\nNext steps:\n")
-	cmd.Printf("  1. Commit the deletion: git add -A && git commit -m \"Delete project state\"\n")
-	cmd.Printf("  2. Create PR or merge to main\n")
+	fmt.Fprintf(cmd.OutOrStderr(), "✓ State machine transitioned to NoProject\n")
+	fmt.Fprintf(cmd.OutOrStderr(), "✓ Deleted project '%s'\n", projectName)
+	fmt.Fprintf(cmd.OutOrStderr(), "\nNext steps:\n")
+	fmt.Fprintf(cmd.OutOrStderr(), "  1. Commit the deletion: git add -A && git commit -m \"Delete project state\"\n")
+	fmt.Fprintf(cmd.OutOrStderr(), "  2. Create PR or merge to main\n")
 
 	return nil
 }

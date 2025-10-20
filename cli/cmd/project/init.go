@@ -7,7 +7,7 @@ import (
 )
 
 // NewInitCmd creates the project init command.
-func NewInitCmd(accessor SowFSAccessor) *cobra.Command {
+func NewInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init <name>",
 		Short: "Initialize a new project",

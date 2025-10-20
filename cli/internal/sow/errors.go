@@ -33,4 +33,16 @@ var (
 
 	// ErrNotInitialized indicates sow has not been initialized in the repository.
 	ErrNotInitialized = errors.New("sow not initialized (run 'sow init')")
+
+	// ErrRefNotFound indicates a reference does not exist or cannot be found.
+	ErrRefNotFound = errors.New("reference not found")
+
+	// ErrRefExists indicates a reference already exists when trying to create one.
+	ErrRefExists = errors.New("reference already exists")
+
+	// ErrRefTypeDisabled indicates an operation was attempted on a disabled ref type.
+	ErrRefTypeDisabled = errors.New("reference type not enabled on this system")
+
+	// ErrInvalidRefConfig indicates invalid configuration for a reference.
+	ErrInvalidRefConfig = errors.New("invalid reference configuration")
 )

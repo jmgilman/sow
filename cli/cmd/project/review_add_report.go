@@ -3,8 +3,6 @@ package project
 import (
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/project"
-	"github.com/jmgilman/sow/cli/internal/statechart"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +16,7 @@ import (
 //
 // Flags:
 //   --assessment: Assessment result (pass or fail, required)
-func newReviewAddReportCmd(accessor SowFSAccessor) *cobra.Command {
+func newReviewAddReportCmd() *cobra.Command {
 	var assessment string
 
 	cmd := &cobra.Command{
@@ -49,65 +47,22 @@ Examples:
 				return fmt.Errorf("invalid assessment '%s': must be 'pass' or 'fail'", assessment)
 			}
 
-			// Get SowFS from context
-			sowFS := accessor(cmd.Context())
-			if sowFS == nil {
-				return fmt.Errorf("not in a sow repository - run 'sow init' first")
-			}
+			// Get Sow from context
+			s := sowFromContext(cmd.Context())
 
-			// Get project filesystem
-			projectFS, err := sowFS.Project()
+			// Get project
+			proj, err := s.GetProject()
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first: %w", err)
+				return fmt.Errorf("no active project - run 'sow project init' first")
 			}
 
-			// Read current state
-			state, err := projectFS.State()
-			if err != nil {
-				return fmt.Errorf("failed to read project state: %w", err)
+			// Add review report (handles state machine transition based on assessment)
+			if err := proj.AddReviewReport(reportPath, assessment); err != nil {
+				return err
 			}
 
-			// Add review report
-			if err := project.AddReviewReport(state, reportPath, assessment); err != nil {
-				return fmt.Errorf("failed to add review report: %w", err)
-			}
-
-			// Write updated state
-			if err := projectFS.WriteState(state); err != nil {
-				return fmt.Errorf("failed to write project state: %w", err)
-			}
-
-			// === STATECHART INTEGRATION: Fire review events ===
-			// Load statechart machine
-			machine, err := statechart.Load()
-			if err != nil {
-				return fmt.Errorf("failed to load statechart: %w", err)
-			}
-
-			// Verify we're in ReviewActive state
-			currentState := machine.State()
-			if currentState != statechart.ReviewActive {
-				return fmt.Errorf("cannot add review report in current state: %s (expected ReviewActive)", currentState)
-			}
-
-			// Fire appropriate event based on assessment
-			var event statechart.Event
-			if assessment == "pass" {
-				event = statechart.EventReviewPass
-			} else {
-				event = statechart.EventReviewFail
-			}
-
-			if err := machine.Fire(event); err != nil {
-				return fmt.Errorf("failed to fire review event: %w", err)
-			}
-
-			// Save statechart state
-			if err := machine.Save(); err != nil {
-				return fmt.Errorf("failed to save statechart state: %w", err)
-			}
-
-			// Get the report ID (last report added)
+			// Get the report ID from updated state
+			state := proj.State()
 			reportID := state.Phases.Review.Reports[len(state.Phases.Review.Reports)-1].Id
 
 			cmd.Printf("✓ Added review report %s (%s)\n", reportID, assessment)

@@ -2,10 +2,9 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/sowfs"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/internal/statechart"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/spf13/cobra"
@@ -81,9 +80,9 @@ Output is JSON for easy consumption by agents and tools.`,
 }
 
 func runSessionInfo(cmd *cobra.Command) error {
-	// Get SowFS from context (may be nil if not in .sow directory)
-	sowFS := SowFSFromContext(cmd.Context())
-	if sowFS == nil {
+	// Get Sow from context
+	s := SowFromContext(cmd.Context())
+	if s == nil {
 		return fmt.Errorf("not in a sow repository - run 'sow init' first")
 	}
 
@@ -91,45 +90,27 @@ func runSessionInfo(cmd *cobra.Command) error {
 	info := SessionInfo{
 		Versions: VersionInfo{
 			CLI:       Version,
-			Structure: sowfs.CurrentVersion,
+			Structure: sow.StructureVersion,
 			Mismatch:  false, // TODO: implement version comparison if needed
 		},
 	}
 
 	// Get repository information
-	info.Repository.Root = sowFS.RepoRoot()
-
-	// Get current git branch
-	repo, err := sowFS.Repo()
-	if err != nil {
-		return fmt.Errorf("failed to access git repository: %w", err)
-	}
-
-	branch, err := repo.CurrentBranch()
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-	info.Repository.Branch = branch
+	info.Repository.Root = s.RepoRoot()
+	info.Repository.Branch = s.Branch()
 
 	// Detect workspace context
-	wsContext, err := sowFS.Context().Detect()
-	if err != nil {
-		return fmt.Errorf("failed to detect context: %w", err)
-	}
-
-	info.Context.Type = wsContext.Type.String()
-	if wsContext.Type == sowfs.ContextTask {
-		info.Context.TaskID = wsContext.TaskID
+	contextType, taskID := s.DetectContext()
+	info.Context.Type = contextType
+	if contextType == "task" {
+		info.Context.TaskID = taskID
 	}
 
 	// Get project information if project exists
-	projectFS, err := sowFS.Project()
+	proj, err := s.GetProject()
 	if err == nil {
 		// Project exists - read state
-		state, err := projectFS.State()
-		if err != nil {
-			return fmt.Errorf("failed to read project state: %w", err)
-		}
+		state := proj.State()
 
 		info.Project = &ProjectInfo{
 			Name:        state.Project.Name,
@@ -141,10 +122,8 @@ func runSessionInfo(cmd *cobra.Command) error {
 		currentPhase, status := determineCurrentPhaseAndStatus(state)
 		info.Project.Phase = currentPhase
 		info.Project.Status = status
-	} else if !errors.Is(err, sowfs.ErrProjectNotFound) {
-		// Unexpected error (not just "no project")
-		return fmt.Errorf("failed to check project: %w", err)
 	}
+	// If GetProject fails, it means no project exists - info.Project remains nil
 
 	// Load statechart information
 	machine, err := statechart.Load()

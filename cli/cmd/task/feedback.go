@@ -12,7 +12,7 @@ import (
 // Subcommands:
 //   - add: Create new feedback for a task
 //   - mark-addressed: Mark feedback as addressed
-func newFeedbackCmd(accessor SowFSAccessor) *cobra.Command {
+func newFeedbackCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "feedback",
 		Short: "Manage human feedback and corrections",
@@ -41,8 +41,8 @@ Task ID inference:
 	}
 
 	// Add subcommands
-	cmd.AddCommand(newFeedbackAddCmd(accessor))
-	cmd.AddCommand(newFeedbackMarkAddressedCmd(accessor))
+	cmd.AddCommand(newFeedbackAddCmd())
+	cmd.AddCommand(newFeedbackMarkAddressedCmd())
 
 	return cmd
 }

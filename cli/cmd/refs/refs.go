@@ -8,14 +8,24 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/refs"
-	"github.com/jmgilman/sow/cli/internal/sowfs"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
+// sowFromContext retrieves the Sow instance from the command context.
+// Panics if not found (should always be available via root command setup).
+func sowFromContext(ctx context.Context) *sow.Sow {
+	s, ok := ctx.Value("sow").(*sow.Sow)
+	if !ok {
+		panic("sow instance not found in context")
+	}
+	return s
+}
+
 // NewRefsCmd creates the refs command with unified subcommands.
-func NewRefsCmd(sowFSFromContext func(context.Context) sowfs.SowFS) *cobra.Command {
+func NewRefsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "refs",
 		Short: "Manage external knowledge and code references",
@@ -41,12 +51,12 @@ Commands:
 	}
 
 	// Unified subcommands
-	cmd.AddCommand(newAddCmd(sowFSFromContext))
-	cmd.AddCommand(newUpdateCmd(sowFSFromContext))
-	cmd.AddCommand(newRemoveCmd(sowFSFromContext))
-	cmd.AddCommand(newListCmd(sowFSFromContext))
-	cmd.AddCommand(newStatusCmd(sowFSFromContext))
-	cmd.AddCommand(newInitCmd(sowFSFromContext))
+	cmd.AddCommand(newAddCmd())
+	cmd.AddCommand(newUpdateCmd())
+	cmd.AddCommand(newRemoveCmd())
+	cmd.AddCommand(newListCmd())
+	cmd.AddCommand(newStatusCmd())
+	cmd.AddCommand(newInitCmd())
 
 	return cmd
 }

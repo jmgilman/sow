@@ -1,16 +1,14 @@
 package refs
 
 import (
-	"context"
 	"fmt"
-	"os"
 
-	"github.com/jmgilman/sow/cli/internal/sowfs"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
 // newListCmd creates the unified list command.
-func newListCmd(sowFSFromContext func(context.Context) sowfs.SowFS) *cobra.Command {
+func newListCmd() *cobra.Command {
 	var (
 		typeFilter     string
 		semanticFilter string
@@ -37,17 +35,7 @@ Output formats:
   json   JSON output
   yaml   YAML output`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runRefsList(
-				cmd.Context(),
-				cmd,
-				typeFilter,
-				semanticFilter,
-				tagsFilter,
-				showLocal,
-				showCommitted,
-				format,
-				sowFSFromContext,
-			)
+			return runRefsList(cmd, typeFilter, semanticFilter, tagsFilter, showLocal, showCommitted, format)
 		},
 	}
 
@@ -62,7 +50,6 @@ Output formats:
 }
 
 func runRefsList(
-	ctx context.Context,
 	cmd *cobra.Command,
 	typeFilter string,
 	semanticFilter string,
@@ -70,67 +57,72 @@ func runRefsList(
 	showLocal bool,
 	showCommitted bool,
 	format string,
-	sowFSFromContext func(context.Context) sowfs.SowFS,
 ) error {
-	// Default: show both if neither flag specified
-	if !showLocal && !showCommitted {
-		showLocal = true
-		showCommitted = true
+	ctx := cmd.Context()
+
+	// Get Sow from context
+	s := sowFromContext(ctx)
+
+	// Build filter options
+	var opts []sow.RefListOption
+
+	if typeFilter != "" {
+		opts = append(opts, sow.WithRefTypeFilter(typeFilter))
+	}
+	if semanticFilter != "" {
+		opts = append(opts, sow.WithRefSemanticFilter(semanticFilter))
+	}
+	if len(tagsFilter) > 0 {
+		opts = append(opts, sow.WithRefTagsFilter(tagsFilter...))
 	}
 
-	// Get SowFS from context
-	sfs := sowFSFromContext(ctx)
-	if sfs == nil {
-		return fmt.Errorf(".sow directory not found - run 'sow init' first")
+	// Handle local/committed filters
+	if showLocal && !showCommitted {
+		opts = append(opts, sow.WithRefLocalOnly())
+	} else if showCommitted && !showLocal {
+		opts = append(opts, sow.WithRefCommittedOnly())
+	}
+	// If both true or both false, show both (default behavior)
+
+	// List refs
+	refs, err := s.ListRefs(opts...)
+	if err != nil {
+		return fmt.Errorf("failed to list refs: %w", err)
 	}
 
-	refsFS := sfs.Refs()
-
-	// Collect all refs
-	var allRefs []refWithSource
-
-	if showCommitted {
-		committedIndex, err := refsFS.CommittedIndex()
-		if err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to load committed index: %w", err)
-		}
-		if committedIndex != nil {
-			for _, ref := range committedIndex.Refs {
-				allRefs = append(allRefs, refWithSource{Ref: ref, Source: "committed"})
-			}
-		}
-	}
-
-	if showLocal {
-		localIndex, err := refsFS.LocalIndex()
-		if err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to load local index: %w", err)
-		}
-		if localIndex != nil {
-			for _, ref := range localIndex.Refs {
-				allRefs = append(allRefs, refWithSource{Ref: ref, Source: "local"})
-			}
-		}
-	}
-
-	// Apply filters
-	filtered := filterRefs(ctx, allRefs, typeFilter, semanticFilter, tagsFilter)
-
-	if len(filtered) == 0 {
+	if len(refs) == 0 {
 		cmd.Println("No refs configured")
 		return nil
+	}
+
+	// Convert to refWithSource for printing
+	var refsList []refWithSource
+	for _, ref := range refs {
+		schema, err := ref.Schema()
+		if err != nil {
+			return fmt.Errorf("failed to get ref schema: %w", err)
+		}
+		isLocal, err := ref.IsLocal()
+		if err != nil {
+			return fmt.Errorf("failed to check if ref is local: %w", err)
+		}
+		source := "committed"
+		if isLocal {
+			source = "local"
+		}
+		refsList = append(refsList, refWithSource{Ref: *schema, Source: source})
 	}
 
 	// Output in requested format
 	switch format {
 	case "table":
-		printRefsTable(cmd, filtered)
+		printRefsTable(cmd, refsList)
 	case "json":
-		if err := printRefsJSON(cmd, filtered); err != nil {
+		if err := printRefsJSON(cmd, refsList); err != nil {
 			return err
 		}
 	case "yaml":
-		if err := printRefsYAML(cmd, filtered); err != nil {
+		if err := printRefsYAML(cmd, refsList); err != nil {
 			return err
 		}
 	default:

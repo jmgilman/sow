@@ -5,12 +5,11 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/task"
-	"github.com/jmgilman/sow/cli/internal/taskutil"
 	"github.com/spf13/cobra"
 )
 
 // NewStatusCmd creates the task status command.
-func NewStatusCmd(accessor SowFSAccessor) *cobra.Command {
+func NewStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status [task-id]",
 		Short: "Show detailed status for a specific task",
@@ -39,7 +38,7 @@ Examples:
   sow task status --format json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTaskStatus(cmd, args, accessor)
+			return runTaskStatus(cmd, args)
 		},
 	}
 
@@ -49,7 +48,7 @@ Examples:
 	return cmd
 }
 
-func runTaskStatus(cmd *cobra.Command, args []string, accessor SowFSAccessor) error {
+func runTaskStatus(cmd *cobra.Command, args []string) error {
 	format, _ := cmd.Flags().GetString("format")
 
 	// Validate format
@@ -57,37 +56,29 @@ func runTaskStatus(cmd *cobra.Command, args []string, accessor SowFSAccessor) er
 		return fmt.Errorf("invalid format '%s': must be 'text' or 'json'", format)
 	}
 
-	// Get SowFS from context
-	sowFS := accessor(cmd.Context())
-	if sowFS == nil {
-		return fmt.Errorf("not in a sow repository - run 'sow init' first")
-	}
+	// Get Sow from context
+	s := sowFromContext(cmd.Context())
 
-	// Resolve task ID (either from args or inferred)
-	taskID, err := taskutil.ResolveTaskIDFromArgs(sowFS, args)
-	if err != nil {
-		return fmt.Errorf("failed to resolve task ID: %w", err)
-	}
-
-	// Validate task ID format
-	if err := task.ValidateTaskID(taskID); err != nil {
-		return fmt.Errorf("invalid task ID: %w", err)
-	}
-
-	// Get project (must exist)
-	projectFS, err := sowFS.Project()
+	// Get project
+	proj, err := s.GetProject()
 	if err != nil {
 		return fmt.Errorf("no active project - run 'sow project init' first")
 	}
 
-	// Get TaskFS
-	taskFS, err := projectFS.Task(taskID)
+	// Resolve task ID (from args or infer)
+	taskID, err := resolveTaskID(proj, args)
+	if err != nil {
+		return fmt.Errorf("failed to resolve task ID: %w", err)
+	}
+
+	// Get task
+	t, err := proj.GetTask(taskID)
 	if err != nil {
 		return fmt.Errorf("task '%s' not found: %w", taskID, err)
 	}
 
-	// Read task state
-	taskState, err := taskFS.State()
+	// Get task state
+	taskState, err := t.State()
 	if err != nil {
 		return fmt.Errorf("failed to read task state: %w", err)
 	}

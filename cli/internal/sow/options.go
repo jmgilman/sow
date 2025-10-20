@@ -17,6 +17,7 @@ func WithDiscoveryType(discoveryType string) PhaseOption {
 
 // taskConfig holds configuration for task creation.
 type taskConfig struct {
+	id           string
 	status       string
 	parallel     bool
 	dependencies []string
@@ -59,5 +60,12 @@ func WithAgent(agent string) TaskOption {
 func WithDescription(description string) TaskOption {
 	return func(cfg *taskConfig) {
 		cfg.description = description
+	}
+}
+
+// WithID sets an explicit task ID (otherwise auto-generated).
+func WithID(id string) TaskOption {
+	return func(cfg *taskConfig) {
+		cfg.id = id
 	}
 }

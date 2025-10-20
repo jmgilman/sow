@@ -3,7 +3,6 @@ package project
 import (
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/statechart"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +18,7 @@ import (
 //   1. documentation - Update documentation files
 //   2. checks - Run tests, linters, and build
 //   3. delete - Delete project directory (uses `sow project delete`)
-func newFinalizeCompleteCmd(accessor SowFSAccessor) *cobra.Command {
+func newFinalizeCompleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "complete <subphase>",
 		Short: "Complete a finalize subphase",
@@ -48,55 +47,19 @@ Examples:
 				return fmt.Errorf("invalid subphase '%s': must be 'documentation' or 'checks'", subphase)
 			}
 
-			// Get SowFS from context
-			sowFS := accessor(cmd.Context())
-			if sowFS == nil {
-				return fmt.Errorf("not in a sow repository - run 'sow init' first")
-			}
+			// Get Sow from context
+			s := sowFromContext(cmd.Context())
 
-			// Verify project exists
-			_, err := sowFS.Project()
+			// Get project
+			project, err := s.GetProject()
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first: %w", err)
+				return fmt.Errorf("no active project - run 'sow project init' first")
 			}
 
-			// === STATECHART INTEGRATION START ===
-
-			// Load machine
-			machine, err := statechart.Load()
-			if err != nil {
-				return fmt.Errorf("failed to load statechart: %w", err)
+			// Complete finalize subphase (handles validation, state machine transitions)
+			if err := project.CompleteFinalizeSubphase(subphase); err != nil {
+				return err
 			}
-
-			// Validate current state and determine event based on subphase
-			currentState := machine.State()
-			var event statechart.Event
-			var expectedState statechart.State
-
-			if subphase == "documentation" {
-				expectedState = statechart.FinalizeDocumentation
-				event = statechart.EventDocumentationDone
-			} else { // checks
-				expectedState = statechart.FinalizeChecks
-				event = statechart.EventChecksDone
-			}
-
-			// Verify we're in the expected state
-			if currentState != expectedState {
-				return fmt.Errorf("cannot complete %s in current state: %s (expected %s)", subphase, currentState, expectedState)
-			}
-
-			// Fire event (validates transition, outputs prompt)
-			if err := machine.Fire(event); err != nil {
-				return fmt.Errorf("failed to complete %s subphase: %w", subphase, err)
-			}
-
-			// Save state
-			if err := machine.Save(); err != nil {
-				return fmt.Errorf("failed to save state: %w", err)
-			}
-
-			// === STATECHART INTEGRATION END ===
 
 			cmd.Printf("\n✓ Completed %s subphase\n", subphase)
 

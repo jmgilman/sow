@@ -2,15 +2,12 @@ package task
 
 import (
 	"fmt"
-	"time"
 
-	"github.com/jmgilman/sow/cli/internal/task"
-	"github.com/jmgilman/sow/cli/internal/taskutil"
 	"github.com/spf13/cobra"
 )
 
 // newFeedbackAddCmd creates the feedback add command.
-func newFeedbackAddCmd(accessor SowFSAccessor) *cobra.Command {
+func newFeedbackAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <message> [task-id]",
 		Short: "Add feedback to a task",
@@ -47,7 +44,7 @@ Examples:
   sow task feedback add "Follow PEP 8 style guide"`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runFeedbackAdd(cmd, args, accessor)
+			return runFeedbackAdd(cmd, args)
 		},
 	}
 
@@ -57,7 +54,7 @@ Examples:
 	return cmd
 }
 
-func runFeedbackAdd(cmd *cobra.Command, args []string, accessor SowFSAccessor) error {
+func runFeedbackAdd(cmd *cobra.Command, args []string) error {
 	// First arg is always the feedback message
 	message := args[0]
 
@@ -66,92 +63,61 @@ func runFeedbackAdd(cmd *cobra.Command, args []string, accessor SowFSAccessor) e
 
 	incrementIteration, _ := cmd.Flags().GetBool("increment-iteration")
 
-	// Get SowFS from context
-	sowFS := accessor(cmd.Context())
-	if sowFS == nil {
-		return fmt.Errorf("not in a sow repository - run 'sow init' first")
-	}
+	// Get Sow from context
+	s := sowFromContext(cmd.Context())
 
-	// Resolve task ID (either from args or inferred)
-	taskID, err := taskutil.ResolveTaskIDFromArgs(sowFS, taskIDArgs)
-	if err != nil {
-		return fmt.Errorf("failed to resolve task ID: %w", err)
-	}
-
-	// Validate task ID format
-	if err := task.ValidateTaskID(taskID); err != nil {
-		return fmt.Errorf("invalid task ID: %w", err)
-	}
-
-	// Get project (must exist)
-	projectFS, err := sowFS.Project()
+	// Get project
+	proj, err := s.GetProject()
 	if err != nil {
 		return fmt.Errorf("no active project - run 'sow project init' first")
 	}
 
-	// Get TaskFS
-	taskFS, err := projectFS.Task(taskID)
+	// Resolve task ID (from args or infer)
+	taskID, err := resolveTaskID(proj, taskIDArgs)
+	if err != nil {
+		return fmt.Errorf("failed to resolve task ID: %w", err)
+	}
+
+	// Get task
+	t, err := proj.GetTask(taskID)
 	if err != nil {
 		return fmt.Errorf("task '%s' not found: %w", taskID, err)
 	}
 
-	// Read task state
-	taskState, err := taskFS.State()
-	if err != nil {
-		return fmt.Errorf("failed to read task state: %w", err)
+	// Store old iteration if we're incrementing
+	var oldIteration int64
+	if incrementIteration {
+		taskState, err := t.State()
+		if err != nil {
+			return fmt.Errorf("failed to read task state: %w", err)
+		}
+		oldIteration = taskState.Task.Iteration
 	}
 
-	// Generate feedback ID
-	feedbackID := task.GenerateNextFeedbackID(taskState)
-
-	// Add feedback to state
-	if err := task.AddFeedback(taskState, feedbackID); err != nil {
-		return fmt.Errorf("failed to add feedback: %w", err)
+	// Add feedback (auto-saves, creates file, returns feedback ID)
+	feedbackID, err := t.AddFeedback(message)
+	if err != nil {
+		return err
 	}
 
 	// Increment iteration if requested
 	if incrementIteration {
-		if err := task.IncrementTaskIteration(taskState); err != nil {
-			return fmt.Errorf("failed to increment iteration: %w", err)
+		if err := t.IncrementIteration(); err != nil {
+			return err
 		}
-	}
-
-	// Write updated state
-	if err := taskFS.WriteState(taskState); err != nil {
-		return fmt.Errorf("failed to write task state: %w", err)
-	}
-
-	// Create feedback file
-	feedbackFilename := fmt.Sprintf("%s.md", feedbackID)
-	feedbackContent := fmt.Sprintf(`# Feedback %s
-
-**Created:** %s
-**Status:** pending
-
-## Issue
-
-%s
-
-## Required Changes
-
-(Describe specific changes needed)
-
-## Context
-
-(Optional: Add any additional context or references)
-`, feedbackID, time.Now().Format(time.RFC3339), message)
-
-	if err := taskFS.WriteFeedback(feedbackFilename, feedbackContent); err != nil {
-		return fmt.Errorf("failed to write feedback file: %w", err)
 	}
 
 	// Print success message
 	cmd.Printf("✓ Created feedback %s\n", feedbackID)
-	feedbackPath := fmt.Sprintf(".sow/project/phases/implementation/tasks/%s/feedback/%s", taskID, feedbackFilename)
+	feedbackPath := fmt.Sprintf(".sow/project/phases/implementation/tasks/%s/feedback/%s.md", taskID, feedbackID)
 	cmd.Printf("  Feedback file: %s\n", feedbackPath)
 
 	if incrementIteration {
-		cmd.Printf("  Iteration: %d → %d\n", taskState.Task.Iteration-1, taskState.Task.Iteration)
+		newTaskState, err := t.State()
+		if err != nil {
+			return fmt.Errorf("failed to read updated task state: %w", err)
+		}
+		cmd.Printf("  Iteration: %d → %d\n", oldIteration, newTaskState.Task.Iteration)
 	}
 
 	return nil

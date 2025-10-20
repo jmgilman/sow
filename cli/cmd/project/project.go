@@ -5,22 +5,13 @@ import (
 	"context"
 
 	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/jmgilman/sow/cli/internal/sowfs"
 	"github.com/spf13/cobra"
 )
-
-// SowFSAccessor is a function type that retrieves SowFS from context.
-// This allows commands to be tested with different SowFS implementations.
-type SowFSAccessor func(ctx context.Context) sowfs.SowFS
 
 // sowFromContext retrieves the Sow instance from the command context.
 // Panics if not found (should always be available via root command setup).
 func sowFromContext(ctx context.Context) *sow.Sow {
-	// Use the context key from cmd package
-	type contextKey string
-	const sowKey contextKey = "sow"
-
-	s, ok := ctx.Value(sowKey).(*sow.Sow)
+	s, ok := ctx.Value("sow").(*sow.Sow)
 	if !ok {
 		panic("sow instance not found in context")
 	}
@@ -28,7 +19,7 @@ func sowFromContext(ctx context.Context) *sow.Sow {
 }
 
 // NewProjectCmd creates the root project command.
-func NewProjectCmd(accessor SowFSAccessor) *cobra.Command {
+func NewProjectCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "project",
 		Short: "Manage project lifecycle",
@@ -47,13 +38,13 @@ All projects follow the 5-phase model:
 	}
 
 	// Add subcommands
-	cmd.AddCommand(NewInitCmd(accessor))
-	cmd.AddCommand(NewStatusCmd(accessor))
-	cmd.AddCommand(NewDeleteCmd(accessor))
-	cmd.AddCommand(newPhaseCmd(accessor))
-	cmd.AddCommand(newArtifactCmd(accessor))
-	cmd.AddCommand(newReviewCmd(accessor))
-	cmd.AddCommand(newFinalizeCmd(accessor))
+	cmd.AddCommand(NewInitCmd())
+	cmd.AddCommand(NewStatusCmd())
+	cmd.AddCommand(NewDeleteCmd())
+	cmd.AddCommand(newPhaseCmd())
+	cmd.AddCommand(newArtifactCmd())
+	cmd.AddCommand(newReviewCmd())
+	cmd.AddCommand(newFinalizeCmd())
 
 	return cmd
 }

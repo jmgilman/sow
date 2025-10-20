@@ -6,13 +6,21 @@
 package sow
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/jmgilman/sow/cli/internal/statechart"
 	"gopkg.in/yaml.v3"
+)
+
+const (
+	// StructureVersion is the current .sow structure version.
+	// This version is written to .sow/.version during initialization.
+	StructureVersion = "1.0.0"
 )
 
 // Sow is the main entrypoint for interacting with the sow system.
@@ -32,6 +40,58 @@ func New(fs billy.Filesystem) *Sow {
 // Most callers should not need direct filesystem access.
 func (s *Sow) FS() billy.Filesystem {
 	return s.fs
+}
+
+// RepoRoot returns the repository root directory path.
+func (s *Sow) RepoRoot() string {
+	return s.fs.Root()
+}
+
+// Branch returns the current git branch name.
+func (s *Sow) Branch() string {
+	branch, err := s.getCurrentBranch()
+	if err != nil {
+		return ""
+	}
+	return branch
+}
+
+// DetectContext detects the current workspace context.
+// Returns the context type ("none", "project", or "task") and task ID if applicable.
+func (s *Sow) DetectContext() (string, string) {
+	// Check if we're in a task directory
+	// Task directories are at .sow/project/phases/{phase}/tasks/{task-id}/
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "none", ""
+	}
+
+	repoRoot := s.RepoRoot()
+
+	// Check if current dir is under .sow/project/phases/*/tasks/*
+	relPath, err := filepath.Rel(repoRoot, cwd)
+	if err != nil {
+		return "none", ""
+	}
+
+	// Normalize to forward slashes for parsing
+	relPath = filepath.ToSlash(relPath)
+
+	// Split path into components
+	parts := strings.Split(relPath, "/")
+
+	if len(parts) >= 6 {
+		if parts[0] == ".sow" && parts[1] == "project" && parts[2] == "phases" && parts[4] == "tasks" {
+			return "task", parts[5]
+		}
+	}
+
+	// Check if we're anywhere under .sow/project
+	if len(parts) >= 2 && parts[0] == ".sow" && parts[1] == "project" {
+		return "project", ""
+	}
+
+	return "none", ""
 }
 
 // Init initializes the sow structure in the repository.
@@ -66,7 +126,7 @@ func (s *Sow) Init() error {
 
 	// Create version file
 	versionPath := filepath.Join(".sow", ".version")
-	versionContent := []byte("0.2.0\n")
+	versionContent := []byte(StructureVersion + "\n")
 	if err := s.writeFile(versionPath, versionContent, 0644); err != nil {
 		return fmt.Errorf("failed to create version file: %w", err)
 	}
@@ -343,10 +403,52 @@ func (s *Sow) writeYAML(path string, v interface{}) error {
 	return nil
 }
 
+// readJSON reads and unmarshals a JSON file.
+func (s *Sow) readJSON(path string, v interface{}) error {
+	data, err := s.readFile(path)
+	if err != nil {
+		return err
+	}
+	// Use a simple JSON unmarshal approach
+	return unmarshalJSON(data, v)
+}
+
+// writeJSON marshals and writes a JSON file atomically.
+func (s *Sow) writeJSON(path string, v interface{}) error {
+	data, err := marshalJSON(v)
+	if err != nil {
+		return err
+	}
+
+	// Write to temp file first
+	tmpPath := path + ".tmp"
+	if err := s.writeFile(tmpPath, data, 0644); err != nil {
+		return err
+	}
+
+	// Atomic rename
+	if err := s.fs.Rename(tmpPath, path); err != nil {
+		_ = s.fs.Remove(tmpPath) // Clean up temp file
+		return err
+	}
+
+	return nil
+}
+
 // capitalize capitalizes the first letter of a string.
 func capitalize(s string) string {
 	if len(s) == 0 {
 		return s
 	}
 	return string(s[0]-32) + s[1:]
+}
+
+// marshalJSON marshals a value to JSON with indentation.
+func marshalJSON(v interface{}) ([]byte, error) {
+	return json.MarshalIndent(v, "", "  ")
+}
+
+// unmarshalJSON unmarshals JSON data into a value.
+func unmarshalJSON(data []byte, v interface{}) error {
+	return json.Unmarshal(data, v)
 }

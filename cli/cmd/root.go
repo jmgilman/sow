@@ -11,7 +11,6 @@ import (
 	"github.com/jmgilman/sow/cli/cmd/refs"
 	"github.com/jmgilman/sow/cli/cmd/task"
 	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/jmgilman/sow/cli/internal/sowfs"
 	"github.com/spf13/cobra"
 )
 
@@ -57,14 +56,6 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 			ctx := WithFilesystem(cmd.Context(), wrappedFS)
 			ctx = WithSow(ctx, sowInstance)
 
-			// Keep SowFS for backwards compatibility during migration
-			// This will be removed once all commands are migrated
-			sfs, err := sowfs.NewSowFS()
-			if err == nil {
-				ctx = WithSowFS(ctx, sfs)
-			}
-			// Silently ignore errors - not all commands require SowFS
-
 			cmd.SetContext(ctx)
 
 			return nil
@@ -80,9 +71,9 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 	cmd.AddCommand(NewValidateCmd())
 	cmd.AddCommand(NewLogCmd())
 	cmd.AddCommand(NewSessionInfoCmd())
-	cmd.AddCommand(refs.NewRefsCmd(SowFSFromContext))
-	cmd.AddCommand(project.NewProjectCmd(SowFSFromContext))
-	cmd.AddCommand(task.NewTaskCmd(SowFSFromContext))
+	cmd.AddCommand(refs.NewRefsCmd())
+	cmd.AddCommand(project.NewProjectCmd())
+	cmd.AddCommand(task.NewTaskCmd())
 
 	return cmd
 }

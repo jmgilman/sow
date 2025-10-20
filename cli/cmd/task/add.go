@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/statechart"
-	"github.com/jmgilman/sow/cli/internal/task"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
 // NewAddCmd creates the task add command.
-func NewAddCmd(accessor SowFSAccessor) *cobra.Command {
+func NewAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <name>",
 		Short: "Add a new task to the implementation phase",
@@ -33,7 +32,7 @@ Example:
   sow task add "Review auth code" --description "Review JWT implementation" --agent reviewer --dependencies 010`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAdd(cmd, args, accessor)
+			return runAdd(cmd, args)
 		},
 	}
 
@@ -49,7 +48,7 @@ Example:
 	return cmd
 }
 
-func runAdd(cmd *cobra.Command, args []string, accessor SowFSAccessor) error {
+func runAdd(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	description, _ := cmd.Flags().GetString("description")
 	agent, _ := cmd.Flags().GetString("agent")
@@ -57,97 +56,43 @@ func runAdd(cmd *cobra.Command, args []string, accessor SowFSAccessor) error {
 	dependencies, _ := cmd.Flags().GetStringSlice("dependencies")
 	idFlag, _ := cmd.Flags().GetString("id")
 
-	// Get SowFS from context
-	sowFS := accessor(cmd.Context())
-	if sowFS == nil {
-		return fmt.Errorf("not in a sow repository - run 'sow init' first")
-	}
-
-	// Get project (must exist)
-	projectFS, err := sowFS.Project()
-	if err != nil {
-		return fmt.Errorf("no active project - run 'sow project init' first")
-	}
-
-	// === STATECHART INTEGRATION START ===
-
-	// Load machine
-	machine, err := statechart.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load statechart: %w", err)
-	}
-
-	state := machine.ProjectState()
-
-	// Validate implementation phase enabled
-	if !state.Phases.Implementation.Enabled {
-		return fmt.Errorf("implementation phase not enabled")
-	}
-
-	// Validate we're in planning or executing state
-	currentState := machine.State()
-	if currentState != statechart.ImplementationPlanning && currentState != statechart.ImplementationExecuting {
-		return fmt.Errorf("cannot add tasks in current state: %s", currentState)
-	}
-
-	// Generate or validate task ID
-	taskID := idFlag
-	if taskID == "" {
-		taskID = task.GenerateNextTaskID(state.Phases.Implementation.Tasks)
-	} else {
-		if err := task.ValidateTaskID(taskID); err != nil {
-			return fmt.Errorf("invalid task ID: %w", err)
-		}
-	}
-
 	// Trim dependencies
 	for i, dep := range dependencies {
 		dependencies[i] = strings.TrimSpace(dep)
 	}
 
-	// Add task to state IN MEMORY
-	if err := task.AddTaskToProjectState(state, taskID, name, parallel, dependencies); err != nil {
-		return fmt.Errorf("failed to add task: %w", err)
-	}
+	// Get Sow from context
+	s := sowFromContext(cmd.Context())
 
-	// Fire event if we're in ImplementationPlanning (triggers transition to ImplementationExecuting)
-	// This handles both the initial case (first task) and loop-back from review (additional tasks)
-	if currentState == statechart.ImplementationPlanning {
-		if err := machine.Fire(statechart.EventTaskCreated); err != nil {
-			return fmt.Errorf("failed to transition to executing: %w", err)
-		}
-	}
-
-	// Save state atomically
-	if err := machine.Save(); err != nil {
-		return fmt.Errorf("failed to save state: %w", err)
-	}
-
-	// === STATECHART INTEGRATION END ===
-
-	// NOW create task files (idempotent on retry)
-	taskState := task.NewTaskState(taskID, name, agent)
-
-	taskFS, err := projectFS.TaskUnchecked(taskID)
+	// Get project
+	project, err := s.GetProject()
 	if err != nil {
-		return fmt.Errorf("failed to create task filesystem: %w", err)
+		return fmt.Errorf("no active project - run 'sow project init' first")
 	}
 
-	if err := taskFS.WriteState(taskState); err != nil {
-		return fmt.Errorf("task in state but files failed: %w", err)
+	// Build task options
+	opts := []sow.TaskOption{
+		sow.WithAgent(agent),
+		sow.WithParallel(parallel),
+		sow.WithDescription(description),
 	}
 
-	descContent := fmt.Sprintf("# Task %s: %s\n\n%s\n", taskID, name, description)
-	if err := taskFS.WriteDescription(descContent); err != nil {
-		return fmt.Errorf("task in state but files failed: %w", err)
+	if len(dependencies) > 0 {
+		opts = append(opts, sow.WithDependencies(dependencies...))
 	}
 
-	logHeader := fmt.Sprintf("# Task %s Log\n\nWorker actions will be logged here.\n", taskID)
-	if err := taskFS.AppendLog(logHeader); err != nil {
-		return fmt.Errorf("task in state but files failed: %w", err)
+	if idFlag != "" {
+		opts = append(opts, sow.WithID(idFlag))
+	}
+
+	// Create task (handles validation, state machine transitions, file creation)
+	task, err := project.AddTask(name, opts...)
+	if err != nil {
+		return err
 	}
 
 	// Success
+	taskID := task.ID()
 	cmd.Printf("\n✓ Created task %s: %s\n", taskID, name)
 	cmd.Printf("\nTask Details:\n")
 	cmd.Printf("  ID:           %s\n", taskID)

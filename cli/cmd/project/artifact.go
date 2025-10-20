@@ -13,7 +13,7 @@ import (
 //   - add: Add an artifact to a phase
 //   - approve: Approve an existing artifact
 //   - list: List artifacts for a phase
-func newArtifactCmd(accessor SowFSAccessor) *cobra.Command {
+func newArtifactCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "artifact",
 		Short: "Manage phase artifacts",
@@ -29,9 +29,9 @@ All artifacts must be approved before their phase can be marked complete.`,
 	}
 
 	// Add subcommands
-	cmd.AddCommand(newArtifactAddCmd(accessor))
-	cmd.AddCommand(newArtifactApproveCmd(accessor))
-	cmd.AddCommand(newArtifactListCmd(accessor))
+	cmd.AddCommand(newArtifactAddCmd())
+	cmd.AddCommand(newArtifactApproveCmd())
+	cmd.AddCommand(newArtifactListCmd())
 
 	return cmd
 }
