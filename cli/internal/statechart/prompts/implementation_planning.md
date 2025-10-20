@@ -17,7 +17,7 @@ AVAILABLE CONTEXT:
 RESPONSIBILITIES:
   - Create task breakdown independently
   - Use planner agent for complex breakdowns (see guidance below)
-  - No approval needed for task creation
+  - Request human approval when planning is complete
   - Gap-numbered IDs (010, 020, 030...)
 
 PLANNING APPROACH:
@@ -30,8 +30,10 @@ PLANNING APPROACH:
 NEXT ACTIONS:
   1. Review available artifacts (design docs, discovery notes)
   2. Break work into discrete tasks with clear acceptance criteria
-  3. Create tasks: sow task add "<name>" [--id <id>]
-  4. Once tasks exist, work will begin automatically
+  3. Create tasks: sow task add "<name>" --description "..." [--id <id>]
+  4. When all tasks created, request human approval
+  5. Human approves: sow project phase approve implementation
+  6. Then autonomous execution begins
 
 Reference: PHASES/IMPLEMENTATION.md
 

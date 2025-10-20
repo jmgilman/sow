@@ -62,9 +62,12 @@ exec sow project phase complete design
 # Try to manually move forward (this should fail or have no effect)
 # Actually, the system waits for task_created event which requires at least 1 task
 
-# Add a task - should auto-transition to ImplementationExecuting
+# Add a task
 exec sow task add 'First task' --description 'Initial work'
 stderr '✓ Created task 010'
+
+# Approve task plan - transitions to ImplementationExecuting
+exec sow project phase approve implementation
 
 # =====================================
 # Review: Error - Try to Review with Incomplete Tasks
@@ -80,7 +83,6 @@ stdout 'current_state: ImplementationExecuting'
 # Complete the task - should auto-transition to ReviewActive
 exec sow task update 010 --status in_progress
 exec sow task update 010 --status completed
-stderr 'All tasks complete'
 
 # Verify we transitioned to review
 exec sow validate
@@ -90,6 +92,7 @@ stderr '✓ All validations passed'
 # Complete Workflow
 # =====================================
 exec sow project review add-report reports/001.md --assessment pass
+exec sow project review approve 001
 exec sow project finalize complete documentation
 exec sow project finalize complete checks
 exec sow project delete --force

@@ -39,7 +39,7 @@ RESPONSIBILITIES:
 NEXT ACTIONS:
   - For pending tasks: Spawn implementer agent
   - To update: sow task update <id>
-  - To mark complete: sow task status <id> completed
+  - To mark complete: sow task update <id> --status completed
   - When all done: Auto-transition to review
 
 Reference: PHASES/IMPLEMENTATION.md, AGENTS.md (implementer)

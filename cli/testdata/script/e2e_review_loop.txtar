@@ -32,21 +32,25 @@ stderr '✓ Created task 010'
 exec sow task add 'Add tests' --description 'Unit tests'
 stderr '✓ Created task 020'
 
+# Approve task plan
+exec sow project phase approve implementation
+stderr '✓ Approved implementation phase plan'
+
 # Complete both tasks
 exec sow task update 010 --status in_progress
 exec sow task update 010 --status completed
 exec sow task update 020 --status in_progress
 exec sow task update 020 --status completed
 
-stderr 'All tasks complete'
-
 # =====================================
 # First Review - FAIL
 # =====================================
 exec sow project review add-report reports/001-review.md --assessment fail
 stderr '✓ Added review report 001'
-stderr 'Review failed'
-stderr 'Looping back to implementation'
+
+# Approve review (triggers loop back to implementation)
+exec sow project review approve 001
+stderr '✓ Approved review report 001'
 
 # Verify we're back in ImplementationPlanning
 exec cat .sow/project/state.yaml
@@ -63,6 +67,10 @@ stderr '✓ All validations passed'
 exec sow task add 'Fix review issues' --description 'Address feedback from review'
 stderr '✓ Created task 030'
 
+# Approve task plan again
+exec sow project phase approve implementation
+stderr '✓ Approved implementation phase plan'
+
 # Complete the fix task
 exec sow task update 030 --status in_progress
 exec sow task update 030 --status completed
@@ -72,7 +80,10 @@ exec sow task update 030 --status completed
 # =====================================
 exec sow project review add-report reports/002-review.md --assessment pass
 stderr '✓ Added review report 002'
-stderr 'Review passed'
+
+# Approve review (triggers transition to finalize)
+exec sow project review approve 002
+stderr '✓ Approved review report 002'
 
 # Verify two reports exist
 exec cat .sow/project/state.yaml

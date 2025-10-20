@@ -131,6 +131,9 @@ type ImplementationPhase struct {
 	// Approved task list (gap-numbered)
 	Tasks []Task `json:"tasks"`
 
+	// Human approval of task plan before autonomous execution
+	Tasks_approved bool `json:"tasks_approved"`
+
 	// Tasks awaiting human approval before execution
 	Pending_task_additions any/* CUE disjunction: (null|list) */ `json:"pending_task_additions"`
 }
@@ -188,6 +191,9 @@ type ReviewReport struct {
 
 	// Review assessment
 	Assessment string `json:"assessment"`
+
+	// Human approval of orchestrator's review
+	Approved bool `json:"approved"`
 }
 
 // FinalizePhase represents the finalize phase

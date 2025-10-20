@@ -35,6 +35,7 @@ Review loop-back workflow:
 	// Add subcommands
 	cmd.AddCommand(newReviewIncrementCmd())
 	cmd.AddCommand(newReviewAddReportCmd())
+	cmd.AddCommand(newReviewApproveCmd())
 
 	return cmd
 }

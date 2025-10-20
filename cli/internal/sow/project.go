@@ -279,14 +279,8 @@ func (p *Project) AddTask(name string, opts ...TaskOption) (*Task, error) {
 		return nil, fmt.Errorf("failed to create task structure: %w", err)
 	}
 
-	// If we're in Planning state, fire event to transition to Executing
-	// This handles both the first task and tasks added after review loop-back
-	currentState := p.machine.State()
-	if currentState == statechart.ImplementationPlanning {
-		if err := p.machine.Fire(statechart.EventTaskCreated); err != nil {
-			return nil, fmt.Errorf("state transition failed: %w", err)
-		}
-	}
+	// NOTE: State transition removed - tasks now require human approval
+	// before transitioning to ImplementationExecuting. Use ApproveTasks() method.
 
 	// Auto-save
 	if err := p.save(); err != nil {
@@ -297,6 +291,27 @@ func (p *Project) AddTask(name string, opts ...TaskOption) (*Task, error) {
 		project: p,
 		id:      id,
 	}, nil
+}
+
+// ApproveTasks approves the task plan and transitions to execution mode.
+// This must be called after all tasks are created to begin autonomous execution.
+func (p *Project) ApproveTasks() error {
+	state := p.State()
+
+	// Validate at least one task exists
+	if len(state.Phases.Implementation.Tasks) == 0 {
+		return fmt.Errorf("cannot approve: no tasks have been created")
+	}
+
+	// Set approval flag
+	state.Phases.Implementation.Tasks_approved = true
+
+	// Fire transition event
+	if err := p.machine.Fire(statechart.EventTasksApproved); err != nil {
+		return fmt.Errorf("state transition failed: %w", err)
+	}
+
+	return p.save()
 }
 
 // GetTask retrieves a task by ID.
@@ -445,28 +460,57 @@ func (p *Project) AddReviewReport(path, assessment string) error {
 	// Generate report ID (001, 002, 003...)
 	reportID := fmt.Sprintf("%03d", len(state.Phases.Review.Reports)+1)
 
-	// Create report
+	// Create report (not approved by default - requires human approval)
 	report := schemas.ReviewReport{
 		Id:         reportID,
 		Path:       path,
 		Created_at: now,
 		Assessment: assessment,
+		Approved:   false,
 	}
 
 	state.Phases.Review.Reports = append(state.Phases.Review.Reports, report)
 
-	// Fire state machine event based on assessment
-	if assessment == "pass" {
-		if err := p.machine.Fire(statechart.EventReviewPass); err != nil {
-			return fmt.Errorf("state transition failed: %w", err)
-		}
-	} else {
-		if err := p.machine.Fire(statechart.EventReviewFail); err != nil {
-			return fmt.Errorf("state transition failed: %w", err)
+	// NOTE: State transition removed - reviews now require human approval
+	// before transitioning. Use ApproveReview() method.
+
+	// Auto-save
+	return p.save()
+}
+
+// ApproveReview approves a review report and triggers the appropriate state transition.
+// The transition depends on the report's assessment (pass or fail).
+func (p *Project) ApproveReview(reportID string) error {
+	state := p.State()
+
+	// Find the report
+	var report *schemas.ReviewReport
+	for i := range state.Phases.Review.Reports {
+		if state.Phases.Review.Reports[i].Id == reportID {
+			report = &state.Phases.Review.Reports[i]
+			break
 		}
 	}
 
-	// Auto-save
+	if report == nil {
+		return fmt.Errorf("review report not found: %s", reportID)
+	}
+
+	// Mark as approved
+	report.Approved = true
+
+	// Fire appropriate transition based on assessment
+	var event statechart.Event
+	if report.Assessment == "pass" {
+		event = statechart.EventReviewPass
+	} else {
+		event = statechart.EventReviewFail
+	}
+
+	if err := p.machine.Fire(event); err != nil {
+		return fmt.Errorf("state transition failed: %w", err)
+	}
+
 	return p.save()
 }
 

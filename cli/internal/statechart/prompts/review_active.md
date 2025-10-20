@@ -19,13 +19,12 @@ RESPONSIBILITIES:
 ASSESSMENT OPTIONS:
 
   PASS - Implementation meets requirements
-    → Proceeds to finalization phase
+    → Human approval required before proceeding to finalize
     → Command: sow project review add-report <path> --assessment pass
 
   FAIL - Issues need addressing
     → Creates detailed review report with specific issues
-    → Loops back to implementation planning
-    → Human approval required for loop-back
+    → Human approval required before loop-back to implementation
     → Command: sow project review add-report <path> --assessment fail
     → Then: sow project review increment
 
@@ -34,6 +33,9 @@ NEXT ACTIONS:
   2. Validate against original requirements
   3. Create comprehensive review report
   4. Add report with assessment: sow project review add-report <path> --assessment <pass|fail>
+  5. Request human approval of your review
+  6. Human approves: sow project review approve <report-id>
+  7. Transition occurs based on assessment (pass → finalize, fail → implementation)
 
 Reference: PHASES/REVIEW.md
 

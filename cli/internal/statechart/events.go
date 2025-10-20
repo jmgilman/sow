@@ -40,6 +40,11 @@ const (
 	// Transitions: ImplementationPlanning → ImplementationExecuting.
 	EventTaskCreated Event = "task_created"
 
+	// EventTasksApproved is triggered when `sow project phase approve implementation` is called.
+	// Requires guard: tasks_approved flag set and at least 1 task exists.
+	// Transitions: ImplementationPlanning → ImplementationExecuting.
+	EventTasksApproved Event = "tasks_approved"
+
 	// EventAllTasksComplete is an internal auto-transition when all tasks are done.
 	// Requires guard: all tasks completed or abandoned.
 	// Transitions: ImplementationExecuting → ReviewActive.

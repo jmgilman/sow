@@ -36,6 +36,7 @@ Only discovery and design can be optionally enabled.`,
 	cmd.AddCommand(newPhaseSkipCmd())
 	cmd.AddCommand(newPhaseStatusCmd())
 	cmd.AddCommand(newPhaseCompleteCmd())
+	cmd.AddCommand(newPhaseApproveCmd())
 
 	return cmd
 }

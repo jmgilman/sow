@@ -97,6 +97,7 @@ func NewWithProject(name, description, branch string, fs billy.Filesystem) (*Mac
 	state.Phases.Implementation.Status = "pending"
 	state.Phases.Implementation.Created_at = now
 	state.Phases.Implementation.Tasks = []schemas.Task{}
+	state.Phases.Implementation.Tasks_approved = false
 
 	// Review phase (required, enabled by default)
 	state.Phases.Review.Enabled = true

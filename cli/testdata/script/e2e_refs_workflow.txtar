@@ -48,12 +48,15 @@ exec sow project phase skip design
 exec sow task add 'Test task' --description 'Testing refs commands'
 stderr '✓ Created task 010'
 
+exec sow project phase approve implementation
+
 # =====================================
 # Complete Workflow
 # =====================================
 exec sow task update 010 --status in_progress
 exec sow task update 010 --status completed
 exec sow project review add-report reports/001.md --assessment pass
+exec sow project review approve 001
 exec sow project finalize complete documentation
 exec sow project finalize complete checks
 exec sow project delete --force

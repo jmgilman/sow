@@ -63,6 +63,9 @@ stderr '✓ Created task 020'
 exec sow task add 'Create API' --description 'Expose REST API' --dependencies 020
 stderr '✓ Created task 030'
 
+# Approve task plan
+exec sow project phase approve implementation
+
 # Complete tasks in order
 exec sow task update 010 --status in_progress
 exec sow task update 010 --status completed
@@ -78,7 +81,8 @@ exec sow task update 030 --status completed
 # =====================================
 exec sow project review add-report reports/001-review.md --assessment pass
 stderr '✓ Added review report 001'
-stderr 'Review passed'
+exec sow project review approve 001
+stderr '✓ Approved review report 001'
 
 # =====================================
 # Finalize Phase - Documentation
