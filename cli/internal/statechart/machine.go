@@ -11,9 +11,10 @@ import (
 
 // Machine wraps the stateless state machine with project-specific context.
 type Machine struct {
-	sm           *stateless.StateMachine
-	projectState *schemas.ProjectState
-	fs           billy.Filesystem // Optional filesystem for testability
+	sm            *stateless.StateMachine
+	projectState  *schemas.ProjectState
+	fs            billy.Filesystem // Optional filesystem for testability
+	suppressPrompts bool           // Suppress prompt printing (useful for tests and CLI commands)
 }
 
 // NewMachine creates a new state machine for project lifecycle management.
@@ -34,8 +35,9 @@ func NewMachine(projectState *schemas.ProjectState) *Machine {
 func NewMachineAt(initialState State, projectState *schemas.ProjectState) *Machine {
 	sm := stateless.NewStateMachine(initialState)
 	m := &Machine{
-		sm:           sm,
-		projectState: projectState,
+		sm:              sm,
+		projectState:    projectState,
+		suppressPrompts: true, // Suppress prompts by default for CLI use
 	}
 
 	m.configure()
@@ -60,51 +62,61 @@ func (m *Machine) configure() {
 		OnEntry(m.onEntry(NoProject))
 
 	// DiscoveryDecision state
+	// Allow deletion from any state to support abandoning projects
 	m.sm.Configure(DiscoveryDecision).
 		Permit(EventEnableDiscovery, DiscoveryActive).
 		Permit(EventSkipDiscovery, DesignDecision).
+		Permit(EventProjectDelete, NoProject).
 		OnEntry(m.onEntry(DiscoveryDecision))
 
 	// DiscoveryActive state
 	m.sm.Configure(DiscoveryActive).
 		Permit(EventCompleteDiscovery, DesignDecision, m.discoveryComplete).
+		Permit(EventProjectDelete, NoProject).
 		OnEntry(m.onEntry(DiscoveryActive))
 
 	// DesignDecision state
 	m.sm.Configure(DesignDecision).
 		Permit(EventEnableDesign, DesignActive).
 		Permit(EventSkipDesign, ImplementationPlanning).
+		Permit(EventProjectDelete, NoProject).
 		OnEntry(m.onEntry(DesignDecision))
 
 	// DesignActive state
 	m.sm.Configure(DesignActive).
 		Permit(EventCompleteDesign, ImplementationPlanning, m.designComplete).
+		Permit(EventProjectDelete, NoProject).
 		OnEntry(m.onEntry(DesignActive))
 
 	// ImplementationPlanning state
 	m.sm.Configure(ImplementationPlanning).
 		Permit(EventTaskCreated, ImplementationExecuting, m.hasAtLeastOneTask).
+		Permit(EventProjectDelete, NoProject).
 		OnEntry(m.onEntry(ImplementationPlanning))
 
 	// ImplementationExecuting state
 	m.sm.Configure(ImplementationExecuting).
 		Permit(EventAllTasksComplete, ReviewActive, m.allTasksComplete).
+		Permit(EventProjectDelete, NoProject).
 		OnEntry(m.onEntry(ImplementationExecuting))
 
 	// ReviewActive state
 	m.sm.Configure(ReviewActive).
 		Permit(EventReviewFail, ImplementationPlanning). // Loop back to re-plan
 		Permit(EventReviewPass, FinalizeDocumentation).
+		Permit(EventProjectDelete, NoProject).
 		OnEntry(m.onEntry(ReviewActive))
 
 	// FinalizeDocumentation state
 	m.sm.Configure(FinalizeDocumentation).
 		Permit(EventDocumentationDone, FinalizeChecks, m.documentationAssessed).
+		Permit(EventProjectDelete, NoProject).
 		OnEntry(m.onEntry(FinalizeDocumentation))
 
 	// FinalizeChecks state
 	m.sm.Configure(FinalizeChecks).
 		Permit(EventChecksDone, FinalizeDelete, m.checksAssessed).
+		Permit(EventProjectDelete, NoProject).
 		OnEntry(m.onEntry(FinalizeChecks))
 
 	// FinalizeDelete state
@@ -116,6 +128,11 @@ func (m *Machine) configure() {
 // onEntry creates an entry action that outputs the contextual prompt for a state.
 func (m *Machine) onEntry(state State) func(context.Context, ...any) error {
 	return func(_ context.Context, _ ...any) error {
+		// Skip entirely if prompts are suppressed (avoids any template execution)
+		if m.suppressPrompts {
+			return nil
+		}
+
 		prompt := GeneratePrompt(PromptContext{
 			State:        state,
 			ProjectState: m.projectState,

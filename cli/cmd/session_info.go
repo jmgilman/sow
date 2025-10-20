@@ -56,6 +56,8 @@ type VersionInfo struct {
 
 // NewSessionInfoCmd creates the session-info command.
 func NewSessionInfoCmd() *cobra.Command {
+	var jsonOutput bool
+
 	cmd := &cobra.Command{
 		Use:   "session-info",
 		Short: "Display session context information",
@@ -70,19 +72,23 @@ Shows:
   - CLI version
   - Schema version
 
-Output is JSON for easy consumption by agents and tools.`,
+By default outputs human-readable text. Use --json for structured JSON output.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runSessionInfo(cmd)
+			return runSessionInfo(cmd, jsonOutput)
 		},
 	}
+
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
 
 	return cmd
 }
 
-func runSessionInfo(cmd *cobra.Command) error {
+func runSessionInfo(cmd *cobra.Command, jsonOutput bool) error {
 	// Get Sow from context
 	s := SowFromContext(cmd.Context())
-	if s == nil {
+
+	// Check if sow is initialized
+	if !s.IsInitialized() {
 		return fmt.Errorf("not in a sow repository - run 'sow init' first")
 	}
 
@@ -151,13 +157,36 @@ func runSessionInfo(cmd *cobra.Command) error {
 	// Add available commands based on context
 	info.Available = getAvailableCommands(info.Context.Type, info.Project != nil)
 
-	// Marshal to JSON with indentation
-	output, err := json.MarshalIndent(info, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal session info: %w", err)
+	// Output in requested format
+	if jsonOutput {
+		// JSON output
+		output, err := json.MarshalIndent(info, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal session info: %w", err)
+		}
+		cmd.Println(string(output))
+	} else {
+		// Human-readable output
+		if info.Project == nil {
+			cmd.Println("No active project")
+		} else {
+			cmd.Printf("Project: %s\n", info.Project.Name)
+			cmd.Printf("Description: %s\n", info.Project.Description)
+			if info.Project.Phase != "" {
+				cmd.Printf("Phase: %s (%s)\n", info.Project.Phase, info.Project.Status)
+			}
+		}
+
+		cmd.Printf("Repository: %s\n", info.Repository.Root)
+		cmd.Printf("Branch: %s\n", info.Repository.Branch)
+
+		if info.Context.Type == "task" {
+			cmd.Printf("Context: Task %s\n", info.Context.TaskID)
+		} else if info.Context.Type == "project" {
+			cmd.Println("Context: Project")
+		}
 	}
 
-	cmd.Println(string(output))
 	return nil
 }
 

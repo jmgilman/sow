@@ -1,0 +1,97 @@
+# Test: E2E Schema Validation Errors
+# Purpose: Test CUE schema validation catches invalid states
+# Exercises: Schema validation, sow validate command, error messages
+#
+# Note: This test manually edits state files to create invalid states,
+# which is not normal usage but tests the validation system.
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/validation-test
+exec sow init
+
+# =====================================
+# Error: Invalid Project Name (Not Kebab-Case)
+# =====================================
+# This should be caught at creation time
+! exec sow project init 'Bad_Name' --description 'Test'
+stderr 'kebab-case'
+
+! exec sow project init 'BadName' --description 'Test'
+stderr 'kebab-case'
+
+# =====================================
+# Error: Empty Description
+# =====================================
+! exec sow project init 'good-name' --description ''
+stderr 'description'
+
+# =====================================
+# Create Valid Project
+# =====================================
+exec sow project init valid-project --description 'Valid description'
+exec sow project phase skip discovery
+exec sow project phase skip design
+
+# Verify valid state
+exec sow validate
+stderr '✓ All validations passed'
+
+# =====================================
+# Error: Manually Corrupt Project State
+# =====================================
+# Edit state to have invalid status
+exec sed -i.bak 's/status: pending/status: invalid_status/' .sow/project/state.yaml
+
+# Validation should now fail
+! exec sow validate
+stderr 'validation'
+
+# Restore valid state
+exec mv .sow/project/state.yaml.bak .sow/project/state.yaml
+
+# Verify restoration
+exec sow validate
+stderr '✓ All validations passed'
+
+# =====================================
+# Error: Invalid Task State
+# =====================================
+exec sow task add 'Test task' --description 'Description'
+stderr '✓ Created task 010'
+
+# Corrupt task state with negative iteration
+exec sed -i.bak 's/iteration: 1/iteration: -1/' .sow/project/phases/implementation/tasks/010/state.yaml
+
+# Validation should fail
+! exec sow validate
+stderr 'validation'
+
+# Restore
+exec mv .sow/project/phases/implementation/tasks/010/state.yaml.bak .sow/project/phases/implementation/tasks/010/state.yaml
+
+# Verify
+exec sow validate
+stderr '✓ All validations passed'
+
+# =====================================
+# Complete Workflow (Verify System Still Works)
+# =====================================
+exec sow task update 010 --status in_progress
+exec sow task update 010 --status completed
+exec sow project review add-report reports/001.md --assessment pass
+exec sow project finalize complete documentation
+exec sow project finalize complete checks
+exec sow project delete --force
+
+# =====================================
+# Final Verification
+# =====================================
+! exists .sow/project
+exec sow validate
+stderr '✓ All validations passed'

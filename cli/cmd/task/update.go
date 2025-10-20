@@ -92,7 +92,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 			// Just provide user feedback if we're now in review
 			currentState := proj.Machine().State()
 			if currentState.String() == "ReviewActive" {
-				cmd.Printf("\n✓ All tasks complete. Transitioned to review phase.\n")
+				cmd.Printf("\n✓ All tasks complete. Transitioning to review phase.\n")
 			}
 		}
 	}

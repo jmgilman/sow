@@ -1,5 +1,0 @@
-# Test validation when not in a git repository
-# Should fail with appropriate error message
-
-! exec sow validate
-stderr 'failed to initialize sow filesystem: not in git repository'

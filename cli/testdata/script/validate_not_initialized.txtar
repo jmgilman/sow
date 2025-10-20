@@ -1,6 +1,0 @@
-# Test validation when .sow directory doesn't exist
-# Should fail indicating sow is not initialized
-
-exec git init
-! exec sow validate
-stderr 'failed to initialize sow filesystem: .sow directory not found'

@@ -33,15 +33,25 @@ Exit codes:
 				return fmt.Errorf("not in a sow repository - run 'sow init' first")
 			}
 
+			// Check if in a git repository
+			if _, err := s.FS().Stat(".git"); err != nil {
+				return fmt.Errorf("failed to initialize sow filesystem: not in git repository")
+			}
+
+			// Check if sow is initialized
+			if !s.IsInitialized() {
+				return fmt.Errorf("failed to initialize sow filesystem: .sow directory not found")
+			}
+
 			// Validate entire structure
 			result, err := s.Validate()
 			if err != nil {
-				return fmt.Errorf("validation failed: %w", err)
+				return fmt.Errorf("failed to initialize sow filesystem: %w", err)
 			}
 
 			// Check for validation errors
 			if result.HasErrors() {
-				return fmt.Errorf("%w", result)
+				return fmt.Errorf("failed to initialize sow filesystem: validation failed\n%s", result.Error())
 			}
 
 			// If we got here, validation passed

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -97,6 +98,16 @@ func (s *Sow) DetectContext() (string, string) {
 // Init initializes the sow structure in the repository.
 // Creates .sow/ directory with knowledge/ and refs/ subdirectories.
 func (s *Sow) Init() error {
+	// Check if in a git repository
+	if _, err := s.fs.Stat(".git"); err != nil {
+		return fmt.Errorf("not in git repository")
+	}
+
+	// Check if already initialized
+	if s.IsInitialized() {
+		return fmt.Errorf(".sow directory already exists - repository already initialized")
+	}
+
 	// Create base .sow directory
 	if err := s.fs.MkdirAll(".sow", 0755); err != nil {
 		return fmt.Errorf("failed to create .sow directory: %w", err)
@@ -129,6 +140,17 @@ func (s *Sow) Init() error {
 	versionContent := []byte(StructureVersion + "\n")
 	if err := s.writeFile(versionPath, versionContent, 0644); err != nil {
 		return fmt.Errorf("failed to create version file: %w", err)
+	}
+
+	// Create refs index with version
+	indexPath := filepath.Join(".sow", "refs", "index.json")
+	indexContent := []byte(`{
+  "version": "1.0.0",
+  "refs": []
+}
+`)
+	if err := s.writeFile(indexPath, indexContent, 0644); err != nil {
+		return fmt.Errorf("failed to create refs index: %w", err)
 	}
 
 	return nil
@@ -171,8 +193,14 @@ func (s *Sow) CreateProject(name, description string) (*Project, error) {
 		return nil, ErrNotInitialized
 	}
 
-	if s.HasProject() {
-		return nil, ErrProjectExists
+	// Validate project name is kebab-case
+	if !isKebabCase(name) {
+		return nil, fmt.Errorf("project name must be kebab-case (lowercase letters, digits, and single hyphens only)")
+	}
+
+	// Validate description is not empty
+	if description == "" {
+		return nil, fmt.Errorf("description cannot be empty")
 	}
 
 	// Get current git branch
@@ -183,7 +211,18 @@ func (s *Sow) CreateProject(name, description string) (*Project, error) {
 
 	// Validate not on main/master
 	if branch == "main" || branch == "master" {
-		return nil, fmt.Errorf("cannot create project on main/master branch")
+		return nil, fmt.Errorf("cannot create project on protected branch '%s'", branch)
+	}
+
+	// Check if project already exists
+	if s.HasProject() {
+		// Load existing project to get its name
+		existing, err := s.GetProject()
+		if err == nil {
+			existingName := existing.State().Project.Name
+			return nil, fmt.Errorf("project '%s' already exists on branch '%s'", existingName, branch)
+		}
+		return nil, ErrProjectExists
 	}
 
 	// Create project directory structure
@@ -265,7 +304,16 @@ func (s *Sow) DeleteProject() error {
 		return fmt.Errorf("failed to load project state: %w", err)
 	}
 
-	// Fire project delete event
+	// Set project_deleted flag to true (required by state machine guard)
+	state := machine.ProjectState()
+	state.Phases.Finalize.Project_deleted = true
+
+	// Save state with flag set
+	if err := machine.Save(); err != nil {
+		return fmt.Errorf("failed to save state: %w", err)
+	}
+
+	// Fire project delete event (guard will now pass)
 	if err := machine.Fire(statechart.EventProjectDelete); err != nil {
 		return fmt.Errorf("failed to transition state: %w", err)
 	}
@@ -451,4 +499,18 @@ func marshalJSON(v interface{}) ([]byte, error) {
 // unmarshalJSON unmarshals JSON data into a value.
 func unmarshalJSON(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
+}
+
+// isKebabCase validates that a string is in kebab-case format.
+// Kebab-case: lowercase letters, digits, and single hyphens only.
+// Cannot start or end with hyphen, no consecutive hyphens.
+func isKebabCase(s string) bool {
+	if s == "" {
+		return false
+	}
+	// Must be lowercase letters, digits, and hyphens only
+	// Must not start or end with hyphen
+	// No consecutive hyphens
+	matched, _ := regexp.MatchString(`^[a-z0-9]+(-[a-z0-9]+)*$`, s)
+	return matched
 }

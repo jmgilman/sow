@@ -67,8 +67,8 @@ func (p *Project) EnablePhase(phaseName string, opts ...PhaseOption) error {
 		}
 		state.Phases.Discovery.Enabled = true
 		state.Phases.Discovery.Status = "pending"
-		state.Phases.Discovery.Discovery_type = &cfg.discoveryType
-		state.Phases.Discovery.Started_at = &now
+		state.Phases.Discovery.Discovery_type = cfg.discoveryType
+		state.Phases.Discovery.Started_at = now.Format(time.RFC3339)
 
 		// Create discovery directory structure
 		if err := p.createPhaseStructure("discovery"); err != nil {
@@ -83,7 +83,7 @@ func (p *Project) EnablePhase(phaseName string, opts ...PhaseOption) error {
 	case "design":
 		state.Phases.Design.Enabled = true
 		state.Phases.Design.Status = "pending"
-		state.Phases.Design.Started_at = &now
+		state.Phases.Design.Started_at = now.Format(time.RFC3339)
 
 		// Create design directory structure
 		if err := p.createPhaseStructure("design"); err != nil {
@@ -114,7 +114,7 @@ func (p *Project) CompletePhase(phaseName string) error {
 			return ErrPhaseNotEnabled
 		}
 		state.Phases.Discovery.Status = "completed"
-		state.Phases.Discovery.Completed_at = &now
+		state.Phases.Discovery.Completed_at = now.Format(time.RFC3339)
 
 		// Fire state machine event
 		if err := p.machine.Fire(statechart.EventCompleteDiscovery); err != nil {
@@ -126,7 +126,7 @@ func (p *Project) CompletePhase(phaseName string) error {
 			return ErrPhaseNotEnabled
 		}
 		state.Phases.Design.Status = "completed"
-		state.Phases.Design.Completed_at = &now
+		state.Phases.Design.Completed_at = now.Format(time.RFC3339)
 
 		// Fire state machine event
 		if err := p.machine.Fire(statechart.EventCompleteDesign); err != nil {
@@ -135,7 +135,7 @@ func (p *Project) CompletePhase(phaseName string) error {
 
 	case "implementation":
 		state.Phases.Implementation.Status = "completed"
-		state.Phases.Implementation.Completed_at = &now
+		state.Phases.Implementation.Completed_at = now.Format(time.RFC3339)
 
 		// Fire state machine event (transitions to review)
 		if err := p.machine.Fire(statechart.EventAllTasksComplete); err != nil {
@@ -144,14 +144,14 @@ func (p *Project) CompletePhase(phaseName string) error {
 
 	case "review":
 		state.Phases.Review.Status = "completed"
-		state.Phases.Review.Completed_at = &now
+		state.Phases.Review.Completed_at = now.Format(time.RFC3339)
 
 		// Fire state machine event (handled by review pass/fail)
 		// This is a placeholder - actual review completion happens via AddReviewReport
 
 	case "finalize":
 		state.Phases.Finalize.Status = "completed"
-		state.Phases.Finalize.Completed_at = &now
+		state.Phases.Finalize.Completed_at = now.Format(time.RFC3339)
 
 		// Finalize has substates, handled by specialized methods
 
@@ -235,15 +235,29 @@ func (p *Project) AddTask(name string, opts ...TaskOption) (*Task, error) {
 	if id == "" {
 		id = p.generateTaskID()
 	} else {
-		// Validate explicit ID format (gap-numbered: 010, 020, etc.)
+		// Validate explicit ID format
 		if !isValidTaskID(id) {
-			return nil, fmt.Errorf("invalid task ID format: %s (must be gap-numbered like 010, 020)", id)
+			return nil, fmt.Errorf("invalid task ID: must be 3 digits (e.g., 010, 020, 015)")
 		}
 		// Check for duplicates
 		for _, t := range state.Phases.Implementation.Tasks {
 			if t.Id == id {
 				return nil, fmt.Errorf("task ID already exists: %s", id)
 			}
+		}
+	}
+
+	// Validate dependencies exist
+	for _, depID := range cfg.dependencies {
+		found := false
+		for _, t := range state.Phases.Implementation.Tasks {
+			if t.Id == depID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("dependency task not found: %s", depID)
 		}
 	}
 
@@ -264,8 +278,10 @@ func (p *Project) AddTask(name string, opts ...TaskOption) (*Task, error) {
 		return nil, fmt.Errorf("failed to create task structure: %w", err)
 	}
 
-	// If this is the first task, fire event to transition from Planning to Executing
-	if len(state.Phases.Implementation.Tasks) == 1 {
+	// If we're in Planning state, fire event to transition to Executing
+	// This handles both the first task and tasks added after review loop-back
+	currentState := p.machine.State()
+	if currentState == statechart.ImplementationPlanning {
 		if err := p.machine.Fire(statechart.EventTaskCreated); err != nil {
 			return nil, fmt.Errorf("state transition failed: %w", err)
 		}
@@ -635,21 +651,22 @@ func (p *Project) generateTaskID() string {
 	return fmt.Sprintf("%03d", nextID)
 }
 
-// isValidTaskID validates that a task ID follows the gap-numbered format (010, 020, etc.).
+// isValidTaskID validates that a task ID is a valid 3-digit number.
+// Gap-numbered IDs (010, 020, 030) are auto-generated, but users can
+// specify intermediate IDs (015, 025) for insertion between tasks.
 func isValidTaskID(id string) bool {
-	// Must be 3 digits
+	// Must be exactly 3 digits
 	if len(id) != 3 {
 		return false
 	}
 
-	// Must be numeric
+	// Must be numeric and greater than 0
 	var num int
 	if _, err := fmt.Sscanf(id, "%d", &num); err != nil {
 		return false
 	}
 
-	// Must be divisible by 10 (gap-numbered)
-	return num%10 == 0 && num > 0
+	return num > 0
 }
 
 // AppendLog appends a log entry to the project log file.

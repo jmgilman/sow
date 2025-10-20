@@ -4,6 +4,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/jmgilman/go/fs/billy"
@@ -39,15 +40,21 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 				return fmt.Errorf("failed to get current directory: %w", err)
 			}
 
-			// Create raw billy filesystem for Sow instance
-			rawBillyFS := osfs.New(cwd)
+			// Find repository root (walk up to find .git)
+			repoRoot := findRepoRoot(cwd)
+			if repoRoot == "" {
+				repoRoot = cwd // Fallback to cwd if not in a git repo
+			}
+
+			// Create raw billy filesystem rooted at repo root
+			rawBillyFS := osfs.New(repoRoot)
 
 			// Create unified Sow instance
 			sowInstance := sow.New(rawBillyFS)
 
 			// Create wrapped filesystem for backwards compatibility
 			baseFS := billy.NewLocal()
-			wrappedFS, err := baseFS.Chroot(cwd)
+			wrappedFS, err := baseFS.Chroot(repoRoot)
 			if err != nil {
 				return fmt.Errorf("failed to chroot filesystem: %w", err)
 			}
@@ -84,5 +91,44 @@ func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+// findRepoRoot walks up the directory tree to find the git repository root.
+// Returns the directory containing .git, or empty string if not found.
+func findRepoRoot(start string) string {
+	dir := start
+	for {
+		// Check if .git exists in this directory
+		gitPath := dir + string(os.PathSeparator) + ".git"
+		if _, err := os.Stat(gitPath); err == nil {
+			return dir
+		}
+
+		// Move up one directory
+		parent := dir + string(os.PathSeparator) + ".."
+		absParent, err := os.Stat(parent)
+		if err != nil {
+			return "" // Can't stat parent, give up
+		}
+
+		// Get absolute path of parent
+		absPath, err := filepath.Abs(parent)
+		if err != nil {
+			return ""
+		}
+
+		// Check if we've reached the root
+		if absPath == dir {
+			return "" // Reached filesystem root without finding .git
+		}
+
+		// Check if parent is the same as current (another way to detect root)
+		currentStat, _ := os.Stat(dir)
+		if os.SameFile(currentStat, absParent) {
+			return ""
+		}
+
+		dir = absPath
 	}
 }

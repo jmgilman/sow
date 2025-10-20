@@ -1,0 +1,67 @@
+# Test: E2E Refs Workflow
+# Purpose: Verify refs commands exist and basic structure
+# Exercises: refs init, refs list, refs status commands
+#
+# Note: Full refs workflow (add/remove) requires writable HOME which testscript
+# doesn't provide. This test verifies command structure and initialization only.
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/refs-test
+exec sow init
+
+# =====================================
+# Refs Init
+# =====================================
+# Initialize refs (should be idempotent after sow init)
+exec sow refs init
+stderr 'initialized successfully'
+
+# Verify refs structure exists
+exists .sow/refs
+exists .sow/refs/index.json
+
+# =====================================
+# List References (Empty)
+# =====================================
+exec sow refs list
+stderr 'No refs'
+
+# =====================================
+# Refs Status (Empty)
+# =====================================
+exec sow refs status
+stderr 'No refs'
+
+# =====================================
+# Create Project for Context
+# =====================================
+exec sow project init refs-project --description 'Test refs commands'
+exec sow project phase skip discovery
+exec sow project phase skip design
+
+exec sow task add 'Test task' --description 'Testing refs commands'
+stderr '✓ Created task 010'
+
+# =====================================
+# Complete Workflow
+# =====================================
+exec sow task update 010 --status in_progress
+exec sow task update 010 --status completed
+exec sow project review add-report reports/001.md --assessment pass
+exec sow project finalize complete documentation
+exec sow project finalize complete checks
+exec sow project delete --force
+
+# =====================================
+# Final Verification
+# =====================================
+! exists .sow/project
+exists .sow/refs
+exec sow validate
+stderr '✓ All validations passed'
