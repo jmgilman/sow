@@ -1,18 +1,31 @@
 {
   "name": "sow-marketplace",
+  "version": "1.0.0",
+  "description": "Official sow plugin marketplace for AI-powered software development workflows",
   "owner": {
-    "name": "sow contributors",
-    "email": "sow@example.com"
+    "name": "Joshua Gilman",
+    "email": "sow@gilman.io"
   },
   "plugins": [
     {
       "name": "sow",
       "source": "./plugin",
-      "description": "AI-powered system of work for software engineering",
       "version": "0.1.0",
+      "description": "AI-powered system of work for software engineering",
       "author": {
         "name": "sow contributors"
-      }
+      },
+      "repository": "https://github.com/jmgilman/sow",
+      "homepage": "https://github.com/jmgilman/sow",
+      "license": "MIT",
+      "keywords": [
+        "workflow",
+        "orchestration",
+        "ai",
+        "ai-agents",
+        "claude",
+        "claude code"
+      ]
     }
   ]
 }
