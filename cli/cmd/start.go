@@ -55,7 +55,7 @@ func runStart(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Launch claude with /sow-greet slash command
-	claudeCmd := exec.CommandContext(cmd.Context(), claudePath, "/sow-greet")
+	claudeCmd := exec.CommandContext(cmd.Context(), claudePath, "/sow:greet")
 	claudeCmd.Stdin = os.Stdin
 	claudeCmd.Stdout = os.Stdout
 	claudeCmd.Stderr = os.Stderr
