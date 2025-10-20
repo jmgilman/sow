@@ -36,7 +36,7 @@ Examples:
 	return cmd
 }
 
-func runStart(cmd *cobra.Command, args []string) error {
+func runStart(cmd *cobra.Command, _ []string) error {
 	s := cmdutil.SowFromContext(cmd.Context())
 
 	// Validate sow initialized
@@ -55,7 +55,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 
 	// Launch claude with /sow-greet slash command
-	claudeCmd := exec.Command(claudePath, "/sow-greet")
+	claudeCmd := exec.CommandContext(cmd.Context(), claudePath, "/sow-greet")
 	claudeCmd.Stdin = os.Stdin
 	claudeCmd.Stdout = os.Stdout
 	claudeCmd.Stderr = os.Stderr
