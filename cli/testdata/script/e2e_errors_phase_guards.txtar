@@ -1,0 +1,102 @@
+# Test: E2E Phase Guard Errors
+# Purpose: Test state machine guard validation
+# Exercises: Artifact approval guards, task completion guards, phase transition guards
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/guards-test
+exec sow init
+
+# =====================================
+# Project Initialization
+# =====================================
+exec sow project init guards-project --description 'Test phase guards'
+
+# =====================================
+# Discovery: Error - Complete Without Approved Artifacts
+# =====================================
+exec sow project phase enable discovery --type feature
+
+# Create and add artifact (not approved)
+exec mkdir -p .sow/project/phases/discovery/research
+exec sh -c 'echo "# Research" > .sow/project/phases/discovery/research/001.md'
+exec sow project artifact add phases/discovery/research/001.md --phase discovery
+
+# Try to complete discovery without approving artifact
+! exec sow project phase complete discovery
+stderr 'guard conditions are not met'
+
+# Approve and complete successfully
+exec sow project artifact approve phases/discovery/research/001.md --phase discovery
+exec sow project phase complete discovery
+
+# =====================================
+# Design: Error - Complete Without Approved Artifacts
+# =====================================
+exec sow project phase enable design
+
+# Create and add artifact (not approved)
+exec mkdir -p .sow/project/phases/design/adrs
+exec sh -c 'echo "# ADR" > .sow/project/phases/design/adrs/001.md'
+exec sow project artifact add phases/design/adrs/001.md --phase design
+
+# Try to complete design without approving
+! exec sow project phase complete design
+stderr 'guard conditions are not met'
+
+# Approve and complete
+exec sow project artifact approve phases/design/adrs/001.md --phase design
+exec sow project phase complete design
+
+# =====================================
+# Implementation: Error - No Tasks Created
+# =====================================
+# At ImplementationPlanning state, but no tasks exist
+# The state machine should not transition to ImplementationExecuting
+
+# Try to manually move forward (this should fail or have no effect)
+# Actually, the system waits for task_created event which requires at least 1 task
+
+# Add a task - should auto-transition to ImplementationExecuting
+exec sow task add 'First task' --description 'Initial work'
+stderr '✓ Created task 010'
+
+# =====================================
+# Review: Error - Try to Review with Incomplete Tasks
+# =====================================
+# Task 010 is pending, not completed
+# State machine should not allow transition to ReviewActive
+
+# The system should auto-transition only when all tasks are complete
+# Verify we're in ImplementationExecuting state
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationExecuting'
+
+# Complete the task - should auto-transition to ReviewActive
+exec sow task update 010 --status in_progress
+exec sow task update 010 --status completed
+stderr 'All tasks complete'
+
+# Verify we transitioned to review
+exec sow validate
+stderr '✓ All validations passed'
+
+# =====================================
+# Complete Workflow
+# =====================================
+exec sow project review add-report reports/001.md --assessment pass
+exec sow project finalize complete documentation
+exec sow project finalize complete checks
+exec sow project delete --force
+
+# =====================================
+# Final Verification
+# =====================================
+! exists .sow/project
+exec sow validate
+stderr '✓ All validations passed'

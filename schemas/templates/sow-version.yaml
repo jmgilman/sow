@@ -1,7 +1,0 @@
-# Version File Template
-# Location: .sow/.version
-
-sow_structure_version: 0.1.0
-plugin_version: 0.1.0
-initialized: ""                   # ISO 8601 timestamp
-last_migrated: null               # ISO 8601 timestamp or null

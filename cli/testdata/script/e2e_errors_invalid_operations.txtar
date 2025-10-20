@@ -1,0 +1,145 @@
+# Test: E2E Invalid Operations
+# Purpose: Test validation of invalid command sequences and parameters
+# Exercises: Command validation, parameter validation, error messages
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/invalid-ops
+exec sow init
+
+# =====================================
+# Error: Project Commands Without Project
+# =====================================
+! exec sow project status
+stderr 'no active project'
+
+! exec sow task add 'Task' --description 'Description'
+stderr 'no active project'
+
+# =====================================
+# Create Project
+# =====================================
+exec sow project init test-project --description 'Test project'
+exec sow project phase skip discovery
+exec sow project phase skip design
+
+# =====================================
+# Error: Task with Invalid ID Format
+# =====================================
+# Too short (must be 3 digits)
+! exec sow task add 'Task' --description 'Desc' --id 01
+stderr '3 digits'
+
+# Non-numeric
+! exec sow task add 'Task' --description 'Desc' --id abc
+stderr 'digits'
+
+# Too long
+! exec sow task add 'Task' --description 'Desc' --id 0123
+stderr '3 digits'
+
+# =====================================
+# Error: Duplicate Task ID
+# =====================================
+exec sow task add 'First task' --description 'Description'
+stderr '✓ Created task 010'
+
+# Try to create another with same ID
+! exec sow task add 'Second task' --description 'Description' --id 010
+stderr 'already exists'
+
+# =====================================
+# Error: Task with Non-Existent Dependencies
+# =====================================
+! exec sow task add 'Dependent task' --description 'Desc' --dependencies 999
+stderr 'not found'
+
+! exec sow task add 'Dependent task' --description 'Desc' --dependencies 010,999
+stderr 'not found'
+
+# Valid dependency should work
+exec sow task add 'Valid dependent' --description 'Desc' --dependencies 010
+stderr '✓ Created task 020'
+
+# =====================================
+# Error: Invalid Status Update
+# =====================================
+! exec sow task update 010 --status invalid_status
+stderr 'invalid task status'
+
+! exec sow task update 010 --status InProgress
+stderr 'invalid task status'
+
+# Valid status should work
+exec sow task update 010 --status in_progress
+stderr '✓ Updated task 010'
+
+# =====================================
+# Error: Feedback on Non-Existent Feedback ID
+# =====================================
+! exec sow task feedback mark-addressed 999 010
+stderr 'not found'
+
+# Add feedback first
+exec sow task feedback add 'Fix this' 010
+stderr '✓ Created feedback 001'
+
+# Now mark it as addressed (should work)
+exec sow task feedback mark-addressed 001 010
+stderr 'addressed'
+
+# =====================================
+# Error: Invalid Review Assessment
+# =====================================
+exec sow task update 010 --status completed
+exec sow task update 020 --status completed
+
+# Invalid assessment
+! exec sow project review add-report reports/001.md --assessment maybe
+stderr 'must be ''pass'' or ''fail'''
+
+! exec sow project review add-report reports/001.md --assessment PASS
+stderr 'must be ''pass'' or ''fail'''
+
+# Valid assessment should work
+exec sow project review add-report reports/001.md --assessment pass
+stderr '✓ Added review report 001'
+
+# =====================================
+# Error: Invalid Phase Enable
+# =====================================
+# Cannot enable required phases manually
+! exec sow project phase enable implementation
+stderr 'only discovery and design'
+
+! exec sow project phase enable review
+stderr 'only discovery and design'
+
+# =====================================
+# Error: Invalid Phase Skip
+# =====================================
+# Cannot skip required phases
+! exec sow project phase skip implementation
+stderr 'only discovery and design'
+
+! exec sow project phase skip review
+stderr 'only discovery and design'
+
+# =====================================
+# Complete Workflow
+# =====================================
+exec sow project finalize complete documentation
+exec sow project finalize complete checks
+exec sow project delete --force
+
+# =====================================
+# Final Verification
+# =====================================
+! exists .sow/project
+exec sow validate
+stderr '✓ All validations passed'

@@ -1,0 +1,84 @@
+# Test: E2E Design Only
+# Purpose: Design phase workflow with ADRs and approval
+# Exercises: Skip discovery, enable design, add/approve artifacts
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/design-test
+exec sow init
+
+# =====================================
+# Project Initialization
+# =====================================
+exec sow project init design-project --description 'Test design phase'
+stderr '✓ Initialized project'
+
+# =====================================
+# Skip Discovery, Enable Design
+# =====================================
+exec sow project phase skip discovery
+stderr '✓ Skipped discovery phase'
+
+exec sow project phase enable design
+stderr '✓ Enabled design phase'
+
+# Verify design phase directory created
+exists .sow/project/phases/design
+
+# Create ADR files
+exec mkdir -p .sow/project/phases/design/adrs
+exec sh -c 'echo "# ADR 001\n\nUse JWT RS256" > .sow/project/phases/design/adrs/001-jwt-rs256.md'
+exec sh -c 'echo "# ADR 002\n\nDatabase schema" > .sow/project/phases/design/adrs/002-schema.md'
+
+# =====================================
+# Add Design Artifacts
+# =====================================
+exec sow project artifact add phases/design/adrs/001-jwt-rs256.md --phase design
+stderr '✓ Added artifact to design phase'
+
+exec sow project artifact add phases/design/adrs/002-schema.md --phase design
+stderr '✓ Added artifact to design phase'
+
+# =====================================
+# Approve Artifacts
+# =====================================
+exec sow project artifact approve phases/design/adrs/001-jwt-rs256.md --phase design
+stderr '✓ Approved artifact'
+
+exec sow project artifact approve phases/design/adrs/002-schema.md --phase design
+stderr '✓ Approved artifact'
+
+# =====================================
+# Complete Design Phase
+# =====================================
+exec sow project phase complete design
+
+# Verify state validates
+exec sow validate
+stderr '✓ All validations passed'
+
+# =====================================
+# Complete Workflow
+# =====================================
+# Add and complete task
+exec sow task add 'Implement design' --description 'Build per design'
+exec sow task update 010 --status in_progress
+exec sow task update 010 --status completed
+
+# Review and finalize
+exec sow project review add-report reports/001.md --assessment pass
+exec sow project finalize complete documentation
+exec sow project finalize complete checks
+exec sow project delete --force
+
+# =====================================
+# Final Verification
+# =====================================
+! exists .sow/project
+exec sow validate
+stderr '✓ All validations passed'

@@ -1,0 +1,95 @@
+# Test: E2E Review Loop
+# Purpose: Review failure and loopback to implementation
+# Exercises: Review fail, review increment, add tasks after initial completion
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/review-loop
+exec sow init
+
+# =====================================
+# Project Initialization
+# =====================================
+exec sow project init review-loop-project --description 'Test review failure and loop'
+stderr '✓ Initialized project'
+
+# Skip optional phases
+exec sow project phase skip discovery
+exec sow project phase skip design
+
+# =====================================
+# Initial Implementation
+# =====================================
+# Add initial tasks
+exec sow task add 'Implement feature' --description 'Core functionality'
+stderr '✓ Created task 010'
+
+exec sow task add 'Add tests' --description 'Unit tests'
+stderr '✓ Created task 020'
+
+# Complete both tasks
+exec sow task update 010 --status in_progress
+exec sow task update 010 --status completed
+exec sow task update 020 --status in_progress
+exec sow task update 020 --status completed
+
+stderr 'All tasks complete'
+
+# =====================================
+# First Review - FAIL
+# =====================================
+exec sow project review add-report reports/001-review.md --assessment fail
+stderr '✓ Added review report 001'
+stderr 'Review failed'
+stderr 'Looping back to implementation'
+
+# Verify we're back in ImplementationPlanning
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# Verify state validates after loop back
+exec sow validate
+stderr '✓ All validations passed'
+
+# =====================================
+# Additional Task After Review Failure
+# =====================================
+# Add task to fix issues found in review
+exec sow task add 'Fix review issues' --description 'Address feedback from review'
+stderr '✓ Created task 030'
+
+# Complete the fix task
+exec sow task update 030 --status in_progress
+exec sow task update 030 --status completed
+
+# =====================================
+# Second Review - PASS
+# =====================================
+exec sow project review add-report reports/002-review.md --assessment pass
+stderr '✓ Added review report 002'
+stderr 'Review passed'
+
+# Verify two reports exist
+exec cat .sow/project/state.yaml
+stdout '001'
+stdout '002'
+stdout 'assessment: pass'
+
+# =====================================
+# Finalize and Complete
+# =====================================
+exec sow project finalize complete documentation
+exec sow project finalize complete checks
+exec sow project delete --force
+
+# =====================================
+# Final Verification
+# =====================================
+! exists .sow/project
+exec sow validate
+stderr '✓ All validations passed'

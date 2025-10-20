@@ -1,0 +1,121 @@
+# Test: E2E Logging and Session Info
+# Purpose: Test logging commands and context detection
+# Exercises: sow log, sow session-info, project/task context detection
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/logging-test
+exec sow init
+
+# =====================================
+# Session Info - No Project
+# =====================================
+exec sow session-info
+stderr 'No active project'
+
+# =====================================
+# Project Initialization
+# =====================================
+exec sow project init logging-project --description 'Test logging'
+exec sow project phase skip discovery
+exec sow project phase skip design
+
+# =====================================
+# Session Info - With Project
+# =====================================
+exec sow session-info
+stderr 'logging-project'
+stderr 'feat/logging-test'
+
+# =====================================
+# Project-Level Logging
+# =====================================
+# At project root, log should go to project log
+exec sow log --action started_task --result success --notes 'Starting implementation' --project
+stderr '✓ Log entry added to project log'
+
+# Verify entry in project log
+exec cat .sow/project/log.md
+stdout 'orchestrator'
+stdout 'started_task'
+stdout 'success'
+stdout 'Starting implementation'
+
+# =====================================
+# Create Task for Task-Level Logging
+# =====================================
+exec sow task add 'Implement feature' --description 'Core work'
+stderr '✓ Created task 010'
+
+exists .sow/project/phases/implementation/tasks/010/log.md
+
+# =====================================
+# Task-Level Logging (From Task Directory)
+# =====================================
+# Change to task directory
+cd .sow/project/phases/implementation/tasks/010
+
+# Log from task directory (should auto-detect context)
+exec sow log --action created_file --result success --files src/main.go --notes 'Created main file'
+stderr '✓ Log entry added to task log'
+
+# Verify entry in task log
+exec cat log.md
+stdout 'implementer'
+stdout 'created_file'
+stdout 'success'
+stdout 'src/main.go'
+stdout 'Created main file'
+
+# =====================================
+# Multiple Files in Log Entry
+# =====================================
+exec sow log --action modified_file --result success --files src/main.go --files tests/test_main.go --notes 'Updated code and tests'
+stderr '✓ Log entry added to task log'
+
+# Verify multiple files in log
+exec cat log.md
+stdout 'src/main.go'
+stdout 'tests/test_main.go'
+
+# =====================================
+# Force Project Log from Task Directory
+# =====================================
+exec sow log --action completed_task --result success --project --notes 'Task completed'
+stderr '✓ Log entry added to project log'
+
+# Change back to root and verify
+cd $WORK
+exec cat .sow/project/log.md
+stdout 'completed_task'
+
+# =====================================
+# Session Info from Task Directory
+# =====================================
+cd .sow/project/phases/implementation/tasks/010
+exec sow session-info
+stderr 'logging-project'
+stderr '010'
+
+# =====================================
+# Complete Workflow
+# =====================================
+cd $WORK
+exec sow task update 010 --status in_progress
+exec sow task update 010 --status completed
+exec sow project review add-report reports/001.md --assessment pass
+exec sow project finalize complete documentation
+exec sow project finalize complete checks
+exec sow project delete --force
+
+# =====================================
+# Final Verification
+# =====================================
+! exists .sow/project
+exec sow validate
+stderr '✓ All validations passed'

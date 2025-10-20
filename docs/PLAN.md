@@ -205,7 +205,7 @@ This plan outlines the restructuring of sow documentation to support the new 5-p
   - Local caching strategy
   - Symlink approach (Unix) vs copy (Windows)
   - Two-index system (committed vs cache)
-- CLI commands (`sow refs`, `sow cache`)
+- CLI commands (`sow refs`)
 - Reference types (knowledge vs code)
 - Workflows (add, init, update, status)
 - Platform differences
@@ -328,11 +328,24 @@ This plan outlines the restructuring of sow documentation to support the new 5-p
 - Core `sow` commands
   - `sow version`
   - `sow init`
-  - `sow schema`
   - `sow validate`
 - Logging commands
   - `sow log`
   - `sow session-info`
+- Project commands
+  - `sow project init`
+  - `sow project status`
+  - `sow project delete`
+  - `sow project phase enable/status/complete`
+  - `sow project artifact add/approve/list`
+  - `sow project review increment/add-report`
+  - `sow project finalize add-document/move-artifact`
+- Task commands
+  - `sow task init`
+  - `sow task list/show`
+  - `sow task set-status/abandon`
+  - `sow task state increment/set-agent/add-reference/add-file`
+  - `sow task feedback add/mark-addressed`
 - Refs commands
   - `sow refs add`
   - `sow refs init`
@@ -340,10 +353,6 @@ This plan outlines the restructuring of sow documentation to support the new 5-p
   - `sow refs update`
   - `sow refs list`
   - `sow refs remove`
-- Cache commands
-  - `sow cache status`
-  - `sow cache prune`
-  - `sow cache clear`
 - Slash commands (orchestrator-facing)
   - `/project:new` (replaces `/start-project`)
   - `/project:continue` (replaces `/continue`)
@@ -358,7 +367,7 @@ This plan outlines the restructuring of sow documentation to support the new 5-p
 - `notes/refs.md` (refs commands)
 - `notes/PHASE_SPECIFICATIONS.md` (slash commands)
 
-**Major Additions**: Refs and cache commands
+**Major Additions**: Refs commands
 
 ---
 
