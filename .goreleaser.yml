@@ -86,9 +86,10 @@ brews: # For CLI tools, brews is still the correct section despite the deprecati
       owner: jmgilman
       name: homebrew-apps
       branch: main
-      # Use SSH URL - deploy key is configured via ssh-agent in workflow
+      # Use SSH URL with deploy key
       git:
         url: 'git@github.com:jmgilman/homebrew-apps.git'
+        private_key: '{{ .Env.HOMEBREW_TAP_PRIVATE_KEY }}'
     directory: Formula
     homepage: https://github.com/jmgilman/sow
     description: AI-powered system of work - Structured software development with AI agents
