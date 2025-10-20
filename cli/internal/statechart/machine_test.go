@@ -7,6 +7,13 @@ import (
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
+// testMachine creates a machine with prompts suppressed for cleaner test output.
+func testMachine(state *schemas.ProjectState) *Machine {
+	m := NewMachine(state)
+	m.SuppressPrompts(true)
+	return m
+}
+
 // TestProjectLifecycle demonstrates a complete project lifecycle through the state machine.
 func TestProjectLifecycle(t *testing.T) {
 	// Start with no project
@@ -43,7 +50,7 @@ func TestProjectLifecycle(t *testing.T) {
 		},
 	}
 
-	machine := NewMachine(nil) // Start with NoProject
+	machine := testMachine(nil) // Start with NoProject
 
 	// Verify initial state
 	if machine.State() != NoProject {
@@ -146,7 +153,7 @@ func TestDiscoveryPhase(t *testing.T) {
 		},
 	}
 
-	machine := NewMachine(state) // Start with state so prompts don't crash
+	machine := testMachine(state)
 
 	// Initialize and enter discovery
 	_ = machine.Fire(EventProjectInit)
@@ -190,7 +197,7 @@ func TestReviewLoop(t *testing.T) {
 		Status:    "pending",
 	}
 
-	machine := NewMachine(state)
+	machine := testMachine(state)
 
 	// Fast-forward to review state (simulate getting there)
 	_ = machine.Fire(EventProjectInit)
@@ -243,7 +250,7 @@ func TestGuardPreventsInvalidTransition(t *testing.T) {
 		Tasks:   []schemas.Task{}, // No tasks
 	}
 
-	machine := NewMachine(state)
+	machine := testMachine(state)
 
 	// Fast-forward to implementation planning
 	_ = machine.Fire(EventProjectInit)
@@ -268,7 +275,7 @@ func TestGuardPreventsInvalidTransition(t *testing.T) {
 
 // TestPermittedTriggers verifies which events are valid in each state.
 func TestPermittedTriggers(t *testing.T) {
-	machine := NewMachine(nil)
+	machine := testMachine(nil)
 
 	// NoProject should only permit ProjectInit
 	triggers, err := machine.PermittedTriggers()
@@ -311,7 +318,7 @@ func TestPersistence(t *testing.T) {
 	}()
 
 	// Create a machine and advance through some states
-	machine := NewMachine(nil)
+	machine := testMachine(nil)
 	state := &schemas.ProjectState{}
 	state.Phases.Implementation = schemas.ImplementationPhase{
 		Enabled: true,
@@ -342,6 +349,7 @@ func TestPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to load state: %v", err)
 	}
+	loadedMachine.SuppressPrompts(true)
 
 	// Verify state was preserved
 	if loadedMachine.State() != ImplementationExecuting {
@@ -376,6 +384,7 @@ func TestLoadNoProject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to load (expected NoProject): %v", err)
 	}
+	machine.SuppressPrompts(true)
 
 	if machine.State() != NoProject {
 		t.Errorf("Expected NoProject state when no file exists, got %s", machine.State())

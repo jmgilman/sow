@@ -30,7 +30,7 @@ func NewMachineAt(initialState State, projectState *schemas.ProjectState) *Machi
 	m := &Machine{
 		sm:              sm,
 		projectState:    projectState,
-		suppressPrompts: true, // Suppress prompts by default for CLI use
+		suppressPrompts: false, // Show prompts by default
 	}
 
 	m.configure()
@@ -45,6 +45,11 @@ func (m *Machine) ProjectState() *schemas.ProjectState {
 // SetProjectState sets the machine's project state.
 func (m *Machine) SetProjectState(state *schemas.ProjectState) {
 	m.projectState = state
+}
+
+// SuppressPrompts disables prompt output (useful for tests and non-interactive CLI commands).
+func (m *Machine) SuppressPrompts(suppress bool) {
+	m.suppressPrompts = suppress
 }
 
 // configure sets up all state transitions, guards, and entry actions.
