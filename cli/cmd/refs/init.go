@@ -1,6 +1,7 @@
 package refs
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 
 	"github.com/spf13/cobra"
 )
@@ -27,7 +28,7 @@ func runRefsInit(cmd *cobra.Command) error {
 	ctx := cmd.Context()
 
 	// Get Sow from context
-	s := sowFromContext(ctx)
+	s := cmdutil.SowFromContext(ctx)
 
 	// Initialize all refs
 	if err := s.InitRefs(ctx); err != nil {

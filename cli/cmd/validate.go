@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -28,7 +29,7 @@ Exit codes:
   2 - Failed to initialize (not in sow repository)`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Get Sow from context
-			s := SowFromContext(cmd.Context())
+			s := cmdutil.SowFromContext(cmd.Context())
 			if s == nil {
 				return fmt.Errorf("not in a sow repository - run 'sow init' first")
 			}

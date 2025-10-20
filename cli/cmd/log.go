@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"fmt"
 	"time"
 
@@ -57,7 +58,7 @@ func runLog(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Get Sow from context
-	s := SowFromContext(cmd.Context())
+	s := cmdutil.SowFromContext(cmd.Context())
 
 	// Detect workspace context
 	contextType, taskID := s.DetectContext()

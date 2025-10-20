@@ -1,6 +1,7 @@
 package project
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"bufio"
 	"fmt"
 	"os"
@@ -43,7 +44,7 @@ func runDelete(cmd *cobra.Command, _ []string) error {
 	force, _ := cmd.Flags().GetBool("force")
 
 	// Get Sow from context
-	sow := sowFromContext(cmd.Context())
+	sow := cmdutil.SowFromContext(cmd.Context())
 
 	// Get project to retrieve name for confirmation
 	project, err := sow.GetProject()
@@ -55,9 +56,9 @@ func runDelete(cmd *cobra.Command, _ []string) error {
 
 	// Confirm deletion unless --force
 	if !force {
-		fmt.Fprintf(cmd.OutOrStdout(), "WARNING: This will permanently delete project '%s'\n", projectName)
-		fmt.Fprintf(cmd.OutOrStdout(), "This action cannot be undone (though it remains in git history).\n\n")
-		fmt.Fprintf(cmd.OutOrStdout(), "Delete project? (yes/no): ")
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "WARNING: This will permanently delete project '%s'\n", projectName)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "This action cannot be undone (though it remains in git history).\n\n")
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Delete project? (yes/no): ")
 
 		reader := bufio.NewReader(os.Stdin)
 		response, err := reader.ReadString('\n')
@@ -67,7 +68,7 @@ func runDelete(cmd *cobra.Command, _ []string) error {
 
 		response = strings.TrimSpace(strings.ToLower(response))
 		if response != "yes" && response != "y" {
-			fmt.Fprintln(cmd.OutOrStdout(), "Deletion cancelled.")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Deletion cancelled.")
 			return nil
 		}
 	}
@@ -78,11 +79,11 @@ func runDelete(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Print success message
-	fmt.Fprintf(cmd.OutOrStderr(), "✓ State machine transitioned to NoProject\n")
-	fmt.Fprintf(cmd.OutOrStderr(), "✓ Deleted project '%s'\n", projectName)
-	fmt.Fprintf(cmd.OutOrStderr(), "\nNext steps:\n")
-	fmt.Fprintf(cmd.OutOrStderr(), "  1. Commit the deletion: git add -A && git commit -m \"Delete project state\"\n")
-	fmt.Fprintf(cmd.OutOrStderr(), "  2. Create PR or merge to main\n")
+	_, _ = fmt.Fprintf(cmd.OutOrStderr(), "✓ State machine transitioned to NoProject\n")
+	_, _ = fmt.Fprintf(cmd.OutOrStderr(), "✓ Deleted project '%s'\n", projectName)
+	_, _ = fmt.Fprintf(cmd.OutOrStderr(), "\nNext steps:\n")
+	_, _ = fmt.Fprintf(cmd.OutOrStderr(), "  1. Commit the deletion: git add -A && git commit -m \"Delete project state\"\n")
+	_, _ = fmt.Fprintf(cmd.OutOrStderr(), "  2. Create PR or merge to main\n")
 
 	return nil
 }

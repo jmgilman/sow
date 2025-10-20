@@ -2,21 +2,8 @@
 package project
 
 import (
-	"context"
-
-	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
-
-// sowFromContext retrieves the Sow instance from the command context.
-// Panics if not found (should always be available via root command setup).
-func sowFromContext(ctx context.Context) *sow.Sow {
-	s, ok := ctx.Value("sow").(*sow.Sow)
-	if !ok {
-		panic("sow instance not found in context")
-	}
-	return s
-}
 
 // NewProjectCmd creates the root project command.
 func NewProjectCmd() *cobra.Command {

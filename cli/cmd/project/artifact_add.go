@@ -1,6 +1,7 @@
 package project
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -45,7 +46,7 @@ Examples:
 			}
 
 			// Get Sow from context
-			s := sowFromContext(cmd.Context())
+			s := cmdutil.SowFromContext(cmd.Context())
 
 			// Get project
 			project, err := s.GetProject()
@@ -55,7 +56,7 @@ Examples:
 
 			// Add artifact (handles validation, auto-save)
 			if err := project.AddArtifact(phaseName, artifactPath, approved); err != nil {
-				return err
+				return fmt.Errorf("failed to add artifact: %w", err)
 			}
 
 			approvalStatus := "pending approval"

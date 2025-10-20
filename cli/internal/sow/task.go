@@ -100,10 +100,8 @@ func (t *Task) SetStatus(status string) error {
 
 	// If all complete, fire state machine event
 	if allComplete && status == "completed" {
-		if err := t.project.machine.Fire(statechart.EventAllTasksComplete); err != nil {
-			// Don't fail the operation if transition fails
-			// Just log it or ignore
-		}
+		_ = t.project.machine.Fire(statechart.EventAllTasksComplete)
+		// Don't fail the operation if transition fails
 	}
 
 	// Auto-save project state
@@ -215,7 +213,7 @@ func (t *Task) AddFeedback(message string) (string, error) {
 	// Create feedback file
 	feedbackPath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "feedback", feedbackID+".md")
 	feedbackContent := []byte(fmt.Sprintf("# Feedback %s\n\n%s\n", feedbackID, message))
-	if err := t.project.sow.writeFile(feedbackPath, feedbackContent, 0644); err != nil {
+	if err := t.project.sow.writeFile(feedbackPath, feedbackContent); err != nil {
 		return "", err
 	}
 
@@ -257,7 +255,7 @@ func (t *Task) AppendLog(entry string) error {
 	updated := append(existing, []byte(entry)...)
 
 	// Write back
-	if err := t.project.sow.writeFile(logPath, updated, 0644); err != nil {
+	if err := t.project.sow.writeFile(logPath, updated); err != nil {
 		return fmt.Errorf("failed to write task log: %w", err)
 	}
 

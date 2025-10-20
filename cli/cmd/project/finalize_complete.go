@@ -1,6 +1,7 @@
 package project
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -48,7 +49,7 @@ Examples:
 			}
 
 			// Get Sow from context
-			s := sowFromContext(cmd.Context())
+			s := cmdutil.SowFromContext(cmd.Context())
 
 			// Get project
 			project, err := s.GetProject()
@@ -64,9 +65,10 @@ Examples:
 			cmd.Printf("\n✓ Completed %s subphase\n", subphase)
 
 			// Provide next step guidance
-			if subphase == "documentation" {
+			switch subphase {
+			case "documentation":
 				cmd.Println("\n→ Next: Run final checks (tests, linters, build)")
-			} else if subphase == "checks" {
+			case "checks":
 				cmd.Println("\n→ Next: Delete project directory with 'sow project delete'")
 			}
 

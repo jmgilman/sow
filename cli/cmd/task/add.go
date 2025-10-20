@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
@@ -62,7 +63,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get Sow from context
-	s := sowFromContext(cmd.Context())
+	s := cmdutil.SowFromContext(cmd.Context())
 
 	// Get project
 	project, err := s.GetProject()

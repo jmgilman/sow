@@ -54,14 +54,14 @@ func AllTasksComplete(state *schemas.ProjectState) bool {
 // DocumentationAssessed checks if documentation has been assessed and handled.
 // The guard always returns true because the act of calling `finalize complete documentation`
 // IS the signal that documentation work is done. No additional validation needed.
-func DocumentationAssessed(state *schemas.ProjectState) bool {
+func DocumentationAssessed(_ *schemas.ProjectState) bool {
 	// Always allow transition - the command itself is the validation
 	return true
 }
 
 // ChecksAssessed checks if final checks have been assessed and handled.
 // For now, returns true assuming checks are handled before reaching this guard.
-func ChecksAssessed(state *schemas.ProjectState) bool {
+func ChecksAssessed(_ *schemas.ProjectState) bool {
 	// This can be enhanced to check a specific field if needed
 	// For now, checks are considered assessed if documentation is done
 	return true

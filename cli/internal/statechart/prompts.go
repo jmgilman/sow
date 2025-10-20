@@ -14,7 +14,7 @@ import (
 //go:embed prompts/*.md
 var promptsFS embed.FS
 
-// Parsed templates, initialized once at startup
+// Parsed templates, initialized once at startup.
 var templates map[State]*template.Template
 
 func init() {

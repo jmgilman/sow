@@ -1,7 +1,9 @@
 package statechart
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -190,7 +192,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var data []byte
 	buf := make([]byte, 4096)
@@ -200,7 +202,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 			data = append(data, buf[:n]...)
 		}
 		if err != nil {
-			if err.Error() == "EOF" {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, err
@@ -215,7 +217,7 @@ func writeFile(fs billy.Filesystem, path string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	_, err = f.Write(data)
 	return err

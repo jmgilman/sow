@@ -1,6 +1,7 @@
 package project
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -42,7 +43,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	description, _ := cmd.Flags().GetString("description")
 
 	// Get Sow from context
-	sow := sowFromContext(cmd.Context())
+	sow := cmdutil.SowFromContext(cmd.Context())
 
 	// Create project (handles all validation, state machine transitions, file creation)
 	project, err := sow.CreateProject(name, description)
@@ -51,7 +52,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Success message (statechart prompt already output)
-	fmt.Fprintf(cmd.OutOrStderr(), "\n✓ Initialized project '%s' on branch '%s'\n",
+	_, _ = fmt.Fprintf(cmd.OutOrStderr(), "\n✓ Initialized project '%s' on branch '%s'\n",
 		project.Name(), project.Branch())
 
 	return nil

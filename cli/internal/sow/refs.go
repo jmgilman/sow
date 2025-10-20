@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/refs"
 	"github.com/jmgilman/sow/cli/schemas"
@@ -485,10 +486,7 @@ func (s *Sow) generateRefID(url, typeName string) string {
 		}
 
 		// Remove domain (take last 2 path components)
-		parts := []string{}
-		for _, p := range splitString(url, '/') {
-			parts = append(parts, p)
-		}
+		parts := strings.Split(url, "/")
 		if len(parts) >= 2 {
 			url = parts[len(parts)-2] + "-" + parts[len(parts)-1]
 		}
@@ -506,17 +504,17 @@ func (s *Sow) generateRefID(url, typeName string) string {
 		if len(url) > 0 && url[len(url)-1] == '/' {
 			url = url[:len(url)-1]
 		}
-		parts := splitString(url, '/')
+		parts := strings.Split(url, "/")
 		if len(parts) > 0 {
 			url = parts[len(parts)-1]
 		}
 	}
 
 	// Convert to kebab-case
-	url = toLowerString(url)
-	url = replaceString(url, '/', '-')
-	url = replaceString(url, '_', '-')
-	url = replaceString(url, ':', '-')
+	url = strings.ToLower(url)
+	url = strings.ReplaceAll(url, "/", "-")
+	url = strings.ReplaceAll(url, "_", "-")
+	url = strings.ReplaceAll(url, ":", "-")
 
 	return url
 }
@@ -676,44 +674,4 @@ func (s *Sow) matchesRefFilters(ref schemas.Ref, cfg *refListConfig) bool {
 	}
 
 	return true
-}
-
-// Helper string functions (to avoid strings import)
-func splitString(s string, sep rune) []string {
-	var parts []string
-	var current []rune
-	for _, r := range s {
-		if r == sep {
-			if len(current) > 0 {
-				parts = append(parts, string(current))
-				current = nil
-			}
-		} else {
-			current = append(current, r)
-		}
-	}
-	if len(current) > 0 {
-		parts = append(parts, string(current))
-	}
-	return parts
-}
-
-func toLowerString(s string) string {
-	runes := []rune(s)
-	for i, r := range runes {
-		if r >= 'A' && r <= 'Z' {
-			runes[i] = r + 32
-		}
-	}
-	return string(runes)
-}
-
-func replaceString(s string, old, new rune) string {
-	runes := []rune(s)
-	for i, r := range runes {
-		if r == old {
-			runes[i] = new
-		}
-	}
-	return string(runes)
 }

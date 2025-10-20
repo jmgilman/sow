@@ -1,6 +1,7 @@
 package project
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -48,7 +49,7 @@ Examples:
 			}
 
 			// Get Sow from context
-			s := sowFromContext(cmd.Context())
+			s := cmdutil.SowFromContext(cmd.Context())
 
 			// Get project
 			proj, err := s.GetProject()

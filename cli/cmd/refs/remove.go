@@ -1,6 +1,7 @@
 package refs
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"fmt"
 	"strings"
 
@@ -36,7 +37,7 @@ func runRefsRemove(cmd *cobra.Command, refID string, force bool, pruneCache bool
 	ctx := cmd.Context()
 
 	// Get Sow from context
-	s := sowFromContext(ctx)
+	s := cmdutil.SowFromContext(ctx)
 
 	// Get the ref
 	ref, err := s.GetRef(refID)

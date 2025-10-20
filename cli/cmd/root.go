@@ -11,6 +11,7 @@ import (
 	"github.com/jmgilman/sow/cli/cmd/project"
 	"github.com/jmgilman/sow/cli/cmd/refs"
 	"github.com/jmgilman/sow/cli/cmd/task"
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
@@ -60,8 +61,8 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 			}
 
 			// Add to context
-			ctx := WithFilesystem(cmd.Context(), wrappedFS)
-			ctx = WithSow(ctx, sowInstance)
+			ctx := cmdutil.WithFilesystem(cmd.Context(), wrappedFS)
+			ctx = cmdutil.WithSow(ctx, sowInstance)
 
 			cmd.SetContext(ctx)
 

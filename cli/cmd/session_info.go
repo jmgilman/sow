@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"encoding/json"
 	"fmt"
 
@@ -85,7 +86,7 @@ By default outputs human-readable text. Use --json for structured JSON output.`,
 
 func runSessionInfo(cmd *cobra.Command, jsonOutput bool) error {
 	// Get Sow from context
-	s := SowFromContext(cmd.Context())
+	s := cmdutil.SowFromContext(cmd.Context())
 
 	// Check if sow is initialized
 	if !s.IsInitialized() {
@@ -180,9 +181,10 @@ func runSessionInfo(cmd *cobra.Command, jsonOutput bool) error {
 		cmd.Printf("Repository: %s\n", info.Repository.Root)
 		cmd.Printf("Branch: %s\n", info.Repository.Branch)
 
-		if info.Context.Type == "task" {
+		switch info.Context.Type {
+		case "task":
 			cmd.Printf("Context: Task %s\n", info.Context.TaskID)
-		} else if info.Context.Type == "project" {
+		case "project":
 			cmd.Println("Context: Project")
 		}
 	}

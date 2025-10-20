@@ -7,7 +7,9 @@ package sow
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -131,14 +133,14 @@ func (s *Sow) Init() error {
 	// Create .gitignore for refs
 	gitignorePath := filepath.Join(".sow", "refs", ".gitignore")
 	gitignoreContent := []byte("# Ignore all symlinks and local refs\n*\n!.gitignore\n!index.json\n!index.local.json\n")
-	if err := s.writeFile(gitignorePath, gitignoreContent, 0644); err != nil {
+	if err := s.writeFile(gitignorePath, gitignoreContent); err != nil {
 		return fmt.Errorf("failed to create refs .gitignore: %w", err)
 	}
 
 	// Create version file
 	versionPath := filepath.Join(".sow", ".version")
 	versionContent := []byte(StructureVersion + "\n")
-	if err := s.writeFile(versionPath, versionContent, 0644); err != nil {
+	if err := s.writeFile(versionPath, versionContent); err != nil {
 		return fmt.Errorf("failed to create version file: %w", err)
 	}
 
@@ -149,7 +151,7 @@ func (s *Sow) Init() error {
   "refs": []
 }
 `)
-	if err := s.writeFile(indexPath, indexContent, 0644); err != nil {
+	if err := s.writeFile(indexPath, indexContent); err != nil {
 		return fmt.Errorf("failed to create refs index: %w", err)
 	}
 
@@ -244,8 +246,10 @@ func (s *Sow) CreateProject(name, description string) (*Project, error) {
 
 		// Create log.md for each phase
 		logPath := filepath.Join(phaseDir, "log.md")
-		logContent := []byte(fmt.Sprintf("# %s Phase Log\n\n", capitalize(phase)))
-		if err := s.writeFile(logPath, logContent, 0644); err != nil {
+		// Capitalize first letter of phase name
+		phaseName := strings.ToUpper(phase[:1]) + phase[1:]
+		logContent := []byte(fmt.Sprintf("# %s Phase Log\n\n", phaseName))
+		if err := s.writeFile(logPath, logContent); err != nil {
 			return nil, fmt.Errorf("failed to create %s log: %w", phase, err)
 		}
 	}
@@ -265,7 +269,7 @@ func (s *Sow) CreateProject(name, description string) (*Project, error) {
 	// Create project log
 	logPath := filepath.Join(".sow/project", "log.md")
 	logContent := []byte("# Project Log\n\n")
-	if err := s.writeFile(logPath, logContent, 0644); err != nil {
+	if err := s.writeFile(logPath, logContent); err != nil {
 		return nil, fmt.Errorf("failed to create project log: %w", err)
 	}
 
@@ -337,7 +341,7 @@ func (s *Sow) getCurrentBranch() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to open .git/HEAD: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var head [256]byte
 	n, err := f.Read(head[:])
@@ -360,13 +364,13 @@ func (s *Sow) getCurrentBranch() (string, error) {
 	return "", fmt.Errorf("could not parse git branch from HEAD")
 }
 
-// writeFile writes data to a file atomically.
-func (s *Sow) writeFile(path string, data []byte, perm os.FileMode) error {
-	f, err := s.fs.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
+// writeFile writes data to a file atomically with 0644 permissions.
+func (s *Sow) writeFile(path string, data []byte) error {
+	f, err := s.fs.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	_, err = f.Write(data)
 	return err
@@ -378,7 +382,7 @@ func (s *Sow) readFile(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var data []byte
 	buf := make([]byte, 4096)
@@ -388,7 +392,7 @@ func (s *Sow) readFile(path string) ([]byte, error) {
 			data = append(data, buf[:n]...)
 		}
 		if err != nil {
-			if err.Error() == "EOF" {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, err
@@ -438,7 +442,7 @@ func (s *Sow) writeYAML(path string, v interface{}) error {
 
 	// Write to temp file first
 	tmpPath := path + ".tmp"
-	if err := s.writeFile(tmpPath, data, 0644); err != nil {
+	if err := s.writeFile(tmpPath, data); err != nil {
 		return err
 	}
 
@@ -470,7 +474,7 @@ func (s *Sow) writeJSON(path string, v interface{}) error {
 
 	// Write to temp file first
 	tmpPath := path + ".tmp"
-	if err := s.writeFile(tmpPath, data, 0644); err != nil {
+	if err := s.writeFile(tmpPath, data); err != nil {
 		return err
 	}
 
@@ -481,14 +485,6 @@ func (s *Sow) writeJSON(path string, v interface{}) error {
 	}
 
 	return nil
-}
-
-// capitalize capitalizes the first letter of a string.
-func capitalize(s string) string {
-	if len(s) == 0 {
-		return s
-	}
-	return string(s[0]-32) + s[1:]
 }
 
 // marshalJSON marshals a value to JSON with indentation.

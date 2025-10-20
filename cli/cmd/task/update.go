@@ -1,6 +1,7 @@
 package task
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -52,7 +53,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get Sow from context
-	s := sowFromContext(cmd.Context())
+	s := cmdutil.SowFromContext(cmd.Context())
 
 	// Get project
 	proj, err := s.GetProject()

@@ -3,6 +3,7 @@ package sow
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/statechart"
@@ -551,8 +552,10 @@ func (p *Project) createPhaseStructure(phaseName string) error {
 
 	// Create log file
 	logPath := filepath.Join(phaseDir, "log.md")
-	logContent := []byte(fmt.Sprintf("# %s Phase Log\n\n", capitalize(phaseName)))
-	if err := p.sow.writeFile(logPath, logContent, 0644); err != nil {
+	// Capitalize first letter of phase name
+	phaseTitle := strings.ToUpper(phaseName[:1]) + phaseName[1:]
+	logContent := []byte(fmt.Sprintf("# %s Phase Log\n\n", phaseTitle))
+	if err := p.sow.writeFile(logPath, logContent); err != nil {
 		return fmt.Errorf("failed to create phase log: %w", err)
 	}
 
@@ -612,14 +615,14 @@ func (p *Project) createTaskStructure(id, name string, cfg *taskConfig) error {
 	// Create description.md with actual description
 	descPath := filepath.Join(taskDir, "description.md")
 	descContent := fmt.Sprintf("# Task %s: %s\n\n%s\n", id, name, cfg.description)
-	if err := p.sow.writeFile(descPath, []byte(descContent), 0644); err != nil {
+	if err := p.sow.writeFile(descPath, []byte(descContent)); err != nil {
 		return err
 	}
 
 	// Create log.md
 	logPath := filepath.Join(taskDir, "log.md")
 	logContent := fmt.Sprintf("# Task %s Log\n\nWorker actions will be logged here.\n", id)
-	if err := p.sow.writeFile(logPath, []byte(logContent), 0644); err != nil {
+	if err := p.sow.writeFile(logPath, []byte(logContent)); err != nil {
 		return err
 	}
 
@@ -640,7 +643,7 @@ func (p *Project) generateTaskID() string {
 	maxID := 0
 	for _, t := range state.Phases.Implementation.Tasks {
 		var id int
-		fmt.Sscanf(t.Id, "%d", &id)
+		_, _ = fmt.Sscanf(t.Id, "%d", &id)
 		if id > maxID {
 			maxID = id
 		}
@@ -683,7 +686,7 @@ func (p *Project) AppendLog(entry string) error {
 	updated := append(existing, []byte(entry)...)
 
 	// Write back
-	if err := p.sow.writeFile(logPath, updated, 0644); err != nil {
+	if err := p.sow.writeFile(logPath, updated); err != nil {
 		return fmt.Errorf("failed to write project log: %w", err)
 	}
 

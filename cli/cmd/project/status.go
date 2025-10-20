@@ -1,6 +1,7 @@
 package project
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"encoding/json"
 	"fmt"
 
@@ -47,7 +48,7 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Get Sow from context
-	sow := sowFromContext(cmd.Context())
+	sow := cmdutil.SowFromContext(cmd.Context())
 
 	// Get project
 	proj, err := sow.GetProject()
@@ -65,11 +66,11 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to marshal project state to JSON: %w", err)
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), string(jsonData))
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(jsonData))
 	} else {
 		// Text output: use formatted display
 		output := project.FormatStatus(state)
-		fmt.Fprint(cmd.OutOrStdout(), output)
+		_, _ = fmt.Fprint(cmd.OutOrStdout(), output)
 	}
 
 	return nil

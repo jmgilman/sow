@@ -1,6 +1,7 @@
 package refs
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/sow"
@@ -86,7 +87,7 @@ func runRefsAdd(
 	ctx := c.Context()
 
 	// Get Sow from context
-	s := sowFromContext(ctx)
+	s := cmdutil.SowFromContext(ctx)
 
 	// Build options
 	opts := []sow.RefOption{

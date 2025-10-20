@@ -35,6 +35,26 @@ linters:
       - path: ^billy\.go$
         linters:
           - wrapcheck
+      # Command layer errors - domain layer already provides context
+      - path: ^cmd/
+        linters:
+          - wrapcheck
+      # Internal domain packages - errors are already descriptive
+      - path: ^internal/sow/
+        linters:
+          - wrapcheck
+      # Statechart persistence layer
+      - path: ^internal/statechart/persistence\.go$
+        linters:
+          - wrapcheck
+      # Complexity warnings are acceptable for output formatting
+      - path: ^cmd/session_info\.go$
+        linters:
+          - nestif
+      # Type assertion complexity in finalize methods is acceptable
+      - path: ^internal/sow/project\.go$
+        linters:
+          - nestif
   enable:
     # errors
     - errcheck # no unchecked errors

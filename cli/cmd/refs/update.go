@@ -1,6 +1,7 @@
 package refs
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -30,7 +31,7 @@ func runRefsUpdate(cmd *cobra.Command, refID string) error {
 	ctx := cmd.Context()
 
 	// Get Sow from context
-	s := sowFromContext(ctx)
+	s := cmdutil.SowFromContext(ctx)
 
 	// Update specific ref or all refs
 	if refID != "" {

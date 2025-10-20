@@ -1,6 +1,7 @@
 package refs
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/sow"
@@ -61,7 +62,7 @@ func runRefsList(
 	ctx := cmd.Context()
 
 	// Get Sow from context
-	s := sowFromContext(ctx)
+	s := cmdutil.SowFromContext(ctx)
 
 	// Build filter options
 	var opts []sow.RefListOption

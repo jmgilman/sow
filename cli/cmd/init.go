@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -20,7 +21,7 @@ Creates:
 
 This command must be run from a git repository root.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			sow := SowFromContext(cmd.Context())
+			sow := cmdutil.SowFromContext(cmd.Context())
 
 			// Initialize .sow structure
 			if err := sow.Init(); err != nil {
