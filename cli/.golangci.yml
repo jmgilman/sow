@@ -7,13 +7,13 @@ version: "2"
 formatters:
   settings:
     gofumpt:
-      module-path: github.com/input-output-hk/catalyst-forge-libs
+      module-path: github.com/jmgilman/sow/cli
       extra-rules: true
     gci:
       sections:
         - standard
         - default
-        - prefix(github.com/input-output-hk/catalyst-forge-libs)
+        - prefix(github.com/jmgilman/sow)
         - blank
         - alias
         - localmodule
@@ -95,12 +95,6 @@ linters:
       # Extend, don't replace, the default ignore list.
       extra-ignore-sigs:
         - .Error() error
-        # Allow common error helpers from internal/errs package
-        - github.com/input-output-hk/catalyst-forge-libs/fs/minio/internal/errs.PathError(
-        - github.com/input-output-hk/catalyst-forge-libs/fs/minio/internal/errs.PathErrorf(
-        - github.com/input-output-hk/catalyst-forge-libs/fs/minio/internal/errs.Translate(
-        # Allow walk helper that propagates errors from walkFn
-        - github.com/input-output-hk/catalyst-forge-libs/fs/minio/internal/walk.ProcessEntry(
     # Complexity thresholds (kept reasonable to reduce false positives)
     funlen:
       lines: 120

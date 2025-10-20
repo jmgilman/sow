@@ -1,0 +1,132 @@
+name: Health Check
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.24.x']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache-dependency-path: cli/go.sum
+
+      - name: Download dependencies
+        working-directory: ./cli
+        run: go mod download
+
+      - name: Run tests
+        working-directory: ./cli
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./cli/coverage.out
+          flags: unittests
+          fail_ci_if_error: false
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache-dependency-path: cli/go.sum
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+          working-directory: ./cli
+          args: --config=.golangci.yml
+
+  cue-validation:
+    name: CUE Schema Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache-dependency-path: cli/go.sum
+
+      - name: Install CUE
+        working-directory: ./cli
+        run: go install cuelang.org/go/cmd/cue@latest
+
+      - name: Validate CUE schemas
+        working-directory: ./cli/schemas
+        run: cue vet ./...
+
+      - name: Check generated types are up-to-date
+        working-directory: ./cli
+        run: |
+          # Generate types
+          go generate ./schemas
+
+          # Check if there are any changes
+          if ! git diff --exit-code schemas/cue_types_gen.go; then
+            echo "❌ Generated Go types are out of date!"
+            echo "Run 'cd cli && go generate ./schemas' and commit the changes."
+            exit 1
+          fi
+
+          echo "✅ Generated types are up-to-date"
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            goos: linux
+          - os: macos-latest
+            goos: darwin
+          - os: windows-latest
+            goos: windows
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache-dependency-path: cli/go.sum
+
+      - name: Build binary
+        working-directory: ./cli
+        env:
+          CGO_ENABLED: 0
+        run: go build -v -trimpath -o ../sow${{ matrix.goos == 'windows' && '.exe' || '' }} .
+
+      - name: Test binary
+        run: ./sow${{ matrix.goos == 'windows' && '.exe' || '' }} --version
