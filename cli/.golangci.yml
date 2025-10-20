@@ -106,7 +106,7 @@ issues:
   max-issues-per-linter: 0
   max-same-issues: 0
   new: true # only report new issues (keeps adoption sane in large repos)
-  new-from-merge-base: main
+  new-from-merge-base: master
 
 # --- Output options (handy for CI)
 # https://golangci-lint.run/docs/configuration/file/#output-configuration

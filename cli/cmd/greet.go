@@ -62,7 +62,7 @@ provide a context-aware greeting and initialization.`,
 	return cmd
 }
 
-func runGreet(cmd *cobra.Command, args []string) error {
+func runGreet(cmd *cobra.Command, _ []string) error {
 	s := cmdutil.SowFromContext(cmd.Context())
 
 	// Detect context
@@ -75,7 +75,9 @@ func runGreet(cmd *cobra.Command, args []string) error {
 	}
 
 	// Write to stdout (becomes slash command content)
-	fmt.Fprint(cmd.OutOrStdout(), output)
+	if _, err := fmt.Fprint(cmd.OutOrStdout(), output); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
 
 	return nil
 }
