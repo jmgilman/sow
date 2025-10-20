@@ -11,23 +11,16 @@ import (
 
 // Machine wraps the stateless state machine with project-specific context.
 type Machine struct {
-	sm            *stateless.StateMachine
-	projectState  *schemas.ProjectState
-	fs            billy.Filesystem // Optional filesystem for testability
-	suppressPrompts bool           // Suppress prompt printing (useful for tests and CLI commands)
+	sm              *stateless.StateMachine
+	projectState    *schemas.ProjectState
+	fs              billy.Filesystem // Optional filesystem for testability
+	suppressPrompts bool             // Suppress prompt printing (useful for tests and CLI commands)
 }
 
 // NewMachine creates a new state machine for project lifecycle management.
 // The initial state is determined from the project state (or NoProject if nil).
 func NewMachine(projectState *schemas.ProjectState) *Machine {
-	var initialState State
-	if projectState == nil {
-		initialState = NoProject
-	} else {
-		initialState = determineCurrentState(projectState)
-	}
-
-	return NewMachineAt(initialState, projectState)
+	return NewMachineAt(NoProject, projectState)
 }
 
 // NewMachineAt creates a new state machine starting at a specific state.
@@ -233,15 +226,4 @@ func (m *Machine) PermittedTriggers() ([]Event, error) {
 		}
 	}
 	return events, nil
-}
-
-// determineCurrentState infers the current state from project state.
-// This is used when resuming an existing project.
-func determineCurrentState(_ *schemas.ProjectState) State {
-	// This is a simplified version - real implementation would inspect
-	// the actual project state to determine current position in lifecycle.
-
-	// For now, return NoProject as default
-	// TODO: Implement proper state inference based on phase status
-	return NoProject
 }
