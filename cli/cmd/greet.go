@@ -1,0 +1,183 @@
+package cmd
+
+import (
+	"bytes"
+	_ "embed"
+	"fmt"
+	"text/template"
+
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/spf13/cobra"
+)
+
+//go:embed templates/greet.tmpl
+var greetTemplateContent string
+
+// GreetContext holds the context for rendering the greeting template.
+type GreetContext struct {
+	SowInitialized bool
+	HasProject     bool
+	Project        *ProjectGreetContext
+}
+
+// ProjectGreetContext holds project-specific greeting context.
+type ProjectGreetContext struct {
+	Name            string
+	Branch          string
+	Description     string
+	CurrentPhase    string
+	PhaseStatus     string
+	TasksTotal      int
+	TasksComplete   int
+	TasksInProgress int
+	TasksPending    int
+	TasksAbandoned  int
+	CurrentTask     *TaskGreetContext
+}
+
+// TaskGreetContext holds current task information.
+type TaskGreetContext struct {
+	ID   string
+	Name string
+}
+
+// NewGreetCmd creates the greet command.
+func NewGreetCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "greet",
+		Short: "Generate orchestrator initialization prompt",
+		Long: `Inspect repository state and output a contextual greeting prompt.
+
+This command is designed to be called by the /sow-greet slash command
+via the ! prefix. It outputs a fully-rendered prompt based on current
+repository and project state.
+
+The output is a complete markdown prompt that Claude processes to
+provide a context-aware greeting and initialization.`,
+		RunE: runGreet,
+	}
+
+	return cmd
+}
+
+func runGreet(cmd *cobra.Command, args []string) error {
+	s := cmdutil.SowFromContext(cmd.Context())
+
+	// Detect context
+	context := detectGreetContext(s)
+
+	// Render template
+	output, err := renderGreetingTemplate(context)
+	if err != nil {
+		return fmt.Errorf("failed to render greeting template: %w", err)
+	}
+
+	// Write to stdout (becomes slash command content)
+	fmt.Fprint(cmd.OutOrStdout(), output)
+
+	return nil
+}
+
+// detectGreetContext inspects the repository and builds greeting context.
+func detectGreetContext(s *sow.Sow) GreetContext {
+	ctx := GreetContext{
+		SowInitialized: s.IsInitialized(),
+	}
+
+	if !ctx.SowInitialized {
+		return ctx
+	}
+
+	if !s.HasProject() {
+		return ctx
+	}
+
+	ctx.HasProject = true
+
+	// Load project
+	project, err := s.GetProject()
+	if err != nil {
+		// Log error but continue with hasProject=false
+		return GreetContext{SowInitialized: true}
+	}
+
+	state := project.State()
+
+	// Build project context
+	projCtx := &ProjectGreetContext{
+		Name:        state.Project.Name,
+		Branch:      state.Project.Branch,
+		Description: state.Project.Description,
+	}
+
+	// Determine current phase
+	currentPhase, phaseStatus := determineCurrentPhase(state)
+	projCtx.CurrentPhase = currentPhase
+	projCtx.PhaseStatus = phaseStatus
+
+	// Count tasks
+	tasks := state.Phases.Implementation.Tasks
+	projCtx.TasksTotal = len(tasks)
+
+	for i := range tasks {
+		switch tasks[i].Status {
+		case "completed":
+			projCtx.TasksComplete++
+		case "in_progress":
+			projCtx.TasksInProgress++
+			if projCtx.CurrentTask == nil {
+				projCtx.CurrentTask = &TaskGreetContext{
+					ID:   tasks[i].Id,
+					Name: tasks[i].Name,
+				}
+			}
+		case "pending":
+			projCtx.TasksPending++
+		case "abandoned":
+			projCtx.TasksAbandoned++
+		}
+	}
+
+	ctx.Project = projCtx
+
+	return ctx
+}
+
+// determineCurrentPhase finds the active phase in the project.
+func determineCurrentPhase(state *schemas.ProjectState) (string, string) {
+	// Check phases in order
+	if state.Phases.Discovery.Enabled && state.Phases.Discovery.Status != "completed" && state.Phases.Discovery.Status != "skipped" {
+		return "discovery", state.Phases.Discovery.Status
+	}
+	if state.Phases.Design.Enabled && state.Phases.Design.Status != "completed" && state.Phases.Design.Status != "skipped" {
+		return "design", state.Phases.Design.Status
+	}
+	if state.Phases.Implementation.Status != "completed" && state.Phases.Implementation.Status != "skipped" {
+		return "implementation", state.Phases.Implementation.Status
+	}
+	if state.Phases.Review.Status != "completed" && state.Phases.Review.Status != "skipped" {
+		return "review", state.Phases.Review.Status
+	}
+	if state.Phases.Finalize.Status != "completed" && state.Phases.Finalize.Status != "skipped" {
+		return "finalize", state.Phases.Finalize.Status
+	}
+
+	return "unknown", "unknown"
+}
+
+// renderGreetingTemplate renders the greeting template with the given context.
+func renderGreetingTemplate(ctx GreetContext) (string, error) {
+	tmpl, err := template.New("greet").Parse(greetTemplateContent)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, ctx); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	return buf.String(), nil
+}

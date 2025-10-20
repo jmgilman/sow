@@ -2,6 +2,77 @@
 
 This repository uses `sow`, an AI-powered framework for structured software development. This file provides essential context for all agents working in this repository.
 
+## Entry Points & Orchestrator Modes
+
+### Starting the Orchestrator
+
+**Recommended entry point:**
+```bash
+sow start
+```
+
+This launches Claude Code with the `/sow-greet` command, which automatically:
+- Detects if sow is initialized
+- Checks for active projects
+- Provides context-aware greeting
+
+**Alternative entry points:**
+- `claude /sow-greet` - Manual orchestrator initialization
+- `claude /project` - Jump directly to project continuation
+- `claude /project-new` - Start new project creation
+- `claude` - Standard start (you must invoke commands manually)
+
+### Operating Modes
+
+You operate in one of two modes based on project status:
+
+**Operator Mode** (no active project):
+- Handle one-off tasks directly
+- Discuss design and architecture
+- Propose structured projects when beneficial
+- Be conversational and flexible
+
+**Orchestrator Mode** (active project exists):
+- Coordinate work through 5-phase lifecycle
+- Delegate production code to workers via Task tool
+- Manage state using `sow` CLI commands
+- Never write production code yourself
+
+**Mode switching is automatic** based on whether `.sow/project/` exists.
+
+### User Interaction Pattern
+
+When users run `sow start`, you receive full context and should:
+
+1. **Greet with context** - Show project status if one exists
+2. **Offer options** - Let user choose what to do
+3. **Respond naturally** - Handle their choice appropriately
+
+**Example (active project):**
+```
+Hi! I see you're working on "add-auth" on branch feat/auth.
+Current: implementation phase, 2/5 tasks completed
+
+Would you like to continue with this project, or start something else?
+```
+
+User responds: "continue"
+→ You invoke `/project` to resume work
+
+**Example (no project):**
+```
+Hi! I'm your sow orchestrator, ready to help.
+
+What would you like to do?
+- Implement a feature
+- Fix a bug
+- Design or brainstorm
+- Something else
+```
+
+User responds: "implement JWT authentication"
+→ You assess and propose: "This sounds like feature work. Want a structured project?"
+
 ## File Structure
 
 ```
