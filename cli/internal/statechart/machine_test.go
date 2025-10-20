@@ -88,11 +88,13 @@ func TestProjectLifecycle(t *testing.T) {
 		{Id: "010", Name: "Create model", Status: "pending", Parallel: false},
 	}
 
-	if err := machine.Fire(EventTaskCreated); err != nil {
+	// Approve tasks to transition to executing
+	state.Phases.Implementation.Tasks_approved = true
+	if err := machine.Fire(EventTasksApproved); err != nil {
 		t.Fatalf("Failed to transition to executing: %v", err)
 	}
 	if machine.State() != ImplementationExecuting {
-		t.Errorf("Expected ImplementationExecuting after task creation, got %s", machine.State())
+		t.Errorf("Expected ImplementationExecuting after task approval, got %s", machine.State())
 	}
 
 	// Step 5: Complete all tasks and transition to review
@@ -106,6 +108,10 @@ func TestProjectLifecycle(t *testing.T) {
 	}
 
 	// Step 6: Review passes
+	// Add review report and approve it
+	state.Phases.Review.Reports = []schemas.ReviewReport{
+		{Id: "001", Path: "reports/001.md", Assessment: "pass", Approved: true},
+	}
 	if err := machine.Fire(EventReviewPass); err != nil {
 		t.Fatalf("Failed to pass review: %v", err)
 	}
@@ -204,14 +210,18 @@ func TestReviewLoop(t *testing.T) {
 	_ = machine.Fire(EventSkipDiscovery)
 	_ = machine.Fire(EventSkipDesign)
 	machine.projectState = state
-	_ = machine.Fire(EventTaskCreated)
+	state.Phases.Implementation.Tasks_approved = true
+	_ = machine.Fire(EventTasksApproved)
 	_ = machine.Fire(EventAllTasksComplete)
 
 	if machine.State() != ReviewActive {
 		t.Fatalf("Expected ReviewActive, got %s", machine.State())
 	}
 
-	// Review fails - should loop back to implementation planning
+	// Review fails - add review report and approve it
+	state.Phases.Review.Reports = []schemas.ReviewReport{
+		{Id: "001", Path: "reports/001.md", Assessment: "fail", Approved: true},
+	}
 	if err := machine.Fire(EventReviewFail); err != nil {
 		t.Fatalf("Failed to loop back to implementation: %v", err)
 	}
@@ -221,8 +231,9 @@ func TestReviewLoop(t *testing.T) {
 	}
 
 	// Add new task (or proceed with existing tasks)
-	// Since tasks already exist, guard will pass
-	if err := machine.Fire(EventTaskCreated); err != nil {
+	// Since tasks already exist, guard will pass after approval
+	state.Phases.Implementation.Tasks_approved = true
+	if err := machine.Fire(EventTasksApproved); err != nil {
 		t.Fatalf("Failed to transition to executing: %v", err)
 	}
 

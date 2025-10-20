@@ -89,6 +89,7 @@ func (m *Machine) configure() {
 	// ImplementationPlanning state
 	m.sm.Configure(ImplementationPlanning).
 		Permit(EventTaskCreated, ImplementationExecuting, m.hasAtLeastOneTask).
+		Permit(EventTasksApproved, ImplementationExecuting, m.tasksApproved).
 		Permit(EventProjectDelete, NoProject).
 		OnEntry(m.onEntry(ImplementationPlanning))
 
@@ -100,8 +101,8 @@ func (m *Machine) configure() {
 
 	// ReviewActive state
 	m.sm.Configure(ReviewActive).
-		Permit(EventReviewFail, ImplementationPlanning). // Loop back to re-plan
-		Permit(EventReviewPass, FinalizeDocumentation).
+		Permit(EventReviewFail, ImplementationPlanning, m.latestReviewApproved). // Loop back to re-plan
+		Permit(EventReviewPass, FinalizeDocumentation, m.latestReviewApproved).
 		Permit(EventProjectDelete, NoProject).
 		OnEntry(m.onEntry(ReviewActive))
 
@@ -163,6 +164,13 @@ func (m *Machine) hasAtLeastOneTask(_ context.Context, _ ...any) bool {
 	return HasAtLeastOneTask(m.projectState)
 }
 
+func (m *Machine) tasksApproved(_ context.Context, _ ...any) bool {
+	if m.projectState == nil {
+		return false
+	}
+	return TasksApproved(m.projectState)
+}
+
 func (m *Machine) allTasksComplete(_ context.Context, _ ...any) bool {
 	if m.projectState == nil {
 		return false
@@ -182,6 +190,13 @@ func (m *Machine) checksAssessed(_ context.Context, _ ...any) bool {
 		return false
 	}
 	return ChecksAssessed(m.projectState)
+}
+
+func (m *Machine) latestReviewApproved(_ context.Context, _ ...any) bool {
+	if m.projectState == nil {
+		return false
+	}
+	return LatestReviewApproved(m.projectState)
 }
 
 func (m *Machine) projectDeleted(_ context.Context, _ ...any) bool {

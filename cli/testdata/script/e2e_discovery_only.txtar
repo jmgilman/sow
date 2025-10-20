@@ -81,6 +81,9 @@ stderr '✓ Skipped design phase'
 exec sow task add 'Implement auth' --description 'Add JWT authentication'
 stderr '✓ Created task 010'
 
+# Approve task plan
+exec sow project phase approve implementation
+
 # Complete task
 exec sow task update 010 --status in_progress
 exec sow task update 010 --status completed
@@ -88,6 +91,8 @@ exec sow task update 010 --status completed
 # Review pass
 exec sow project review add-report reports/001-review.md --assessment pass
 stderr '✓ Added review report 001'
+exec sow project review approve 001
+stderr '✓ Approved review report 001'
 
 # Finalize
 exec sow project finalize complete documentation

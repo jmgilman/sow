@@ -46,6 +46,9 @@ stderr 'Dependencies: 010, 020'
 exec sow task add 'Add validation' --description 'Input validation' --id 015
 stderr '✓ Created task 015'
 
+# Approve task plan
+exec sow project phase approve implementation
+
 # Verify all tasks created
 exists .sow/project/phases/implementation/tasks/010
 exists .sow/project/phases/implementation/tasks/015
@@ -128,6 +131,7 @@ exec sow task update 040 --status completed
 # Complete Workflow
 # =====================================
 exec sow project review add-report reports/001.md --assessment pass
+exec sow project review approve 001
 exec sow project finalize complete documentation
 exec sow project finalize complete checks
 exec sow project delete --force

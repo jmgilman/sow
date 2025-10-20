@@ -37,6 +37,12 @@ func HasAtLeastOneTask(state *schemas.ProjectState) bool {
 	return len(state.Phases.Implementation.Tasks) >= 1
 }
 
+// TasksApproved checks if task plan has been approved by human.
+func TasksApproved(state *schemas.ProjectState) bool {
+	return state.Phases.Implementation.Tasks_approved &&
+		len(state.Phases.Implementation.Tasks) >= 1
+}
+
 // AllTasksComplete checks if all tasks are completed or abandoned.
 func AllTasksComplete(state *schemas.ProjectState) bool {
 	tasks := state.Phases.Implementation.Tasks
@@ -65,6 +71,16 @@ func ChecksAssessed(_ *schemas.ProjectState) bool {
 	// This can be enhanced to check a specific field if needed
 	// For now, checks are considered assessed if documentation is done
 	return true
+}
+
+// LatestReviewApproved checks if the most recent review report is approved by human.
+func LatestReviewApproved(state *schemas.ProjectState) bool {
+	reports := state.Phases.Review.Reports
+	if len(reports) == 0 {
+		return false
+	}
+	latest := reports[len(reports)-1]
+	return latest.Approved
 }
 
 // ProjectDeleted checks if the project folder has been deleted.

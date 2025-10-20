@@ -66,6 +66,10 @@ exists .sow/project/phases/implementation/tasks/010/state.yaml
 exists .sow/project/phases/implementation/tasks/010/description.md
 exists .sow/project/phases/implementation/tasks/010/log.md
 
+# Approve task plan
+exec sow project phase approve implementation
+stderr '✓ Approved implementation phase plan'
+
 # Update task to in_progress
 exec sow task update 010 --status in_progress
 stderr '✓ Updated task 010'
@@ -73,7 +77,6 @@ stderr '✓ Updated task 010'
 # Update task to completed
 exec sow task update 010 --status completed
 stderr '✓ Updated task 010'
-stderr 'All tasks complete'
 
 # Verify state transitions to review
 exec sow validate
@@ -85,7 +88,10 @@ stderr '✓ All validations passed'
 # Add passing review report
 exec sow project review add-report reports/001-review.md --assessment pass
 stderr '✓ Added review report 001'
-stderr 'Review passed'
+
+# Approve review report
+exec sow project review approve 001
+stderr '✓ Approved review report 001'
 
 # Verify review report added
 exec cat .sow/project/state.yaml

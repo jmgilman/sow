@@ -66,6 +66,9 @@ stderr 'not found'
 exec sow task add 'Valid dependent' --description 'Desc' --dependencies 010
 stderr '✓ Created task 020'
 
+# Approve task plan
+exec sow project phase approve implementation
+
 # =====================================
 # Error: Invalid Status Update
 # =====================================
@@ -109,6 +112,9 @@ stderr 'must be ''pass'' or ''fail'''
 # Valid assessment should work
 exec sow project review add-report reports/001.md --assessment pass
 stderr '✓ Added review report 001'
+
+# Approve review
+exec sow project review approve 001
 
 # =====================================
 # Error: Invalid Phase Enable

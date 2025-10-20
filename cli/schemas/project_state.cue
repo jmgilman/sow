@@ -101,6 +101,9 @@ import "time"
 	// Approved task list (gap-numbered)
 	tasks: [...#Task]
 
+	// Human approval of task plan before autonomous execution
+	tasks_approved: bool
+
 	// Tasks awaiting human approval before execution
 	pending_task_additions: *null | [...#Task]
 }
@@ -185,4 +188,7 @@ import "time"
 
 	// Review assessment
 	assessment: "pass" | "fail"
+
+	// Human approval of orchestrator's review
+	approved: bool
 }
