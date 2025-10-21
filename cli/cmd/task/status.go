@@ -1,11 +1,11 @@
 package task
 
 import (
-	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"encoding/json"
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/task"
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	sowpkg "github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
@@ -94,7 +94,7 @@ func runTaskStatus(cmd *cobra.Command, args []string) error {
 		cmd.Println(string(jsonData))
 	} else {
 		// Text output: use formatted display
-		output := task.FormatTaskStatus(taskState)
+		output := sowpkg.FormatTaskStatus(taskState)
 		cmd.Print(output)
 	}
 
