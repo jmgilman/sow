@@ -6,6 +6,7 @@ import (
 	"os/exec"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	sowexec "github.com/jmgilman/sow/cli/internal/exec"
 	"github.com/spf13/cobra"
 )
 
@@ -47,15 +48,18 @@ func runStart(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Check claude CLI available
-	claudePath, err := exec.LookPath("claude")
-	if err != nil {
+	claude := sowexec.NewLocal("claude")
+	if !claude.Exists() {
 		fmt.Fprintln(os.Stderr, "Error: Claude Code CLI not found")
 		fmt.Fprintln(os.Stderr, "Install from: https://claude.com/download")
 		return fmt.Errorf("claude not found")
 	}
 
-	// Launch claude with /sow-greet slash command
-	claudeCmd := exec.CommandContext(cmd.Context(), claudePath, "/sow:greet")
+	// Note: We can't use executor.Run() here because we need to:
+	// - Attach stdin/stdout/stderr for interactive session
+	// - Set working directory
+	// For now, fall back to exec.Command but we could enhance Executor later
+	claudeCmd := exec.Command(claude.Command(), "/sow:greet")
 	claudeCmd.Stdin = os.Stdin
 	claudeCmd.Stdout = os.Stdout
 	claudeCmd.Stderr = os.Stderr

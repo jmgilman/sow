@@ -48,6 +48,14 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 				repoRoot = cwd // Fallback to cwd if not in a git repo
 			}
 
+			// Create new context-based API
+			sowContext, err := sow.NewContext(repoRoot)
+			if err != nil {
+				return fmt.Errorf("failed to create sow context: %w", err)
+			}
+
+			// --- Backward compatibility (will be removed in Phase 4) ---
+
 			// Create raw billy filesystem rooted at repo root
 			rawBillyFS := osfs.New(repoRoot)
 
@@ -61,9 +69,12 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 				return fmt.Errorf("failed to chroot filesystem: %w", err)
 			}
 
-			// Add to context
+			// --- End backward compatibility ---
+
+			// Add to context (both old and new APIs)
 			ctx := cmdutil.WithFilesystem(cmd.Context(), wrappedFS)
 			ctx = cmdutil.WithSow(ctx, sowInstance)
+			ctx = cmdutil.WithSowContext(ctx, sowContext)
 
 			cmd.SetContext(ctx)
 

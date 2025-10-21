@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/jmgilman/sow/cli/internal/statechart"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/spf13/cobra"
 )

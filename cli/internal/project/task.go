@@ -1,4 +1,4 @@
-package sow
+package project
 
 import (
 	"fmt"
@@ -6,13 +6,12 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
 // Task represents an implementation task with auto-save operations.
 // All mutations automatically persist changes to both task state and project state.
-//
-// DEPRECATED: Remove in Phase 4. Use project.Task instead.
 type Task struct {
 	project *Project
 	id      string
@@ -48,7 +47,7 @@ func (t *Task) State() (*schemas.TaskState, error) {
 	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
 
 	var taskState schemas.TaskState
-	if err := t.project.sow.readYAML(statePath, &taskState); err != nil {
+	if err := t.project.readYAML(statePath, &taskState); err != nil {
 		return nil, fmt.Errorf("failed to read task state: %w", err)
 	}
 
@@ -66,7 +65,7 @@ func (t *Task) SetStatus(status string) error {
 	}
 
 	if !validStatuses[status] {
-		return ErrInvalidStatus
+		return sow.ErrInvalidStatus
 	}
 
 	// Update in project state
@@ -87,7 +86,7 @@ func (t *Task) SetStatus(status string) error {
 	taskState.Task.Updated_at = time.Now()
 
 	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
-	if err := t.project.sow.writeYAML(statePath, taskState); err != nil {
+	if err := t.project.writeYAML(statePath, taskState); err != nil {
 		return err
 	}
 
@@ -121,7 +120,7 @@ func (t *Task) IncrementIteration() error {
 	taskState.Task.Updated_at = time.Now()
 
 	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
-	return t.project.sow.writeYAML(statePath, taskState)
+	return t.project.writeYAML(statePath, taskState)
 }
 
 // SetAgent sets the assigned agent for the task.
@@ -135,7 +134,7 @@ func (t *Task) SetAgent(agent string) error {
 	taskState.Task.Updated_at = time.Now()
 
 	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
-	return t.project.sow.writeYAML(statePath, taskState)
+	return t.project.writeYAML(statePath, taskState)
 }
 
 // AddReference adds a reference path to the task.
@@ -157,7 +156,7 @@ func (t *Task) AddReference(path string) error {
 	taskState.Task.Updated_at = time.Now()
 
 	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
-	return t.project.sow.writeYAML(statePath, taskState)
+	return t.project.writeYAML(statePath, taskState)
 }
 
 // AddFile adds a modified file path to the task.
@@ -179,7 +178,7 @@ func (t *Task) AddFile(path string) error {
 	taskState.Task.Updated_at = time.Now()
 
 	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
-	return t.project.sow.writeYAML(statePath, taskState)
+	return t.project.writeYAML(statePath, taskState)
 }
 
 // AddFeedback creates a new feedback entry for the task.
@@ -208,14 +207,14 @@ func (t *Task) AddFeedback(message string) (string, error) {
 
 	// Save task state
 	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
-	if err := t.project.sow.writeYAML(statePath, taskState); err != nil {
+	if err := t.project.writeYAML(statePath, taskState); err != nil {
 		return "", err
 	}
 
 	// Create feedback file
 	feedbackPath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "feedback", feedbackID+".md")
 	feedbackContent := []byte(fmt.Sprintf("# Feedback %s\n\n%s\n", feedbackID, message))
-	if err := t.project.sow.writeFile(feedbackPath, feedbackContent); err != nil {
+	if err := t.project.writeFile(feedbackPath, feedbackContent); err != nil {
 		return "", err
 	}
 
@@ -236,7 +235,7 @@ func (t *Task) MarkFeedbackAddressed(feedbackID string) error {
 			taskState.Task.Updated_at = time.Now()
 
 			statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
-			return t.project.sow.writeYAML(statePath, taskState)
+			return t.project.writeYAML(statePath, taskState)
 		}
 	}
 
@@ -248,7 +247,7 @@ func (t *Task) AppendLog(entry string) error {
 	logPath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "log.md")
 
 	// Read existing content
-	existing, err := t.project.sow.readFile(logPath)
+	existing, err := t.project.readFile(logPath)
 	if err != nil {
 		return fmt.Errorf("failed to read task log: %w", err)
 	}
@@ -257,7 +256,7 @@ func (t *Task) AppendLog(entry string) error {
 	updated := append(existing, []byte(entry)...)
 
 	// Write back
-	if err := t.project.sow.writeFile(logPath, updated); err != nil {
+	if err := t.project.writeFile(logPath, updated); err != nil {
 		return fmt.Errorf("failed to write task log: %w", err)
 	}
 

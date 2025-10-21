@@ -1,22 +1,38 @@
-package sow
+// Package project provides the Project type and its operations.
+//
+// Project is the aggregate root for managing sow projects with full state machine integration.
+// It uses sow.Context for filesystem, git, and GitHub access.
+//
+// Load/Create functions are provided at package level to construct Project instances:
+//   - Load(ctx) - Loads existing project from disk
+//   - Create(ctx, name, description) - Creates new project
+//   - CreateFromIssue(ctx, issueNumber, branchName) - Creates project from GitHub issue
+//   - Delete(ctx) - Deletes the active project
+//   - Exists(ctx) - Checks if a project exists
+package project
 
 import (
+	"errors"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/jmgilman/sow/cli/internal/github"
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
+	"gopkg.in/yaml.v3"
 )
 
 // Project represents an active sow project with full state machine integration.
 // All operations automatically persist state changes to disk.
 //
-// DEPRECATED: Remove in Phase 4. Use project.Project instead.
+// Project is an aggregate root that owns its statechart and tasks.
+// It uses sow.Context for filesystem, git, and GitHub access.
 type Project struct {
-	sow     *Sow
+	ctx     *sow.Context
 	machine *statechart.Machine
 }
 
@@ -53,9 +69,9 @@ func (p *Project) save() error {
 }
 
 // EnablePhase enables a phase and transitions the state machine.
-func (p *Project) EnablePhase(phaseName string, opts ...PhaseOption) error {
+func (p *Project) EnablePhase(phaseName string, opts ...sow.PhaseOption) error {
 	// Apply options
-	cfg := &PhaseConfig{}
+	cfg := &sow.PhaseConfig{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
@@ -100,7 +116,7 @@ func (p *Project) EnablePhase(phaseName string, opts ...PhaseOption) error {
 		}
 
 	default:
-		return ErrInvalidPhase
+		return sow.ErrInvalidPhase
 	}
 
 	// Auto-save
@@ -115,7 +131,7 @@ func (p *Project) CompletePhase(phaseName string) error {
 	switch phaseName {
 	case "discovery":
 		if !state.Phases.Discovery.Enabled {
-			return ErrPhaseNotEnabled
+			return sow.ErrPhaseNotEnabled
 		}
 		state.Phases.Discovery.Status = "completed"
 		state.Phases.Discovery.Completed_at = now.Format(time.RFC3339)
@@ -127,7 +143,7 @@ func (p *Project) CompletePhase(phaseName string) error {
 
 	case "design":
 		if !state.Phases.Design.Enabled {
-			return ErrPhaseNotEnabled
+			return sow.ErrPhaseNotEnabled
 		}
 		state.Phases.Design.Status = "completed"
 		state.Phases.Design.Completed_at = now.Format(time.RFC3339)
@@ -160,7 +176,7 @@ func (p *Project) CompletePhase(phaseName string) error {
 		// Finalize has substates, handled by specialized methods
 
 	default:
-		return ErrInvalidPhase
+		return sow.ErrInvalidPhase
 	}
 
 	// Auto-save
@@ -221,11 +237,11 @@ func (p *Project) CompleteFinalizeSubphase(subphase string) error {
 }
 
 // AddTask creates a new implementation task.
-func (p *Project) AddTask(name string, opts ...TaskOption) (*Task, error) {
+func (p *Project) AddTask(name string, opts ...sow.TaskOption) (*Task, error) {
 	state := p.State()
 
 	// Apply options
-	cfg := &TaskConfig{
+	cfg := &sow.TaskConfig{
 		Status:   "pending",
 		Parallel: false,
 		Agent:    "implementer", // Default agent
@@ -331,7 +347,7 @@ func (p *Project) GetTask(id string) (*Task, error) {
 		}
 	}
 
-	return nil, ErrNoTask
+	return nil, sow.ErrNoTask
 }
 
 // ListTasks returns all tasks.
@@ -391,18 +407,18 @@ func (p *Project) AddArtifact(phaseName, path string, approved bool) error {
 	switch phaseName {
 	case "discovery":
 		if !state.Phases.Discovery.Enabled {
-			return ErrPhaseNotEnabled
+			return sow.ErrPhaseNotEnabled
 		}
 		state.Phases.Discovery.Artifacts = append(state.Phases.Discovery.Artifacts, artifact)
 
 	case "design":
 		if !state.Phases.Design.Enabled {
-			return ErrPhaseNotEnabled
+			return sow.ErrPhaseNotEnabled
 		}
 		state.Phases.Design.Artifacts = append(state.Phases.Design.Artifacts, artifact)
 
 	default:
-		return ErrInvalidPhase
+		return sow.ErrInvalidPhase
 	}
 
 	// Auto-save
@@ -416,7 +432,7 @@ func (p *Project) ApproveArtifact(phaseName, path string) error {
 	switch phaseName {
 	case "discovery":
 		if !state.Phases.Discovery.Enabled {
-			return ErrPhaseNotEnabled
+			return sow.ErrPhaseNotEnabled
 		}
 		for i := range state.Phases.Discovery.Artifacts {
 			if state.Phases.Discovery.Artifacts[i].Path == path {
@@ -427,7 +443,7 @@ func (p *Project) ApproveArtifact(phaseName, path string) error {
 
 	case "design":
 		if !state.Phases.Design.Enabled {
-			return ErrPhaseNotEnabled
+			return sow.ErrPhaseNotEnabled
 		}
 		for i := range state.Phases.Design.Artifacts {
 			if state.Phases.Design.Artifacts[i].Path == path {
@@ -437,7 +453,7 @@ func (p *Project) ApproveArtifact(phaseName, path string) error {
 		}
 
 	default:
-		return ErrInvalidPhase
+		return sow.ErrInvalidPhase
 	}
 
 	return fmt.Errorf("artifact not found: %s", path)
@@ -618,8 +634,8 @@ func (p *Project) CreatePullRequest(body string) (string, error) {
 	// Add footer
 	fullBody += "\n---\n\n🤖 Generated with sow\n"
 
-	// Create PR via GitHub CLI
-	prURL, err := github.CreatePullRequest(title, fullBody)
+	// Create PR via GitHub CLI using context
+	prURL, err := p.ctx.GitHub().CreatePullRequest(title, fullBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to create pull request: %w", err)
 	}
@@ -635,12 +651,34 @@ func (p *Project) CreatePullRequest(body string) (string, error) {
 	return prURL, nil
 }
 
+// AppendLog appends a log entry to the project log file.
+func (p *Project) AppendLog(entry string) error {
+	logPath := ".sow/project/log.md"
+
+	// Read existing content
+	existing, err := p.readFile(logPath)
+	if err != nil {
+		return fmt.Errorf("failed to read project log: %w", err)
+	}
+
+	// Append new entry
+	updated := append(existing, []byte(entry)...)
+
+	// Write back
+	if err := p.writeFile(logPath, updated); err != nil {
+		return fmt.Errorf("failed to write project log: %w", err)
+	}
+
+	return nil
+}
+
 // createPhaseStructure creates the directory structure for a phase.
 func (p *Project) createPhaseStructure(phaseName string) error {
 	phaseDir := filepath.Join(".sow/project/phases", phaseName)
+	fs := p.ctx.FS()
 
 	// Create phase directory
-	if err := p.sow.fs.MkdirAll(phaseDir, 0755); err != nil {
+	if err := fs.MkdirAll(phaseDir, 0755); err != nil {
 		return fmt.Errorf("failed to create phase directory: %w", err)
 	}
 
@@ -649,7 +687,7 @@ func (p *Project) createPhaseStructure(phaseName string) error {
 	// Capitalize first letter of phase name
 	phaseTitle := strings.ToUpper(phaseName[:1]) + phaseName[1:]
 	logContent := []byte(fmt.Sprintf("# %s Phase Log\n\n", phaseTitle))
-	if err := p.sow.writeFile(logPath, logContent); err != nil {
+	if err := p.writeFile(logPath, logContent); err != nil {
 		return fmt.Errorf("failed to create phase log: %w", err)
 	}
 
@@ -658,19 +696,19 @@ func (p *Project) createPhaseStructure(phaseName string) error {
 	case "discovery":
 		// Create research directory
 		researchDir := filepath.Join(phaseDir, "research")
-		if err := p.sow.fs.MkdirAll(researchDir, 0755); err != nil {
+		if err := fs.MkdirAll(researchDir, 0755); err != nil {
 			return err
 		}
 
 	case "design":
 		// Create ADRs and design docs directories
 		adrsDir := filepath.Join(phaseDir, "adrs")
-		if err := p.sow.fs.MkdirAll(adrsDir, 0755); err != nil {
+		if err := fs.MkdirAll(adrsDir, 0755); err != nil {
 			return err
 		}
 
 		docsDir := filepath.Join(phaseDir, "design-docs")
-		if err := p.sow.fs.MkdirAll(docsDir, 0755); err != nil {
+		if err := fs.MkdirAll(docsDir, 0755); err != nil {
 			return err
 		}
 	}
@@ -679,11 +717,12 @@ func (p *Project) createPhaseStructure(phaseName string) error {
 }
 
 // createTaskStructure creates the directory structure for a task.
-func (p *Project) createTaskStructure(id, name string, cfg *TaskConfig) error {
+func (p *Project) createTaskStructure(id, name string, cfg *sow.TaskConfig) error {
 	taskDir := filepath.Join(".sow/project/phases/implementation/tasks", id)
+	fs := p.ctx.FS()
 
 	// Create task directory
-	if err := p.sow.fs.MkdirAll(taskDir, 0755); err != nil {
+	if err := fs.MkdirAll(taskDir, 0755); err != nil {
 		return err
 	}
 
@@ -702,27 +741,27 @@ func (p *Project) createTaskStructure(id, name string, cfg *TaskConfig) error {
 	taskState.Task.Files_modified = []string{}
 
 	statePath := filepath.Join(taskDir, "state.yaml")
-	if err := p.sow.writeYAML(statePath, &taskState); err != nil {
+	if err := p.writeYAML(statePath, &taskState); err != nil {
 		return err
 	}
 
 	// Create description.md with actual description
 	descPath := filepath.Join(taskDir, "description.md")
 	descContent := fmt.Sprintf("# Task %s: %s\n\n%s\n", id, name, cfg.Description())
-	if err := p.sow.writeFile(descPath, []byte(descContent)); err != nil {
+	if err := p.writeFile(descPath, []byte(descContent)); err != nil {
 		return err
 	}
 
 	// Create log.md
 	logPath := filepath.Join(taskDir, "log.md")
 	logContent := fmt.Sprintf("# Task %s Log\n\nWorker actions will be logged here.\n", id)
-	if err := p.sow.writeFile(logPath, []byte(logContent)); err != nil {
+	if err := p.writeFile(logPath, []byte(logContent)); err != nil {
 		return err
 	}
 
 	// Create feedback directory
 	feedbackDir := filepath.Join(taskDir, "feedback")
-	if err := p.sow.fs.MkdirAll(feedbackDir, 0755); err != nil {
+	if err := fs.MkdirAll(feedbackDir, 0755); err != nil {
 		return err
 	}
 
@@ -766,22 +805,77 @@ func isValidTaskID(id string) bool {
 	return num > 0
 }
 
-// AppendLog appends a log entry to the project log file.
-func (p *Project) AppendLog(entry string) error {
-	logPath := ".sow/project/log.md"
+// Helper methods for filesystem operations
 
-	// Read existing content
-	existing, err := p.sow.readFile(logPath)
+// readYAML reads and unmarshals a YAML file.
+func (p *Project) readYAML(path string, v interface{}) error {
+	data, err := p.readFile(path)
 	if err != nil {
-		return fmt.Errorf("failed to read project log: %w", err)
+		return err
 	}
 
-	// Append new entry
-	updated := append(existing, []byte(entry)...)
+	return yaml.Unmarshal(data, v)
+}
 
-	// Write back
-	if err := p.sow.writeFile(logPath, updated); err != nil {
-		return fmt.Errorf("failed to write project log: %w", err)
+// writeFile writes a file using the context's filesystem.
+func (p *Project) writeFile(path string, data []byte) error {
+	fs := p.ctx.FS()
+	f, err := fs.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+
+	_, err = f.Write(data)
+	return err
+}
+
+// readFile reads a file's contents using the context's filesystem.
+func (p *Project) readFile(path string) ([]byte, error) {
+	fs := p.ctx.FS()
+	f, err := fs.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+
+	var data []byte
+	buf := make([]byte, 4096)
+	for {
+		n, err := f.Read(buf)
+		if n > 0 {
+			data = append(data, buf[:n]...)
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, err
+		}
+	}
+
+	return data, nil
+}
+
+// writeYAML marshals a value to YAML and writes it atomically.
+func (p *Project) writeYAML(path string, v interface{}) error {
+	data, err := yaml.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	fs := p.ctx.FS()
+
+	// Write to temp file first
+	tmpPath := path + ".tmp"
+	if err := p.writeFile(tmpPath, data); err != nil {
+		return err
+	}
+
+	// Atomic rename
+	if err := fs.Rename(tmpPath, path); err != nil {
+		_ = fs.Remove(tmpPath) // Clean up temp file
+		return err
 	}
 
 	return nil

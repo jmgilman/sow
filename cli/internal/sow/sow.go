@@ -17,7 +17,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/jmgilman/sow/cli/internal/github"
-	"github.com/jmgilman/sow/cli/internal/statechart"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"gopkg.in/yaml.v3"
 )
 
@@ -165,7 +165,9 @@ func (s *Sow) IsInitialized() bool {
 	return err == nil
 }
 
-// HasProject checks if an active project exists.
+// HasProject checks if a project exists on the current branch.
+//
+// DEPRECATED: Remove in Phase 4. Use project.Exists(ctx) instead.
 func (s *Sow) HasProject() bool {
 	_, err := s.fs.Stat(".sow/project/state.yaml")
 	return err == nil
@@ -173,6 +175,8 @@ func (s *Sow) HasProject() bool {
 
 // GetProject loads the active project from disk.
 // Returns ErrNoProject if no project exists.
+//
+// DEPRECATED: Remove in Phase 4. Use project.Load(ctx) instead.
 func (s *Sow) GetProject() (*Project, error) {
 	if !s.HasProject() {
 		return nil, ErrNoProject
@@ -191,6 +195,8 @@ func (s *Sow) GetProject() (*Project, error) {
 
 // CreateProject creates a new project with the given name and description.
 // Returns ErrProjectExists if a project already exists.
+//
+// DEPRECATED: Remove in Phase 4. Use project.Create(ctx, name, description) instead.
 func (s *Sow) CreateProject(name, description string) (*Project, error) {
 	if !s.IsInitialized() {
 		return nil, ErrNotInitialized
@@ -299,6 +305,8 @@ func (s *Sow) CreateProject(name, description string) (*Project, error) {
 // CreateProjectFromIssue creates a project linked to a GitHub issue.
 // It validates the issue, checks for existing linked branches, creates a branch,
 // initializes the project, and links it to the issue.
+//
+// DEPRECATED: Remove in Phase 4. Use project.CreateFromIssue(ctx, issueNumber, branchName) instead.
 func (s *Sow) CreateProjectFromIssue(issueNumber int, branchName string) (*Project, error) {
 	// Fetch issue
 	issue, err := github.GetIssue(issueNumber)
@@ -355,6 +363,8 @@ func (s *Sow) CreateProjectFromIssue(issueNumber int, branchName string) (*Proje
 
 // DeleteProject deletes the active project.
 // Returns ErrNoProject if no project exists.
+//
+// DEPRECATED: Remove in Phase 4. Use project.Delete(ctx) instead.
 func (s *Sow) DeleteProject() error {
 	if !s.HasProject() {
 		return ErrNoProject
