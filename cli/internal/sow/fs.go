@@ -1,6 +1,8 @@
 package sow
 
 import (
+	"fmt"
+
 	"github.com/jmgilman/go/fs/billy"
 	"github.com/jmgilman/go/fs/core"
 )
@@ -23,30 +25,26 @@ type SowFS = core.FS
 // The repoRoot should be the absolute path to the git repository root.
 // The returned filesystem is scoped to repoRoot/.sow/
 //
-// This function creates a billy-backed local filesystem and chroots it
-// to the .sow/ subdirectory. If .sow/ doesn't exist yet, the filesystem
-// will still be created - Init() will create the directory structure later.
-//
-// Returns an error if the repository root is invalid or if chrooting fails.
+// Returns ErrNotInitialized if .sow/ doesn't exist (use Init() to create it first).
 func NewSowFS(repoRoot string) (SowFS, error) {
+	// Check if .sow exists
+	if !isInitialized(repoRoot) {
+		return nil, ErrNotInitialized
+	}
+
 	// Create billy-backed local filesystem
 	baseFS := billy.NewLocal()
 
 	// Chroot to repository root
 	repoFS, err := baseFS.Chroot(repoRoot)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to chroot to repo root: %w", err)
 	}
 
 	// Chroot to .sow/ directory
-	// Note: Chroot will succeed even if .sow/ doesn't exist yet
-	// because billy's Chroot doesn't verify the directory exists
 	sowFS, err := repoFS.Chroot(".sow")
 	if err != nil {
-		// If chroot fails, it means we can't access the path
-		// Try returning the repoFS so operations can manually prepend .sow/
-		// This is a fallback for when .sow/ doesn't exist yet
-		return repoFS, nil
+		return nil, fmt.Errorf("failed to chroot to .sow: %w", err)
 	}
 
 	return sowFS, nil

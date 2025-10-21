@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	"github.com/spf13/cobra"
 )
 
@@ -56,10 +57,10 @@ func runCreatePR(cmd *cobra.Command, _ []string) error {
 	bodyFlag, _ := cmd.Flags().GetString("body")
 
 	// Get Sow from context
-	sowInstance := cmdutil.SowFromContext(cmd.Context())
+	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Get project
-	project, err := sowInstance.GetProject()
+	project, err := projectpkg.Load(ctx)
 	if err != nil {
 		return fmt.Errorf("no active project found")
 	}

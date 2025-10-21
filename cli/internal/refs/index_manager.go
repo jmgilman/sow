@@ -1,4 +1,4 @@
-package sow
+package refs
 
 import (
 	"context"
@@ -7,134 +7,25 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/refs"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
-// RefOption configures ref operations.
-type RefOption func(*refConfig)
-
-// refConfig holds configuration for ref operations.
-type refConfig struct {
-	id          string
-	semantic    string
-	link        string
-	tags        []string
-	description string
-	branch      string // git-specific
-	path        string // git-specific
-	local       bool
+// Manager is the high-level manager for refs operations.
+// It uses sow.Context for filesystem access and manages both committed and local indexes.
+type Manager struct {
+	ctx *sow.Context
 }
 
-// RefListOption configures ref listing operations.
-type RefListOption func(*refListConfig)
-
-// refListConfig holds configuration for listing refs.
-type refListConfig struct {
-	typeFilter     string
-	semanticFilter string
-	tagsFilter     []string
-	localOnly      bool
-	committedOnly  bool
+// NewManager creates a new refs manager using the given context.
+func NewManager(ctx *sow.Context) *Manager {
+	return &Manager{ctx: ctx}
 }
 
-// WithRefID sets an explicit ref ID (auto-generated if not specified).
-func WithRefID(id string) RefOption {
-	return func(c *refConfig) {
-		c.id = id
-	}
-}
-
-// WithRefLink sets the workspace symlink name (required).
-func WithRefLink(link string) RefOption {
-	return func(c *refConfig) {
-		c.link = link
-	}
-}
-
-// WithRefSemantic sets the semantic type (knowledge or code).
-func WithRefSemantic(semantic string) RefOption {
-	return func(c *refConfig) {
-		c.semantic = semantic
-	}
-}
-
-// WithRefTags sets topic tags for categorization.
-func WithRefTags(tags ...string) RefOption {
-	return func(c *refConfig) {
-		c.tags = tags
-	}
-}
-
-// WithRefDescription sets the ref description.
-func WithRefDescription(desc string) RefOption {
-	return func(c *refConfig) {
-		c.description = desc
-	}
-}
-
-// WithRefBranch sets the git branch (only valid for git refs).
-func WithRefBranch(branch string) RefOption {
-	return func(c *refConfig) {
-		c.branch = branch
-	}
-}
-
-// WithRefPath sets the subpath within repository (only valid for git refs).
-func WithRefPath(path string) RefOption {
-	return func(c *refConfig) {
-		c.path = path
-	}
-}
-
-// WithRefLocal marks the ref as local-only (not shared with team).
-func WithRefLocal(local bool) RefOption {
-	return func(c *refConfig) {
-		c.local = local
-	}
-}
-
-// WithRefTypeFilter filters by structural type (git, file).
-func WithRefTypeFilter(typeName string) RefListOption {
-	return func(c *refListConfig) {
-		c.typeFilter = typeName
-	}
-}
-
-// WithRefSemanticFilter filters by semantic type (knowledge, code).
-func WithRefSemanticFilter(semantic string) RefListOption {
-	return func(c *refListConfig) {
-		c.semanticFilter = semantic
-	}
-}
-
-// WithRefTagsFilter filters by tags (all tags must match).
-func WithRefTagsFilter(tags ...string) RefListOption {
-	return func(c *refListConfig) {
-		c.tagsFilter = tags
-	}
-}
-
-// WithRefLocalOnly shows only local refs.
-func WithRefLocalOnly() RefListOption {
-	return func(c *refListConfig) {
-		c.localOnly = true
-		c.committedOnly = false
-	}
-}
-
-// WithRefCommittedOnly shows only committed refs.
-func WithRefCommittedOnly() RefListOption {
-	return func(c *refListConfig) {
-		c.committedOnly = true
-		c.localOnly = false
-	}
-}
-
-// AddRef adds a new reference to the repository.
+// Add adds a new reference to the repository.
 // The reference type is automatically inferred from the URL scheme.
 // Returns the created Ref for further operations.
-func (s *Sow) AddRef(ctx context.Context, url string, opts ...RefOption) (*Ref, error) {
+func (m *Manager) Add(ctx context.Context, url string, opts ...RefOption) (*Ref, error) {
 	// Apply options
 	cfg := &refConfig{
 		semantic: "knowledge", // default
@@ -158,13 +49,13 @@ func (s *Sow) AddRef(ctx context.Context, url string, opts ...RefOption) (*Ref, 
 	}
 
 	// Infer type from URL
-	typeName, err := refs.InferTypeFromURL(url)
+	typeName, err := InferTypeFromURL(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to infer type from URL: %w", err)
 	}
 
 	// Get type implementation
-	refType, err := refs.GetType(typeName)
+	refType, err := GetType(typeName)
 	if err != nil {
 		return nil, fmt.Errorf("unknown reference type: %s", typeName)
 	}
@@ -175,11 +66,11 @@ func (s *Sow) AddRef(ctx context.Context, url string, opts ...RefOption) (*Ref, 
 		return nil, fmt.Errorf("failed to check if type enabled: %w", err)
 	}
 	if !enabled {
-		return nil, ErrRefTypeDisabled
+		return nil, fmt.Errorf("reference type %s is not enabled (required tools missing)", typeName)
 	}
 
 	// Normalize URL for type
-	normalizedURL, isLocal, err := s.normalizeURLForType(url, typeName, cfg)
+	normalizedURL, isLocal, err := m.normalizeURLForType(url, typeName, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +78,7 @@ func (s *Sow) AddRef(ctx context.Context, url string, opts ...RefOption) (*Ref, 
 
 	// Generate ID if not specified
 	if cfg.id == "" {
-		cfg.id = s.generateRefID(normalizedURL, typeName)
+		cfg.id = m.generateRefID(normalizedURL, typeName)
 	}
 
 	// Create ref structure
@@ -210,7 +101,7 @@ func (s *Sow) AddRef(ctx context.Context, url string, opts ...RefOption) (*Ref, 
 	}
 
 	// Load appropriate index
-	index, isLocal, err := s.loadRefIndex(cfg.local)
+	index, isLocal, err := m.loadRefIndex(cfg.local)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load index: %w", err)
 	}
@@ -226,45 +117,46 @@ func (s *Sow) AddRef(ctx context.Context, url string, opts ...RefOption) (*Ref, 
 		}
 	}
 
-	// Create manager and install ref
-	manager, err := refs.NewManager(filepath.Join(s.fs.Root(), ".sow"))
+	// Create cache manager and install ref
+	sowDir := filepath.Join(m.ctx.RepoRoot(), ".sow")
+	cacheManager, err := NewCacheManager(sowDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create refs manager: %w", err)
+		return nil, fmt.Errorf("failed to create refs cache manager: %w", err)
 	}
 
-	_, err = manager.Install(ctx, ref)
+	_, err = cacheManager.Install(ctx, ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to install ref: %w", err)
 	}
 
 	// Add to index and save
 	index.Refs = append(index.Refs, *ref)
-	if err := s.saveRefIndex(index, isLocal); err != nil {
+	if err := m.saveRefIndex(index, isLocal); err != nil {
 		return nil, fmt.Errorf("failed to save index: %w", err)
 	}
 
 	return &Ref{
-		sow: s,
-		id:  cfg.id,
+		manager: m,
+		id:      cfg.id,
 	}, nil
 }
 
-// GetRef retrieves a ref by ID from either committed or local index.
-func (s *Sow) GetRef(id string) (*Ref, error) {
+// Get retrieves a ref by ID from either committed or local index.
+func (m *Manager) Get(id string) (*Ref, error) {
 	// Try committed index first
-	committedIndex, err := s.loadCommittedRefIndex()
+	committedIndex, err := m.loadCommittedRefIndex()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load committed index: %w", err)
 	}
 
 	for _, ref := range committedIndex.Refs {
 		if ref.Id == id {
-			return &Ref{sow: s, id: id}, nil
+			return &Ref{manager: m, id: id}, nil
 		}
 	}
 
 	// Try local index
-	localIndex, err := s.loadLocalRefIndex()
+	localIndex, err := m.loadLocalRefIndex()
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to load local index: %w", err)
 	}
@@ -272,16 +164,16 @@ func (s *Sow) GetRef(id string) (*Ref, error) {
 	if localIndex != nil {
 		for _, ref := range localIndex.Refs {
 			if ref.Id == id {
-				return &Ref{sow: s, id: id}, nil
+				return &Ref{manager: m, id: id}, nil
 			}
 		}
 	}
 
-	return nil, ErrRefNotFound
+	return nil, fmt.Errorf("ref %q not found", id)
 }
 
-// ListRefs returns all refs matching the given filters.
-func (s *Sow) ListRefs(opts ...RefListOption) ([]*Ref, error) {
+// List returns all refs matching the given filters.
+func (m *Manager) List(opts ...RefListOption) ([]*Ref, error) {
 	// Apply options
 	cfg := &refListConfig{}
 	for _, opt := range opts {
@@ -292,7 +184,7 @@ func (s *Sow) ListRefs(opts ...RefListOption) ([]*Ref, error) {
 
 	// Load committed refs unless localOnly
 	if !cfg.localOnly {
-		committedIndex, err := s.loadCommittedRefIndex()
+		committedIndex, err := m.loadCommittedRefIndex()
 		if err != nil {
 			return nil, fmt.Errorf("failed to load committed index: %w", err)
 		}
@@ -301,7 +193,7 @@ func (s *Sow) ListRefs(opts ...RefListOption) ([]*Ref, error) {
 
 	// Load local refs unless committedOnly
 	if !cfg.committedOnly {
-		localIndex, err := s.loadLocalRefIndex()
+		localIndex, err := m.loadLocalRefIndex()
 		if err != nil && !os.IsNotExist(err) {
 			return nil, fmt.Errorf("failed to load local index: %w", err)
 		}
@@ -313,43 +205,44 @@ func (s *Sow) ListRefs(opts ...RefListOption) ([]*Ref, error) {
 	// Filter refs
 	var filtered []*Ref
 	for _, ref := range allRefs {
-		if s.matchesRefFilters(ref, cfg) {
-			filtered = append(filtered, &Ref{sow: s, id: ref.Id})
+		if m.matchesRefFilters(ref, cfg) {
+			filtered = append(filtered, &Ref{manager: m, id: ref.Id})
 		}
 	}
 
 	return filtered, nil
 }
 
-// RemoveRef removes a ref by ID.
-func (s *Sow) RemoveRef(ctx context.Context, id string, pruneCache bool) error {
+// Remove removes a ref by ID.
+func (m *Manager) Remove(ctx context.Context, id string, pruneCache bool) error {
 	// Find the ref in either index
-	ref, isLocal, err := s.findRefInIndexes(id)
+	ref, isLocal, err := m.findRefInIndexes(id)
 	if err != nil {
 		return err
 	}
 
-	// Create manager
-	manager, err := refs.NewManager(filepath.Join(s.fs.Root(), ".sow"))
+	// Create cache manager
+	sowDir := filepath.Join(m.ctx.RepoRoot(), ".sow")
+	cacheManager, err := NewCacheManager(sowDir)
 	if err != nil {
-		return fmt.Errorf("failed to create refs manager: %w", err)
+		return fmt.Errorf("failed to create refs cache manager: %w", err)
 	}
 
-	// Remove via manager (handles cache cleanup if pruneCache is true)
+	// Remove via cache manager (handles cache cleanup if pruneCache is true)
 	if pruneCache {
-		if err := manager.Remove(ctx, ref); err != nil {
+		if err := cacheManager.Remove(ctx, ref); err != nil {
 			return fmt.Errorf("failed to remove ref: %w", err)
 		}
 	} else {
 		// Just remove the symlink, keep cache
-		workspacePath := filepath.Join(s.fs.Root(), ".sow", "refs", ref.Link)
+		workspacePath := filepath.Join(m.ctx.RepoRoot(), ".sow", "refs", ref.Link)
 		if err := os.Remove(workspacePath); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("failed to remove workspace symlink: %w", err)
 		}
 	}
 
 	// Remove from index
-	index, _, err := s.loadRefIndex(isLocal)
+	index, _, err := m.loadRefIndex(isLocal)
 	if err != nil {
 		return fmt.Errorf("failed to load index: %w", err)
 	}
@@ -364,7 +257,7 @@ func (s *Sow) RemoveRef(ctx context.Context, id string, pruneCache bool) error {
 	index.Refs = newRefs
 
 	// Save index
-	if err := s.saveRefIndex(index, isLocal); err != nil {
+	if err := m.saveRefIndex(index, isLocal); err != nil {
 		return fmt.Errorf("failed to save index: %w", err)
 	}
 
@@ -373,28 +266,29 @@ func (s *Sow) RemoveRef(ctx context.Context, id string, pruneCache bool) error {
 
 // InitRefs initializes all refs after cloning a repository.
 // This installs refs from the committed index.
-func (s *Sow) InitRefs(ctx context.Context) error {
+func (m *Manager) InitRefs(ctx context.Context) error {
 	// Load committed index
-	committedIndex, err := s.loadCommittedRefIndex()
+	committedIndex, err := m.loadCommittedRefIndex()
 	if err != nil {
 		return fmt.Errorf("failed to load committed index: %w", err)
 	}
 
-	// Create manager
-	manager, err := refs.NewManager(filepath.Join(s.fs.Root(), ".sow"))
+	// Create cache manager
+	sowDir := filepath.Join(m.ctx.RepoRoot(), ".sow")
+	cacheManager, err := NewCacheManager(sowDir)
 	if err != nil {
-		return fmt.Errorf("failed to create refs manager: %w", err)
+		return fmt.Errorf("failed to create refs cache manager: %w", err)
 	}
 
 	// Install each ref
 	for _, ref := range committedIndex.Refs {
 		// Check if type is enabled
-		typeName, err := refs.InferTypeFromURL(ref.Source)
+		typeName, err := InferTypeFromURL(ref.Source)
 		if err != nil {
 			return fmt.Errorf("failed to infer type for ref %s: %w", ref.Id, err)
 		}
 
-		refType, err := refs.GetType(typeName)
+		refType, err := GetType(typeName)
 		if err != nil {
 			return fmt.Errorf("unknown type for ref %s: %s", ref.Id, typeName)
 		}
@@ -410,7 +304,7 @@ func (s *Sow) InitRefs(ctx context.Context) error {
 		}
 
 		// Install ref
-		if _, err := manager.Install(ctx, &ref); err != nil {
+		if _, err := cacheManager.Install(ctx, &ref); err != nil {
 			return fmt.Errorf("failed to install ref %s: %w", ref.Id, err)
 		}
 	}
@@ -421,13 +315,13 @@ func (s *Sow) InitRefs(ctx context.Context) error {
 // Helper methods
 
 // normalizeURLForType normalizes a URL based on its type and validates type-specific flags.
-func (s *Sow) normalizeURLForType(rawURL, typeName string, cfg *refConfig) (string, bool, error) {
+func (m *Manager) normalizeURLForType(rawURL, typeName string, cfg *refConfig) (string, bool, error) {
 	normalizedURL := rawURL
 	local := cfg.local
 
 	switch typeName {
 	case "git":
-		normalized, _, err := refs.ParseGitURL(rawURL)
+		normalized, _, err := ParseGitURL(rawURL)
 		if err != nil {
 			return "", local, fmt.Errorf("failed to parse git URL: %w", err)
 		}
@@ -436,7 +330,7 @@ func (s *Sow) normalizeURLForType(rawURL, typeName string, cfg *refConfig) (stri
 	case "file":
 		// Convert path to file URL if needed
 		if len(rawURL) < 7 || rawURL[:7] != "file://" {
-			fileURL, err := refs.PathToFileURL(rawURL)
+			fileURL, err := PathToFileURL(rawURL)
 			if err != nil {
 				return "", local, fmt.Errorf("failed to convert path to file URL: %w", err)
 			}
@@ -444,7 +338,7 @@ func (s *Sow) normalizeURLForType(rawURL, typeName string, cfg *refConfig) (stri
 		}
 
 		// Validate file URL
-		if err := refs.ValidateFileURL(normalizedURL); err != nil {
+		if err := ValidateFileURL(normalizedURL); err != nil {
 			return "", local, fmt.Errorf("invalid file URL: %w", err)
 		}
 
@@ -473,7 +367,7 @@ func (s *Sow) normalizeURLForType(rawURL, typeName string, cfg *refConfig) (stri
 }
 
 // generateRefID generates a ref ID from URL and type.
-func (s *Sow) generateRefID(url, typeName string) string {
+func (m *Manager) generateRefID(url, typeName string) string {
 	// This logic mirrors the original generateIDFromURL in refs/refs.go
 	switch typeName {
 	case "git":
@@ -520,9 +414,9 @@ func (s *Sow) generateRefID(url, typeName string) string {
 }
 
 // loadRefIndex loads the appropriate index (committed or local).
-func (s *Sow) loadRefIndex(isLocal bool) (*schemas.RefsCommittedIndex, bool, error) {
+func (m *Manager) loadRefIndex(isLocal bool) (*schemas.RefsCommittedIndex, bool, error) {
 	if isLocal {
-		localIndex, err := s.loadLocalRefIndex()
+		localIndex, err := m.loadLocalRefIndex()
 		if err != nil && !os.IsNotExist(err) {
 			return nil, true, err
 		}
@@ -539,31 +433,33 @@ func (s *Sow) loadRefIndex(isLocal bool) (*schemas.RefsCommittedIndex, bool, err
 		}, true, nil
 	}
 
-	committedIndex, err := s.loadCommittedRefIndex()
+	committedIndex, err := m.loadCommittedRefIndex()
 	return committedIndex, false, err
 }
 
 // saveRefIndex saves the index (committed or local).
-func (s *Sow) saveRefIndex(index *schemas.RefsCommittedIndex, isLocal bool) error {
+func (m *Manager) saveRefIndex(index *schemas.RefsCommittedIndex, isLocal bool) error {
+	fs := m.ctx.FS()
+
 	if isLocal {
 		localIndex := &schemas.RefsLocalIndex{
 			Version: "1.0.0",
 			Refs:    index.Refs,
 		}
-		return s.saveLocalRefIndex(localIndex)
+		return m.saveLocalRefIndex(fs, localIndex)
 	}
 
 	index.Version = "1.0.0"
-	return s.saveCommittedRefIndex(index)
+	return m.saveCommittedRefIndex(fs, index)
 }
 
 // loadCommittedRefIndex loads the committed refs index.
-func (s *Sow) loadCommittedRefIndex() (*schemas.RefsCommittedIndex, error) {
-	path := filepath.Join(".sow", "refs", "index.json")
+func (m *Manager) loadCommittedRefIndex() (*schemas.RefsCommittedIndex, error) {
+	fs := m.ctx.FS()
+	path := "refs/index.json"
 
 	// Check if file exists
-	_, err := s.fs.Stat(path)
-	if err != nil {
+	if _, err := fs.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			// Return empty index
 			return &schemas.RefsCommittedIndex{
@@ -574,47 +470,65 @@ func (s *Sow) loadCommittedRefIndex() (*schemas.RefsCommittedIndex, error) {
 		return nil, err
 	}
 
+	data, err := fs.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
 	var index schemas.RefsCommittedIndex
-	if err := s.readJSON(path, &index); err != nil {
+	if err := unmarshalJSON(data, &index); err != nil {
 		return nil, err
 	}
 	return &index, nil
 }
 
 // loadLocalRefIndex loads the local refs index.
-func (s *Sow) loadLocalRefIndex() (*schemas.RefsLocalIndex, error) {
-	path := filepath.Join(".sow", "refs", "index.local.json")
+func (m *Manager) loadLocalRefIndex() (*schemas.RefsLocalIndex, error) {
+	fs := m.ctx.FS()
+	path := "refs/index.local.json"
 
 	// Check if file exists
-	_, err := s.fs.Stat(path)
+	if _, err := fs.Stat(path); err != nil {
+		return nil, err
+	}
+
+	data, err := fs.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
 	var index schemas.RefsLocalIndex
-	if err := s.readJSON(path, &index); err != nil {
+	if err := unmarshalJSON(data, &index); err != nil {
 		return nil, err
 	}
 	return &index, nil
 }
 
 // saveCommittedRefIndex saves the committed refs index.
-func (s *Sow) saveCommittedRefIndex(index *schemas.RefsCommittedIndex) error {
-	path := filepath.Join(".sow", "refs", "index.json")
-	return s.writeJSON(path, index)
+func (m *Manager) saveCommittedRefIndex(fs sow.SowFS, index *schemas.RefsCommittedIndex) error {
+	path := "refs/index.json"
+	data, err := marshalJSON(index)
+	if err != nil {
+		return err
+	}
+	return fs.WriteFile(path, data, 0644)
 }
 
 // saveLocalRefIndex saves the local refs index.
-func (s *Sow) saveLocalRefIndex(index *schemas.RefsLocalIndex) error {
-	path := filepath.Join(".sow", "refs", "index.local.json")
-	return s.writeJSON(path, index)
+func (m *Manager) saveLocalRefIndex(fs sow.SowFS, index *schemas.RefsLocalIndex) error {
+	path := "refs/index.local.json"
+	data, err := marshalJSON(index)
+	if err != nil {
+		return err
+	}
+	return fs.WriteFile(path, data, 0644)
 }
 
 // findRefInIndexes finds a ref by ID in either index.
 // Returns the ref, whether it's local, and any error.
-func (s *Sow) findRefInIndexes(id string) (*schemas.Ref, bool, error) {
+func (m *Manager) findRefInIndexes(id string) (*schemas.Ref, bool, error) {
 	// Try committed index first
-	committedIndex, err := s.loadCommittedRefIndex()
+	committedIndex, err := m.loadCommittedRefIndex()
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to load committed index: %w", err)
 	}
@@ -626,7 +540,7 @@ func (s *Sow) findRefInIndexes(id string) (*schemas.Ref, bool, error) {
 	}
 
 	// Try local index
-	localIndex, err := s.loadLocalRefIndex()
+	localIndex, err := m.loadLocalRefIndex()
 	if err != nil && !os.IsNotExist(err) {
 		return nil, false, fmt.Errorf("failed to load local index: %w", err)
 	}
@@ -639,14 +553,14 @@ func (s *Sow) findRefInIndexes(id string) (*schemas.Ref, bool, error) {
 		}
 	}
 
-	return nil, false, ErrRefNotFound
+	return nil, false, fmt.Errorf("ref %q not found", id)
 }
 
 // matchesRefFilters checks if a ref matches the given filters.
-func (s *Sow) matchesRefFilters(ref schemas.Ref, cfg *refListConfig) bool {
+func (m *Manager) matchesRefFilters(ref schemas.Ref, cfg *refListConfig) bool {
 	// Filter by type
 	if cfg.typeFilter != "" {
-		refType, err := refs.InferTypeFromURL(ref.Source)
+		refType, err := InferTypeFromURL(ref.Source)
 		if err != nil || refType != cfg.typeFilter {
 			return false
 		}

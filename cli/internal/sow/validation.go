@@ -2,6 +2,7 @@ package sow
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -74,7 +75,7 @@ func (r *ValidationResult) Add(path, schemaType string, err error) {
 //
 // Returns a ValidationResult containing all validation errors found.
 // If no errors are found, ValidationResult.HasErrors() returns false.
-func (s *Sow) Validate() (*ValidationResult, error) {
+func Validate(repoRoot string) (*ValidationResult, error) {
 	// Load CUE validator
 	validator, err := schemas.NewCUEValidator()
 	if err != nil {
@@ -84,106 +85,110 @@ func (s *Sow) Validate() (*ValidationResult, error) {
 	result := &ValidationResult{}
 
 	// Validate refs committed index (if exists)
-	s.validateRefsCommittedIndex(result, validator)
+	validateRefsCommittedIndex(repoRoot, result, validator)
 
 	// Validate refs local index (if exists)
-	s.validateRefsLocalIndex(result, validator)
+	validateRefsLocalIndex(repoRoot, result, validator)
 
 	// Validate project (if exists)
-	s.validateProject(result, validator)
+	validateProject(repoRoot, result, validator)
 
 	return result, nil
 }
 
 // validateRefsCommittedIndex validates the committed refs index.
-func (s *Sow) validateRefsCommittedIndex(result *ValidationResult, validator *schemas.CUEValidator) {
-	path := filepath.Join(".sow", "refs", "index.json")
+func validateRefsCommittedIndex(repoRoot string, result *ValidationResult, validator *schemas.CUEValidator) {
+	relPath := filepath.Join(".sow", "refs", "index.json")
+	absPath := filepath.Join(repoRoot, relPath)
 
 	// Check if file exists
-	_, err := s.fs.Stat(path)
+	_, err := os.Stat(absPath)
 	if err != nil {
 		// File is optional - not an error
 		return
 	}
 
 	// Read file
-	data, err := s.readFile(path)
+	data, err := os.ReadFile(absPath)
 	if err != nil {
-		result.Add(path, "refs-committed", fmt.Errorf("failed to read file: %w", err))
+		result.Add(relPath, "refs-committed", fmt.Errorf("failed to read file: %w", err))
 		return
 	}
 
 	// Validate against schema
 	if err := validator.ValidateRefsCommittedIndex(data); err != nil {
-		result.Add(path, "refs-committed", err)
+		result.Add(relPath, "refs-committed", err)
 	}
 }
 
 // validateRefsLocalIndex validates the local refs index.
-func (s *Sow) validateRefsLocalIndex(result *ValidationResult, validator *schemas.CUEValidator) {
-	path := filepath.Join(".sow", "refs", "index.local.json")
+func validateRefsLocalIndex(repoRoot string, result *ValidationResult, validator *schemas.CUEValidator) {
+	relPath := filepath.Join(".sow", "refs", "index.local.json")
+	absPath := filepath.Join(repoRoot, relPath)
 
 	// Check if file exists
-	_, err := s.fs.Stat(path)
+	_, err := os.Stat(absPath)
 	if err != nil {
 		// File is optional - not an error
 		return
 	}
 
 	// Read file
-	data, err := s.readFile(path)
+	data, err := os.ReadFile(absPath)
 	if err != nil {
-		result.Add(path, "refs-local", fmt.Errorf("failed to read file: %w", err))
+		result.Add(relPath, "refs-local", fmt.Errorf("failed to read file: %w", err))
 		return
 	}
 
 	// Validate against schema
 	if err := validator.ValidateRefsLocalIndex(data); err != nil {
-		result.Add(path, "refs-local", err)
+		result.Add(relPath, "refs-local", err)
 	}
 }
 
 // validateProject validates the project directory and all its contents.
-func (s *Sow) validateProject(result *ValidationResult, validator *schemas.CUEValidator) {
-	path := filepath.Join(".sow", "project", "state.yaml")
+func validateProject(repoRoot string, result *ValidationResult, validator *schemas.CUEValidator) {
+	relPath := filepath.Join(".sow", "project", "state.yaml")
+	absPath := filepath.Join(repoRoot, relPath)
 
 	// Check if project exists
-	_, err := s.fs.Stat(path)
+	_, err := os.Stat(absPath)
 	if err != nil {
 		// No active project - not an error
 		return
 	}
 
 	// Validate project state
-	data, err := s.readFile(path)
+	data, err := os.ReadFile(absPath)
 	if err != nil {
-		result.Add(path, "project-state", fmt.Errorf("failed to read file: %w", err))
+		result.Add(relPath, "project-state", fmt.Errorf("failed to read file: %w", err))
 		return
 	}
 
 	if err := validator.ValidateProjectState(data); err != nil {
-		result.Add(path, "project-state", err)
+		result.Add(relPath, "project-state", err)
 	}
 
 	// Validate all tasks
-	s.validateTasks(result, validator)
+	validateTasks(repoRoot, result, validator)
 }
 
 // validateTasks validates all task state files.
-func (s *Sow) validateTasks(result *ValidationResult, validator *schemas.CUEValidator) {
-	tasksDir := filepath.Join(".sow", "project", "phases", "implementation", "tasks")
+func validateTasks(repoRoot string, result *ValidationResult, validator *schemas.CUEValidator) {
+	relTasksDir := filepath.Join(".sow", "project", "phases", "implementation", "tasks")
+	absTasksDir := filepath.Join(repoRoot, relTasksDir)
 
 	// Check if tasks directory exists
-	_, err := s.fs.Stat(tasksDir)
+	_, err := os.Stat(absTasksDir)
 	if err != nil {
 		// No tasks yet - not an error
 		return
 	}
 
 	// Read directory entries
-	entries, err := s.fs.ReadDir(tasksDir)
+	entries, err := os.ReadDir(absTasksDir)
 	if err != nil {
-		result.Add(tasksDir, "tasks", fmt.Errorf("failed to read directory: %w", err))
+		result.Add(relTasksDir, "tasks", fmt.Errorf("failed to read directory: %w", err))
 		return
 	}
 
@@ -194,25 +199,26 @@ func (s *Sow) validateTasks(result *ValidationResult, validator *schemas.CUEVali
 		}
 
 		taskID := entry.Name()
-		taskStatePath := filepath.Join(tasksDir, taskID, "state.yaml")
+		relTaskStatePath := filepath.Join(relTasksDir, taskID, "state.yaml")
+		absTaskStatePath := filepath.Join(absTasksDir, taskID, "state.yaml")
 
 		// Check if state file exists
-		_, err := s.fs.Stat(taskStatePath)
+		_, err := os.Stat(absTaskStatePath)
 		if err != nil {
-			result.Add(taskStatePath, "task-state", fmt.Errorf("task directory exists but state.yaml is missing"))
+			result.Add(relTaskStatePath, "task-state", fmt.Errorf("task directory exists but state.yaml is missing"))
 			continue
 		}
 
 		// Read state file
-		data, err := s.readFile(taskStatePath)
+		data, err := os.ReadFile(absTaskStatePath)
 		if err != nil {
-			result.Add(taskStatePath, "task-state", fmt.Errorf("failed to read file: %w", err))
+			result.Add(relTaskStatePath, "task-state", fmt.Errorf("failed to read file: %w", err))
 			continue
 		}
 
 		// Validate against schema
 		if err := validator.ValidateTaskState(data); err != nil {
-			result.Add(taskStatePath, "task-state", err)
+			result.Add(relTaskStatePath, "task-state", err)
 		}
 	}
 }

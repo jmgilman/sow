@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	sowpkg "github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
@@ -58,10 +59,10 @@ func runTaskStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get Sow from context
-	s := cmdutil.SowFromContext(cmd.Context())
+	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Get project
-	proj, err := s.GetProject()
+	proj, err := projectpkg.Load(ctx)
 	if err != nil {
 		return fmt.Errorf("no active project - run 'sow project init' first")
 	}

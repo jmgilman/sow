@@ -1,90 +1,69 @@
-// Package sow provides the core context and primitives for the sow system.
-//
-// The Context type is the primary interface for all sow subsystems, providing
-// access to the filesystem, git repository, and GitHub client.
 package sow
 
 import (
+	"errors"
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/exec"
+	"github.com/jmgilman/go/git"
 )
 
-// Context provides access to sow subsystems.
-//
-// Context is created once per CLI command invocation and provides a unified
-// interface for filesystem operations, git repository access, and GitHub API
-// interactions. All subsystems (project, refs, etc.) receive a Context to
-// perform their operations.
-//
-// The Context is immutable after creation - subsystems should not modify it.
+// Context provides unified access to sow subsystems: filesystem, git, and GitHub.
+// It is created once per CLI command invocation and passed to all subsystems.
 type Context struct {
-	fs     SowFS
-	git    *Git
-	github *GitHub // Lazy-loaded
+	fs       SowFS
+	repo     *Git
+	github   *GitHub
+	repoRoot string
 }
 
-// NewContext creates a new Context rooted at the repository directory.
-//
-// This function:
-//   - Creates a SowFS scoped to .sow/ directory
-//   - Initializes Git repository access
-//   - Prepares GitHub client (lazy-loaded on first access)
-//
-// The repoRoot should be the absolute path to the git repository root.
-// This is typically detected by walking up from the current directory to find .git/
-//
-// Returns an error if:
-//   - repoRoot is not a valid directory
-//   - Cannot create filesystem abstraction
-//   - Git repository cannot be accessed
+// NewContext creates a new sow context rooted at the given repository directory.
+// If .sow/ doesn't exist, the context is still created but with fs set to nil.
+// Use IsInitialized() to check if .sow/ exists.
 func NewContext(repoRoot string) (*Context, error) {
-	// Create SowFS scoped to .sow/
+	// Try to create SowFS (chrooted to .sow/)
+	// If .sow doesn't exist, set fs to nil but don't fail
 	sowFS, err := NewSowFS(repoRoot)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create sow filesystem: %w", err)
+	if err != nil && !errors.Is(err, ErrNotInitialized) {
+		return nil, fmt.Errorf("failed to create SowFS: %w", err)
 	}
 
-	// Create Git repository access
-	git, err := NewGit(repoRoot)
+	// Open git repository
+	gitRepo, err := git.Open(repoRoot)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize git repository: %w", err)
+		return nil, fmt.Errorf("failed to open git repository: %w", err)
 	}
 
 	return &Context{
-		fs:     sowFS,
-		git:    git,
-		github: nil, // Lazy-loaded
+		fs:       sowFS, // Will be nil if .sow doesn't exist
+		repo:     &Git{repo: gitRepo},
+		repoRoot: repoRoot,
 	}, nil
 }
 
-// FS returns the SowFS for filesystem operations scoped to .sow/
-//
-// All filesystem operations should use this interface rather than direct
-// file system access to ensure proper scoping and portability.
+// FS returns the SowFS for accessing .sow/ directory.
 func (c *Context) FS() SowFS {
 	return c.fs
 }
 
-// Git returns the Git repository for version control operations.
-//
-// Provides access to git operations like getting current branch,
-// checking repository status, etc.
+// Git returns the Git repository wrapper.
 func (c *Context) Git() *Git {
-	return c.git
+	return c.repo
 }
 
-// GitHub returns the GitHub client for API operations.
-//
-// The client is lazy-loaded on first access. This avoids the overhead
-// of GitHub initialization for commands that don't need it.
-//
-// Note: GitHub operations may fail if not authenticated or if network
-// is unavailable. Callers should handle errors appropriately.
+// GitHub returns the GitHub client (lazy-loaded).
 func (c *Context) GitHub() *GitHub {
 	if c.github == nil {
-		ghExec := exec.NewLocal("gh")
-		c.github = NewGitHub(ghExec)
+		c.github = &GitHub{}
 	}
 	return c.github
+}
+
+// RepoRoot returns the repository root directory path.
+func (c *Context) RepoRoot() string {
+	return c.repoRoot
+}
+
+// IsInitialized returns true if .sow/ directory exists (FS is not nil).
+func (c *Context) IsInitialized() bool {
+	return c.fs != nil
 }

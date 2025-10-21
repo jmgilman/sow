@@ -248,29 +248,29 @@ func (m *Manager) Update(id string) error
 **Goal**: Create self-contained `project` package with statechart and tasks
 
 **Tasks**:
-- [ ] Create `internal/project/` package structure
-- [ ] Move `internal/statechart/` → `internal/project/statechart/`
-  - [ ] Update imports
-  - [ ] Make package internal to project (lowercase types if needed)
-- [ ] Create `internal/project/tasks/` subpackage
-  - [ ] Extract task-related code from current `sow/task.go`
-  - [ ] Define `Task` type
-  - [ ] Implement task operations
-- [ ] Create `internal/project/project.go`
-  - [ ] Define `Project` type with context
-  - [ ] Implement `Load(ctx)` using context.FS()
-  - [ ] Implement `New(ctx, name, desc, opts...)`
-  - [ ] Move project operations from `sow/project.go`
-- [ ] Create `internal/project/state.go`
-  - [ ] State management operations
-  - [ ] Save/load helpers
-- [ ] Create `internal/project/options.go`
-  - [ ] Option pattern for tasks, phases, etc.
-  - [ ] `WithTaskID()`, `WithDiscoveryType()`, etc.
-- [ ] **TEMPORARY**: Update `sow.Sow` to delegate to `project.Load(ctx)` for backward compatibility
-  - [ ] Mark all delegation methods with `// DEPRECATED: Remove in Phase 4` comments
-  - [ ] Document exactly which methods are temporary in Phase 4 section
-- [ ] Update commands to use `project.Load(ctx)` directly
+- [x] Create `internal/project/` package structure
+- [x] Move `internal/statechart/` → `internal/project/statechart/`
+  - [x] Update imports
+  - [x] Make package internal to project (lowercase types if needed)
+- [x] Create `internal/project/tasks/` subpackage
+  - [x] Extract task-related code from current `sow/task.go`
+  - [x] Define `Task` type
+  - [x] Implement task operations
+- [x] Create `internal/project/project.go`
+  - [x] Define `Project` type with context
+  - [x] Implement `Load(ctx)` using context.FS()
+  - [x] Implement `New(ctx, name, desc, opts...)`
+  - [x] Move project operations from `sow/project.go`
+- [x] Create `internal/project/state.go`
+  - [x] State management operations
+  - [x] Save/load helpers
+- [x] Create `internal/project/options.go`
+  - [x] Option pattern for tasks, phases, etc.
+  - [x] `WithTaskID()`, `WithDiscoveryType()`, etc.
+- [x] **TEMPORARY**: Update `sow.Sow` to delegate to `project.Load(ctx)` for backward compatibility
+  - [x] Mark all delegation methods with `// DEPRECATED: Remove in Phase 4` comments
+  - [x] Document exactly which methods are temporary in Phase 4 section
+- [x] Update commands to use `project.Load(ctx)` directly
 
 **Validation**: Project operations work through new package, old `sow` facade still works
 
@@ -301,7 +301,7 @@ func (m *Manager) Update(id string) error
 
 ---
 
-### Phase 4: Remove Old Sow API
+### Phase 4: Remove Old Sow API ✅ COMPLETED
 
 **Goal**: Delete deprecated code and finalize migration
 
@@ -309,34 +309,61 @@ func (m *Manager) Update(id string) error
 We track exactly what needs to be removed to ensure nothing is left behind.
 
 **Backward Compatibility Shims to Remove** (tracked from earlier phases):
-- [ ] From Phase 2: Project delegation methods in `sow.Sow`
-  - [ ] `GetProject()` → Use `project.Load(ctx)` directly
-  - [ ] `CreateProject()` → Use `project.New(ctx, ...)` directly
-  - [ ] `DeleteProject()` → Use `proj.Delete()` directly
-  - [ ] Any project-related wrapper methods
-- [ ] From Phase 2: Task delegation methods in `sow.Sow`
-  - [ ] Any task-related wrapper methods
-- [ ] From Phase 3: Command delegation methods
-  - [ ] Any command wrapper methods we add
+- [x] From Phase 2: Project delegation methods in `sow.Sow`
+  - [x] `GetProject()` → Use `project.Load(ctx)` directly
+  - [x] `CreateProject()` → Use `project.New(ctx, ...)` directly
+  - [x] `DeleteProject()` → Use `proj.Delete()` directly
+  - [x] `CreateProjectFromIssue()` → Removed
+  - [x] `HasProject()` → Removed
+- [x] From Phase 2: Task delegation methods in `sow.Sow`
+  - [x] Entire `Task` type removed (use `project.Task`)
+- [x] From Phase 3: Command delegation methods
+  - [x] No command wrapper methods were added
 
 **Files to Delete**:
-- [ ] `sow/project.go` (moved to `internal/project/`)
-- [ ] `sow/task.go` (moved to `internal/project/tasks/`)
-- [ ] Any other files marked for deletion in earlier phases
+- [x] `sow/project.go` (moved to `internal/project/`)
+- [x] `sow/task.go` (moved to `internal/project/task.go`)
 
 **Final Cleanup**:
-- [ ] Update `sow/sow.go` to be minimal
-  - [ ] Keep only `Init()`, `IsInitialized()`, `HasProject()`
-  - [ ] Or consider removing entirely if context can handle it
-- [ ] Clean up imports across codebase
-- [ ] Verify no references to old API remain
-- [ ] Update any internal documentation
+- [x] Update `sow/sow.go` to be minimal
+  - [x] Keep only `Init()`, `IsInitialized()`, `DetectContext()`, `Branch()`, `RepoRoot()`
+  - [x] Removed all project/task management methods
+- [x] Clean up imports across codebase
+  - [x] Removed unused `github` import
+  - [x] Removed unused `statechart` import
+  - [x] Removed unused `regexp` import
+- [x] Removed unused helper functions
+  - [x] Removed `removeAll()` (only used by deleted `DeleteProject()`)
+  - [x] Removed `isKebabCase()` (duplicated in project package)
+- [x] Verify no references to old API remain
+- [x] Update any internal documentation
 
 **Validation**:
-- ✅ Clean build, all tests pass
+- ✅ Clean build succeeds
+- ✅ All unit tests pass (internal/...)
 - ✅ No deprecated code remains
 - ✅ No backward compatibility shims remain
-- ✅ `git grep` for old method names returns no results
+- ✅ No references to old method names in code (only in docs)
+
+**Completed**: 2025-01-21
+
+### Phase 4 Summary
+
+Successfully removed all deprecated code:
+- **Deleted files**: `internal/sow/project.go`, `internal/sow/task.go` (788 + 265 = 1,053 lines removed)
+- **Removed methods**: `HasProject()`, `GetProject()`, `CreateProject()`, `CreateProjectFromIssue()`, `DeleteProject()` (235 lines removed from sow.go)
+- **Removed helpers**: `removeAll()`, `isKebabCase()` (35 lines removed)
+- **Cleaned imports**: Removed `github`, `statechart`, `regexp` imports
+
+**Total lines removed**: ~1,323 lines
+
+**Remaining sow package**: Now contains only:
+- Core initialization: `Init()`, `IsInitialized()`
+- Context helpers: `DetectContext()`, `Branch()`, `RepoRoot()`
+- Filesystem helpers: JSON/YAML read/write (used by refs package)
+- Option pattern types: `PhaseConfig`, `TaskConfig`, `PhaseOption`, `TaskOption`
+
+**Architecture Status**: Migration complete - all project/task operations now use context-based API exclusively.
 
 ---
 
@@ -478,8 +505,8 @@ This refactor is successful when:
 
 ## Current Status
 
-**Phase**: Phase 1 Complete ✅
-**Next Step**: Begin Phase 2 - Extract Project Package
+**Phase**: Phase 4 Complete ✅
+**Next Step**: Begin Phase 5 - Polish and Document
 **Last Updated**: 2025-01-21
 
 **Phase 1 Achievements**:

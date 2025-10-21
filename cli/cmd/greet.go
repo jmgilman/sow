@@ -7,6 +7,7 @@ import (
 	"text/template"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	"github.com/jmgilman/sow/cli/internal/github"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
@@ -66,10 +67,10 @@ provide a context-aware greeting and initialization.`,
 }
 
 func runGreet(cmd *cobra.Command, _ []string) error {
-	s := cmdutil.SowFromContext(cmd.Context())
+	sowCtx := cmdutil.GetContext(cmd.Context())
 
 	// Detect context
-	context := detectGreetContext(s)
+	context := detectGreetContext(sowCtx)
 
 	// Render template
 	output, err := renderGreetingTemplate(context)
@@ -86,9 +87,9 @@ func runGreet(cmd *cobra.Command, _ []string) error {
 }
 
 // detectGreetContext inspects the repository and builds greeting context.
-func detectGreetContext(s *sow.Sow) GreetContext {
+func detectGreetContext(sowCtx *sow.Context) GreetContext {
 	ctx := GreetContext{
-		SowInitialized: s.IsInitialized(),
+		SowInitialized: sowCtx.IsInitialized(),
 	}
 
 	if !ctx.SowInitialized {
@@ -103,14 +104,14 @@ func detectGreetContext(s *sow.Sow) GreetContext {
 		}
 	}
 
-	if !s.HasProject() {
+	if !projectpkg.Exists(sowCtx) {
 		return ctx
 	}
 
 	ctx.HasProject = true
 
 	// Load project
-	project, err := s.GetProject()
+	project, err := projectpkg.Load(sowCtx)
 	if err != nil {
 		// Log error but continue with hasProject=false
 		return GreetContext{SowInitialized: true}

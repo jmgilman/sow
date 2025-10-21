@@ -13,7 +13,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const stateFilePath = ".sow/project/state.yaml"
+const (
+	// stateFilePath is the absolute path from repo root (for os operations)
+	stateFilePath = ".sow/project/state.yaml"
+	// stateFilePathChrooted is the relative path from .sow/ (for chrooted billy FS)
+	stateFilePathChrooted = "project/state.yaml"
+)
 
 // Load reads the state from disk and creates a state machine.
 // If no project exists, returns a machine in NoProject state.
@@ -32,7 +37,8 @@ func LoadFS(fs billy.Filesystem) (*Machine, error) {
 	var err error
 
 	if fs != nil {
-		data, err = readFile(fs, stateFilePath)
+		// Use chrooted path when fs is provided (assumes fs is already chrooted to .sow/)
+		data, err = readFile(fs, stateFilePathChrooted)
 	} else {
 		data, err = os.ReadFile(stateFilePath)
 	}
@@ -144,21 +150,24 @@ func (m *Machine) Save() error {
 	return m.saveOS(data)
 }
 
-// saveFS saves using billy filesystem.
+// saveFS saves using billy filesystem (assumes fs is already chrooted to .sow/).
 func (m *Machine) saveFS(data []byte) error {
+	// Use chrooted path
+	path := stateFilePathChrooted
+
 	// Ensure directory exists
-	dir := filepath.Dir(stateFilePath)
+	dir := filepath.Dir(path)
 	if err := m.fs.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create state directory: %w", err)
 	}
 
 	// Atomic write: write to temp file, then rename
-	tmpFile := stateFilePath + ".tmp"
+	tmpFile := path + ".tmp"
 	if err := writeFile(m.fs, tmpFile, data); err != nil {
 		return fmt.Errorf("failed to write state file: %w", err)
 	}
 
-	if err := m.fs.Rename(tmpFile, stateFilePath); err != nil {
+	if err := m.fs.Rename(tmpFile, path); err != nil {
 		_ = m.fs.Remove(tmpFile) // Clean up
 		return fmt.Errorf("failed to rename state file: %w", err)
 	}

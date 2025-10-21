@@ -653,7 +653,7 @@ func (p *Project) CreatePullRequest(body string) (string, error) {
 
 // AppendLog appends a log entry to the project log file.
 func (p *Project) AppendLog(entry string) error {
-	logPath := ".sow/project/log.md"
+	logPath := "project/log.md"
 
 	// Read existing content
 	existing, err := p.readFile(logPath)
@@ -674,7 +674,7 @@ func (p *Project) AppendLog(entry string) error {
 
 // createPhaseStructure creates the directory structure for a phase.
 func (p *Project) createPhaseStructure(phaseName string) error {
-	phaseDir := filepath.Join(".sow/project/phases", phaseName)
+	phaseDir := filepath.Join("project/phases", phaseName)
 	fs := p.ctx.FS()
 
 	// Create phase directory
@@ -718,7 +718,7 @@ func (p *Project) createPhaseStructure(phaseName string) error {
 
 // createTaskStructure creates the directory structure for a task.
 func (p *Project) createTaskStructure(id, name string, cfg *sow.TaskConfig) error {
-	taskDir := filepath.Join(".sow/project/phases/implementation/tasks", id)
+	taskDir := filepath.Join("project/phases/implementation/tasks", id)
 	fs := p.ctx.FS()
 
 	// Create task directory

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	"github.com/jmgilman/sow/cli/internal/sow"
+	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	"github.com/spf13/cobra"
 )
 
@@ -61,11 +61,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 	description, _ := cmd.Flags().GetString("description")
 	branchName, _ := cmd.Flags().GetString("branch-name")
 
-	// Get Sow from context
-	sowInstance := cmdutil.SowFromContext(cmd.Context())
+	// Get context (require .sow to exist)
+	ctx, err := cmdutil.RequireInitialized(cmd.Context())
+	if err != nil {
+		return err
+	}
 
-	var project *sow.Project
-	var err error
+	var proj *projectpkg.Project
 
 	if issueNumber > 0 {
 		// Create project from GitHub issue
@@ -77,13 +79,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 			_, _ = fmt.Fprintf(cmd.OutOrStderr(), "ℹ️  Note: --description is ignored when using --issue (description will be taken from issue)\n\n")
 		}
 
-		project, err = sowInstance.CreateProjectFromIssue(issueNumber, branchName)
+		proj, err = projectpkg.CreateFromIssue(ctx, issueNumber, branchName)
 		if err != nil {
 			return err
 		}
 
 		_, _ = fmt.Fprintf(cmd.OutOrStderr(), "\n✓ Initialized project '%s' on branch '%s' (linked to issue #%d)\n",
-			project.Name(), project.Branch(), issueNumber)
+			proj.Name(), proj.Branch(), issueNumber)
 	} else {
 		// Create project manually
 		if len(args) == 0 {
@@ -99,13 +101,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 
 		name := args[0]
-		project, err = sowInstance.CreateProject(name, description)
+		proj, err = projectpkg.Create(ctx, name, description)
 		if err != nil {
 			return err
 		}
 
 		_, _ = fmt.Fprintf(cmd.OutOrStderr(), "\n✓ Initialized project '%s' on branch '%s'\n",
-			project.Name(), project.Branch())
+			proj.Name(), proj.Branch())
 	}
 
 	return nil

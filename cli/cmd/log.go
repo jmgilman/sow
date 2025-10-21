@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	"fmt"
 	"time"
 
@@ -57,14 +58,15 @@ func runLog(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("%w", err)
 	}
 
-	// Get Sow from context
-	s := cmdutil.SowFromContext(cmd.Context())
+	// Get contexts
+	ctx := cmdutil.GetContext(cmd.Context())
+	sowCtx := cmdutil.GetContext(cmd.Context())
 
 	// Detect workspace context
-	contextType, taskID := s.DetectContext()
+	contextType, taskID := sow.DetectContext(ctx.RepoRoot())
 
 	// Determine agent ID based on context
-	agentID, err := determineAgentID(s, contextType, taskID, forceProject)
+	agentID, err := determineAgentID(sowCtx, contextType, taskID, forceProject)
 	if err != nil {
 		return fmt.Errorf("failed to determine agent ID: %w", err)
 	}
@@ -88,7 +90,7 @@ func runLog(cmd *cobra.Command, _ []string) error {
 	formatted := entry.Format()
 
 	// Append to appropriate log
-	if err := appendToLog(s, contextType, taskID, formatted, forceProject); err != nil {
+	if err := appendToLog(sowCtx, contextType, taskID, formatted, forceProject); err != nil {
 		return fmt.Errorf("failed to append log entry: %w", err)
 	}
 
@@ -106,7 +108,7 @@ func runLog(cmd *cobra.Command, _ []string) error {
 //
 // For task context: reads iteration from task state and builds "{role}-{iteration}".
 // For project context: uses "orchestrator".
-func determineAgentID(s *sow.Sow, contextType, taskID string, forceProject bool) (string, error) {
+func determineAgentID(sowCtx *sow.Context, contextType, taskID string, forceProject bool) (string, error) {
 	// If forcing project level, always use orchestrator
 	if forceProject || contextType == "project" {
 		return "orchestrator", nil
@@ -115,7 +117,7 @@ func determineAgentID(s *sow.Sow, contextType, taskID string, forceProject bool)
 	// We're in a task context - need to read iteration from task state
 	if contextType == "task" {
 		// Get project
-		proj, err := s.GetProject()
+		proj, err := projectpkg.Load(sowCtx)
 		if err != nil {
 			return "", fmt.Errorf("failed to access project: %w", err)
 		}
@@ -144,9 +146,9 @@ func determineAgentID(s *sow.Sow, contextType, taskID string, forceProject bool)
 }
 
 // appendToLog writes the formatted entry to the appropriate log file.
-func appendToLog(s *sow.Sow, contextType, taskID, entry string, forceProject bool) error {
+func appendToLog(sowCtx *sow.Context, contextType, taskID, entry string, forceProject bool) error {
 	// Get project
-	proj, err := s.GetProject()
+	proj, err := projectpkg.Load(sowCtx)
 	if err != nil {
 		return fmt.Errorf("failed to access project: %w", err)
 	}

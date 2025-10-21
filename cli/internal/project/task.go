@@ -44,7 +44,7 @@ func (t *Task) Status() string {
 
 // State returns the task state from disk.
 func (t *Task) State() (*schemas.TaskState, error) {
-	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
+	statePath := filepath.Join("project/phases/implementation/tasks", t.id, "state.yaml")
 
 	var taskState schemas.TaskState
 	if err := t.project.readYAML(statePath, &taskState); err != nil {
@@ -85,7 +85,7 @@ func (t *Task) SetStatus(status string) error {
 
 	taskState.Task.Updated_at = time.Now()
 
-	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
+	statePath := filepath.Join("project/phases/implementation/tasks", t.id, "state.yaml")
 	if err := t.project.writeYAML(statePath, taskState); err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (t *Task) IncrementIteration() error {
 	taskState.Task.Iteration++
 	taskState.Task.Updated_at = time.Now()
 
-	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
+	statePath := filepath.Join("project/phases/implementation/tasks", t.id, "state.yaml")
 	return t.project.writeYAML(statePath, taskState)
 }
 
@@ -133,7 +133,7 @@ func (t *Task) SetAgent(agent string) error {
 	taskState.Task.Assigned_agent = agent
 	taskState.Task.Updated_at = time.Now()
 
-	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
+	statePath := filepath.Join("project/phases/implementation/tasks", t.id, "state.yaml")
 	return t.project.writeYAML(statePath, taskState)
 }
 
@@ -155,7 +155,7 @@ func (t *Task) AddReference(path string) error {
 	taskState.Task.References = append(taskState.Task.References, path)
 	taskState.Task.Updated_at = time.Now()
 
-	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
+	statePath := filepath.Join("project/phases/implementation/tasks", t.id, "state.yaml")
 	return t.project.writeYAML(statePath, taskState)
 }
 
@@ -177,7 +177,7 @@ func (t *Task) AddFile(path string) error {
 	taskState.Task.Files_modified = append(taskState.Task.Files_modified, path)
 	taskState.Task.Updated_at = time.Now()
 
-	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
+	statePath := filepath.Join("project/phases/implementation/tasks", t.id, "state.yaml")
 	return t.project.writeYAML(statePath, taskState)
 }
 
@@ -206,13 +206,13 @@ func (t *Task) AddFeedback(message string) (string, error) {
 	taskState.Task.Updated_at = time.Now()
 
 	// Save task state
-	statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
+	statePath := filepath.Join("project/phases/implementation/tasks", t.id, "state.yaml")
 	if err := t.project.writeYAML(statePath, taskState); err != nil {
 		return "", err
 	}
 
 	// Create feedback file
-	feedbackPath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "feedback", feedbackID+".md")
+	feedbackPath := filepath.Join("project/phases/implementation/tasks", t.id, "feedback", feedbackID+".md")
 	feedbackContent := []byte(fmt.Sprintf("# Feedback %s\n\n%s\n", feedbackID, message))
 	if err := t.project.writeFile(feedbackPath, feedbackContent); err != nil {
 		return "", err
@@ -234,7 +234,7 @@ func (t *Task) MarkFeedbackAddressed(feedbackID string) error {
 			taskState.Task.Feedback[i].Status = "addressed"
 			taskState.Task.Updated_at = time.Now()
 
-			statePath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "state.yaml")
+			statePath := filepath.Join("project/phases/implementation/tasks", t.id, "state.yaml")
 			return t.project.writeYAML(statePath, taskState)
 		}
 	}
@@ -244,7 +244,7 @@ func (t *Task) MarkFeedbackAddressed(feedbackID string) error {
 
 // AppendLog appends a log entry to the task log file.
 func (t *Task) AppendLog(entry string) error {
-	logPath := filepath.Join(".sow/project/phases/implementation/tasks", t.id, "log.md")
+	logPath := filepath.Join("project/phases/implementation/tasks", t.id, "log.md")
 
 	// Read existing content
 	existing, err := t.project.readFile(logPath)

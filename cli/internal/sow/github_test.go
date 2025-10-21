@@ -49,7 +49,7 @@ func Example() {
 		panic("unexpected issue title")
 	}
 
-	// Output: (no output, test passes)
+	// Output:
 }
 
 func TestGitHub_CheckInstalled_MockNotInstalled(t *testing.T) {

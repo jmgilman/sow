@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	"encoding/json"
 	"fmt"
 
@@ -86,11 +87,11 @@ By default outputs human-readable text. Use --json for structured JSON output.`,
 
 func runSessionInfo(cmd *cobra.Command, jsonOutput bool) error {
 	// Get Sow from context
-	s := cmdutil.SowFromContext(cmd.Context())
+	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Check if sow is initialized
-	if !s.IsInitialized() {
-		return fmt.Errorf("not in a sow repository - run 'sow init' first")
+	if !ctx.IsInitialized() {
+		return sow.ErrNotInitialized
 	}
 
 	// Build session info structure
@@ -103,18 +104,19 @@ func runSessionInfo(cmd *cobra.Command, jsonOutput bool) error {
 	}
 
 	// Get repository information
-	info.Repository.Root = s.RepoRoot()
-	info.Repository.Branch = s.Branch()
+	info.Repository.Root = ctx.RepoRoot()
+	branch, _ := ctx.Git().CurrentBranch() // Ignore error, just leave empty if fails
+	info.Repository.Branch = branch
 
 	// Detect workspace context
-	contextType, taskID := s.DetectContext()
+	contextType, taskID := sow.DetectContext(ctx.RepoRoot())
 	info.Context.Type = contextType
 	if contextType == "task" {
 		info.Context.TaskID = taskID
 	}
 
 	// Get project information if project exists
-	proj, err := s.GetProject()
+	proj, err := projectpkg.Load(cmdutil.GetContext(cmd.Context()))
 	if err == nil {
 		// Project exists - read state
 		state := proj.State()

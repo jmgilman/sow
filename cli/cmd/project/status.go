@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	sowpkg "github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
@@ -47,11 +48,14 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("invalid format '%s': must be 'text' or 'json'", format)
 	}
 
-	// Get Sow from context
-	sow := cmdutil.SowFromContext(cmd.Context())
+	// Get context (require .sow to exist)
+	ctx, err := cmdutil.RequireInitialized(cmd.Context())
+	if err != nil {
+		return err
+	}
 
-	// Get project
-	proj, err := sow.GetProject()
+	// Load project
+	proj, err := projectpkg.Load(ctx)
 	if err != nil {
 		return fmt.Errorf("no active project found - run 'sow project init' to create one")
 	}

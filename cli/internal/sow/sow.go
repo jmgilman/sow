@@ -6,19 +6,10 @@
 package sow
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
-
-	"github.com/go-git/go-billy/v5"
-	"github.com/jmgilman/sow/cli/internal/github"
-	"github.com/jmgilman/sow/cli/internal/project/statechart"
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -27,50 +18,89 @@ const (
 	StructureVersion = "1.0.0"
 )
 
-// Sow is the main entrypoint for interacting with the sow system.
-// It provides high-level operations for managing projects, initialization,
-// and repository state.
-type Sow struct {
-	fs billy.Filesystem
+// isInitialized checks if sow has been initialized in the repository.
+// This is an internal helper. Commands should use context.IsInitialized() instead.
+func isInitialized(repoRoot string) bool {
+	sowPath := filepath.Join(repoRoot, ".sow")
+	_, err := os.Stat(sowPath)
+	return err == nil
 }
 
-// New creates a new Sow instance with the given filesystem.
-// The filesystem should be rooted at the repository directory.
-func New(fs billy.Filesystem) *Sow {
-	return &Sow{fs: fs}
-}
-
-// FS returns the underlying filesystem for advanced operations.
-// Most callers should not need direct filesystem access.
-func (s *Sow) FS() billy.Filesystem {
-	return s.fs
-}
-
-// RepoRoot returns the repository root directory path.
-func (s *Sow) RepoRoot() string {
-	return s.fs.Root()
-}
-
-// Branch returns the current git branch name.
-func (s *Sow) Branch() string {
-	branch, err := s.getCurrentBranch()
-	if err != nil {
-		return ""
+// Init initializes the sow structure in the repository.
+// Creates .sow/ directory with knowledge/ and refs/ subdirectories.
+func Init(repoRoot string) error {
+	// Check if in a git repository
+	gitPath := filepath.Join(repoRoot, ".git")
+	if _, err := os.Stat(gitPath); err != nil {
+		return fmt.Errorf("not in git repository")
 	}
-	return branch
+
+	// Check if already initialized
+	if isInitialized(repoRoot) {
+		return fmt.Errorf(".sow directory already exists - repository already initialized")
+	}
+
+	// Create base .sow directory
+	sowPath := filepath.Join(repoRoot, ".sow")
+	if err := os.MkdirAll(sowPath, 0755); err != nil {
+		return fmt.Errorf("failed to create .sow directory: %w", err)
+	}
+
+	// Create knowledge directory
+	knowledgePath := filepath.Join(sowPath, "knowledge")
+	if err := os.MkdirAll(knowledgePath, 0755); err != nil {
+		return fmt.Errorf("failed to create knowledge directory: %w", err)
+	}
+
+	// Create knowledge/adrs directory
+	adrsPath := filepath.Join(knowledgePath, "adrs")
+	if err := os.MkdirAll(adrsPath, 0755); err != nil {
+		return fmt.Errorf("failed to create adrs directory: %w", err)
+	}
+
+	// Create refs directory
+	refsPath := filepath.Join(sowPath, "refs")
+	if err := os.MkdirAll(refsPath, 0755); err != nil {
+		return fmt.Errorf("failed to create refs directory: %w", err)
+	}
+
+	// Create .gitignore for refs
+	gitignorePath := filepath.Join(refsPath, ".gitignore")
+	gitignoreContent := []byte("# Ignore all symlinks and local refs\n*\n!.gitignore\n!index.json\n!index.local.json\n")
+	if err := os.WriteFile(gitignorePath, gitignoreContent, 0644); err != nil {
+		return fmt.Errorf("failed to create refs .gitignore: %w", err)
+	}
+
+	// Create version file
+	versionPath := filepath.Join(sowPath, ".version")
+	versionContent := []byte(StructureVersion + "\n")
+	if err := os.WriteFile(versionPath, versionContent, 0644); err != nil {
+		return fmt.Errorf("failed to create version file: %w", err)
+	}
+
+	// Create refs index with version
+	indexPath := filepath.Join(refsPath, "index.json")
+	indexContent := []byte(`{
+  "version": "1.0.0",
+  "refs": []
+}
+`)
+	if err := os.WriteFile(indexPath, indexContent, 0644); err != nil {
+		return fmt.Errorf("failed to create refs index: %w", err)
+	}
+
+	return nil
 }
 
 // DetectContext detects the current workspace context.
 // Returns the context type ("none", "project", or "task") and task ID if applicable.
-func (s *Sow) DetectContext() (string, string) {
+func DetectContext(repoRoot string) (string, string) {
 	// Check if we're in a task directory
 	// Task directories are at .sow/project/phases/{phase}/tasks/{task-id}/
 	cwd, err := os.Getwd()
 	if err != nil {
 		return "none", ""
 	}
-
-	repoRoot := s.RepoRoot()
 
 	// Check if current dir is under .sow/project/phases/*/tasks/*
 	relPath, err := filepath.Rel(repoRoot, cwd)
@@ -98,483 +128,3 @@ func (s *Sow) DetectContext() (string, string) {
 	return "none", ""
 }
 
-// Init initializes the sow structure in the repository.
-// Creates .sow/ directory with knowledge/ and refs/ subdirectories.
-func (s *Sow) Init() error {
-	// Check if in a git repository
-	if _, err := s.fs.Stat(".git"); err != nil {
-		return fmt.Errorf("not in git repository")
-	}
-
-	// Check if already initialized
-	if s.IsInitialized() {
-		return fmt.Errorf(".sow directory already exists - repository already initialized")
-	}
-
-	// Create base .sow directory
-	if err := s.fs.MkdirAll(".sow", 0755); err != nil {
-		return fmt.Errorf("failed to create .sow directory: %w", err)
-	}
-
-	// Create knowledge directory
-	if err := s.fs.MkdirAll(".sow/knowledge", 0755); err != nil {
-		return fmt.Errorf("failed to create knowledge directory: %w", err)
-	}
-
-	// Create knowledge/adrs directory
-	if err := s.fs.MkdirAll(".sow/knowledge/adrs", 0755); err != nil {
-		return fmt.Errorf("failed to create adrs directory: %w", err)
-	}
-
-	// Create refs directory
-	if err := s.fs.MkdirAll(".sow/refs", 0755); err != nil {
-		return fmt.Errorf("failed to create refs directory: %w", err)
-	}
-
-	// Create .gitignore for refs
-	gitignorePath := filepath.Join(".sow", "refs", ".gitignore")
-	gitignoreContent := []byte("# Ignore all symlinks and local refs\n*\n!.gitignore\n!index.json\n!index.local.json\n")
-	if err := s.writeFile(gitignorePath, gitignoreContent); err != nil {
-		return fmt.Errorf("failed to create refs .gitignore: %w", err)
-	}
-
-	// Create version file
-	versionPath := filepath.Join(".sow", ".version")
-	versionContent := []byte(StructureVersion + "\n")
-	if err := s.writeFile(versionPath, versionContent); err != nil {
-		return fmt.Errorf("failed to create version file: %w", err)
-	}
-
-	// Create refs index with version
-	indexPath := filepath.Join(".sow", "refs", "index.json")
-	indexContent := []byte(`{
-  "version": "1.0.0",
-  "refs": []
-}
-`)
-	if err := s.writeFile(indexPath, indexContent); err != nil {
-		return fmt.Errorf("failed to create refs index: %w", err)
-	}
-
-	return nil
-}
-
-// IsInitialized checks if sow has been initialized in the repository.
-func (s *Sow) IsInitialized() bool {
-	_, err := s.fs.Stat(".sow")
-	return err == nil
-}
-
-// HasProject checks if a project exists on the current branch.
-//
-// DEPRECATED: Remove in Phase 4. Use project.Exists(ctx) instead.
-func (s *Sow) HasProject() bool {
-	_, err := s.fs.Stat(".sow/project/state.yaml")
-	return err == nil
-}
-
-// GetProject loads the active project from disk.
-// Returns ErrNoProject if no project exists.
-//
-// DEPRECATED: Remove in Phase 4. Use project.Load(ctx) instead.
-func (s *Sow) GetProject() (*Project, error) {
-	if !s.HasProject() {
-		return nil, ErrNoProject
-	}
-
-	machine, err := statechart.LoadFS(s.fs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load project state: %w", err)
-	}
-
-	return &Project{
-		sow:     s,
-		machine: machine,
-	}, nil
-}
-
-// CreateProject creates a new project with the given name and description.
-// Returns ErrProjectExists if a project already exists.
-//
-// DEPRECATED: Remove in Phase 4. Use project.Create(ctx, name, description) instead.
-func (s *Sow) CreateProject(name, description string) (*Project, error) {
-	if !s.IsInitialized() {
-		return nil, ErrNotInitialized
-	}
-
-	// Validate project name is kebab-case
-	if !isKebabCase(name) {
-		return nil, fmt.Errorf("project name must be kebab-case (lowercase letters, digits, and single hyphens only)")
-	}
-
-	// Validate description is not empty
-	if description == "" {
-		return nil, fmt.Errorf("description cannot be empty")
-	}
-
-	// Get current git branch
-	branch, err := s.getCurrentBranch()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	// Validate not on main/master
-	if branch == "main" || branch == "master" {
-		return nil, fmt.Errorf("cannot create project on protected branch '%s'", branch)
-	}
-
-	// Check if project already exists
-	if s.HasProject() {
-		// Load existing project to get its name
-		existing, err := s.GetProject()
-		if err == nil {
-			existingName := existing.State().Project.Name
-			return nil, fmt.Errorf("project '%s' already exists on branch '%s'", existingName, branch)
-		}
-		return nil, ErrProjectExists
-	}
-
-	// Create project directory structure
-	if err := s.fs.MkdirAll(".sow/project", 0755); err != nil {
-		return nil, fmt.Errorf("failed to create project directory: %w", err)
-	}
-
-	if err := s.fs.MkdirAll(".sow/project/context", 0755); err != nil {
-		return nil, fmt.Errorf("failed to create context directory: %w", err)
-	}
-
-	// Create phase directories for required phases
-	requiredPhases := []string{"implementation", "review", "finalize"}
-	for _, phase := range requiredPhases {
-		phaseDir := filepath.Join(".sow/project/phases", phase)
-		if err := s.fs.MkdirAll(phaseDir, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create %s phase directory: %w", phase, err)
-		}
-
-		// Create log.md for each phase
-		logPath := filepath.Join(phaseDir, "log.md")
-		// Capitalize first letter of phase name
-		phaseName := strings.ToUpper(phase[:1]) + phase[1:]
-		logContent := []byte(fmt.Sprintf("# %s Phase Log\n\n", phaseName))
-		if err := s.writeFile(logPath, logContent); err != nil {
-			return nil, fmt.Errorf("failed to create %s log: %w", phase, err)
-		}
-	}
-
-	// Create tasks directory for implementation
-	tasksDir := filepath.Join(".sow/project/phases/implementation/tasks")
-	if err := s.fs.MkdirAll(tasksDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create tasks directory: %w", err)
-	}
-
-	// Create review reports directory
-	reportsDir := filepath.Join(".sow/project/phases/review/reports")
-	if err := s.fs.MkdirAll(reportsDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create reports directory: %w", err)
-	}
-
-	// Create project log
-	logPath := filepath.Join(".sow/project", "log.md")
-	logContent := []byte("# Project Log\n\n")
-	if err := s.writeFile(logPath, logContent); err != nil {
-		return nil, fmt.Errorf("failed to create project log: %w", err)
-	}
-
-	// Create state machine with initial project state
-	machine, err := statechart.NewWithProject(name, description, branch, s.fs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create state machine: %w", err)
-	}
-
-	// Fire project init event to transition to DiscoveryDecision
-	if err := machine.Fire(statechart.EventProjectInit); err != nil {
-		return nil, fmt.Errorf("failed to initialize project state: %w", err)
-	}
-
-	// Save the initial state
-	if err := machine.Save(); err != nil {
-		return nil, fmt.Errorf("failed to save project state: %w", err)
-	}
-
-	return &Project{
-		sow:     s,
-		machine: machine,
-	}, nil
-}
-
-// CreateProjectFromIssue creates a project linked to a GitHub issue.
-// It validates the issue, checks for existing linked branches, creates a branch,
-// initializes the project, and links it to the issue.
-//
-// DEPRECATED: Remove in Phase 4. Use project.CreateFromIssue(ctx, issueNumber, branchName) instead.
-func (s *Sow) CreateProjectFromIssue(issueNumber int, branchName string) (*Project, error) {
-	// Fetch issue
-	issue, err := github.GetIssue(issueNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch issue #%d: %w", issueNumber, err)
-	}
-
-	// Validate issue has 'sow' label
-	if !issue.HasLabel("sow") {
-		return nil, fmt.Errorf("issue #%d does not have the 'sow' label", issueNumber)
-	}
-
-	// Check for existing linked branches
-	branches, err := github.GetLinkedBranches(issueNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check linked branches: %w", err)
-	}
-
-	if len(branches) > 0 {
-		return nil, fmt.Errorf("issue #%d already has a linked branch: %s\nTo work on this: git checkout %s && sow project status",
-			issueNumber, branches[0].Name, branches[0].Name)
-	}
-
-	// Create branch via gh issue develop
-	createdBranchName, err := github.CreateLinkedBranch(issueNumber, branchName, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create linked branch: %w", err)
-	}
-
-	// Generate project name from issue
-	// Use the branch name without the issue number prefix
-	projectName := createdBranchName
-	if idx := strings.Index(projectName, "-"); idx > 0 {
-		projectName = projectName[idx+1:]
-	}
-
-	// Create project (will detect current branch automatically)
-	project, err := s.CreateProject(projectName, issue.Title)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create project: %w", err)
-	}
-
-	// Set github_issue field
-	state := project.State()
-	state.Project.Github_issue = issueNumber
-
-	// Save the updated state
-	if err := project.save(); err != nil {
-		return nil, fmt.Errorf("failed to save github_issue link: %w", err)
-	}
-
-	return project, nil
-}
-
-// DeleteProject deletes the active project.
-// Returns ErrNoProject if no project exists.
-//
-// DEPRECATED: Remove in Phase 4. Use project.Delete(ctx) instead.
-func (s *Sow) DeleteProject() error {
-	if !s.HasProject() {
-		return ErrNoProject
-	}
-
-	// Load the machine to update state before deletion
-	machine, err := statechart.LoadFS(s.fs)
-	if err != nil {
-		return fmt.Errorf("failed to load project state: %w", err)
-	}
-
-	// Set project_deleted flag to true (required by state machine guard)
-	state := machine.ProjectState()
-	state.Phases.Finalize.Project_deleted = true
-
-	// Save state with flag set
-	if err := machine.Save(); err != nil {
-		return fmt.Errorf("failed to save state: %w", err)
-	}
-
-	// Fire project delete event (guard will now pass)
-	if err := machine.Fire(statechart.EventProjectDelete); err != nil {
-		return fmt.Errorf("failed to transition state: %w", err)
-	}
-
-	// Remove the entire project directory
-	if err := s.fs.Remove(".sow/project"); err != nil {
-		// Try to remove all contents recursively
-		if err := s.removeAll(".sow/project"); err != nil {
-			return fmt.Errorf("failed to delete project: %w", err)
-		}
-	}
-
-	return nil
-}
-
-// getCurrentBranch returns the current git branch name.
-func (s *Sow) getCurrentBranch() (string, error) {
-	// Read .git/HEAD
-	headPath := ".git/HEAD"
-	f, err := s.fs.Open(headPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to open .git/HEAD: %w", err)
-	}
-	defer func() { _ = f.Close() }()
-
-	var head [256]byte
-	n, err := f.Read(head[:])
-	if err != nil {
-		return "", fmt.Errorf("failed to read .git/HEAD: %w", err)
-	}
-
-	headContent := string(head[:n])
-	// HEAD typically contains: ref: refs/heads/branch-name
-	const prefix = "ref: refs/heads/"
-	if len(headContent) > len(prefix) && headContent[:len(prefix)] == prefix {
-		branch := headContent[len(prefix):]
-		// Trim newline
-		if len(branch) > 0 && branch[len(branch)-1] == '\n' {
-			branch = branch[:len(branch)-1]
-		}
-		return branch, nil
-	}
-
-	return "", fmt.Errorf("could not parse git branch from HEAD")
-}
-
-// writeFile writes data to a file atomically with 0644 permissions.
-func (s *Sow) writeFile(path string, data []byte) error {
-	f, err := s.fs.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = f.Close() }()
-
-	_, err = f.Write(data)
-	return err
-}
-
-// readFile reads a file's contents.
-func (s *Sow) readFile(path string) ([]byte, error) {
-	f, err := s.fs.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = f.Close() }()
-
-	var data []byte
-	buf := make([]byte, 4096)
-	for {
-		n, err := f.Read(buf)
-		if n > 0 {
-			data = append(data, buf[:n]...)
-		}
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return nil, err
-		}
-	}
-	return data, nil
-}
-
-// removeAll recursively removes a directory and its contents.
-func (s *Sow) removeAll(path string) error {
-	entries, err := s.fs.ReadDir(path)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		fullPath := filepath.Join(path, entry.Name())
-		if entry.IsDir() {
-			if err := s.removeAll(fullPath); err != nil {
-				return err
-			}
-		} else {
-			if err := s.fs.Remove(fullPath); err != nil {
-				return err
-			}
-		}
-	}
-
-	return s.fs.Remove(path)
-}
-
-// readYAML reads and unmarshals a YAML file.
-func (s *Sow) readYAML(path string, v interface{}) error {
-	data, err := s.readFile(path)
-	if err != nil {
-		return err
-	}
-	return yaml.Unmarshal(data, v)
-}
-
-// writeYAML marshals and writes a YAML file atomically.
-func (s *Sow) writeYAML(path string, v interface{}) error {
-	data, err := yaml.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	// Write to temp file first
-	tmpPath := path + ".tmp"
-	if err := s.writeFile(tmpPath, data); err != nil {
-		return err
-	}
-
-	// Atomic rename
-	if err := s.fs.Rename(tmpPath, path); err != nil {
-		_ = s.fs.Remove(tmpPath) // Clean up temp file
-		return err
-	}
-
-	return nil
-}
-
-// readJSON reads and unmarshals a JSON file.
-func (s *Sow) readJSON(path string, v interface{}) error {
-	data, err := s.readFile(path)
-	if err != nil {
-		return err
-	}
-	// Use a simple JSON unmarshal approach
-	return unmarshalJSON(data, v)
-}
-
-// writeJSON marshals and writes a JSON file atomically.
-func (s *Sow) writeJSON(path string, v interface{}) error {
-	data, err := marshalJSON(v)
-	if err != nil {
-		return err
-	}
-
-	// Write to temp file first
-	tmpPath := path + ".tmp"
-	if err := s.writeFile(tmpPath, data); err != nil {
-		return err
-	}
-
-	// Atomic rename
-	if err := s.fs.Rename(tmpPath, path); err != nil {
-		_ = s.fs.Remove(tmpPath) // Clean up temp file
-		return err
-	}
-
-	return nil
-}
-
-// marshalJSON marshals a value to JSON with indentation.
-func marshalJSON(v interface{}) ([]byte, error) {
-	return json.MarshalIndent(v, "", "  ")
-}
-
-// unmarshalJSON unmarshals JSON data into a value.
-func unmarshalJSON(data []byte, v interface{}) error {
-	return json.Unmarshal(data, v)
-}
-
-// isKebabCase validates that a string is in kebab-case format.
-// Kebab-case: lowercase letters, digits, and single hyphens only.
-// Cannot start or end with hyphen, no consecutive hyphens.
-func isKebabCase(s string) bool {
-	if s == "" {
-		return false
-	}
-	// Must be lowercase letters, digits, and hyphens only
-	// Must not start or end with hyphen
-	// No consecutive hyphens
-	matched, _ := regexp.MatchString(`^[a-z0-9]+(-[a-z0-9]+)*$`, s)
-	return matched
-}

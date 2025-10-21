@@ -2,6 +2,7 @@ package refs
 
 import (
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	"github.com/jmgilman/sow/cli/internal/refs"
 
 	"github.com/spf13/cobra"
 )
@@ -27,11 +28,14 @@ Types that are not enabled on this system will be skipped with warnings.`,
 func runRefsInit(cmd *cobra.Command) error {
 	ctx := cmd.Context()
 
-	// Get Sow from context
-	s := cmdutil.SowFromContext(ctx)
+	// Get context
+	sowCtx := cmdutil.GetContext(ctx)
+
+	// Create refs manager
+	mgr := refs.NewManager(sowCtx)
 
 	// Initialize all refs
-	if err := s.InitRefs(ctx); err != nil {
+	if err := mgr.InitRefs(ctx); err != nil {
 		return err
 	}
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	sowexec "github.com/jmgilman/sow/cli/internal/exec"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
@@ -38,13 +39,13 @@ Examples:
 }
 
 func runStart(cmd *cobra.Command, _ []string) error {
-	s := cmdutil.SowFromContext(cmd.Context())
+	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Validate sow initialized
-	if !s.IsInitialized() {
+	if !ctx.IsInitialized() {
 		fmt.Fprintln(os.Stderr, "Error: sow not initialized in this repository")
 		fmt.Fprintln(os.Stderr, "Run: sow init")
-		return fmt.Errorf("not initialized")
+		return sow.ErrNotInitialized
 	}
 
 	// Check claude CLI available
@@ -63,7 +64,7 @@ func runStart(cmd *cobra.Command, _ []string) error {
 	claudeCmd.Stdin = os.Stdin
 	claudeCmd.Stdout = os.Stdout
 	claudeCmd.Stderr = os.Stderr
-	claudeCmd.Dir = s.RepoRoot()
+	claudeCmd.Dir = ctx.RepoRoot()
 
 	// Run and wait for completion
 	return claudeCmd.Run()

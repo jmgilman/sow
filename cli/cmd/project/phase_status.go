@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	sowpkg "github.com/jmgilman/sow/cli/internal/sow"
+	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	"github.com/spf13/cobra"
 )
 
@@ -38,10 +39,10 @@ Output formats:
 			}
 
 			// Get Sow from context
-			s := cmdutil.SowFromContext(cmd.Context())
+			ctx := cmdutil.GetContext(cmd.Context())
 
 			// Get project
-			proj, err := s.GetProject()
+			proj, err := projectpkg.Load(ctx)
 			if err != nil {
 				return fmt.Errorf("no active project - run 'sow project init' first")
 			}

@@ -1,9 +1,10 @@
 package project
 
 import (
-	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"fmt"
 
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	"github.com/spf13/cobra"
 )
 
@@ -42,10 +43,10 @@ Examples:
 			docPath := args[0]
 
 			// Get Sow from context
-			s := cmdutil.SowFromContext(cmd.Context())
+			ctx := cmdutil.GetContext(cmd.Context())
 
 			// Get project
-			proj, err := s.GetProject()
+			proj, err := projectpkg.Load(ctx)
 			if err != nil {
 				return fmt.Errorf("no active project - run 'sow project init' first")
 			}
