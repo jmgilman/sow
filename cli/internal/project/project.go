@@ -183,7 +183,25 @@ func FormatStatus(state *schemas.ProjectState) string {
 
 	// Project header
 	fmt.Fprintf(&b, "Project: %s (on %s)\n", state.Project.Name, state.Project.Branch)
-	fmt.Fprintf(&b, "Description: %s\n\n", state.Project.Description)
+	fmt.Fprintf(&b, "Description: %s\n", state.Project.Description)
+
+	// GitHub issue link (if present)
+	if state.Project.Github_issue != nil {
+		if issueNum, ok := state.Project.Github_issue.(int); ok && issueNum > 0 {
+			fmt.Fprintf(&b, "GitHub Issue: #%d\n", issueNum)
+		} else if issueNum, ok := state.Project.Github_issue.(float64); ok && issueNum > 0 {
+			// Handle JSON unmarshaling as float64
+			fmt.Fprintf(&b, "GitHub Issue: #%d\n", int(issueNum))
+		}
+	}
+
+	// Pull request URL (if created)
+	if state.Phases.Finalize.Pr_url != nil {
+		if prURL, ok := state.Phases.Finalize.Pr_url.(string); ok && prURL != "" {
+			fmt.Fprintf(&b, "Pull Request: %s\n", prURL)
+		}
+	}
+	fmt.Fprintln(&b)
 
 	// Phases table
 	fmt.Fprintln(&b, "Phases:")

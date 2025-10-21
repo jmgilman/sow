@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/jmgilman/go/fs/billy"
+	"github.com/jmgilman/sow/cli/cmd/issue"
 	"github.com/jmgilman/sow/cli/cmd/project"
 	"github.com/jmgilman/sow/cli/cmd/refs"
 	"github.com/jmgilman/sow/cli/cmd/task"
@@ -81,6 +82,7 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 	cmd.AddCommand(NewSessionInfoCmd())
 	cmd.AddCommand(NewGreetCmd())
 	cmd.AddCommand(NewStartCmd())
+	cmd.AddCommand(issue.NewIssueCmd())
 	cmd.AddCommand(refs.NewRefsCmd())
 	cmd.AddCommand(project.NewProjectCmd())
 	cmd.AddCommand(task.NewTaskCmd())

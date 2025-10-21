@@ -7,6 +7,7 @@ import (
 	"text/template"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	"github.com/jmgilman/sow/cli/internal/github"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/spf13/cobra"
@@ -20,6 +21,8 @@ type GreetContext struct {
 	SowInitialized bool
 	HasProject     bool
 	Project        *ProjectGreetContext
+	OpenIssues     int
+	GHAvailable    bool
 }
 
 // ProjectGreetContext holds project-specific greeting context.
@@ -90,6 +93,14 @@ func detectGreetContext(s *sow.Sow) GreetContext {
 
 	if !ctx.SowInitialized {
 		return ctx
+	}
+
+	// Try to query GitHub for open sow issues
+	if err := github.Ensure(); err == nil {
+		ctx.GHAvailable = true
+		if issues, err := github.ListIssues("sow", "open"); err == nil {
+			ctx.OpenIssues = len(issues)
+		}
 	}
 
 	if !s.HasProject() {

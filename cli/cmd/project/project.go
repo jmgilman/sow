@@ -32,6 +32,7 @@ All projects follow the 5-phase model:
 	cmd.AddCommand(newArtifactCmd())
 	cmd.AddCommand(newReviewCmd())
 	cmd.AddCommand(newFinalizeCmd())
+	cmd.AddCommand(newCreatePRCmd())
 
 	return cmd
 }

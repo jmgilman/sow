@@ -1,0 +1,5 @@
+# Ignore all symlinks and local refs
+*
+!.gitignore
+!index.json
+!index.local.json

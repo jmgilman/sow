@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/jmgilman/sow/cli/internal/github"
 	"github.com/jmgilman/sow/cli/internal/statechart"
 	"gopkg.in/yaml.v3"
 )
@@ -293,6 +294,63 @@ func (s *Sow) CreateProject(name, description string) (*Project, error) {
 		sow:     s,
 		machine: machine,
 	}, nil
+}
+
+// CreateProjectFromIssue creates a project linked to a GitHub issue.
+// It validates the issue, checks for existing linked branches, creates a branch,
+// initializes the project, and links it to the issue.
+func (s *Sow) CreateProjectFromIssue(issueNumber int, branchName string) (*Project, error) {
+	// Fetch issue
+	issue, err := github.GetIssue(issueNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch issue #%d: %w", issueNumber, err)
+	}
+
+	// Validate issue has 'sow' label
+	if !issue.HasLabel("sow") {
+		return nil, fmt.Errorf("issue #%d does not have the 'sow' label", issueNumber)
+	}
+
+	// Check for existing linked branches
+	branches, err := github.GetLinkedBranches(issueNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check linked branches: %w", err)
+	}
+
+	if len(branches) > 0 {
+		return nil, fmt.Errorf("issue #%d already has a linked branch: %s\nTo work on this: git checkout %s && sow project status",
+			issueNumber, branches[0].Name, branches[0].Name)
+	}
+
+	// Create branch via gh issue develop
+	createdBranchName, err := github.CreateLinkedBranch(issueNumber, branchName, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create linked branch: %w", err)
+	}
+
+	// Generate project name from issue
+	// Use the branch name without the issue number prefix
+	projectName := createdBranchName
+	if idx := strings.Index(projectName, "-"); idx > 0 {
+		projectName = projectName[idx+1:]
+	}
+
+	// Create project (will detect current branch automatically)
+	project, err := s.CreateProject(projectName, issue.Title)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project: %w", err)
+	}
+
+	// Set github_issue field
+	state := project.State()
+	state.Project.Github_issue = issueNumber
+
+	// Save the updated state
+	if err := project.save(); err != nil {
+		return nil, fmt.Errorf("failed to save github_issue link: %w", err)
+	}
+
+	return project, nil
 }
 
 // DeleteProject deletes the active project.

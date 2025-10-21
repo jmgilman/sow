@@ -13,17 +13,19 @@ func TestGeneratedTypes(t *testing.T) {
 	// Create a ProjectState instance using generated types
 	state := schemas.ProjectState{
 		Project: struct {
-			Name        string    `json:"name"`
-			Branch      string    `json:"branch"`
-			Description string    `json:"description"`
-			Created_at  time.Time `json:"created_at"`
-			Updated_at  time.Time `json:"updated_at"`
+			Name         string    `json:"name"`
+			Branch       string    `json:"branch"`
+			Description  string    `json:"description"`
+			Github_issue any       `json:"github_issue"`
+			Created_at   time.Time `json:"created_at"`
+			Updated_at   time.Time `json:"updated_at"`
 		}{
-			Name:        "my-feature",
-			Branch:      "feat/my-feature",
-			Description: "Implement new feature",
-			Created_at:  time.Now(),
-			Updated_at:  time.Now(),
+			Name:         "my-feature",
+			Branch:       "feat/my-feature",
+			Description:  "Implement new feature",
+			Github_issue: nil,
+			Created_at:   time.Now(),
+			Updated_at:   time.Now(),
 		},
 		Phases: struct {
 			Discovery      schemas.DiscoveryPhase      `json:"discovery"`

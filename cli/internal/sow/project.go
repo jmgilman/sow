@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jmgilman/sow/cli/internal/github"
 	"github.com/jmgilman/sow/cli/internal/statechart"
 	"github.com/jmgilman/sow/cli/schemas"
 )
@@ -583,6 +584,53 @@ func (p *Project) MoveArtifact(from, to string) error {
 	}
 
 	return p.save()
+}
+
+// CreatePullRequest creates a pull request for the project using GitHub CLI.
+// The provided body should contain the main PR description written by the orchestrator.
+// This function adds issue references and footer automatically.
+// The PR URL is stored in the project state.
+func (p *Project) CreatePullRequest(body string) (string, error) {
+	state := p.State()
+
+	// Generate PR title from project
+	title := fmt.Sprintf("%s: %s", strings.Title(p.Name()), p.Description())
+
+	// Wrap body with issue reference and footer
+	fullBody := body
+
+	// Add issue reference if linked (before footer)
+	if state.Project.Github_issue != nil {
+		var issueNum int
+		if num, ok := state.Project.Github_issue.(int); ok {
+			issueNum = num
+		} else if num, ok := state.Project.Github_issue.(float64); ok {
+			issueNum = int(num)
+		}
+
+		if issueNum > 0 {
+			fullBody += fmt.Sprintf("\n\nCloses #%d\n", issueNum)
+		}
+	}
+
+	// Add footer
+	fullBody += "\n---\n\n🤖 Generated with sow\n"
+
+	// Create PR via GitHub CLI
+	prURL, err := github.CreatePullRequest(title, fullBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to create pull request: %w", err)
+	}
+
+	// Store PR URL in state
+	state.Phases.Finalize.Pr_url = prURL
+
+	// Save state
+	if err := p.save(); err != nil {
+		return "", fmt.Errorf("failed to save PR URL: %w", err)
+	}
+
+	return prURL, nil
 }
 
 // createPhaseStructure creates the directory structure for a phase.

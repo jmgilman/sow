@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "refs": [
+    {
+      "id": "jmgilman-go",
+      "source": "git+https://github.com/jmgilman/go",
+      "semantic": "knowledge",
+      "link": "jmgilman/go",
+      "tags": null,
+      "description": "Misc Go libraries",
+      "summary": "",
+      "config": {}
+    }
+  ]
+}
