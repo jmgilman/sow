@@ -1,270 +1,286 @@
-# System of Work (sow)
+# sow - System of Work
 
-An AI-powered framework for software engineering that provides a structured, opinionated approach to building software with AI assistance.
+> AI-powered framework for structured software development with Claude Code
 
----
+**sow** is an opinionated framework that coordinates specialized AI agents through a 5-phase workflow, combining human-led planning with AI-autonomous execution for building software features.
 
-## What is sow?
+## Features
 
-`sow` leverages Claude Code's capabilities to create a unified development experience across projects through:
-
-- **Multi-agent orchestration** - Specialized AI agents (architect, implementer, tester, reviewer, documenter) working together
-- **Progressive planning** - Adaptive project management that evolves with your work, not rigid waterfall
-- **Knowledge integration** - Contextual information from style guides, procedures, and linked repositories
-- **Zero-context resumability** - Pick up where you left off, anytime, without conversation history
-
----
+- 🤖 **Multi-agent orchestration** - Specialized workers (researcher, architect, planner, implementer, reviewer) coordinated by an orchestrator agent
+- 📋 **5-phase lifecycle** - Discovery → Design → Implementation → Review → Finalize with intelligent phase selection
+- 🧠 **Human-AI collaboration** - Humans lead planning (discovery/design), AI executes autonomously (implementation/review/finalize)
+- 💾 **Zero-context resumability** - Resume work anytime from disk state without conversation history
+- 🔗 **External knowledge integration** - Reference style guides, conventions, and code examples during work
+- 🌿 **One project per branch** - Clean git integration with project state committed to feature branches
 
 ## Quick Start
 
 ```bash
-# Install Claude Code Plugin
-/plugin install sow@sow-marketplace
+# 1. Install the Claude Code plugin
+# (In Claude Code)
+claude plugin marketplace add https://github.com/jmgilman/sow
+claude plugin install sow
 
-# Restart Claude Code
-exit && claude
+# 2. Install the CLI
+claude /sow:install
 
-# Initialize in your repository
-/init
+# 3. Initialize in your repository
+cd your-project
+sow init
 
-# Start your first project
-git checkout -b feat/my-feature
-/start-project "Add new feature"
-
-# Let the orchestrator coordinate the work
-# When ready to merge
-/cleanup
-git commit -m "chore: cleanup sow project state"
+# 4. Start Claude
+sow start
 ```
 
----
+## Installation
 
-## Core Concepts
+### Prerequisites
 
-### Two-Layer Architecture
+- [Claude Code](https://www.anthropic.com/claude/code) - AI-powered coding assistant
+- Git repository
 
-- **Execution Layer** (`.claude/`) - AI agents, commands, hooks (distributed via plugin)
-- **Data Layer** (`.sow/`) - Project knowledge, external context, active work state
+### Plugin Installation
 
-### Multi-Agent System
+The sow plugin provides Claude Code agents, slash commands, and hooks.
 
-- **Orchestrator** - Your main interface, coordinates all work
-- **Workers** - Specialists (architect, implementer, integration-tester, reviewer, documenter)
-- Each worker receives only the context they need
-
-### Progressive Planning
-
-- Start with minimal structure (1-2 phases)
-- Add complexity as you discover needs
-- Human approval gates for significant changes
-- Fail-forward approach (add tasks, don't revert)
-
-### One Project Per Branch
-
-- Enforced constraint: one active project per repository branch
-- Project state committed to feature branches
-- Deleted before merging (CI enforced)
-- Switch branches = switch project context (automatic)
-
----
-
-## Documentation
-
-### Getting Started
-
-📖 **[OVERVIEW](./docs/OVERVIEW.md)** - Complete introduction to sow concepts and terminology
-
-📖 **[USER_GUIDE](./docs/USER_GUIDE.md)** - Installation, daily workflows, and troubleshooting
-
-### Understanding the System
-
-📖 **[ARCHITECTURE](./docs/ARCHITECTURE.md)** - Design decisions, patterns, and architectural philosophy
-
-📖 **[FILE_STRUCTURE](./docs/FILE_STRUCTURE.md)** - Complete directory layout and organization
-
-📖 **[AGENTS](./docs/AGENTS.md)** - Multi-agent system, roles, and coordination
-
-### Using sow
-
-📖 **[COMMANDS_AND_SKILLS](./docs/COMMANDS_AND_SKILLS.md)** - Slash commands and agent skills reference
-
-📖 **[PROJECT_MANAGEMENT](./docs/PROJECT_MANAGEMENT.md)** - Project lifecycle, phases, tasks, and logging
-
-📖 **[HOOKS_AND_INTEGRATIONS](./docs/HOOKS_AND_INTEGRATIONS.md)** - Event automation and external tool integrations
-
-### Publishing and Maintaining
-
-📖 **[DISTRIBUTION](./docs/DISTRIBUTION.md)** - Packaging, versioning, and upgrade workflows
-
-### Reference
-
-📖 **[SCHEMAS](./docs/SCHEMAS.md)** - File format specifications (state.yaml, indexes, etc.)
-
-📖 **[CLI_REFERENCE](./docs/CLI_REFERENCE.md)** - CLI command documentation
-
-📖 **[Claude Code Features](./research/CLAUDE_CODE.md)** - Claude Code capability reference
-
----
-
-## Key Features
-
-### For Developers
-
-✅ **Consistent experience** across all projects
-✅ **Clear structure** for complex work
-✅ **Resume anytime** without losing context
-✅ **Specialized expertise** via worker agents
-✅ **Progressive discovery** instead of upfront planning
-
-### For Teams
-
-✅ **Shared conventions** via committed execution layer
-✅ **Knowledge sharing** via information sinks
-✅ **Collaboration** through committed project state on branches
-✅ **Quality gates** through agent specialization
-✅ **Reduced onboarding** with standardized structure
-
-### For AI Agents
-
-✅ **Focused context** - workers receive only relevant information
-✅ **Clear roles** - each agent has specific expertise
-✅ **Structured state** - can resume without conversation history
-✅ **Fail-forward** - can adapt to discoveries and changes
-✅ **Audit trails** - logs track all actions
-
----
-
-## Example Workflow
+**Via Claude Code:**
 
 ```bash
-# 1. Create feature branch
-git checkout -b feat/add-authentication
-
-# 2. Start project
-/start-project "Add JWT authentication"
-
-# Orchestrator:
-# - Assesses complexity: "moderate"
-# - Selects phases: design, implement, test
-# - Creates tasks with assigned agents
-# - Spawns architect for design task
-
-# 3. Continue working
-/continue
-
-# Orchestrator:
-# - Reads project state
-# - Spawns next worker (implementer)
-# - Worker writes code with TDD
-# - Updates state
-
-# 4. Provide feedback if needed
-"The JWT service should use RS256, not HS256"
-
-# Orchestrator creates feedback, respawns worker
-
-# 5. Complete and clean up
-/cleanup
-git commit -m "chore: cleanup sow project state"
-git push
-
-# 6. Create PR and merge
-# CI verifies no .sow/project/ exists
+claude plugin marketplace add https://github.com/jmgilman/sow
+claude plugin install sow
 ```
 
----
+This copies the plugin's execution layer (`.claude/`) to your local machine.
 
-## Philosophy
+### CLI Installation
 
-### Opinionated but Flexible
+The sow CLI provides commands for logging, state management, and validation.
 
-**Strong opinions**:
-- One project per branch (enforced)
-- Specific phase vocabulary
-- Structured logging format
-- Multi-agent architecture
+#### Option 1: Interactive Installation (Recommended)
 
-**Flexible where it matters**:
-- Progressive planning (not waterfall)
-- Extensible through plugins
-- Customizable knowledge (sinks)
-- Optional CLI enhancements
+After installing the plugin, use the built-in installer:
 
-### Not a Replacement
+```bash
+claude /sow:install
+```
 
-`sow` complements existing tools:
+This will:
+- Auto-detect your platform and architecture
+- Prefer Homebrew if available, otherwise download binary
+- Configure your PATH if needed
+- Verify installation
 
-**Not replacing**: JIRA, Linear, GitHub Issues, Sprint planning, Team chat
+#### Option 2: Homebrew (macOS/Linux)
 
-**sow is for**: Active work coordination, AI agent orchestration, Short-term execution (hours to days)
+```bash
+brew install jmgilman/apps/sow
+```
 
----
+#### Option 3: Manual Download
 
-## Project Status
+1. Download the latest release for your platform from [GitHub Releases](https://github.com/jmgilman/sow/releases)
+2. Extract the archive:
+   ```bash
+   tar -xzf sow_*_*.tar.gz  # macOS/Linux
+   # or
+   unzip sow_*_*.zip        # Windows
+   ```
+3. Move to your PATH:
+   ```bash
+   mkdir -p ~/.local/bin
+   mv sow ~/.local/bin/
+   chmod +x ~/.local/bin/sow
+   ```
+4. Ensure `~/.local/bin` is in your PATH
 
-**Current State**: Comprehensive architecture design complete, implementation in progress
+**Verify installation:**
 
-**Documentation**: Complete (you're looking at it!)
+```bash
+sow version
+```
 
-**Next Steps**:
-1. Build Claude Code Plugin
-2. Implement CLI
-3. Create example projects
-4. Beta testing
+## Basic Usage
 
----
+### Initialize a Repository
 
-## Repository Structure
+```bash
+cd your-project
+sow init
+```
+
+This creates the `.sow/` directory structure for knowledge and project state.
+
+### Start a New Project
+
+On a feature branch, use Claude Code:
+
+```
+/project:new
+```
+
+The orchestrator will:
+1. Ask questions to understand your work (bug fix, feature, etc.)
+2. Recommend which phases to enable (discovery, design, implementation, review, finalize)
+3. Create project structure and begin work
+
+### Continue Existing Work
+
+Resume work on a branch:
+
+```
+/project:continue
+```
+
+The orchestrator reads project state from disk and continues where you left off.
+
+### Provide Feedback
+
+During any phase, provide corrections or guidance:
+
+```
+"The authentication should use RS256, not HS256"
+```
+
+The orchestrator creates feedback, increments the task iteration, and respawns the worker with corrections.
+
+### Complete and Clean Up
+
+The orchestrator automatically:
+- Runs review phase (mandatory quality check)
+- Updates documentation (finalize phase)
+- Runs final tests and linters
+- Deletes `.sow/project/` folder
+- Creates a pull request
+- Hands off for merge
+
+## Development
+
+### Prerequisites
+
+- [Go](https://go.dev/) 1.21+
+- [just](https://github.com/casey/just) - Command runner
+- [golangci-lint](https://golangci-lint.run/) - Linting
+- [GoReleaser](https://goreleaser.com/) - Releases (optional)
+
+### Setup
+
+```bash
+# Clone repository
+git clone git@github.com:jmgilman/sow.git
+cd sow
+
+# Install dependencies
+cd cli && go mod download
+
+# Build the CLI
+just build
+```
+
+### Development Commands
+
+The project uses [`just`](https://github.com/casey/just) for common tasks. Run `just` to see all available commands:
+
+```bash
+just                  # List all commands
+just test             # Run tests with coverage
+just lint             # Run golangci-lint
+just build            # Build sow binary
+just ci               # Run all CI checks locally
+just cue-validate     # Validate CUE schemas
+just cue-generate     # Generate Go types from CUE
+just fmt              # Format Go code
+just tidy             # Tidy go.mod
+just clean            # Clean build artifacts
+just coverage         # Open coverage report in browser
+```
+
+### Testing
+
+```bash
+# Run all tests
+just test
+
+# Run all CI checks (same as GitHub Actions)
+just ci
+
+# View coverage report
+just coverage
+```
+
+### Building
+
+```bash
+# Build for current platform
+just build
+# Binary: ./sow
+
+# Test GoReleaser locally (creates dist/)
+just release-local v1.0.0
+```
+
+### Project Structure
 
 ```
 sow/
-├── docs/                    # Comprehensive documentation
-│   ├── OVERVIEW.md
-│   ├── ARCHITECTURE.md
-│   ├── FILE_STRUCTURE.md
-│   ├── AGENTS.md
-│   ├── COMMANDS_AND_SKILLS.md
-│   ├── HOOKS_AND_INTEGRATIONS.md
-│   ├── USER_GUIDE.md
-│   ├── PROJECT_MANAGEMENT.md
-│   ├── DISTRIBUTION.md
-│   ├── SCHEMAS.md
-│   └── CLI_REFERENCE.md
-├── research/                # Research and feature references
-│   └── CLAUDE_CODE.md
-└── archive/                 # Historical discovery documents
-    ├── BRAINSTORMING.md
-    ├── PROJECT_LIFECYCLE.md
-    ├── FS_STRUCTURE.md
-    ├── EXECUTION.md
-    └── DISTRIBUTION.md
+├── cli/                    # CLI implementation (Go)
+│   ├── cmd/                # Commands (project, task, refs, etc.)
+│   ├── internal/           # Internal packages
+│   ├── schemas/            # CUE schemas (embedded)
+│   └── main.go             # Entry point
+├── plugin/                 # Claude Code plugin (distributed)
+│   ├── agents/             # Agent definitions
+│   ├── commands/           # Slash commands
+│   └── hooks/              # Event hooks
+├── docs/                   # Documentation
+├── justfile                # Development commands
+├── .goreleaser.yml         # Release configuration
+└── README.md               # This file
 ```
 
----
+### Release Process
+
+Releases are automated via GitHub Actions when a tag is pushed:
+
+1. **Create and push tag:**
+   ```bash
+   git tag -a v1.0.0 -m "Release v1.0.0"
+   git push origin v1.0.0
+   ```
+
+2. **GitHub Actions will:**
+   - Run tests and linting
+   - Build binaries for all platforms (Linux, macOS, Windows × amd64, arm64)
+   - Create GitHub release with artifacts
+   - Update Homebrew tap (`jmgilman/homebrew-apps`)
+
+3. **Binary naming:**
+   - Format: `sow_{VERSION}_{OS}_{ARCH}.tar.gz` (or `.zip` for Windows)
+   - Example: `sow_v1.0.0_Darwin_arm64.tar.gz`
+
+**Local snapshot build:**
+
+```bash
+just release-local v1.0.0
+# Check dist/ directory
+```
 
 ## Contributing
 
-This project is in early development. Design feedback and contributions welcome!
+Contributions are welcome! This project is in active development.
 
-**Areas of interest**:
-- Plugin implementation
-- CLI development
-- Example projects
+**Areas of interest:**
+- Plugin implementation and agent improvements
+- CLI enhancements
 - Documentation improvements
 - Testing and validation
+- Example projects and tutorials
 
----
+Please open an issue to discuss major changes before submitting PRs.
 
 ## License
 
-MIT (placeholder - to be determined)
+MIT - See [LICENSE](./LICENSE) for details
 
 ---
 
-## Learn More
-
-Start with **[docs/OVERVIEW.md](./docs/OVERVIEW.md)** for a comprehensive introduction, then explore the other documentation based on your needs.
-
-**For users**: [USER_GUIDE.md](./docs/USER_GUIDE.md)
-**For contributors**: [ARCHITECTURE.md](./docs/ARCHITECTURE.md)
-**For reference**: [SCHEMAS.md](./docs/SCHEMAS.md)
+**Status:** Active development | **Latest release:** [GitHub Releases](https://github.com/jmgilman/sow/releases)
