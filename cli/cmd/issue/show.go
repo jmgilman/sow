@@ -5,7 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/github"
+	"github.com/jmgilman/sow/cli/internal/exec"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +29,11 @@ Examples:
 				return fmt.Errorf("invalid issue number: %s", args[0])
 			}
 
-			issue, err := github.GetIssue(number)
+			// Create GitHub client
+			ghExec := exec.NewLocal("gh")
+			gh := sow.NewGitHub(ghExec)
+
+			issue, err := gh.GetIssue(number)
 			if err != nil {
 				return err
 			}
@@ -42,7 +47,7 @@ Examples:
 }
 
 // printIssueDetails prints detailed issue information.
-func printIssueDetails(cmd *cobra.Command, issue *github.Issue) {
+func printIssueDetails(cmd *cobra.Command, issue *sow.Issue) {
 	out := cmd.OutOrStdout()
 
 	// Header

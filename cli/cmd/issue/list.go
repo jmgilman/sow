@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/github"
+	"github.com/jmgilman/sow/cli/internal/exec"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +30,11 @@ Examples:
   # List only closed sow issues
   sow issue list --state closed`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			issues, err := github.ListIssues("sow", state)
+			// Create GitHub client
+			ghExec := exec.NewLocal("gh")
+			gh := sow.NewGitHub(ghExec)
+
+			issues, err := gh.ListIssues("sow", state)
 			if err != nil {
 				return err
 			}
@@ -50,7 +55,7 @@ Examples:
 }
 
 // printIssuesTable prints issues in a table format.
-func printIssuesTable(cmd *cobra.Command, issues []github.Issue) {
+func printIssuesTable(cmd *cobra.Command, issues []sow.Issue) {
 	out := cmd.OutOrStdout()
 
 	// Header

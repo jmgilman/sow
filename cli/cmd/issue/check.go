@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/jmgilman/sow/cli/internal/github"
+	"github.com/jmgilman/sow/cli/internal/exec"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
@@ -27,8 +28,12 @@ Examples:
 				return fmt.Errorf("invalid issue number: %s", args[0])
 			}
 
+			// Create GitHub client
+			ghExec := exec.NewLocal("gh")
+			gh := sow.NewGitHub(ghExec)
+
 			// Get issue details
-			issue, err := github.GetIssue(number)
+			issue, err := gh.GetIssue(number)
 			if err != nil {
 				return err
 			}
@@ -39,7 +44,7 @@ Examples:
 			}
 
 			// Get linked branches
-			branches, err := github.GetLinkedBranches(number)
+			branches, err := gh.GetLinkedBranches(number)
 			if err != nil {
 				return err
 			}
@@ -53,7 +58,7 @@ Examples:
 }
 
 // printCheckStatus prints the issue check status.
-func printCheckStatus(cmd *cobra.Command, issue *github.Issue, branches []github.LinkedBranch) {
+func printCheckStatus(cmd *cobra.Command, issue *sow.Issue, branches []sow.LinkedBranch) {
 	out := cmd.OutOrStdout()
 
 	fmt.Fprintf(out, "Issue #%d: %s\n", issue.Number, issue.Title)

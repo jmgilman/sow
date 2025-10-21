@@ -1,6 +1,7 @@
 # Build outputs
 /bin/
 /sow
+/cli/cli
 *.exe
 *.dll
 *.so
@@ -26,6 +27,9 @@ Thumbs.db
 # sow runtime directories (git-ignored per architecture)
 .sow/sinks/
 .sow/repos/
+
+# Binaries
+cli
 
 # Note: .sow/project/ and .sow/knowledge/ are committed
 # .sow/.version is committed when initialized

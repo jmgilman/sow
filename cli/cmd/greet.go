@@ -7,8 +7,8 @@ import (
 	"text/template"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	"github.com/jmgilman/sow/cli/internal/exec"
 	projectpkg "github.com/jmgilman/sow/cli/internal/project"
-	"github.com/jmgilman/sow/cli/internal/github"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/spf13/cobra"
@@ -97,9 +97,11 @@ func detectGreetContext(sowCtx *sow.Context) GreetContext {
 	}
 
 	// Try to query GitHub for open sow issues
-	if err := github.Ensure(); err == nil {
+	ghExec := exec.NewLocal("gh")
+	gh := sow.NewGitHub(ghExec)
+	if err := gh.Ensure(); err == nil {
 		ctx.GHAvailable = true
-		if issues, err := github.ListIssues("sow", "open"); err == nil {
+		if issues, err := gh.ListIssues("sow", "open"); err == nil {
 			ctx.OpenIssues = len(issues)
 		}
 	}
