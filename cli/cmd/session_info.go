@@ -1,13 +1,12 @@
 package cmd
 
 import (
-	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	"encoding/json"
 	"fmt"
 
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/spf13/cobra"
 )
@@ -116,7 +115,7 @@ func runSessionInfo(cmd *cobra.Command, jsonOutput bool) error {
 	}
 
 	// Get project information if project exists
-	proj, err := projectpkg.Load(cmdutil.GetContext(cmd.Context()))
+	proj, err := projectpkg.Load(ctx)
 	if err == nil {
 		// Project exists - read state
 		state := proj.State()
@@ -131,13 +130,9 @@ func runSessionInfo(cmd *cobra.Command, jsonOutput bool) error {
 		currentPhase, status := determineCurrentPhaseAndStatus(state)
 		info.Project.Phase = currentPhase
 		info.Project.Status = status
-	}
-	// If GetProject fails, it means no project exists - info.Project remains nil
 
-	// Load statechart information
-	machine, err := statechart.Load()
-	if err == nil {
-		// Statechart loaded successfully
+		// Load statechart information from project
+		machine := proj.Machine()
 		currentState := machine.State()
 
 		// Get permitted triggers
@@ -155,7 +150,7 @@ func runSessionInfo(cmd *cobra.Command, jsonOutput bool) error {
 			}
 		}
 	}
-	// If statechart fails to load, we just omit it from output (graceful degradation)
+	// If project load fails, it means no project exists - info.Project and info.Statechart remain nil
 
 	// Add available commands based on context
 	info.Available = getAvailableCommands(info.Context.Type, info.Project != nil)

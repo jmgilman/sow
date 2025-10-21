@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	sowpkg "github.com/jmgilman/sow/cli/internal/sow"
 	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	"github.com/spf13/cobra"
 )
@@ -94,7 +93,7 @@ Examples:
 				cmd.Println(string(jsonData))
 			} else {
 				// Text output: use formatted display
-				output := sowpkg.FormatArtifactList(state, phaseName)
+				output := formatArtifactList(state, phaseName)
 				cmd.Print(output)
 			}
 

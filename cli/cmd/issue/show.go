@@ -51,34 +51,34 @@ func printIssueDetails(cmd *cobra.Command, issue *sow.Issue) {
 	out := cmd.OutOrStdout()
 
 	// Header
-	fmt.Fprintf(out, "Issue #%d: %s\n", issue.Number, issue.Title)
-	fmt.Fprintf(out, "%s\n\n", strings.Repeat("=", 60))
+	_, _ = fmt.Fprintf(out, "Issue #%d: %s\n", issue.Number, issue.Title)
+	_, _ = fmt.Fprintf(out, "%s\n\n", strings.Repeat("=", 60))
 
 	// State
-	fmt.Fprintf(out, "State: %s\n", issue.State)
+	_, _ = fmt.Fprintf(out, "State: %s\n", issue.State)
 
 	// Labels
 	var labels []string
 	for _, l := range issue.Labels {
 		labels = append(labels, l.Name)
 	}
-	fmt.Fprintf(out, "Labels: %s\n", strings.Join(labels, ", "))
+	_, _ = fmt.Fprintf(out, "Labels: %s\n", strings.Join(labels, ", "))
 
 	// URL
-	fmt.Fprintf(out, "URL: %s\n\n", issue.URL)
+	_, _ = fmt.Fprintf(out, "URL: %s\n\n", issue.URL)
 
 	// Body
 	if issue.Body != "" {
-		fmt.Fprintf(out, "Description:\n")
-		fmt.Fprintf(out, "%s\n", strings.Repeat("-", 60))
-		fmt.Fprintf(out, "%s\n", issue.Body)
+		_, _ = fmt.Fprintf(out, "Description:\n")
+		_, _ = fmt.Fprintf(out, "%s\n", strings.Repeat("-", 60))
+		_, _ = fmt.Fprintf(out, "%s\n", issue.Body)
 	} else {
-		fmt.Fprintf(out, "Description: (none)\n")
+		_, _ = fmt.Fprintf(out, "Description: (none)\n")
 	}
 
 	// Check for sow label
 	if !issue.HasLabel("sow") {
-		fmt.Fprintf(out, "\n⚠️  Warning: This issue does not have the 'sow' label.\n")
-		fmt.Fprintf(out, "   Add it via: gh issue edit %d --add-label sow\n", issue.Number)
+		_, _ = fmt.Fprintf(out, "\n⚠️  Warning: This issue does not have the 'sow' label.\n")
+		_, _ = fmt.Fprintf(out, "   Add it via: gh issue edit %d --add-label sow\n", issue.Number)
 	}
 }

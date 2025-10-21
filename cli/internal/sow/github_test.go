@@ -2,6 +2,7 @@ package sow_test
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/jmgilman/sow/cli/internal/exec"
@@ -13,11 +14,11 @@ func Example() {
 	// Create a mock executor that simulates gh CLI responses
 	mock := &exec.MockExecutor{
 		ExistsFunc: func() bool { return true },
-		RunSilentFunc: func(args ...string) error {
+		RunSilentFunc: func(_ ...string) error {
 			// Simulate successful authentication
 			return nil
 		},
-		RunFunc: func(args ...string) (string, string, error) {
+		RunFunc: func(_ ...string) (string, string, error) {
 			// Simulate gh issue view response
 			issue := map[string]interface{}{
 				"number": 123,
@@ -66,7 +67,8 @@ func TestGitHub_CheckInstalled_MockNotInstalled(t *testing.T) {
 	}
 
 	// Verify error type
-	if _, ok := err.(sow.ErrGHNotInstalled); !ok {
+	var notInstalled sow.ErrGHNotInstalled
+	if !errors.As(err, &notInstalled) {
 		t.Errorf("expected ErrGHNotInstalled, got %T", err)
 	}
 }
@@ -75,7 +77,7 @@ func TestGitHub_CheckAuthenticated_MockNotAuthenticated(t *testing.T) {
 	// Test that CheckAuthenticated correctly detects authentication failure
 	mock := &exec.MockExecutor{
 		ExistsFunc: func() bool { return true },
-		RunSilentFunc: func(args ...string) error {
+		RunSilentFunc: func(_ ...string) error {
 			// Simulate gh auth status failing
 			return &MockError{Message: "not authenticated"}
 		},
@@ -89,12 +91,13 @@ func TestGitHub_CheckAuthenticated_MockNotAuthenticated(t *testing.T) {
 	}
 
 	// Verify error type
-	if _, ok := err.(sow.ErrGHNotAuthenticated); !ok {
+	var notAuthenticated sow.ErrGHNotAuthenticated
+	if !errors.As(err, &notAuthenticated) {
 		t.Errorf("expected ErrGHNotAuthenticated, got %T", err)
 	}
 }
 
-// MockError is a simple error type for mock errors
+// MockError is a simple error type for mock errors.
 type MockError struct {
 	Message string
 }

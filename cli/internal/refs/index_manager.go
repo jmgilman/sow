@@ -472,7 +472,7 @@ func (m *Manager) loadCommittedRefIndex() (*schemas.RefsCommittedIndex, error) {
 
 	data, err := fs.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read committed refs index: %w", err)
 	}
 
 	var index schemas.RefsCommittedIndex
@@ -489,6 +489,7 @@ func (m *Manager) loadLocalRefIndex() (*schemas.RefsLocalIndex, error) {
 
 	// Check if file exists
 	if _, err := fs.Stat(path); err != nil {
+		// Return unwrapped so callers can check os.IsNotExist()
 		return nil, err
 	}
 
@@ -505,23 +506,29 @@ func (m *Manager) loadLocalRefIndex() (*schemas.RefsLocalIndex, error) {
 }
 
 // saveCommittedRefIndex saves the committed refs index.
-func (m *Manager) saveCommittedRefIndex(fs sow.SowFS, index *schemas.RefsCommittedIndex) error {
+func (m *Manager) saveCommittedRefIndex(fs sow.FS, index *schemas.RefsCommittedIndex) error {
 	path := "refs/index.json"
 	data, err := marshalJSON(index)
 	if err != nil {
 		return err
 	}
-	return fs.WriteFile(path, data, 0644)
+	if err := fs.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write committed refs index: %w", err)
+	}
+	return nil
 }
 
 // saveLocalRefIndex saves the local refs index.
-func (m *Manager) saveLocalRefIndex(fs sow.SowFS, index *schemas.RefsLocalIndex) error {
+func (m *Manager) saveLocalRefIndex(fs sow.FS, index *schemas.RefsLocalIndex) error {
 	path := "refs/index.local.json"
 	data, err := marshalJSON(index)
 	if err != nil {
 		return err
 	}
-	return fs.WriteFile(path, data, 0644)
+	if err := fs.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write local refs index: %w", err)
+	}
+	return nil
 }
 
 // findRefInIndexes finds a ref by ID in either index.

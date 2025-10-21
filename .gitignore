@@ -28,8 +28,5 @@ Thumbs.db
 .sow/sinks/
 .sow/repos/
 
-# Binaries
-cli
-
 # Note: .sow/project/ and .sow/knowledge/ are committed
 # .sow/.version is committed when initialized

@@ -10,7 +10,7 @@ import (
 // Context provides unified access to sow subsystems: filesystem, git, and GitHub.
 // It is created once per CLI command invocation and passed to all subsystems.
 type Context struct {
-	fs       SowFS
+	fs       FS
 	repo     *Git
 	github   *GitHub
 	repoRoot string
@@ -20,11 +20,11 @@ type Context struct {
 // If .sow/ doesn't exist, the context is still created but with fs set to nil.
 // Use IsInitialized() to check if .sow/ exists.
 func NewContext(repoRoot string) (*Context, error) {
-	// Try to create SowFS (chrooted to .sow/)
+	// Try to create FS (chrooted to .sow/)
 	// If .sow doesn't exist, set fs to nil but don't fail
-	sowFS, err := NewSowFS(repoRoot)
+	sowFS, err := NewFS(repoRoot)
 	if err != nil && !errors.Is(err, ErrNotInitialized) {
-		return nil, fmt.Errorf("failed to create SowFS: %w", err)
+		return nil, fmt.Errorf("failed to create FS: %w", err)
 	}
 
 	// Open git repository
@@ -40,8 +40,8 @@ func NewContext(repoRoot string) (*Context, error) {
 	}, nil
 }
 
-// FS returns the SowFS for accessing .sow/ directory.
-func (c *Context) FS() SowFS {
+// FS returns the filesystem for accessing .sow/ directory.
+func (c *Context) FS() FS {
 	return c.fs
 }
 

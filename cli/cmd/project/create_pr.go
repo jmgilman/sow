@@ -68,29 +68,11 @@ func runCreatePR(cmd *cobra.Command, _ []string) error {
 	// Get PR body
 	var body string
 	if bodyFlag == "" || bodyFlag == "-" {
-		// Read from stdin
-		stat, _ := os.Stdin.Stat()
-		if (stat.Mode() & os.ModeCharDevice) != 0 {
-			// Interactive mode - prompt user
-			_, _ = fmt.Fprintln(cmd.OutOrStderr(), "Enter PR description (end with Ctrl+D):")
+		var err error
+		body, err = readFromStdin(cmd)
+		if err != nil {
+			return err
 		}
-
-		reader := bufio.NewReader(os.Stdin)
-		var lines []string
-		for {
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				if err == io.EOF {
-					if line != "" {
-						lines = append(lines, line)
-					}
-					break
-				}
-				return fmt.Errorf("failed to read stdin: %w", err)
-			}
-			lines = append(lines, line)
-		}
-		body = strings.Join(lines, "")
 	} else {
 		body = bodyFlag
 	}
@@ -110,4 +92,33 @@ func runCreatePR(cmd *cobra.Command, _ []string) error {
 	_, _ = fmt.Fprintf(cmd.OutOrStderr(), "✓ Pull request created: %s\n", prURL)
 
 	return nil
+}
+
+// readFromStdin reads the PR body from stdin, with optional interactive prompt.
+func readFromStdin(cmd *cobra.Command) (string, error) {
+	// Check if running interactively
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) != 0 {
+		// Interactive mode - prompt user
+		_, _ = fmt.Fprintln(cmd.OutOrStderr(), "Enter PR description (end with Ctrl+D):")
+	}
+
+	// Read all lines from stdin
+	reader := bufio.NewReader(os.Stdin)
+	var lines []string
+	for {
+		line, err := reader.ReadString('\n')
+		if err == io.EOF {
+			if line != "" {
+				lines = append(lines, line)
+			}
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to read stdin: %w", err)
+		}
+		lines = append(lines, line)
+	}
+
+	return strings.Join(lines, ""), nil
 }

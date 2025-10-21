@@ -29,7 +29,7 @@ Examples:
 
   # List only closed sow issues
   sow issue list --state closed`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Create GitHub client
 			ghExec := exec.NewLocal("gh")
 			gh := sow.NewGitHub(ghExec)
@@ -59,8 +59,8 @@ func printIssuesTable(cmd *cobra.Command, issues []sow.Issue) {
 	out := cmd.OutOrStdout()
 
 	// Header
-	fmt.Fprintf(out, "%-8s %-6s %s\n", "NUMBER", "STATE", "TITLE")
-	fmt.Fprintf(out, "%-8s %-6s %s\n",
+	_, _ = fmt.Fprintf(out, "%-8s %-6s %s\n", "NUMBER", "STATE", "TITLE")
+	_, _ = fmt.Fprintf(out, "%-8s %-6s %s\n",
 		strings.Repeat("─", 8),
 		strings.Repeat("─", 6),
 		strings.Repeat("─", 50),
@@ -68,9 +68,9 @@ func printIssuesTable(cmd *cobra.Command, issues []sow.Issue) {
 
 	// Rows
 	for _, issue := range issues {
-		fmt.Fprintf(out, "%-8d %-6s %s\n", issue.Number, issue.State, issue.Title)
+		_, _ = fmt.Fprintf(out, "%-8d %-6s %s\n", issue.Number, issue.State, issue.Title)
 	}
 
-	fmt.Fprintf(out, "\nTotal: %d issue(s)\n", len(issues))
-	fmt.Fprintf(out, "Use 'sow issue check <number>' to see if an issue is available or claimed.\n")
+	_, _ = fmt.Fprintf(out, "\nTotal: %d issue(s)\n", len(issues))
+	_, _ = fmt.Fprintf(out, "Use 'sow issue check <number>' to see if an issue is available or claimed.\n")
 }

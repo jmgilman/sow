@@ -356,7 +356,7 @@ func TestPersistence(t *testing.T) {
 	}
 
 	// Load state back
-	loadedMachine, err := Load()
+	loadedMachine, err := LoadFS(nil)
 	if err != nil {
 		t.Fatalf("Failed to load state: %v", err)
 	}
@@ -391,7 +391,7 @@ func TestLoadNoProject(t *testing.T) {
 	}()
 
 	// Load should succeed and return NoProject state
-	machine, err := Load()
+	machine, err := LoadFS(nil)
 	if err != nil {
 		t.Fatalf("Failed to load (expected NoProject): %v", err)
 	}

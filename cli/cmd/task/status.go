@@ -6,7 +6,6 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	projectpkg "github.com/jmgilman/sow/cli/internal/project"
-	sowpkg "github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
@@ -95,7 +94,7 @@ func runTaskStatus(cmd *cobra.Command, args []string) error {
 		cmd.Println(string(jsonData))
 	} else {
 		// Text output: use formatted display
-		output := sowpkg.FormatTaskStatus(taskState)
+		output := formatTaskStatus(taskState)
 		cmd.Print(output)
 	}
 

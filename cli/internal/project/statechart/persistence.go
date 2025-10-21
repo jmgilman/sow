@@ -14,20 +14,11 @@ import (
 )
 
 const (
-	// stateFilePath is the absolute path from repo root (for os operations)
+	// stateFilePath is the absolute path from repo root (for os operations).
 	stateFilePath = ".sow/project/state.yaml"
-	// stateFilePathChrooted is the relative path from .sow/ (for chrooted billy FS)
+	// stateFilePathChrooted is the relative path from .sow/ (for chrooted billy FS).
 	stateFilePathChrooted = "project/state.yaml"
 )
-
-// Load reads the state from disk and creates a state machine.
-// If no project exists, returns a machine in NoProject state.
-//
-// This function uses os.ReadFile for backwards compatibility with existing commands.
-// New code should use LoadFS instead.
-func Load() (*Machine, error) {
-	return LoadFS(nil)
-}
 
 // LoadFS reads the state from disk using the provided filesystem.
 // If fs is nil, uses os.ReadFile for backwards compatibility.

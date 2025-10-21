@@ -257,7 +257,7 @@ func Exists(ctx *sow.Context) bool {
 
 // unwrapBillyFS extracts the underlying billy.Filesystem from core.FS.
 // This is needed because statechart package uses go-billy directly.
-func unwrapBillyFS(fs sow.SowFS) billy.Filesystem {
+func unwrapBillyFS(fs sow.FS) billy.Filesystem {
 	if localFS, ok := fs.(*fsbilly.LocalFS); ok {
 		return localFS.Unwrap()
 	}
@@ -273,7 +273,7 @@ func isKebabCase(s string) bool {
 	}
 
 	// Must start with lowercase letter or digit
-	if !((s[0] >= 'a' && s[0] <= 'z') || (s[0] >= '0' && s[0] <= '9')) {
+	if (s[0] < 'a' || s[0] > 'z') && (s[0] < '0' || s[0] > '9') {
 		return false
 	}
 

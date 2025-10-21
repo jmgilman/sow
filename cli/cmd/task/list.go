@@ -6,7 +6,6 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	projectpkg "github.com/jmgilman/sow/cli/internal/project"
-	sowpkg "github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
@@ -70,7 +69,7 @@ func runList(cmd *cobra.Command, _ []string) error {
 		cmd.Println(string(jsonData))
 	} else {
 		// Text output: use formatted display
-		output := sowpkg.FormatTaskList(tasks)
+		output := formatTaskList(tasks)
 		cmd.Print(output)
 	}
 

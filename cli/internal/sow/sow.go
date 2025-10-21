@@ -1,8 +1,15 @@
-// Package sow provides a unified domain abstraction layer for the sow CLI.
+// Package sow provides the core foundation for the sow CLI.
 //
-// This package encapsulates filesystem operations and state machine logic,
-// allowing CLI commands to be a thin presentation layer. All business logic
-// for managing projects, tasks, and phases lives here.
+// This package contains:
+//   - Context: Unified access to filesystem, git, and GitHub
+//   - Core initialization: Init(), DetectContext()
+//   - Domain errors used across the system
+//   - Option patterns for project operations
+//   - Formatting utilities for command output
+//   - Validation infrastructure
+//
+// Business logic for projects and tasks lives in the internal/project package.
+// External reference management lives in the internal/refs package.
 package sow
 
 import (

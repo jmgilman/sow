@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	sowpkg "github.com/jmgilman/sow/cli/internal/sow"
 	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	"github.com/spf13/cobra"
 )
@@ -53,7 +52,7 @@ Output formats:
 			// Output based on format
 			switch format {
 			case "text":
-				output := sowpkg.FormatPhaseStatus(state)
+				output := formatPhaseStatus(state)
 				cmd.Print(output)
 
 			case "json":

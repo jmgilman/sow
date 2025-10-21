@@ -1,6 +1,9 @@
 package refs
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // RefOption configures ref operations.
 type RefOption func(*refConfig)
@@ -126,10 +129,17 @@ func WithRefCommittedOnly() RefListOption {
 
 // marshalJSON marshals a value to JSON with indentation.
 func marshalJSON(v interface{}) ([]byte, error) {
-	return json.MarshalIndent(v, "", "  ")
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+	return data, nil
 }
 
 // unmarshalJSON unmarshals JSON data into a value.
 func unmarshalJSON(data []byte, v interface{}) error {
-	return json.Unmarshal(data, v)
+	if err := json.Unmarshal(data, v); err != nil {
+		return fmt.Errorf("failed to unmarshal JSON: %w", err)
+	}
+	return nil
 }

@@ -60,7 +60,7 @@ func runStart(cmd *cobra.Command, _ []string) error {
 	// - Attach stdin/stdout/stderr for interactive session
 	// - Set working directory
 	// For now, fall back to exec.Command but we could enhance Executor later
-	claudeCmd := exec.Command(claude.Command(), "/sow:greet")
+	claudeCmd := exec.CommandContext(cmd.Context(), claude.Command(), "/sow:greet")
 	claudeCmd.Stdin = os.Stdin
 	claudeCmd.Stdout = os.Stdout
 	claudeCmd.Stderr = os.Stderr

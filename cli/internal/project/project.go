@@ -65,7 +65,10 @@ func (p *Project) Description() string {
 // save persists the current state to disk atomically.
 // This is called automatically after all mutations.
 func (p *Project) save() error {
-	return p.machine.Save()
+	if err := p.machine.Save(); err != nil {
+		return fmt.Errorf("failed to save project state: %w", err)
+	}
+	return nil
 }
 
 // EnablePhase enables a phase and transitions the state machine.
@@ -536,71 +539,15 @@ func (p *Project) ApproveReview(reportID string) error {
 // AddDocumentation records a documentation file update during finalize.
 func (p *Project) AddDocumentation(path string) error {
 	state := p.State()
-
-	// Handle the any type for Documentation_updates
-	if state.Phases.Finalize.Documentation_updates == nil {
-		state.Phases.Finalize.Documentation_updates = []string{path}
-	} else {
-		// Type assert to []string
-		if updates, ok := state.Phases.Finalize.Documentation_updates.([]string); ok {
-			state.Phases.Finalize.Documentation_updates = append(updates, path)
-		} else if updates, ok := state.Phases.Finalize.Documentation_updates.([]interface{}); ok {
-			// Handle interface{} slice from YAML unmarshaling
-			strUpdates := make([]string, 0, len(updates)+1)
-			for _, u := range updates {
-				if s, ok := u.(string); ok {
-					strUpdates = append(strUpdates, s)
-				}
-			}
-			strUpdates = append(strUpdates, path)
-			state.Phases.Finalize.Documentation_updates = strUpdates
-		} else {
-			// If type is unexpected, reset to new slice
-			state.Phases.Finalize.Documentation_updates = []string{path}
-		}
-	}
-
+	state.Phases.Finalize.Documentation_updates = appendToStringSlice(state.Phases.Finalize.Documentation_updates, path)
 	return p.save()
 }
 
 // MoveArtifact records an artifact moved to knowledge during finalize.
 func (p *Project) MoveArtifact(from, to string) error {
 	state := p.State()
-
-	move := map[string]string{
-		"from": from,
-		"to":   to,
-	}
-
-	// Handle the any type for Artifacts_moved
-	if state.Phases.Finalize.Artifacts_moved == nil {
-		state.Phases.Finalize.Artifacts_moved = []map[string]string{move}
-	} else {
-		// Type assert to []map[string]string
-		if moves, ok := state.Phases.Finalize.Artifacts_moved.([]map[string]string); ok {
-			state.Phases.Finalize.Artifacts_moved = append(moves, move)
-		} else if moves, ok := state.Phases.Finalize.Artifacts_moved.([]interface{}); ok {
-			// Handle interface{} slice from YAML unmarshaling
-			mapMoves := make([]map[string]string, 0, len(moves)+1)
-			for _, m := range moves {
-				if mm, ok := m.(map[string]interface{}); ok {
-					strMap := make(map[string]string)
-					for k, v := range mm {
-						if s, ok := v.(string); ok {
-							strMap[k] = s
-						}
-					}
-					mapMoves = append(mapMoves, strMap)
-				}
-			}
-			mapMoves = append(mapMoves, move)
-			state.Phases.Finalize.Artifacts_moved = mapMoves
-		} else {
-			// If type is unexpected, reset to new slice
-			state.Phases.Finalize.Artifacts_moved = []map[string]string{move}
-		}
-	}
-
+	move := map[string]string{"from": from, "to": to}
+	state.Phases.Finalize.Artifacts_moved = appendToMapSlice(state.Phases.Finalize.Artifacts_moved, move)
 	return p.save()
 }
 
@@ -612,7 +559,12 @@ func (p *Project) CreatePullRequest(body string) (string, error) {
 	state := p.State()
 
 	// Generate PR title from project
-	title := fmt.Sprintf("%s: %s", strings.Title(p.Name()), p.Description())
+	// Capitalize first letter of project name
+	name := p.Name()
+	if len(name) > 0 {
+		name = strings.ToUpper(name[:1]) + name[1:]
+	}
+	title := fmt.Sprintf("%s: %s", name, p.Description())
 
 	// Wrap body with issue reference and footer
 	fullBody := body
@@ -697,19 +649,19 @@ func (p *Project) createPhaseStructure(phaseName string) error {
 		// Create research directory
 		researchDir := filepath.Join(phaseDir, "research")
 		if err := fs.MkdirAll(researchDir, 0755); err != nil {
-			return err
+			return fmt.Errorf("failed to create research directory: %w", err)
 		}
 
 	case "design":
 		// Create ADRs and design docs directories
 		adrsDir := filepath.Join(phaseDir, "adrs")
 		if err := fs.MkdirAll(adrsDir, 0755); err != nil {
-			return err
+			return fmt.Errorf("failed to create adrs directory: %w", err)
 		}
 
 		docsDir := filepath.Join(phaseDir, "design-docs")
 		if err := fs.MkdirAll(docsDir, 0755); err != nil {
-			return err
+			return fmt.Errorf("failed to create design-docs directory: %w", err)
 		}
 	}
 
@@ -723,7 +675,7 @@ func (p *Project) createTaskStructure(id, name string, cfg *sow.TaskConfig) erro
 
 	// Create task directory
 	if err := fs.MkdirAll(taskDir, 0755); err != nil {
-		return err
+		return fmt.Errorf("failed to create task directory: %w", err)
 	}
 
 	// Create state.yaml with actual values
@@ -762,7 +714,7 @@ func (p *Project) createTaskStructure(id, name string, cfg *sow.TaskConfig) erro
 	// Create feedback directory
 	feedbackDir := filepath.Join(taskDir, "feedback")
 	if err := fs.MkdirAll(feedbackDir, 0755); err != nil {
-		return err
+		return fmt.Errorf("failed to create feedback directory: %w", err)
 	}
 
 	return nil
@@ -814,7 +766,10 @@ func (p *Project) readYAML(path string, v interface{}) error {
 		return err
 	}
 
-	return yaml.Unmarshal(data, v)
+	if err := yaml.Unmarshal(data, v); err != nil {
+		return fmt.Errorf("failed to unmarshal YAML: %w", err)
+	}
+	return nil
 }
 
 // writeFile writes a file using the context's filesystem.
@@ -822,12 +777,14 @@ func (p *Project) writeFile(path string, data []byte) error {
 	fs := p.ctx.FS()
 	f, err := fs.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open file for writing: %w", err)
 	}
 	defer func() { _ = f.Close() }()
 
-	_, err = f.Write(data)
-	return err
+	if _, err = f.Write(data); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	return nil
 }
 
 // readFile reads a file's contents using the context's filesystem.
@@ -835,7 +792,7 @@ func (p *Project) readFile(path string) ([]byte, error) {
 	fs := p.ctx.FS()
 	f, err := fs.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open file for reading: %w", err)
 	}
 	defer func() { _ = f.Close() }()
 
@@ -850,7 +807,7 @@ func (p *Project) readFile(path string) ([]byte, error) {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return nil, err
+			return nil, fmt.Errorf("failed to read file: %w", err)
 		}
 	}
 
@@ -861,7 +818,7 @@ func (p *Project) readFile(path string) ([]byte, error) {
 func (p *Project) writeYAML(path string, v interface{}) error {
 	data, err := yaml.Marshal(v)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal YAML: %w", err)
 	}
 
 	fs := p.ctx.FS()
@@ -875,8 +832,68 @@ func (p *Project) writeYAML(path string, v interface{}) error {
 	// Atomic rename
 	if err := fs.Rename(tmpPath, path); err != nil {
 		_ = fs.Remove(tmpPath) // Clean up temp file
-		return err
+		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
 	return nil
+}
+
+// appendToStringSlice appends a string to an any-typed field that should be []string.
+// Handles type assertions for YAML unmarshaling edge cases.
+func appendToStringSlice(field any, value string) any {
+	if field == nil {
+		return []string{value}
+	}
+
+	// Type assert to []string
+	if updates, ok := field.([]string); ok {
+		return append(updates, value)
+	}
+
+	// Handle interface{} slice from YAML unmarshaling
+	if updates, ok := field.([]interface{}); ok {
+		strUpdates := make([]string, 0, len(updates)+1)
+		for _, u := range updates {
+			if s, ok := u.(string); ok {
+				strUpdates = append(strUpdates, s)
+			}
+		}
+		return append(strUpdates, value)
+	}
+
+	// If type is unexpected, reset to new slice
+	return []string{value}
+}
+
+// appendToMapSlice appends a map[string]string to an any-typed field that should be []map[string]string.
+// Handles type assertions for YAML unmarshaling edge cases.
+func appendToMapSlice(field any, value map[string]string) any {
+	if field == nil {
+		return []map[string]string{value}
+	}
+
+	// Type assert to []map[string]string
+	if moves, ok := field.([]map[string]string); ok {
+		return append(moves, value)
+	}
+
+	// Handle interface{} slice from YAML unmarshaling
+	if moves, ok := field.([]interface{}); ok {
+		mapMoves := make([]map[string]string, 0, len(moves)+1)
+		for _, m := range moves {
+			if mm, ok := m.(map[string]interface{}); ok {
+				strMap := make(map[string]string)
+				for k, v := range mm {
+					if s, ok := v.(string); ok {
+						strMap[k] = s
+					}
+				}
+				mapMoves = append(mapMoves, strMap)
+			}
+		}
+		return append(mapMoves, value)
+	}
+
+	// If type is unexpected, reset to new slice
+	return []map[string]string{value}
 }

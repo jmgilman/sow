@@ -5,6 +5,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
@@ -67,48 +68,53 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var proj *projectpkg.Project
-
 	if issueNumber > 0 {
-		// Create project from GitHub issue
-		if branchName != "" && len(args) > 0 {
-			return fmt.Errorf("cannot specify both <name> and --branch-name when using --issue")
-		}
+		return initFromIssue(cmd, args, ctx, issueNumber, description, branchName)
+	}
+	return initManual(cmd, args, ctx, description, branchName)
+}
 
-		if description != "" {
-			_, _ = fmt.Fprintf(cmd.OutOrStderr(), "ℹ️  Note: --description is ignored when using --issue (description will be taken from issue)\n\n")
-		}
-
-		proj, err = projectpkg.CreateFromIssue(ctx, issueNumber, branchName)
-		if err != nil {
-			return err
-		}
-
-		_, _ = fmt.Fprintf(cmd.OutOrStderr(), "\n✓ Initialized project '%s' on branch '%s' (linked to issue #%d)\n",
-			proj.Name(), proj.Branch(), issueNumber)
-	} else {
-		// Create project manually
-		if len(args) == 0 {
-			return fmt.Errorf("project name is required when not using --issue")
-		}
-
-		if description == "" {
-			return fmt.Errorf("--description is required when not using --issue")
-		}
-
-		if branchName != "" {
-			return fmt.Errorf("--branch-name can only be used with --issue")
-		}
-
-		name := args[0]
-		proj, err = projectpkg.Create(ctx, name, description)
-		if err != nil {
-			return err
-		}
-
-		_, _ = fmt.Fprintf(cmd.OutOrStderr(), "\n✓ Initialized project '%s' on branch '%s'\n",
-			proj.Name(), proj.Branch())
+// initFromIssue creates a project from a GitHub issue.
+func initFromIssue(cmd *cobra.Command, args []string, ctx *sow.Context, issueNumber int, description, branchName string) error {
+	if branchName != "" && len(args) > 0 {
+		return fmt.Errorf("cannot specify both <name> and --branch-name when using --issue")
 	}
 
+	if description != "" {
+		_, _ = fmt.Fprintf(cmd.OutOrStderr(), "ℹ️  Note: --description is ignored when using --issue (description will be taken from issue)\n\n")
+	}
+
+	proj, err := projectpkg.CreateFromIssue(ctx, issueNumber, branchName)
+	if err != nil {
+		return err
+	}
+
+	_, _ = fmt.Fprintf(cmd.OutOrStderr(), "\n✓ Initialized project '%s' on branch '%s' (linked to issue #%d)\n",
+		proj.Name(), proj.Branch(), issueNumber)
+	return nil
+}
+
+// initManual creates a project manually.
+func initManual(cmd *cobra.Command, args []string, ctx *sow.Context, description, branchName string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("project name is required when not using --issue")
+	}
+
+	if description == "" {
+		return fmt.Errorf("--description is required when not using --issue")
+	}
+
+	if branchName != "" {
+		return fmt.Errorf("--branch-name can only be used with --issue")
+	}
+
+	name := args[0]
+	proj, err := projectpkg.Create(ctx, name, description)
+	if err != nil {
+		return err
+	}
+
+	_, _ = fmt.Fprintf(cmd.OutOrStderr(), "\n✓ Initialized project '%s' on branch '%s'\n",
+		proj.Name(), proj.Branch())
 	return nil
 }
