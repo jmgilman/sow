@@ -1,51 +1,16 @@
 package cmd
 
 import (
-	"bytes"
-	_ "embed"
 	"fmt"
-	"text/template"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/exec"
 	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/prompts"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/spf13/cobra"
 )
-
-//go:embed templates/greet.tmpl
-var greetTemplateContent string
-
-// GreetContext holds the context for rendering the greeting template.
-type GreetContext struct {
-	SowInitialized bool
-	HasProject     bool
-	Project        *ProjectGreetContext
-	OpenIssues     int
-	GHAvailable    bool
-}
-
-// ProjectGreetContext holds project-specific greeting context.
-type ProjectGreetContext struct {
-	Name            string
-	Branch          string
-	Description     string
-	CurrentPhase    string
-	PhaseStatus     string
-	TasksTotal      int
-	TasksComplete   int
-	TasksInProgress int
-	TasksPending    int
-	TasksAbandoned  int
-	CurrentTask     *TaskGreetContext
-}
-
-// TaskGreetContext holds current task information.
-type TaskGreetContext struct {
-	ID   string
-	Name string
-}
 
 // NewGreetCmd creates the greet command.
 func NewGreetCmd() *cobra.Command {
@@ -72,10 +37,21 @@ func runGreet(cmd *cobra.Command, _ []string) error {
 	// Detect context
 	context := detectGreetContext(sowCtx)
 
-	// Render template
-	output, err := renderGreetingTemplate(context)
+	// Select appropriate template based on context
+	var promptID prompts.PromptID
+	switch {
+	case !context.SowInitialized:
+		promptID = prompts.PromptGreetStandard
+	case !context.HasProject:
+		promptID = prompts.PromptGreetOperator
+	default:
+		promptID = prompts.PromptGreetOrchestrator
+	}
+
+	// Render using central prompts package
+	output, err := prompts.Render(promptID, context)
 	if err != nil {
-		return fmt.Errorf("failed to render greeting template: %w", err)
+		return fmt.Errorf("failed to render greeting: %w", err)
 	}
 
 	// Write to stdout (becomes slash command content)
@@ -87,8 +63,8 @@ func runGreet(cmd *cobra.Command, _ []string) error {
 }
 
 // detectGreetContext inspects the repository and builds greeting context.
-func detectGreetContext(sowCtx *sow.Context) GreetContext {
-	ctx := GreetContext{
+func detectGreetContext(sowCtx *sow.Context) *prompts.GreetContext {
+	ctx := &prompts.GreetContext{
 		SowInitialized: sowCtx.IsInitialized(),
 	}
 
@@ -116,13 +92,13 @@ func detectGreetContext(sowCtx *sow.Context) GreetContext {
 	project, err := projectpkg.Load(sowCtx)
 	if err != nil {
 		// Log error but continue with hasProject=false
-		return GreetContext{SowInitialized: true}
+		return &prompts.GreetContext{SowInitialized: true}
 	}
 
 	state := project.State()
 
 	// Build project context
-	projCtx := &ProjectGreetContext{
+	projCtx := &prompts.ProjectGreetContext{
 		Name:        state.Project.Name,
 		Branch:      state.Project.Branch,
 		Description: state.Project.Description,
@@ -144,7 +120,7 @@ func detectGreetContext(sowCtx *sow.Context) GreetContext {
 		case "in_progress":
 			projCtx.TasksInProgress++
 			if projCtx.CurrentTask == nil {
-				projCtx.CurrentTask = &TaskGreetContext{
+				projCtx.CurrentTask = &prompts.TaskGreetContext{
 					ID:   tasks[i].Id,
 					Name: tasks[i].Name,
 				}
@@ -181,19 +157,4 @@ func determineCurrentPhase(state *schemas.ProjectState) (string, string) {
 	}
 
 	return "unknown", "unknown"
-}
-
-// renderGreetingTemplate renders the greeting template with the given context.
-func renderGreetingTemplate(ctx GreetContext) (string, error) {
-	tmpl, err := template.New("greet").Parse(greetTemplateContent)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, ctx); err != nil {
-		return "", fmt.Errorf("failed to execute template: %w", err)
-	}
-
-	return buf.String(), nil
 }
