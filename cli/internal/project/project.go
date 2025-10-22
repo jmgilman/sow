@@ -603,8 +603,39 @@ func (p *Project) CreatePullRequest(body string) (string, error) {
 	return prURL, nil
 }
 
-// AppendLog appends a log entry to the project log file.
-func (p *Project) AppendLog(entry string) error {
+// Log creates and appends a structured log entry to the project log.
+// Automatically uses "orchestrator" as agent ID.
+//
+// Example:
+//
+//	p.Log("created_file", "success",
+//	      WithFiles("design.md"),
+//	      WithNotes("Created initial design document"))
+func (p *Project) Log(action, result string, opts ...LogOption) error {
+	entry := &LogEntry{
+		Timestamp: time.Now(),
+		AgentID:   "orchestrator",
+		Action:    action,
+		Result:    result,
+	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(entry)
+	}
+
+	// Validate
+	if err := entry.Validate(); err != nil {
+		return fmt.Errorf("invalid log entry: %w", err)
+	}
+
+	// Format and append
+	formatted := entry.Format()
+	return p.appendLog(formatted)
+}
+
+// appendLog appends a raw log entry to the project log file.
+func (p *Project) appendLog(entry string) error {
 	logPath := "project/log.md"
 
 	// Read existing content

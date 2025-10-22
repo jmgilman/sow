@@ -490,7 +490,7 @@ func (m *Manager) loadLocalRefIndex() (*schemas.RefsLocalIndex, error) {
 	// Check if file exists
 	if _, err := fs.Stat(path); err != nil {
 		// Return unwrapped so callers can check os.IsNotExist()
-		return nil, err
+		return nil, err //nolint:wrapcheck // Intentionally unwrapped for os.IsNotExist() checks
 	}
 
 	data, err := fs.ReadFile(path)

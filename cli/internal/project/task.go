@@ -242,8 +242,48 @@ func (t *Task) MarkFeedbackAddressed(feedbackID string) error {
 	return fmt.Errorf("feedback not found: %s", feedbackID)
 }
 
-// AppendLog appends a log entry to the task log file.
-func (t *Task) AppendLog(entry string) error {
+// Log creates and appends a structured log entry to the task log.
+// Automatically determines agent ID from task state (assigned_agent + iteration).
+//
+// Example:
+//
+//	task.Log("test_run", "success",
+//	         WithFiles("pkg/auth/login_test.go"),
+//	         WithNotes("All tests passing"))
+func (t *Task) Log(action, result string, opts ...LogOption) error {
+	// Read task state to get agent info
+	state, err := t.State()
+	if err != nil {
+		return fmt.Errorf("failed to read task state: %w", err)
+	}
+
+	// Build agent ID from state
+	agentID := buildAgentID(state.Task.Assigned_agent, int(state.Task.Iteration))
+
+	entry := &LogEntry{
+		Timestamp: time.Now(),
+		AgentID:   agentID,
+		Action:    action,
+		Result:    result,
+	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(entry)
+	}
+
+	// Validate
+	if err := entry.Validate(); err != nil {
+		return fmt.Errorf("invalid log entry: %w", err)
+	}
+
+	// Format and append
+	formatted := entry.Format()
+	return t.appendLog(formatted)
+}
+
+// appendLog appends a raw log entry to the task log file.
+func (t *Task) appendLog(entry string) error {
 	logPath := filepath.Join("project/phases/implementation/tasks", t.id, "log.md")
 
 	// Read existing content
