@@ -25,11 +25,12 @@ const (
 	PromptFinalizeDelete          PromptID = "statechart.finalize_delete"
 )
 
-// Command prompt IDs.
+// Command prompt IDs - Composable greeting system.
 const (
-	PromptGreetStandard     PromptID = "command.greet_standard"
-	PromptGreetOperator     PromptID = "command.greet_operator"
-	PromptGreetOrchestrator PromptID = "command.greet_orchestrator"
+	PromptGreetBase          PromptID = "greet.base"
+	PromptGreetStateUninit   PromptID = "greet.state.uninitialized"
+	PromptGreetStateOperator PromptID = "greet.state.operator"
+	PromptGreetStateOrch     PromptID = "greet.state.orchestrator"
 )
 
 // Context represents data needed to render a prompt.
@@ -84,7 +85,7 @@ func (r *Registry) Render(id PromptID, ctx Context) (string, error) {
 
 // Embed all prompt templates from the templates/ directory
 //
-//go:embed templates/**/*.md templates/**/*.tmpl
+//go:embed templates/**/*.md templates/greet/*.md templates/greet/states/*.md
 var templatesFS embed.FS
 
 // Default registry, initialized at startup.
@@ -108,10 +109,11 @@ func init() {
 		PromptFinalizeChecks:          "templates/statechart/finalize_checks.md",
 		PromptFinalizeDelete:          "templates/statechart/finalize_delete.md",
 
-		// Command prompts
-		PromptGreetStandard:     "templates/commands/greet_standard.tmpl",
-		PromptGreetOperator:     "templates/commands/greet_operator.tmpl",
-		PromptGreetOrchestrator: "templates/commands/greet_orchestrator.tmpl",
+		// Composable greeting system
+		PromptGreetBase:          "templates/greet/base.md",
+		PromptGreetStateUninit:   "templates/greet/states/uninitialized.md",
+		PromptGreetStateOperator: "templates/greet/states/operator.md",
+		PromptGreetStateOrch:     "templates/greet/states/orchestrator.md",
 	}
 
 	// Load and parse all templates

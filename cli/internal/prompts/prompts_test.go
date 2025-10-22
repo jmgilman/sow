@@ -8,20 +8,38 @@ import (
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
-func TestRender_GreetContext_Standard(t *testing.T) {
+func TestRender_GreetContext_Uninitialized(t *testing.T) {
 	ctx := &prompts.GreetContext{
 		SowInitialized: false,
 		HasProject:     false,
 	}
 
-	output, err := prompts.Render(prompts.PromptGreetStandard, ctx)
+	// Test base greeting
+	base, err := prompts.Render(prompts.PromptGreetBase, ctx)
 	if err != nil {
-		t.Fatalf("Render failed: %v", err)
+		t.Fatalf("Render base failed: %v", err)
 	}
 
-	// Verify standard Claude Code mode
-	if !strings.Contains(output, "Standard Claude Code") {
-		t.Error("Expected output to mention 'Standard Claude Code'")
+	if !strings.Contains(base, "sow Orchestrator") {
+		t.Error("Expected base to mention 'sow Orchestrator'")
+	}
+
+	if !strings.Contains(base, "personal development assistant") {
+		t.Error("Expected base to mention 'personal development assistant'")
+	}
+
+	// Test uninitialized state
+	state, err := prompts.Render(prompts.PromptGreetStateUninit, ctx)
+	if err != nil {
+		t.Fatalf("Render state failed: %v", err)
+	}
+
+	if !strings.Contains(state, "Repository Not Initialized") {
+		t.Error("Expected state to mention 'Repository Not Initialized'")
+	}
+
+	if !strings.Contains(state, "sow init") {
+		t.Error("Expected state to mention 'sow init'")
 	}
 }
 
@@ -33,23 +51,28 @@ func TestRender_GreetContext_Operator(t *testing.T) {
 		GHAvailable:    true,
 	}
 
-	output, err := prompts.Render(prompts.PromptGreetOperator, ctx)
+	// Test operator state
+	state, err := prompts.Render(prompts.PromptGreetStateOperator, ctx)
 	if err != nil {
-		t.Fatalf("Render failed: %v", err)
+		t.Fatalf("Render state failed: %v", err)
 	}
 
 	// Verify output contains expected content
-	if !strings.Contains(output, "sow orchestrator") {
-		t.Error("Expected output to mention 'sow orchestrator'")
+	if !strings.Contains(state, "Sow initialized") {
+		t.Error("Expected state to mention 'Sow initialized'")
 	}
 
-	if !strings.Contains(output, "operator mode") {
-		t.Error("Expected output to mention 'operator mode'")
+	if !strings.Contains(state, "No active project") {
+		t.Error("Expected state to mention 'No active project'")
 	}
 
 	// Should mention open issues
-	if !strings.Contains(output, "5 open issues") {
-		t.Error("Expected output to mention '5 open issues'")
+	if !strings.Contains(state, "5 open") {
+		t.Error("Expected state to mention '5 open' issues")
+	}
+
+	if !strings.Contains(state, "sow-labeled issues") {
+		t.Error("Expected state to mention 'sow-labeled issues'")
 	}
 }
 
@@ -76,31 +99,35 @@ func TestRender_GreetContext_Orchestrator(t *testing.T) {
 		GHAvailable: true,
 	}
 
-	output, err := prompts.Render(prompts.PromptGreetOrchestrator, ctx)
+	// Test orchestrator state
+	state, err := prompts.Render(prompts.PromptGreetStateOrch, ctx)
 	if err != nil {
-		t.Fatalf("Render failed: %v", err)
-	}
-
-	// Verify orchestrator mode
-	if !strings.Contains(output, "orchestrator mode") {
-		t.Error("Expected output to mention 'orchestrator mode'")
+		t.Fatalf("Render state failed: %v", err)
 	}
 
 	// Verify project information is present
-	if !strings.Contains(output, "test-feature") {
-		t.Error("Expected output to mention project name 'test-feature'")
+	if !strings.Contains(state, "test-feature") {
+		t.Error("Expected state to mention project name 'test-feature'")
 	}
 
-	if !strings.Contains(output, "feat/test") {
-		t.Error("Expected output to mention branch 'feat/test'")
+	if !strings.Contains(state, "feat/test") {
+		t.Error("Expected state to mention branch 'feat/test'")
 	}
 
-	if !strings.Contains(output, "implementation") {
-		t.Error("Expected output to mention current phase 'implementation'")
+	if !strings.Contains(state, "implementation") {
+		t.Error("Expected state to mention current phase 'implementation'")
 	}
 
-	if !strings.Contains(output, "020") {
-		t.Error("Expected output to mention current task ID '020'")
+	if !strings.Contains(state, "020") {
+		t.Error("Expected state to mention current task ID '020'")
+	}
+
+	if !strings.Contains(state, "Project Management Mode") {
+		t.Error("Expected state to mention 'Project Management Mode'")
+	}
+
+	if !strings.Contains(state, "2/5") {
+		t.Error("Expected state to show task completion '2/5'")
 	}
 }
 
