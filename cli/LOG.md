@@ -538,6 +538,126 @@ Ready to proceed with creating the project types abstraction and StandardProject
 
 ---
 
+## 2025-01-22: Phase 4 Complete - Type System Reconciliation
+
+### Achievement
+
+Completed **Phase 4: Project Types Package** from the Composable Phases Architecture MVP. This phase creates the abstraction layer that allows multiple project types to compose phases differently.
+
+### Implementation Summary
+
+**Files Created:**
+
+1. **`internal/project/types/types.go`** (84 lines)
+   - ProjectType interface: `BuildStateMachine()`, `Phases()`, `Type()`
+   - `DetectProjectType()` helper function
+   - Registration pattern for StandardProject
+
+2. **`internal/project/types/standard/standard.go`** (114 lines)
+   - StandardProject implementation composing all 5 phases
+   - Uses `BuildPhaseChain` for forward transitions
+   - Adds exceptional backward transition: Review → Implementation
+
+3. **`internal/project/types/standard/standard_test.go`** (480 lines)
+   - 8 comprehensive tests covering state machine configuration
+   - Tests forward transitions, backward transitions, guards
+   - Full lifecycle walkthrough test
+
+4. **`internal/project/statechart/machine_new.go`** (40 lines)
+   - `NewMachineFromPhases()` constructor for phase-based architecture
+   - Accepts pre-configured stateless.StateMachine
+
+5. **`internal/phases/types.go`** (12 lines)
+   - Common `ProjectInfo` type used by all phases
+
+### Critical Decision: Type System Reconciliation
+
+**Problem Discovered:**
+- `internal/phases/` defined its own `Event` and `State` types
+- `internal/project/statechart/` defined identical `Event` and `State` types
+- Even with identical string values, Go treats these as incompatible types
+- Tests failed: `stateless.StateMachine.Fire()` expected `statechart.Event` but received `phases.Event`
+
+**Solution Chosen:**
+- **Option 1: Phases use statechart types directly** ✅ SELECTED
+  - Deleted `internal/phases/events.go` and `internal/phases/states.go`
+  - Updated all phase implementations to import and use `statechart.Event` and `statechart.State`
+  - Updated all tests to use statechart types
+
+**Alternative Considered:**
+- Option 2: Create shared types package
+  - Would require more files and imports
+  - Less clear ownership of type definitions
+
+### Files Modified for Type Reconciliation
+
+**Core Phase Files:**
+- `internal/phases/phase.go` - Interface uses `statechart.State`
+- `internal/phases/metadata.go` - States field uses `[]statechart.State`
+- `internal/phases/builder.go` - Uses statechart types throughout
+
+**All 5 Phase Implementations:**
+- `discovery/discovery.go`
+- `design/design.go`
+- `implementation/implementation.go`
+- `review/review.go`
+- `finalize/finalize.go`
+
+**All Test Files:**
+- `builder_test.go` - Rewrote MockPhase to configure basic transitions
+- All 5 phase test files updated with `statechart.Event` and `statechart.State`
+- StandardProject tests updated
+
+### Test Results
+
+**Phase 4 Validation Criteria:**
+- ✅ StandardProject.BuildStateMachine() produces working state machine
+- ✅ All states configured (verified in TestBuildStateMachine_CreatesAllStates)
+- ✅ All transitions work (verified in forward/backward transition tests)
+- ✅ Prompts render at each state (phase tests verify)
+- ✅ Guards prevent invalid transitions (guard tests verify)
+
+**Final Test Run:**
+```
+ok  	github.com/jmgilman/sow/cli/internal/phases	0.513s
+ok  	github.com/jmgilman/sow/cli/internal/phases/design	0.283s
+ok  	github.com/jmgilman/sow/cli/internal/phases/discovery	0.730s
+ok  	github.com/jmgilman/sow/cli/internal/phases/finalize	0.994s
+ok  	github.com/jmgilman/sow/cli/internal/phases/implementation	1.232s
+ok  	github.com/jmgilman/sow/cli/internal/phases/review	1.469s
+ok  	github.com/jmgilman/sow/cli/internal/project/statechart	1.703s
+ok  	github.com/jmgilman/sow/cli/internal/project/types/standard	1.936s
+```
+
+All 8 packages passing, 100+ tests total.
+
+### Key Architectural Patterns
+
+**1. BuildPhaseChain Meta-Helper**
+- Automatically wires forward transitions between phases
+- Returns `PhaseMap` for project-specific customization
+- Configures initial transition: `NoProject → first phase`
+
+**2. Project Type Customization**
+- StandardProject uses BuildPhaseChain for standard flow
+- Then adds exceptional backward transition (Review → Implementation)
+- Future project types can compose differently
+
+**3. Registration Pattern**
+- `init()` function registers StandardProject as default
+- Avoids circular dependency between types and project packages
+- Allows future dynamic registration
+
+### Status
+
+✅ **COMPLETE** - Phase 4 validated. StandardProject successfully composes all 5 phases with proper type safety.
+
+### Next: Phase 5
+
+Ready to proceed with **Phase 5: Integration with Project Package** - wiring the new architecture into existing project.Create() and project.Load() functions.
+
+---
+
 ## Next Decisions
 
 _(Future decisions will be logged here as they arise during MVP development)_

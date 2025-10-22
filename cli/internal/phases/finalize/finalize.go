@@ -14,6 +14,7 @@ import (
 	"text/template"
 
 	"github.com/jmgilman/sow/cli/internal/phases"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/qmuntal/stateless"
 )
@@ -24,14 +25,7 @@ var templates embed.FS
 // FinalizePhase implements the Phase interface for the finalize phase.
 type FinalizePhase struct {
 	data    *phasesSchema.FinalizePhase // Phase data from project state
-	project ProjectInfo                 // Minimal project info for templates
-}
-
-// ProjectInfo holds minimal project information needed for template rendering.
-type ProjectInfo struct {
-	Name        string
-	Description string
-	Branch      string
+	project phases.ProjectInfo          // Minimal project info for templates
 }
 
 // New creates a new Finalize phase instance.
@@ -39,7 +33,7 @@ type ProjectInfo struct {
 // Parameters:
 //   - data: Pointer to the FinalizePhase data from project state
 //   - project: Basic project information for template rendering
-func New(data *phasesSchema.FinalizePhase, project ProjectInfo) *FinalizePhase {
+func New(data *phasesSchema.FinalizePhase, project phases.ProjectInfo) *FinalizePhase {
 	return &FinalizePhase{
 		data:    data,
 		project: project,
@@ -47,8 +41,8 @@ func New(data *phasesSchema.FinalizePhase, project ProjectInfo) *FinalizePhase {
 }
 
 // EntryState returns the state where this phase begins (FinalizeDocumentation).
-func (p *FinalizePhase) EntryState() phases.State {
-	return phases.FinalizeDocumentation
+func (p *FinalizePhase) EntryState() statechart.State {
+	return statechart.FinalizeDocumentation
 }
 
 // AddToMachine configures the finalize phase states in the state machine.
@@ -62,20 +56,20 @@ func (p *FinalizePhase) EntryState() phases.State {
 // - FinalizeDocumentation → FinalizeChecks (EventDocumentationDone, guard: always true)
 // - FinalizeChecks → FinalizeDelete (EventChecksDone, guard: always true)
 // - FinalizeDelete → nextPhaseEntry (EventProjectDelete, guard: project_deleted flag)
-func (p *FinalizePhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry phases.State) {
+func (p *FinalizePhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry statechart.State) {
 	// Configure documentation state
-	sm.Configure(phases.FinalizeDocumentation).
-		Permit(phases.EventDocumentationDone, phases.FinalizeChecks, p.documentationAssessedGuard).
+	sm.Configure(statechart.FinalizeDocumentation).
+		Permit(statechart.EventDocumentationDone, statechart.FinalizeChecks, p.documentationAssessedGuard).
 		OnEntry(p.onDocumentationEntry)
 
 	// Configure checks state
-	sm.Configure(phases.FinalizeChecks).
-		Permit(phases.EventChecksDone, phases.FinalizeDelete, p.checksAssessedGuard).
+	sm.Configure(statechart.FinalizeChecks).
+		Permit(statechart.EventChecksDone, statechart.FinalizeDelete, p.checksAssessedGuard).
 		OnEntry(p.onChecksEntry)
 
 	// Configure delete state
-	sm.Configure(phases.FinalizeDelete).
-		Permit(phases.EventProjectDelete, nextPhaseEntry, p.projectDeletedGuard).
+	sm.Configure(statechart.FinalizeDelete).
+		Permit(statechart.EventProjectDelete, nextPhaseEntry, p.projectDeletedGuard).
 		OnEntry(p.onDeleteEntry)
 }
 
@@ -83,10 +77,10 @@ func (p *FinalizePhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry 
 func (p *FinalizePhase) Metadata() phases.PhaseMetadata {
 	return phases.PhaseMetadata{
 		Name: "finalize",
-		States: []phases.State{
-			phases.FinalizeDocumentation,
-			phases.FinalizeChecks,
-			phases.FinalizeDelete,
+		States: []statechart.State{
+			statechart.FinalizeDocumentation,
+			statechart.FinalizeChecks,
+			statechart.FinalizeDelete,
 		},
 		SupportsTasks:     false,
 		SupportsArtifacts: false,

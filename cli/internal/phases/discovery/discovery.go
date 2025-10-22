@@ -13,6 +13,7 @@ import (
 	"text/template"
 
 	"github.com/jmgilman/sow/cli/internal/phases"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/qmuntal/stateless"
 )
@@ -22,17 +23,9 @@ var templates embed.FS
 
 // DiscoveryPhase implements the Phase interface for the discovery phase.
 type DiscoveryPhase struct {
-	optional bool                  // Whether this phase can be skipped
+	optional bool                         // Whether this phase can be skipped
 	data     *phasesSchema.DiscoveryPhase // Phase data from project state
-	project  ProjectInfo           // Minimal project info for templates
-}
-
-// ProjectInfo holds minimal project information needed for template rendering.
-// The phase only needs to know about the project, not the entire project state.
-type ProjectInfo struct {
-	Name        string
-	Description string
-	Branch      string
+	project  phases.ProjectInfo           // Minimal project info for templates
 }
 
 // New creates a new Discovery phase instance.
@@ -41,7 +34,7 @@ type ProjectInfo struct {
 //   - optional: If true, the phase can be skipped via EventSkipDiscovery
 //   - data: Pointer to the DiscoveryPhase data from project state
 //   - project: Basic project information for template rendering
-func New(optional bool, data *phasesSchema.DiscoveryPhase, project ProjectInfo) *DiscoveryPhase {
+func New(optional bool, data *phasesSchema.DiscoveryPhase, project phases.ProjectInfo) *DiscoveryPhase {
 	return &DiscoveryPhase{
 		optional: optional,
 		data:     data,
@@ -50,8 +43,8 @@ func New(optional bool, data *phasesSchema.DiscoveryPhase, project ProjectInfo) 
 }
 
 // EntryState returns the state where this phase begins (DiscoveryDecision).
-func (p *DiscoveryPhase) EntryState() phases.State {
-	return phases.DiscoveryDecision
+func (p *DiscoveryPhase) EntryState() statechart.State {
+	return statechart.DiscoveryDecision
 }
 
 // AddToMachine configures the discovery phase states in the state machine.
@@ -64,20 +57,20 @@ func (p *DiscoveryPhase) EntryState() phases.State {
 // - DiscoveryDecision → DiscoveryActive (EventEnableDiscovery)
 // - DiscoveryDecision → nextPhaseEntry (EventSkipDiscovery, if optional)
 // - DiscoveryActive → nextPhaseEntry (EventCompleteDiscovery, guard: artifacts approved)
-func (p *DiscoveryPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry phases.State) {
+func (p *DiscoveryPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry statechart.State) {
 	// Configure decision state
-	decisionConfig := sm.Configure(phases.DiscoveryDecision).
-		Permit(phases.EventEnableDiscovery, phases.DiscoveryActive).
+	decisionConfig := sm.Configure(statechart.DiscoveryDecision).
+		Permit(statechart.EventEnableDiscovery, statechart.DiscoveryActive).
 		OnEntry(p.onDecisionEntry)
 
 	// If optional, allow skipping
 	if p.optional {
-		decisionConfig.Permit(phases.EventSkipDiscovery, nextPhaseEntry)
+		decisionConfig.Permit(statechart.EventSkipDiscovery, nextPhaseEntry)
 	}
 
 	// Configure active state
-	sm.Configure(phases.DiscoveryActive).
-		Permit(phases.EventCompleteDiscovery, nextPhaseEntry, p.artifactsApprovedGuard).
+	sm.Configure(statechart.DiscoveryActive).
+		Permit(statechart.EventCompleteDiscovery, nextPhaseEntry, p.artifactsApprovedGuard).
 		OnEntry(p.onActiveEntry)
 }
 
@@ -85,7 +78,7 @@ func (p *DiscoveryPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry
 func (p *DiscoveryPhase) Metadata() phases.PhaseMetadata {
 	return phases.PhaseMetadata{
 		Name:              "discovery",
-		States:            []phases.State{phases.DiscoveryDecision, phases.DiscoveryActive},
+		States:            []statechart.State{statechart.DiscoveryDecision, statechart.DiscoveryActive},
 		SupportsTasks:     false,
 		SupportsArtifacts: true,
 		CustomFields: []phases.FieldDef{

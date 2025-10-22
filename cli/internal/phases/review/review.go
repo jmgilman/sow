@@ -12,6 +12,7 @@ import (
 	"text/template"
 
 	"github.com/jmgilman/sow/cli/internal/phases"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/qmuntal/stateless"
 )
@@ -22,14 +23,7 @@ var templates embed.FS
 // ReviewPhase implements the Phase interface for the review phase.
 type ReviewPhase struct {
 	data    *phasesSchema.ReviewPhase // Phase data from project state
-	project ProjectInfo               // Minimal project info for templates
-}
-
-// ProjectInfo holds minimal project information needed for template rendering.
-type ProjectInfo struct {
-	Name        string
-	Description string
-	Branch      string
+	project phases.ProjectInfo        // Minimal project info for templates
 }
 
 // New creates a new Review phase instance.
@@ -37,7 +31,7 @@ type ProjectInfo struct {
 // Parameters:
 //   - data: Pointer to the ReviewPhase data from project state
 //   - project: Basic project information for template rendering
-func New(data *phasesSchema.ReviewPhase, project ProjectInfo) *ReviewPhase {
+func New(data *phasesSchema.ReviewPhase, project phases.ProjectInfo) *ReviewPhase {
 	return &ReviewPhase{
 		data:    data,
 		project: project,
@@ -45,8 +39,8 @@ func New(data *phasesSchema.ReviewPhase, project ProjectInfo) *ReviewPhase {
 }
 
 // EntryState returns the state where this phase begins (ReviewActive).
-func (p *ReviewPhase) EntryState() phases.State {
-	return phases.ReviewActive
+func (p *ReviewPhase) EntryState() statechart.State {
+	return statechart.ReviewActive
 }
 
 // AddToMachine configures the review phase states in the state machine.
@@ -59,9 +53,9 @@ func (p *ReviewPhase) EntryState() phases.State {
 //
 // Note: The backward transition (EventReviewFail → ImplementationPlanning) is NOT
 // configured here - it's added by the project type as an exceptional transition.
-func (p *ReviewPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry phases.State) {
-	sm.Configure(phases.ReviewActive).
-		Permit(phases.EventReviewPass, nextPhaseEntry, p.latestReviewApprovedGuard).
+func (p *ReviewPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry statechart.State) {
+	sm.Configure(statechart.ReviewActive).
+		Permit(statechart.EventReviewPass, nextPhaseEntry, p.latestReviewApprovedGuard).
 		OnEntry(p.onActiveEntry)
 }
 
@@ -69,7 +63,7 @@ func (p *ReviewPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry ph
 func (p *ReviewPhase) Metadata() phases.PhaseMetadata {
 	return phases.PhaseMetadata{
 		Name:              "review",
-		States:            []phases.State{phases.ReviewActive},
+		States:            []statechart.State{statechart.ReviewActive},
 		SupportsTasks:     false,
 		SupportsArtifacts: false,
 		CustomFields: []phases.FieldDef{

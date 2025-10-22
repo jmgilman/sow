@@ -1,5 +1,7 @@
 package phases
 
+import "github.com/jmgilman/sow/cli/internal/project/statechart"
+
 // PhaseMetadata describes a phase's characteristics for validation and introspection.
 // This allows the CLI to understand what operations are valid for a given phase.
 type PhaseMetadata struct {
@@ -7,7 +9,7 @@ type PhaseMetadata struct {
 	Name string
 
 	// States lists all states that belong to this phase
-	States []State
+	States []statechart.State
 
 	// SupportsTasks indicates if this phase supports task management
 	SupportsTasks bool

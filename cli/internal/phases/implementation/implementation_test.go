@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/phases"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/qmuntal/stateless"
 )
@@ -20,7 +21,7 @@ func TestNew(t *testing.T) {
 		Tasks_approved: false,
 	}
 
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -34,15 +35,15 @@ func TestNew(t *testing.T) {
 }
 
 func TestEntryState(t *testing.T) {
-	phase := New(nil, ProjectInfo{})
+	phase := New(nil, phases.ProjectInfo{})
 
-	if phase.EntryState() != phases.ImplementationPlanning {
+	if phase.EntryState() != statechart.ImplementationPlanning {
 		t.Errorf("Expected entry state to be ImplementationPlanning, got %s", phase.EntryState())
 	}
 }
 
 func TestMetadata(t *testing.T) {
-	phase := New(nil, ProjectInfo{})
+	phase := New(nil, phases.ProjectInfo{})
 	meta := phase.Metadata()
 
 	if meta.Name != "implementation" {
@@ -63,7 +64,7 @@ func TestMetadata(t *testing.T) {
 }
 
 func TestAddToMachine(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.ImplementationPlanning)
+	sm := stateless.NewStateMachine(statechart.ImplementationPlanning)
 
 	// Provide data that will make guards pass
 	data := &phasesSchema.ImplementationPhase{
@@ -73,16 +74,16 @@ func TestAddToMachine(t *testing.T) {
 		Tasks_approved: true,
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
-	phase.AddToMachine(sm, phases.ReviewActive)
+	phase.AddToMachine(sm, statechart.ReviewActive)
 
-	canFire, _ := sm.CanFire(phases.EventTaskCreated)
+	canFire, _ := sm.CanFire(statechart.EventTaskCreated)
 	if !canFire {
 		t.Error("Expected EventTaskCreated to be configured")
 	}
 
-	canFire, _ = sm.CanFire(phases.EventTasksApproved)
+	canFire, _ = sm.CanFire(statechart.EventTasksApproved)
 	if !canFire {
 		t.Error("Expected EventTasksApproved to be configured")
 	}
@@ -93,7 +94,7 @@ func TestHasAtLeastOneTaskGuard_NoTasks(t *testing.T) {
 		Tasks: []phasesSchema.Task{},
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if phase.hasAtLeastOneTaskGuard(context.Background()) {
 		t.Error("Expected guard to fail with no tasks")
@@ -107,7 +108,7 @@ func TestHasAtLeastOneTaskGuard_WithTasks(t *testing.T) {
 		},
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if !phase.hasAtLeastOneTaskGuard(context.Background()) {
 		t.Error("Expected guard to pass with tasks")
@@ -122,7 +123,7 @@ func TestTasksApprovedGuard_NotApproved(t *testing.T) {
 		Tasks_approved: false,
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if phase.tasksApprovedGuard(context.Background()) {
 		t.Error("Expected guard to fail when tasks not approved")
@@ -137,7 +138,7 @@ func TestTasksApprovedGuard_Approved(t *testing.T) {
 		Tasks_approved: true,
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if !phase.tasksApprovedGuard(context.Background()) {
 		t.Error("Expected guard to pass when tasks approved")
@@ -149,7 +150,7 @@ func TestAllTasksCompleteGuard_NoTasks(t *testing.T) {
 		Tasks: []phasesSchema.Task{},
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if phase.allTasksCompleteGuard(context.Background()) {
 		t.Error("Expected guard to fail with no tasks")
@@ -164,7 +165,7 @@ func TestAllTasksCompleteGuard_SomeIncomplete(t *testing.T) {
 		},
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if phase.allTasksCompleteGuard(context.Background()) {
 		t.Error("Expected guard to fail when some tasks incomplete")
@@ -179,7 +180,7 @@ func TestAllTasksCompleteGuard_AllComplete(t *testing.T) {
 		},
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if !phase.allTasksCompleteGuard(context.Background()) {
 		t.Error("Expected guard to pass when all tasks complete")
@@ -194,7 +195,7 @@ func TestAllTasksCompleteGuard_WithAbandoned(t *testing.T) {
 		},
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if !phase.allTasksCompleteGuard(context.Background()) {
 		t.Error("Expected guard to pass with completed/abandoned tasks")
@@ -213,7 +214,7 @@ func TestPrepareTemplateData(t *testing.T) {
 		Tasks_approved: true,
 	}
 
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -248,7 +249,7 @@ func TestPrepareTemplateData(t *testing.T) {
 }
 
 func TestRenderPrompt_Planning(t *testing.T) {
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -267,7 +268,7 @@ func TestRenderPrompt_Planning(t *testing.T) {
 }
 
 func TestFullTransitionFlow_TaskCreated(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.ImplementationPlanning)
+	sm := stateless.NewStateMachine(statechart.ImplementationPlanning)
 
 	data := &phasesSchema.ImplementationPhase{
 		Tasks: []phasesSchema.Task{
@@ -276,20 +277,20 @@ func TestFullTransitionFlow_TaskCreated(t *testing.T) {
 		Tasks_approved: false,
 	}
 
-	phase := New(data, ProjectInfo{Name: "Test"})
-	phase.AddToMachine(sm, phases.ReviewActive)
+	phase := New(data, phases.ProjectInfo{Name: "Test"})
+	phase.AddToMachine(sm, statechart.ReviewActive)
 
 	// Transition via task created
-	sm.Fire(phases.EventTaskCreated)
+	sm.Fire(statechart.EventTaskCreated)
 
-	currentState := sm.MustState().(phases.State)
-	if currentState != phases.ImplementationExecuting {
+	currentState := sm.MustState().(statechart.State)
+	if currentState != statechart.ImplementationExecuting {
 		t.Errorf("Expected state to be ImplementationExecuting, got %s", currentState)
 	}
 }
 
 func TestFullTransitionFlow_TasksApproved(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.ImplementationPlanning)
+	sm := stateless.NewStateMachine(statechart.ImplementationPlanning)
 
 	data := &phasesSchema.ImplementationPhase{
 		Tasks: []phasesSchema.Task{
@@ -298,20 +299,20 @@ func TestFullTransitionFlow_TasksApproved(t *testing.T) {
 		Tasks_approved: true,
 	}
 
-	phase := New(data, ProjectInfo{Name: "Test"})
-	phase.AddToMachine(sm, phases.ReviewActive)
+	phase := New(data, phases.ProjectInfo{Name: "Test"})
+	phase.AddToMachine(sm, statechart.ReviewActive)
 
 	// Transition via tasks approved
-	sm.Fire(phases.EventTasksApproved)
+	sm.Fire(statechart.EventTasksApproved)
 
-	currentState := sm.MustState().(phases.State)
-	if currentState != phases.ImplementationExecuting {
+	currentState := sm.MustState().(statechart.State)
+	if currentState != statechart.ImplementationExecuting {
 		t.Errorf("Expected state to be ImplementationExecuting, got %s", currentState)
 	}
 }
 
 func TestFullTransitionFlow_AllTasksComplete(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.ImplementationExecuting)
+	sm := stateless.NewStateMachine(statechart.ImplementationExecuting)
 
 	data := &phasesSchema.ImplementationPhase{
 		Tasks: []phasesSchema.Task{
@@ -320,14 +321,14 @@ func TestFullTransitionFlow_AllTasksComplete(t *testing.T) {
 		},
 	}
 
-	phase := New(data, ProjectInfo{Name: "Test"})
-	phase.AddToMachine(sm, phases.ReviewActive)
+	phase := New(data, phases.ProjectInfo{Name: "Test"})
+	phase.AddToMachine(sm, statechart.ReviewActive)
 
 	// Transition to next phase
-	sm.Fire(phases.EventAllTasksComplete)
+	sm.Fire(statechart.EventAllTasksComplete)
 
-	currentState := sm.MustState().(phases.State)
-	if currentState != phases.ReviewActive {
+	currentState := sm.MustState().(statechart.State)
+	if currentState != statechart.ReviewActive {
 		t.Errorf("Expected state to be ReviewActive, got %s", currentState)
 	}
 }

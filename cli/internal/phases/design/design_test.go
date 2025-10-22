@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/phases"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/qmuntal/stateless"
 )
@@ -19,7 +20,7 @@ func TestNew(t *testing.T) {
 		Artifacts:  []phasesSchema.Artifact{},
 	}
 
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -37,15 +38,15 @@ func TestNew(t *testing.T) {
 }
 
 func TestEntryState(t *testing.T) {
-	phase := New(true, nil, ProjectInfo{})
+	phase := New(true, nil, phases.ProjectInfo{})
 
-	if phase.EntryState() != phases.DesignDecision {
+	if phase.EntryState() != statechart.DesignDecision {
 		t.Errorf("Expected entry state to be DesignDecision, got %s", phase.EntryState())
 	}
 }
 
 func TestMetadata(t *testing.T) {
-	phase := New(true, nil, ProjectInfo{})
+	phase := New(true, nil, phases.ProjectInfo{})
 	meta := phase.Metadata()
 
 	if meta.Name != "design" {
@@ -66,29 +67,29 @@ func TestMetadata(t *testing.T) {
 }
 
 func TestAddToMachine_Optional(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.DesignDecision)
-	phase := New(true, nil, ProjectInfo{})
+	sm := stateless.NewStateMachine(statechart.DesignDecision)
+	phase := New(true, nil, phases.ProjectInfo{})
 
-	phase.AddToMachine(sm, phases.ImplementationPlanning)
+	phase.AddToMachine(sm, statechart.ImplementationPlanning)
 
-	canFire, _ := sm.CanFire(phases.EventEnableDesign)
+	canFire, _ := sm.CanFire(statechart.EventEnableDesign)
 	if !canFire {
 		t.Error("Expected EventEnableDesign to be permitted")
 	}
 
-	canFire, _ = sm.CanFire(phases.EventSkipDesign)
+	canFire, _ = sm.CanFire(statechart.EventSkipDesign)
 	if !canFire {
 		t.Error("Expected EventSkipDesign to be permitted for optional phase")
 	}
 }
 
 func TestAddToMachine_Required(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.DesignDecision)
-	phase := New(false, nil, ProjectInfo{})
+	sm := stateless.NewStateMachine(statechart.DesignDecision)
+	phase := New(false, nil, phases.ProjectInfo{})
 
-	phase.AddToMachine(sm, phases.ImplementationPlanning)
+	phase.AddToMachine(sm, statechart.ImplementationPlanning)
 
-	canFire, _ := sm.CanFire(phases.EventSkipDesign)
+	canFire, _ := sm.CanFire(statechart.EventSkipDesign)
 	if canFire {
 		t.Error("Expected EventSkipDesign to NOT be permitted for required phase")
 	}
@@ -99,7 +100,7 @@ func TestArtifactsApprovedGuard_NoArtifacts(t *testing.T) {
 		Artifacts: []phasesSchema.Artifact{},
 	}
 
-	phase := New(true, data, ProjectInfo{})
+	phase := New(true, data, phases.ProjectInfo{})
 
 	if !phase.artifactsApprovedGuard(context.Background()) {
 		t.Error("Expected guard to pass with no artifacts")
@@ -114,7 +115,7 @@ func TestArtifactsApprovedGuard_AllApproved(t *testing.T) {
 		},
 	}
 
-	phase := New(true, data, ProjectInfo{})
+	phase := New(true, data, phases.ProjectInfo{})
 
 	if !phase.artifactsApprovedGuard(context.Background()) {
 		t.Error("Expected guard to pass when all artifacts approved")
@@ -129,7 +130,7 @@ func TestArtifactsApprovedGuard_SomeUnapproved(t *testing.T) {
 		},
 	}
 
-	phase := New(true, data, ProjectInfo{})
+	phase := New(true, data, phases.ProjectInfo{})
 
 	if phase.artifactsApprovedGuard(context.Background()) {
 		t.Error("Expected guard to fail when some artifacts unapproved")
@@ -146,7 +147,7 @@ func TestPrepareTemplateData(t *testing.T) {
 		},
 	}
 
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -169,7 +170,7 @@ func TestPrepareTemplateData(t *testing.T) {
 }
 
 func TestRenderPrompt_Decision(t *testing.T) {
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -188,7 +189,7 @@ func TestRenderPrompt_Decision(t *testing.T) {
 }
 
 func TestFullTransitionFlow(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.DesignDecision)
+	sm := stateless.NewStateMachine(statechart.DesignDecision)
 
 	data := &phasesSchema.DesignPhase{
 		Enabled:   true,
@@ -196,22 +197,22 @@ func TestFullTransitionFlow(t *testing.T) {
 		Artifacts: []phasesSchema.Artifact{},
 	}
 
-	phase := New(true, data, ProjectInfo{Name: "Test"})
-	phase.AddToMachine(sm, phases.ImplementationPlanning)
+	phase := New(true, data, phases.ProjectInfo{Name: "Test"})
+	phase.AddToMachine(sm, statechart.ImplementationPlanning)
 
 	// Enable design
-	sm.Fire(phases.EventEnableDesign)
+	sm.Fire(statechart.EventEnableDesign)
 
-	currentState := sm.MustState().(phases.State)
-	if currentState != phases.DesignActive {
+	currentState := sm.MustState().(statechart.State)
+	if currentState != statechart.DesignActive {
 		t.Errorf("Expected state to be DesignActive, got %s", currentState)
 	}
 
 	// Complete design
-	sm.Fire(phases.EventCompleteDesign)
+	sm.Fire(statechart.EventCompleteDesign)
 
-	currentState = sm.MustState().(phases.State)
-	if currentState != phases.ImplementationPlanning {
+	currentState = sm.MustState().(statechart.State)
+	if currentState != statechart.ImplementationPlanning {
 		t.Errorf("Expected state to be ImplementationPlanning, got %s", currentState)
 	}
 }

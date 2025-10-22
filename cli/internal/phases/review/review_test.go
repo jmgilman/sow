@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/phases"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/qmuntal/stateless"
 )
@@ -20,7 +21,7 @@ func TestNew(t *testing.T) {
 		Reports:    []phasesSchema.ReviewReport{},
 	}
 
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -34,15 +35,15 @@ func TestNew(t *testing.T) {
 }
 
 func TestEntryState(t *testing.T) {
-	phase := New(nil, ProjectInfo{})
+	phase := New(nil, phases.ProjectInfo{})
 
-	if phase.EntryState() != phases.ReviewActive {
+	if phase.EntryState() != statechart.ReviewActive {
 		t.Errorf("Expected entry state to be ReviewActive, got %s", phase.EntryState())
 	}
 }
 
 func TestMetadata(t *testing.T) {
-	phase := New(nil, ProjectInfo{})
+	phase := New(nil, phases.ProjectInfo{})
 	meta := phase.Metadata()
 
 	if meta.Name != "review" {
@@ -63,7 +64,7 @@ func TestMetadata(t *testing.T) {
 }
 
 func TestAddToMachine(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.ReviewActive)
+	sm := stateless.NewStateMachine(statechart.ReviewActive)
 
 	// Provide data that will make guard pass
 	data := &phasesSchema.ReviewPhase{
@@ -72,11 +73,11 @@ func TestAddToMachine(t *testing.T) {
 		},
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
-	phase.AddToMachine(sm, phases.FinalizeDocumentation)
+	phase.AddToMachine(sm, statechart.FinalizeDocumentation)
 
-	canFire, _ := sm.CanFire(phases.EventReviewPass)
+	canFire, _ := sm.CanFire(statechart.EventReviewPass)
 	if !canFire {
 		t.Error("Expected EventReviewPass to be configured")
 	}
@@ -87,7 +88,7 @@ func TestLatestReviewApprovedGuard_NoReports(t *testing.T) {
 		Reports: []phasesSchema.ReviewReport{},
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if phase.latestReviewApprovedGuard(context.Background()) {
 		t.Error("Expected guard to fail with no reports")
@@ -101,7 +102,7 @@ func TestLatestReviewApprovedGuard_LatestApproved(t *testing.T) {
 		},
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if !phase.latestReviewApprovedGuard(context.Background()) {
 		t.Error("Expected guard to pass with approved report")
@@ -115,7 +116,7 @@ func TestLatestReviewApprovedGuard_LatestNotApproved(t *testing.T) {
 		},
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if phase.latestReviewApprovedGuard(context.Background()) {
 		t.Error("Expected guard to fail with unapproved report")
@@ -127,7 +128,7 @@ func TestLatestReviewFailedGuard_NoReports(t *testing.T) {
 		Reports: []phasesSchema.ReviewReport{},
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if phase.LatestReviewFailedGuard(context.Background()) {
 		t.Error("Expected guard to fail with no reports")
@@ -141,7 +142,7 @@ func TestLatestReviewFailedGuard_LatestFailed(t *testing.T) {
 		},
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if !phase.LatestReviewFailedGuard(context.Background()) {
 		t.Error("Expected guard to pass with failed report")
@@ -155,7 +156,7 @@ func TestLatestReviewFailedGuard_LatestPassed(t *testing.T) {
 		},
 	}
 
-	phase := New(data, ProjectInfo{})
+	phase := New(data, phases.ProjectInfo{})
 
 	if phase.LatestReviewFailedGuard(context.Background()) {
 		t.Error("Expected guard to fail with passing report")
@@ -168,7 +169,7 @@ func TestPrepareTemplateData_FirstIteration(t *testing.T) {
 		Reports:   []phasesSchema.ReviewReport{},
 	}
 
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -194,7 +195,7 @@ func TestPrepareTemplateData_SecondIteration(t *testing.T) {
 		},
 	}
 
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -222,7 +223,7 @@ func TestRenderPrompt_Active(t *testing.T) {
 		Reports:   []phasesSchema.ReviewReport{},
 	}
 
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -241,7 +242,7 @@ func TestRenderPrompt_Active(t *testing.T) {
 }
 
 func TestFullTransitionFlow_Pass(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.ReviewActive)
+	sm := stateless.NewStateMachine(statechart.ReviewActive)
 
 	data := &phasesSchema.ReviewPhase{
 		Iteration: 1,
@@ -250,20 +251,20 @@ func TestFullTransitionFlow_Pass(t *testing.T) {
 		},
 	}
 
-	phase := New(data, ProjectInfo{Name: "Test"})
-	phase.AddToMachine(sm, phases.FinalizeDocumentation)
+	phase := New(data, phases.ProjectInfo{Name: "Test"})
+	phase.AddToMachine(sm, statechart.FinalizeDocumentation)
 
 	// Transition to finalize
-	sm.Fire(phases.EventReviewPass)
+	sm.Fire(statechart.EventReviewPass)
 
-	currentState := sm.MustState().(phases.State)
-	if currentState != phases.FinalizeDocumentation {
+	currentState := sm.MustState().(statechart.State)
+	if currentState != statechart.FinalizeDocumentation {
 		t.Errorf("Expected state to be FinalizeDocumentation, got %s", currentState)
 	}
 }
 
 func TestFullTransitionFlow_PassBlocked(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.ReviewActive)
+	sm := stateless.NewStateMachine(statechart.ReviewActive)
 
 	data := &phasesSchema.ReviewPhase{
 		Iteration: 1,
@@ -272,11 +273,11 @@ func TestFullTransitionFlow_PassBlocked(t *testing.T) {
 		},
 	}
 
-	phase := New(data, ProjectInfo{Name: "Test"})
-	phase.AddToMachine(sm, phases.FinalizeDocumentation)
+	phase := New(data, phases.ProjectInfo{Name: "Test"})
+	phase.AddToMachine(sm, statechart.FinalizeDocumentation)
 
 	// Try to transition to finalize (should be blocked)
-	canFire, _ := sm.CanFire(phases.EventReviewPass)
+	canFire, _ := sm.CanFire(statechart.EventReviewPass)
 	if canFire {
 		t.Error("Expected EventReviewPass to be blocked with unapproved report")
 	}

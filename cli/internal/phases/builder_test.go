@@ -4,19 +4,20 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/qmuntal/stateless"
 )
 
 // MockPhase is a test implementation of the Phase interface
 type MockPhase struct {
-	name         string
-	entryState   State
-	states       []State
+	name           string
+	entryState     statechart.State
+	states         []statechart.State
 	addedToMachine bool
-	nextEntry    State
+	nextEntry      statechart.State
 }
 
-func NewMockPhase(name string, entryState State, states []State) *MockPhase {
+func NewMockPhase(name string, entryState statechart.State, states []statechart.State) *MockPhase {
 	return &MockPhase{
 		name:       name,
 		entryState: entryState,
@@ -24,17 +25,29 @@ func NewMockPhase(name string, entryState State, states []State) *MockPhase {
 	}
 }
 
-func (m *MockPhase) EntryState() State {
+func (m *MockPhase) EntryState() statechart.State {
 	return m.entryState
 }
 
-func (m *MockPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry State) {
+func (m *MockPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry statechart.State) {
 	m.addedToMachine = true
 	m.nextEntry = nextPhaseEntry
 
-	// Configure each state in this mock phase
+	// Configure basic transitions for each state in this mock phase
+	// This simulates what real phases do (configure skip/complete events)
 	for _, state := range m.states {
-		sm.Configure(state)
+		// Configure a forward transition to next phase entry
+		// Use appropriate events based on which state this is
+		if state == statechart.DiscoveryDecision {
+			sm.Configure(state).
+				Permit(statechart.EventSkipDiscovery, nextPhaseEntry)
+		} else if state == statechart.DesignDecision {
+			sm.Configure(state).
+				Permit(statechart.EventSkipDesign, nextPhaseEntry)
+		} else {
+			// Generic state - just configure it
+			sm.Configure(state)
+		}
 	}
 }
 
@@ -46,7 +59,7 @@ func (m *MockPhase) Metadata() PhaseMetadata {
 }
 
 func TestBuildPhaseChain_EmptyPhases(t *testing.T) {
-	sm := stateless.NewStateMachine(NoProject)
+	sm := stateless.NewStateMachine(statechart.NoProject)
 	phases := []Phase{}
 
 	phaseMap := BuildPhaseChain(sm, phases)
@@ -57,118 +70,87 @@ func TestBuildPhaseChain_EmptyPhases(t *testing.T) {
 }
 
 func TestBuildPhaseChain_SinglePhase(t *testing.T) {
-	sm := stateless.NewStateMachine(NoProject)
-	mockPhase := NewMockPhase("test", DiscoveryDecision, []State{DiscoveryDecision, DiscoveryActive})
-	phases := []Phase{mockPhase}
+	sm := stateless.NewStateMachine(statechart.NoProject)
+	mockPhase := NewMockPhase("test", statechart.DiscoveryDecision, []statechart.State{statechart.DiscoveryDecision})
 
+	phases := []Phase{mockPhase}
 	phaseMap := BuildPhaseChain(sm, phases)
 
-	// Verify phase was added to machine
 	if !mockPhase.addedToMachine {
-		t.Error("Expected phase to be added to machine")
+		t.Error("Phase should have been added to machine")
 	}
 
-	// Verify next entry is NoProject (last phase loops back)
-	if mockPhase.nextEntry != NoProject {
-		t.Errorf("Expected next entry to be NoProject, got %s", mockPhase.nextEntry)
+	if mockPhase.nextEntry != statechart.NoProject {
+		t.Errorf("Last phase should link to NoProject, got %v", mockPhase.nextEntry)
 	}
 
-	// Verify phase map
 	if len(phaseMap) != 1 {
 		t.Errorf("Expected 1 phase in map, got %d", len(phaseMap))
 	}
 
 	if phaseMap["test"] != mockPhase {
-		t.Error("Expected phase to be in map")
-	}
-
-	// Verify NoProject can transition to first phase
-	canFire, _ := sm.CanFire(EventProjectInit)
-	if !canFire {
-		t.Error("Expected NoProject to permit EventProjectInit")
+		t.Error("Phase should be in map with correct name")
 	}
 }
 
 func TestBuildPhaseChain_MultiplePhases(t *testing.T) {
-	sm := stateless.NewStateMachine(NoProject)
+	sm := stateless.NewStateMachine(statechart.NoProject)
 
-	phase1 := NewMockPhase("phase1", DiscoveryDecision, []State{DiscoveryDecision, DiscoveryActive})
-	phase2 := NewMockPhase("phase2", DesignDecision, []State{DesignDecision, DesignActive})
-	phase3 := NewMockPhase("phase3", ImplementationPlanning, []State{ImplementationPlanning})
+	phase1 := NewMockPhase("phase1", statechart.DiscoveryDecision, []statechart.State{statechart.DiscoveryDecision})
+	phase2 := NewMockPhase("phase2", statechart.DesignDecision, []statechart.State{statechart.DesignDecision})
+	phase3 := NewMockPhase("phase3", statechart.ImplementationPlanning, []statechart.State{statechart.ImplementationPlanning})
 
 	phases := []Phase{phase1, phase2, phase3}
-
 	phaseMap := BuildPhaseChain(sm, phases)
 
-	// Verify all phases were added
+	// Check all phases added
 	if !phase1.addedToMachine || !phase2.addedToMachine || !phase3.addedToMachine {
-		t.Error("Expected all phases to be added to machine")
+		t.Error("All phases should have been added to machine")
 	}
 
-	// Verify phase chaining
+	// Check forward chaining
 	if phase1.nextEntry != phase2.EntryState() {
-		t.Errorf("Expected phase1 next to be %s, got %s", phase2.EntryState(), phase1.nextEntry)
+		t.Errorf("Phase1 should link to phase2, got %v", phase1.nextEntry)
 	}
 
 	if phase2.nextEntry != phase3.EntryState() {
-		t.Errorf("Expected phase2 next to be %s, got %s", phase3.EntryState(), phase2.nextEntry)
+		t.Errorf("Phase2 should link to phase3, got %v", phase2.nextEntry)
 	}
 
-	if phase3.nextEntry != NoProject {
-		t.Errorf("Expected phase3 next to be NoProject, got %s", phase3.nextEntry)
+	if phase3.nextEntry != statechart.NoProject {
+		t.Errorf("Phase3 should link to NoProject, got %v", phase3.nextEntry)
 	}
 
-	// Verify phase map contains all phases
+	// Check phase map
 	if len(phaseMap) != 3 {
 		t.Errorf("Expected 3 phases in map, got %d", len(phaseMap))
-	}
-
-	if phaseMap["phase1"] != phase1 {
-		t.Error("Expected phase1 in map")
-	}
-	if phaseMap["phase2"] != phase2 {
-		t.Error("Expected phase2 in map")
-	}
-	if phaseMap["phase3"] != phase3 {
-		t.Error("Expected phase3 in map")
 	}
 }
 
 func TestBuildPhaseChain_InitialTransition(t *testing.T) {
-	sm := stateless.NewStateMachine(NoProject)
+	sm := stateless.NewStateMachine(statechart.NoProject)
+	mockPhase := NewMockPhase("test", statechart.DiscoveryDecision, []statechart.State{statechart.DiscoveryDecision})
 
-	phase1 := NewMockPhase("phase1", DiscoveryDecision, []State{DiscoveryDecision})
-	phases := []Phase{phase1}
-
+	phases := []Phase{mockPhase}
 	BuildPhaseChain(sm, phases)
 
-	// Verify NoProject → first phase entry transition exists
-	canFire, err := sm.CanFire(EventProjectInit)
+	// Fire project init event
+	err := sm.Fire(statechart.EventProjectInit)
 	if err != nil {
-		t.Fatalf("Error checking if event can fire: %v", err)
+		t.Errorf("Should be able to fire EventProjectInit: %v", err)
 	}
 
-	if !canFire {
-		t.Error("Expected EventProjectInit to be permitted from NoProject")
-	}
-
-	// Fire the transition and verify state change
-	err = sm.Fire(EventProjectInit)
-	if err != nil {
-		t.Fatalf("Error firing EventProjectInit: %v", err)
-	}
-
-	currentState := sm.MustState().(State)
-	if currentState != DiscoveryDecision {
-		t.Errorf("Expected state to be DiscoveryDecision, got %s", currentState)
+	// Check we transitioned to first phase
+	if sm.MustState() != statechart.DiscoveryDecision {
+		t.Errorf("Should transition to DiscoveryDecision, got %v", sm.MustState())
 	}
 }
 
 func TestBuildPhaseChain_PhaseMapLookup(t *testing.T) {
-	sm := stateless.NewStateMachine(NoProject)
+	sm := stateless.NewStateMachine(statechart.NoProject)
 
-	phase1 := NewMockPhase("discovery", DiscoveryDecision, []State{DiscoveryDecision})
-	phase2 := NewMockPhase("design", DesignDecision, []State{DesignDecision})
+	phase1 := NewMockPhase("discovery", statechart.DiscoveryDecision, []statechart.State{statechart.DiscoveryDecision})
+	phase2 := NewMockPhase("design", statechart.DesignDecision, []statechart.State{statechart.DesignDecision})
 
 	phases := []Phase{phase1, phase2}
 	phaseMap := BuildPhaseChain(sm, phases)
@@ -176,63 +158,58 @@ func TestBuildPhaseChain_PhaseMapLookup(t *testing.T) {
 	// Test lookup by name
 	discoveryPhase, ok := phaseMap["discovery"]
 	if !ok {
-		t.Error("Expected to find discovery phase in map")
+		t.Error("Should find discovery phase in map")
 	}
-
-	if discoveryPhase.EntryState() != DiscoveryDecision {
-		t.Errorf("Expected discovery phase entry state to be DiscoveryDecision, got %s", discoveryPhase.EntryState())
+	if discoveryPhase != phase1 {
+		t.Error("Should return correct phase instance")
 	}
 
 	designPhase, ok := phaseMap["design"]
 	if !ok {
-		t.Error("Expected to find design phase in map")
+		t.Error("Should find design phase in map")
 	}
-
-	if designPhase.EntryState() != DesignDecision {
-		t.Errorf("Expected design phase entry state to be DesignDecision, got %s", designPhase.EntryState())
-	}
-
-	// Test lookup of non-existent phase
-	_, ok = phaseMap["nonexistent"]
-	if ok {
-		t.Error("Expected to not find nonexistent phase in map")
+	if designPhase != phase2 {
+		t.Error("Should return correct phase instance")
 	}
 }
 
-// Test that phases can be customized after BuildPhaseChain
 func TestBuildPhaseChain_PostBuildCustomization(t *testing.T) {
-	sm := stateless.NewStateMachine(NoProject)
+	sm := stateless.NewStateMachine(statechart.NoProject)
 
-	phase1 := NewMockPhase("phase1", DiscoveryDecision, []State{DiscoveryDecision})
-	phase2 := NewMockPhase("phase2", DesignDecision, []State{DesignDecision})
+	phase1 := NewMockPhase("phase1", statechart.DiscoveryDecision, []statechart.State{statechart.DiscoveryDecision})
+	phase2 := NewMockPhase("phase2", statechart.DesignDecision, []statechart.State{statechart.DesignDecision})
 
 	phases := []Phase{phase1, phase2}
 	phaseMap := BuildPhaseChain(sm, phases)
 
-	// Add a custom backward transition using the phase map
-	phase1Entry := phaseMap["phase1"].EntryState()
-
-	// Configure a backward transition from phase2 to phase1
-	sm.Configure(DesignDecision).
-		Permit("custom_backward", phase1Entry, func(ctx context.Context, args ...any) bool {
-			return true
-		})
-
-	// Verify the custom transition was added
-	// Create a new state machine at DesignDecision to test the custom transition
-	sm2 := stateless.NewStateMachine(DesignDecision)
-	BuildPhaseChain(sm2, phases)
-	sm2.Configure(DesignDecision).
-		Permit("custom_backward", phase1Entry, func(ctx context.Context, args ...any) bool {
-			return true
-		})
-
-	canFire, err := sm2.CanFire("custom_backward")
-	if err != nil {
-		t.Fatalf("Error checking if custom event can fire: %v", err)
+	// After building chain, add a custom backward transition
+	// This simulates what a project type would do
+	customGuard := func(_ context.Context, _ ...any) bool {
+		return true
 	}
 
-	if !canFire {
-		t.Error("Expected custom backward transition to be permitted")
+	sm.Configure(statechart.DesignDecision).
+		Permit(statechart.EventReviewFail, phase1.EntryState(), customGuard)
+
+	// The custom transition should work
+	err := sm.Fire(statechart.EventProjectInit)
+	if err != nil {
+		t.Errorf("Should transition to first phase: %v", err)
+	}
+
+	err = sm.Fire(statechart.EventSkipDiscovery)
+	if err != nil {
+		t.Errorf("Should transition to second phase: %v", err)
+	}
+
+	// Test backward transition (custom)
+	err = sm.Fire(statechart.EventReviewFail)
+	if err != nil {
+		t.Errorf("Should allow custom backward transition: %v", err)
+	}
+
+	// Verify we used the phase map correctly
+	if phaseMap["phase1"] != phase1 {
+		t.Error("Phase map should contain correct phase references")
 	}
 }

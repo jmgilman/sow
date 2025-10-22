@@ -13,6 +13,7 @@ import (
 	"text/template"
 
 	"github.com/jmgilman/sow/cli/internal/phases"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/qmuntal/stateless"
 )
@@ -23,14 +24,7 @@ var templates embed.FS
 // ImplementationPhase implements the Phase interface for the implementation phase.
 type ImplementationPhase struct {
 	data    *phasesSchema.ImplementationPhase // Phase data from project state
-	project ProjectInfo                       // Minimal project info for templates
-}
-
-// ProjectInfo holds minimal project information needed for template rendering.
-type ProjectInfo struct {
-	Name        string
-	Description string
-	Branch      string
+	project phases.ProjectInfo                // Minimal project info for templates
 }
 
 // New creates a new Implementation phase instance.
@@ -38,7 +32,7 @@ type ProjectInfo struct {
 // Parameters:
 //   - data: Pointer to the ImplementationPhase data from project state
 //   - project: Basic project information for template rendering
-func New(data *phasesSchema.ImplementationPhase, project ProjectInfo) *ImplementationPhase {
+func New(data *phasesSchema.ImplementationPhase, project phases.ProjectInfo) *ImplementationPhase {
 	return &ImplementationPhase{
 		data:    data,
 		project: project,
@@ -46,8 +40,8 @@ func New(data *phasesSchema.ImplementationPhase, project ProjectInfo) *Implement
 }
 
 // EntryState returns the state where this phase begins (ImplementationPlanning).
-func (p *ImplementationPhase) EntryState() phases.State {
-	return phases.ImplementationPlanning
+func (p *ImplementationPhase) EntryState() statechart.State {
+	return statechart.ImplementationPlanning
 }
 
 // AddToMachine configures the implementation phase states in the state machine.
@@ -60,16 +54,16 @@ func (p *ImplementationPhase) EntryState() phases.State {
 // - ImplementationPlanning → ImplementationExecuting (EventTaskCreated, guard: has at least one task)
 // - ImplementationPlanning → ImplementationExecuting (EventTasksApproved, guard: tasks approved)
 // - ImplementationExecuting → nextPhaseEntry (EventAllTasksComplete, guard: all tasks complete)
-func (p *ImplementationPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry phases.State) {
+func (p *ImplementationPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry statechart.State) {
 	// Configure planning state
-	sm.Configure(phases.ImplementationPlanning).
-		Permit(phases.EventTaskCreated, phases.ImplementationExecuting, p.hasAtLeastOneTaskGuard).
-		Permit(phases.EventTasksApproved, phases.ImplementationExecuting, p.tasksApprovedGuard).
+	sm.Configure(statechart.ImplementationPlanning).
+		Permit(statechart.EventTaskCreated, statechart.ImplementationExecuting, p.hasAtLeastOneTaskGuard).
+		Permit(statechart.EventTasksApproved, statechart.ImplementationExecuting, p.tasksApprovedGuard).
 		OnEntry(p.onPlanningEntry)
 
 	// Configure executing state
-	sm.Configure(phases.ImplementationExecuting).
-		Permit(phases.EventAllTasksComplete, nextPhaseEntry, p.allTasksCompleteGuard).
+	sm.Configure(statechart.ImplementationExecuting).
+		Permit(statechart.EventAllTasksComplete, nextPhaseEntry, p.allTasksCompleteGuard).
 		OnEntry(p.onExecutingEntry)
 }
 
@@ -77,7 +71,7 @@ func (p *ImplementationPhase) AddToMachine(sm *stateless.StateMachine, nextPhase
 func (p *ImplementationPhase) Metadata() phases.PhaseMetadata {
 	return phases.PhaseMetadata{
 		Name:          "implementation",
-		States:        []phases.State{phases.ImplementationPlanning, phases.ImplementationExecuting},
+		States:        []statechart.State{statechart.ImplementationPlanning, statechart.ImplementationExecuting},
 		SupportsTasks: true,
 		SupportsArtifacts: false,
 		CustomFields: []phases.FieldDef{

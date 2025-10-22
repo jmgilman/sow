@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/phases"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/qmuntal/stateless"
 )
@@ -19,7 +20,7 @@ func TestNew(t *testing.T) {
 		Artifacts:  []phasesSchema.Artifact{},
 	}
 
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -45,15 +46,15 @@ func TestNew(t *testing.T) {
 }
 
 func TestEntryState(t *testing.T) {
-	phase := New(true, nil, ProjectInfo{})
+	phase := New(true, nil, phases.ProjectInfo{})
 
-	if phase.EntryState() != phases.DiscoveryDecision {
+	if phase.EntryState() != statechart.DiscoveryDecision {
 		t.Errorf("Expected entry state to be DiscoveryDecision, got %s", phase.EntryState())
 	}
 }
 
 func TestMetadata(t *testing.T) {
-	phase := New(true, nil, ProjectInfo{})
+	phase := New(true, nil, phases.ProjectInfo{})
 	meta := phase.Metadata()
 
 	if meta.Name != "discovery" {
@@ -64,9 +65,9 @@ func TestMetadata(t *testing.T) {
 		t.Errorf("Expected 2 states, got %d", len(meta.States))
 	}
 
-	expectedStates := map[phases.State]bool{
-		phases.DiscoveryDecision: true,
-		phases.DiscoveryActive:   true,
+	expectedStates := map[statechart.State]bool{
+		statechart.DiscoveryDecision: true,
+		statechart.DiscoveryActive:   true,
 	}
 
 	for _, state := range meta.States {
@@ -97,13 +98,13 @@ func TestMetadata(t *testing.T) {
 }
 
 func TestAddToMachine_Optional(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.DiscoveryDecision)
-	phase := New(true, nil, ProjectInfo{})
+	sm := stateless.NewStateMachine(statechart.DiscoveryDecision)
+	phase := New(true, nil, phases.ProjectInfo{})
 
-	phase.AddToMachine(sm, phases.DesignDecision)
+	phase.AddToMachine(sm, statechart.DesignDecision)
 
 	// Verify DiscoveryDecision permits EventEnableDiscovery
-	canFire, err := sm.CanFire(phases.EventEnableDiscovery)
+	canFire, err := sm.CanFire(statechart.EventEnableDiscovery)
 	if err != nil {
 		t.Fatalf("Error checking EventEnableDiscovery: %v", err)
 	}
@@ -112,7 +113,7 @@ func TestAddToMachine_Optional(t *testing.T) {
 	}
 
 	// Verify DiscoveryDecision permits EventSkipDiscovery (optional)
-	canFire, err = sm.CanFire(phases.EventSkipDiscovery)
+	canFire, err = sm.CanFire(statechart.EventSkipDiscovery)
 	if err != nil {
 		t.Fatalf("Error checking EventSkipDiscovery: %v", err)
 	}
@@ -122,13 +123,13 @@ func TestAddToMachine_Optional(t *testing.T) {
 }
 
 func TestAddToMachine_Required(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.DiscoveryDecision)
-	phase := New(false, nil, ProjectInfo{}) // Not optional
+	sm := stateless.NewStateMachine(statechart.DiscoveryDecision)
+	phase := New(false, nil, phases.ProjectInfo{}) // Not optional
 
-	phase.AddToMachine(sm, phases.DesignDecision)
+	phase.AddToMachine(sm, statechart.DesignDecision)
 
 	// Verify DiscoveryDecision permits EventEnableDiscovery
-	canFire, err := sm.CanFire(phases.EventEnableDiscovery)
+	canFire, err := sm.CanFire(statechart.EventEnableDiscovery)
 	if err != nil {
 		t.Fatalf("Error checking EventEnableDiscovery: %v", err)
 	}
@@ -137,7 +138,7 @@ func TestAddToMachine_Required(t *testing.T) {
 	}
 
 	// Verify DiscoveryDecision does NOT permit EventSkipDiscovery (required)
-	canFire, err = sm.CanFire(phases.EventSkipDiscovery)
+	canFire, err = sm.CanFire(statechart.EventSkipDiscovery)
 	if err != nil {
 		t.Fatalf("Error checking EventSkipDiscovery: %v", err)
 	}
@@ -147,7 +148,7 @@ func TestAddToMachine_Required(t *testing.T) {
 }
 
 func TestAddToMachine_ActiveState(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.DiscoveryActive)
+	sm := stateless.NewStateMachine(statechart.DiscoveryActive)
 
 	data := &phasesSchema.DiscoveryPhase{
 		Enabled:   true,
@@ -155,11 +156,11 @@ func TestAddToMachine_ActiveState(t *testing.T) {
 		Artifacts: []phasesSchema.Artifact{},
 	}
 
-	phase := New(true, data, ProjectInfo{})
-	phase.AddToMachine(sm, phases.DesignDecision)
+	phase := New(true, data, phases.ProjectInfo{})
+	phase.AddToMachine(sm, statechart.DesignDecision)
 
 	// Verify DiscoveryActive permits EventCompleteDiscovery (with guard)
-	canFire, err := sm.CanFire(phases.EventCompleteDiscovery)
+	canFire, err := sm.CanFire(statechart.EventCompleteDiscovery)
 	if err != nil {
 		t.Fatalf("Error checking EventCompleteDiscovery: %v", err)
 	}
@@ -175,7 +176,7 @@ func TestArtifactsApprovedGuard_NoArtifacts(t *testing.T) {
 		Artifacts: []phasesSchema.Artifact{},
 	}
 
-	phase := New(true, data, ProjectInfo{})
+	phase := New(true, data, phases.ProjectInfo{})
 
 	if !phase.artifactsApprovedGuard(context.Background()) {
 		t.Error("Expected guard to pass with no artifacts")
@@ -190,7 +191,7 @@ func TestArtifactsApprovedGuard_AllApproved(t *testing.T) {
 		},
 	}
 
-	phase := New(true, data, ProjectInfo{})
+	phase := New(true, data, phases.ProjectInfo{})
 
 	if !phase.artifactsApprovedGuard(context.Background()) {
 		t.Error("Expected guard to pass when all artifacts approved")
@@ -205,7 +206,7 @@ func TestArtifactsApprovedGuard_SomeUnapproved(t *testing.T) {
 		},
 	}
 
-	phase := New(true, data, ProjectInfo{})
+	phase := New(true, data, phases.ProjectInfo{})
 
 	if phase.artifactsApprovedGuard(context.Background()) {
 		t.Error("Expected guard to fail when some artifacts unapproved")
@@ -213,7 +214,7 @@ func TestArtifactsApprovedGuard_SomeUnapproved(t *testing.T) {
 }
 
 func TestArtifactsApprovedGuard_NilData(t *testing.T) {
-	phase := New(true, nil, ProjectInfo{})
+	phase := New(true, nil, phases.ProjectInfo{})
 
 	if phase.artifactsApprovedGuard(context.Background()) {
 		t.Error("Expected guard to fail when data is nil")
@@ -230,7 +231,7 @@ func TestPrepareTemplateData(t *testing.T) {
 		},
 	}
 
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -268,7 +269,7 @@ func TestPrepareTemplateData(t *testing.T) {
 }
 
 func TestRenderPrompt_Decision(t *testing.T) {
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -302,7 +303,7 @@ func TestRenderPrompt_Active(t *testing.T) {
 		},
 	}
 
-	project := ProjectInfo{
+	project := phases.ProjectInfo{
 		Name:        "Test Project",
 		Description: "Test Description",
 		Branch:      "test-branch",
@@ -328,7 +329,7 @@ func TestRenderPrompt_Active(t *testing.T) {
 }
 
 func TestFullTransitionFlow_Optional(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.DiscoveryDecision)
+	sm := stateless.NewStateMachine(statechart.DiscoveryDecision)
 
 	data := &phasesSchema.DiscoveryPhase{
 		Enabled:   true,
@@ -336,23 +337,23 @@ func TestFullTransitionFlow_Optional(t *testing.T) {
 		Artifacts: []phasesSchema.Artifact{},
 	}
 
-	phase := New(true, data, ProjectInfo{Name: "Test"})
-	phase.AddToMachine(sm, phases.DesignDecision)
+	phase := New(true, data, phases.ProjectInfo{Name: "Test"})
+	phase.AddToMachine(sm, statechart.DesignDecision)
 
 	// Test skip path
-	err := sm.Fire(phases.EventSkipDiscovery)
+	err := sm.Fire(statechart.EventSkipDiscovery)
 	if err != nil {
 		t.Fatalf("Error firing EventSkipDiscovery: %v", err)
 	}
 
-	currentState := sm.MustState().(phases.State)
-	if currentState != phases.DesignDecision {
+	currentState := sm.MustState().(statechart.State)
+	if currentState != statechart.DesignDecision {
 		t.Errorf("Expected state to be DesignDecision after skip, got %s", currentState)
 	}
 }
 
 func TestFullTransitionFlow_EnableAndComplete(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.DiscoveryDecision)
+	sm := stateless.NewStateMachine(statechart.DiscoveryDecision)
 
 	data := &phasesSchema.DiscoveryPhase{
 		Enabled:   true,
@@ -360,34 +361,34 @@ func TestFullTransitionFlow_EnableAndComplete(t *testing.T) {
 		Artifacts: []phasesSchema.Artifact{},
 	}
 
-	phase := New(true, data, ProjectInfo{Name: "Test"})
-	phase.AddToMachine(sm, phases.DesignDecision)
+	phase := New(true, data, phases.ProjectInfo{Name: "Test"})
+	phase.AddToMachine(sm, statechart.DesignDecision)
 
 	// Enable discovery
-	err := sm.Fire(phases.EventEnableDiscovery)
+	err := sm.Fire(statechart.EventEnableDiscovery)
 	if err != nil {
 		t.Fatalf("Error firing EventEnableDiscovery: %v", err)
 	}
 
-	currentState := sm.MustState().(phases.State)
-	if currentState != phases.DiscoveryActive {
+	currentState := sm.MustState().(statechart.State)
+	if currentState != statechart.DiscoveryActive {
 		t.Errorf("Expected state to be DiscoveryActive after enable, got %s", currentState)
 	}
 
 	// Complete discovery (no artifacts, guard passes)
-	err = sm.Fire(phases.EventCompleteDiscovery)
+	err = sm.Fire(statechart.EventCompleteDiscovery)
 	if err != nil {
 		t.Fatalf("Error firing EventCompleteDiscovery: %v", err)
 	}
 
-	currentState = sm.MustState().(phases.State)
-	if currentState != phases.DesignDecision {
+	currentState = sm.MustState().(statechart.State)
+	if currentState != statechart.DesignDecision {
 		t.Errorf("Expected state to be DesignDecision after complete, got %s", currentState)
 	}
 }
 
 func TestFullTransitionFlow_CompleteWithApprovedArtifacts(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.DiscoveryActive)
+	sm := stateless.NewStateMachine(statechart.DiscoveryActive)
 
 	data := &phasesSchema.DiscoveryPhase{
 		Enabled: true,
@@ -397,23 +398,23 @@ func TestFullTransitionFlow_CompleteWithApprovedArtifacts(t *testing.T) {
 		},
 	}
 
-	phase := New(true, data, ProjectInfo{Name: "Test"})
-	phase.AddToMachine(sm, phases.DesignDecision)
+	phase := New(true, data, phases.ProjectInfo{Name: "Test"})
+	phase.AddToMachine(sm, statechart.DesignDecision)
 
 	// Complete discovery (artifacts approved, guard passes)
-	err := sm.Fire(phases.EventCompleteDiscovery)
+	err := sm.Fire(statechart.EventCompleteDiscovery)
 	if err != nil {
 		t.Fatalf("Error firing EventCompleteDiscovery: %v", err)
 	}
 
-	currentState := sm.MustState().(phases.State)
-	if currentState != phases.DesignDecision {
+	currentState := sm.MustState().(statechart.State)
+	if currentState != statechart.DesignDecision {
 		t.Errorf("Expected state to be DesignDecision after complete, got %s", currentState)
 	}
 }
 
 func TestFullTransitionFlow_CompleteBlockedByUnapprovedArtifacts(t *testing.T) {
-	sm := stateless.NewStateMachine(phases.DiscoveryActive)
+	sm := stateless.NewStateMachine(statechart.DiscoveryActive)
 
 	data := &phasesSchema.DiscoveryPhase{
 		Enabled: true,
@@ -423,11 +424,11 @@ func TestFullTransitionFlow_CompleteBlockedByUnapprovedArtifacts(t *testing.T) {
 		},
 	}
 
-	phase := New(true, data, ProjectInfo{Name: "Test"})
-	phase.AddToMachine(sm, phases.DesignDecision)
+	phase := New(true, data, phases.ProjectInfo{Name: "Test"})
+	phase.AddToMachine(sm, statechart.DesignDecision)
 
 	// Try to complete discovery (artifacts not approved, guard fails)
-	canFire, err := sm.CanFire(phases.EventCompleteDiscovery)
+	canFire, err := sm.CanFire(statechart.EventCompleteDiscovery)
 	if err != nil {
 		t.Fatalf("Error checking EventCompleteDiscovery: %v", err)
 	}

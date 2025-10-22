@@ -1,6 +1,9 @@
 package phases
 
-import "github.com/qmuntal/stateless"
+import (
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
+	"github.com/qmuntal/stateless"
+)
 
 // BuildPhaseChain wires up a sequence of phases into a state machine.
 //
@@ -39,8 +42,8 @@ func BuildPhaseChain(sm *stateless.StateMachine, phases []Phase) PhaseMap {
 	phaseMap := make(PhaseMap)
 
 	// Configure initial transition: NoProject → first phase
-	sm.Configure(NoProject).
-		Permit(EventProjectInit, phases[0].EntryState())
+	sm.Configure(statechart.NoProject).
+		Permit(statechart.EventProjectInit, phases[0].EntryState())
 
 	// Chain phases together
 	for i, phase := range phases {
@@ -48,13 +51,13 @@ func BuildPhaseChain(sm *stateless.StateMachine, phases []Phase) PhaseMap {
 		phaseMap[phase.Metadata().Name] = phase
 
 		// Determine next phase entry state
-		var nextEntry State
+		var nextEntry statechart.State
 		if i < len(phases)-1 {
 			// Link to next phase
 			nextEntry = phases[i+1].EntryState()
 		} else {
 			// Last phase loops back to NoProject
-			nextEntry = NoProject
+			nextEntry = statechart.NoProject
 		}
 
 		// Let the phase configure its states and transitions

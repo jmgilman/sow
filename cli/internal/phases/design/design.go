@@ -13,6 +13,7 @@ import (
 	"text/template"
 
 	"github.com/jmgilman/sow/cli/internal/phases"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/qmuntal/stateless"
 )
@@ -22,16 +23,9 @@ var templates embed.FS
 
 // DesignPhase implements the Phase interface for the design phase.
 type DesignPhase struct {
-	optional bool                     // Whether this phase can be skipped
+	optional bool                      // Whether this phase can be skipped
 	data     *phasesSchema.DesignPhase // Phase data from project state
-	project  ProjectInfo              // Minimal project info for templates
-}
-
-// ProjectInfo holds minimal project information needed for template rendering.
-type ProjectInfo struct {
-	Name        string
-	Description string
-	Branch      string
+	project  phases.ProjectInfo        // Minimal project info for templates
 }
 
 // New creates a new Design phase instance.
@@ -40,7 +34,7 @@ type ProjectInfo struct {
 //   - optional: If true, the phase can be skipped via EventSkipDesign
 //   - data: Pointer to the DesignPhase data from project state
 //   - project: Basic project information for template rendering
-func New(optional bool, data *phasesSchema.DesignPhase, project ProjectInfo) *DesignPhase {
+func New(optional bool, data *phasesSchema.DesignPhase, project phases.ProjectInfo) *DesignPhase {
 	return &DesignPhase{
 		optional: optional,
 		data:     data,
@@ -49,8 +43,8 @@ func New(optional bool, data *phasesSchema.DesignPhase, project ProjectInfo) *De
 }
 
 // EntryState returns the state where this phase begins (DesignDecision).
-func (p *DesignPhase) EntryState() phases.State {
-	return phases.DesignDecision
+func (p *DesignPhase) EntryState() statechart.State {
+	return statechart.DesignDecision
 }
 
 // AddToMachine configures the design phase states in the state machine.
@@ -63,20 +57,20 @@ func (p *DesignPhase) EntryState() phases.State {
 // - DesignDecision → DesignActive (EventEnableDesign)
 // - DesignDecision → nextPhaseEntry (EventSkipDesign, if optional)
 // - DesignActive → nextPhaseEntry (EventCompleteDesign, guard: artifacts approved)
-func (p *DesignPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry phases.State) {
+func (p *DesignPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry statechart.State) {
 	// Configure decision state
-	decisionConfig := sm.Configure(phases.DesignDecision).
-		Permit(phases.EventEnableDesign, phases.DesignActive).
+	decisionConfig := sm.Configure(statechart.DesignDecision).
+		Permit(statechart.EventEnableDesign, statechart.DesignActive).
 		OnEntry(p.onDecisionEntry)
 
 	// If optional, allow skipping
 	if p.optional {
-		decisionConfig.Permit(phases.EventSkipDesign, nextPhaseEntry)
+		decisionConfig.Permit(statechart.EventSkipDesign, nextPhaseEntry)
 	}
 
 	// Configure active state
-	sm.Configure(phases.DesignActive).
-		Permit(phases.EventCompleteDesign, nextPhaseEntry, p.artifactsApprovedGuard).
+	sm.Configure(statechart.DesignActive).
+		Permit(statechart.EventCompleteDesign, nextPhaseEntry, p.artifactsApprovedGuard).
 		OnEntry(p.onActiveEntry)
 }
 
@@ -84,7 +78,7 @@ func (p *DesignPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry ph
 func (p *DesignPhase) Metadata() phases.PhaseMetadata {
 	return phases.PhaseMetadata{
 		Name:              "design",
-		States:            []phases.State{phases.DesignDecision, phases.DesignActive},
+		States:            []statechart.State{statechart.DesignDecision, statechart.DesignActive},
 		SupportsTasks:     false,
 		SupportsArtifacts: true,
 		CustomFields: []phases.FieldDef{

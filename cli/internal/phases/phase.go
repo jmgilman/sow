@@ -1,6 +1,9 @@
 package phases
 
-import "github.com/qmuntal/stateless"
+import (
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
+	"github.com/qmuntal/stateless"
+)
 
 // Phase represents a reusable phase in the project lifecycle.
 // Phases are "lego blocks" that add states and transitions to the state machine.
@@ -25,11 +28,11 @@ type Phase interface {
 	// allowing this phase to transition forward when complete.
 	//
 	// For the last phase in a chain, nextPhaseEntry should be NoProject.
-	AddToMachine(sm *stateless.StateMachine, nextPhaseEntry State)
+	AddToMachine(sm *stateless.StateMachine, nextPhaseEntry statechart.State)
 
 	// EntryState returns the state where this phase begins.
 	// This is used by BuildPhaseChain to wire phases together.
-	EntryState() State
+	EntryState() statechart.State
 
 	// Metadata returns descriptive information about this phase.
 	// Used by the CLI for validation and introspection.
