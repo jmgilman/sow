@@ -297,6 +297,247 @@ The sow CLI validator has been **reverted to use the custom loader** and validat
 
 ---
 
+## 2025-01-22: Phase 2 Complete - Phase Library Foundation Implemented
+
+### Summary
+
+Successfully implemented the foundation for the composable phase library, including core abstractions, the BuildPhaseChain meta-helper, and the first concrete phase implementation (Discovery).
+
+### What Was Built
+
+**1. Core Type System** (`internal/phases/`)
+- `phase.go` - Phase interface with 3 methods:
+  - `AddToMachine()` - Configure states and transitions
+  - `EntryState()` - Return phase entry point
+  - `Metadata()` - Provide phase characteristics for CLI
+- `metadata.go` - PhaseMetadata and FieldDef types for validation
+- `states.go` - 11 state constants shared across all phases
+- `events.go` - 13 event constants for state transitions
+
+**2. BuildPhaseChain Meta-Helper** (`internal/phases/builder.go`)
+- Wires up phase sequences automatically
+- Configures `NoProject → first phase` transition
+- Chains phases by linking completion to next entry
+- Returns `PhaseMap` for project-specific customization
+- Enables backward transitions and overrides
+
+**3. Discovery Phase** (`internal/phases/discovery/`)
+- First concrete phase implementation
+- Optional/required mode support
+- Two states: `DiscoveryDecision` → `DiscoveryActive`
+- Artifact approval guard
+- Embedded templates via `go:embed`
+- Templates: `decision.md`, `active.md`
+- Phase-scoped data (no cross-phase dependencies)
+
+**4. Template System Architecture**
+- Templates embedded in phase packages
+- Rendered with Go's `text/template`
+- Phase receives only its own data + minimal project info
+- Type-safe rendering with generated CUE types
+
+### Test Coverage
+
+- ✅ 6 BuildPhaseChain tests (empty, single, multiple phases, customization)
+- ✅ 17 Discovery phase tests (state machine, guards, rendering, full flows)
+- ✅ All tests passing, build succeeds
+
+### Key Design Decisions
+
+**1. Phase owns its templates**
+- Templates colocated in `internal/phases/<phase>/templates/`
+- No centralized template management
+- Phases are self-contained "lego blocks"
+
+**2. Phase receives only its data**
+- Constructor takes `*schemas.<Phase>Phase` and `ProjectInfo`
+- No access to other phases or full project state
+- Clean separation of concerns
+
+**3. Guards are phase methods**
+- Each phase implements its own guard logic
+- Guards access phase data via closure
+- Type-safe, no reflection needed
+
+**4. Builder enables customization**
+- Returns `PhaseMap` for looking up phases by name
+- Projects can add exceptional transitions after chaining
+- Example: Review fail → Implementation (backward loop)
+
+### Files Created
+
+```
+internal/phases/
+├── phase.go              # 35 lines
+├── metadata.go           # 45 lines
+├── states.go             # 76 lines
+├── events.go             # 82 lines
+├── builder.go            # 65 lines
+├── builder_test.go       # 238 lines (6 tests)
+│
+└── discovery/
+    ├── discovery.go      # 202 lines
+    ├── discovery_test.go # 330 lines (17 tests)
+    └── templates/
+        ├── decision.md   # 56 lines
+        └── active.md     # 28 lines
+```
+
+**Total:** ~1,157 lines of production code + tests
+
+### Status
+
+✅ **COMPLETE** - Phase 2 successfully delivered. Foundation is in place to easily add remaining 4 phases in Phase 3.
+
+---
+
+## 2025-01-22: Phase 3 Complete - All 5 Standard Phases Implemented
+
+### Summary
+
+Implemented the remaining 4 phases (Design, Implementation, Review, Finalize) to complete the full standard project lifecycle. All phases are fully tested and working.
+
+### Phases Implemented
+
+**1. Design Phase** (`internal/phases/design/`)
+- Pattern: Optional decision (same as Discovery)
+- States: `DesignDecision` → `DesignActive`
+- Guard: Artifact approval
+- Custom field: `architect_used` (bool)
+- Templates: `decision.md`, `active.md`
+- Tests: 11 tests
+
+**2. Implementation Phase** (`internal/phases/implementation/`)
+- Pattern: **Dual-state** (Planning → Executing)
+- States: `ImplementationPlanning` → `ImplementationExecuting`
+- Guards:
+  - `hasAtLeastOneTask` - At least 1 task created
+  - `tasksApproved` - Human approved task plan
+  - `allTasksComplete` - All tasks completed or abandoned
+- Custom fields: `planner_used` (bool), `tasks_approved` (bool)
+- Supports: Tasks (not artifacts)
+- Templates: `planning.md`, `executing.md`
+- Tests: 20 tests
+
+**3. Review Phase** (`internal/phases/review/`)
+- Pattern: **Single active state** with external backward capability
+- State: `ReviewActive` only
+- Guards:
+  - `latestReviewApproved` - Forward transition guard
+  - `LatestReviewFailedGuard` - Exported for project to configure backward loop
+- Custom field: `iteration` (int)
+- Note: Backward transition (`ReviewFail → ImplementationPlanning`) configured by project type, not phase
+- Template: `active.md`
+- Tests: 17 tests
+
+**4. Finalize Phase** (`internal/phases/finalize/`)
+- Pattern: **Multi-stage** sequential flow
+- States: `FinalizeDocumentation` → `FinalizeChecks` → `FinalizeDelete`
+- Guards:
+  - `documentationAssessed` - Always true (command is signal)
+  - `checksAssessed` - Always true (command is signal)
+  - `projectDeleted` - Checks `project_deleted` flag
+- Custom fields: `project_deleted` (bool), `pr_url` (string)
+- Templates: `documentation.md`, `checks.md`, `delete.md`
+- Tests: 18 tests
+
+### Phase Patterns Summary
+
+| Pattern | Phases | Complexity | States |
+|---------|--------|------------|--------|
+| Simple Decision | Discovery, Design | Low | 2 states |
+| Dual-State | Implementation | Medium | 2 states |
+| Single Active | Review | Low | 1 state |
+| Multi-Stage | Finalize | High | 3 states |
+
+### Test Coverage
+
+**Total: 81 passing tests** across 6 packages:
+- ✅ 6 BuildPhaseChain tests
+- ✅ 17 Discovery tests
+- ✅ 11 Design tests
+- ✅ 20 Implementation tests
+- ✅ 17 Review tests
+- ✅ 18 Finalize tests
+
+All tests pass, all builds succeed.
+
+### Package Structure Complete
+
+```
+internal/phases/
+├── phase.go, metadata.go, states.go, events.go, builder.go
+├── builder_test.go
+│
+├── discovery/      # Optional, 2 states, artifacts
+│   ├── discovery.go (202 lines)
+│   ├── discovery_test.go (330 lines, 17 tests)
+│   └── templates/ (2 files)
+│
+├── design/         # Optional, 2 states, artifacts
+│   ├── design.go (186 lines)
+│   ├── design_test.go (177 lines, 11 tests)
+│   └── templates/ (2 files)
+│
+├── implementation/ # Required, 2 states, tasks
+│   ├── implementation.go (230 lines)
+│   ├── implementation_test.go (271 lines, 20 tests)
+│   └── templates/ (2 files)
+│
+├── review/         # Required, 1 state, reports
+│   ├── review.go (170 lines)
+│   ├── review_test.go (233 lines, 17 tests)
+│   └── templates/ (1 file)
+│
+└── finalize/       # Required, 3 states, cleanup
+    ├── finalize.go (216 lines)
+    ├── finalize_test.go (285 lines, 18 tests)
+    └── templates/ (3 files)
+```
+
+**Total:** ~2,500 lines of production code + comprehensive test coverage
+
+### Key Implementation Notes
+
+**1. Implementation Phase Guards**
+- Two ways to transition from Planning → Executing:
+  - `EventTaskCreated` with `hasAtLeastOneTask` guard (at least 1 task)
+  - `EventTasksApproved` with `tasksApproved` guard (human approval)
+- Transition to Review requires all tasks `completed` or `abandoned`
+
+**2. Review Phase Backward Transition**
+- Phase only configures forward transition (`EventReviewPass`)
+- Backward transition (`EventReviewFail → ImplementationPlanning`) added by project type
+- Phase exports `LatestReviewFailedGuard` for project use
+- This pattern allows project-specific exceptional transitions
+
+**3. Finalize Phase Always-True Guards**
+- `documentationAssessed` and `checksAssessed` always return true
+- The act of invoking the CLI command IS the validation signal
+- Only `projectDeleted` enforces a real gate (flag must be true)
+
+**4. Template Data Consistency**
+- All phases receive: `ProjectName`, `ProjectDescription`, `ProjectBranch`
+- Each phase adds its own phase-specific data
+- Templates use consistent naming conventions
+
+### Bug Fixes During Development
+
+**Issue:** TestAddToMachine failures in Implementation and Review
+- **Cause:** Tests checking if events can fire with `nil` data, guards returned false
+- **Fix:** Provided proper test data that makes guards pass
+- **Files:** `implementation_test.go:65-89`, `review_test.go:65-83`
+
+### Status
+
+✅ **COMPLETE** - All 5 standard project phases are implemented, tested, and ready for integration in Phase 4 (Project Types Package).
+
+### Next: Phase 4
+
+Ready to proceed with creating the project types abstraction and StandardProject implementation that will wire all 5 phases together.
+
+---
+
 ## Next Decisions
 
 _(Future decisions will be logged here as they arise during MVP development)_
