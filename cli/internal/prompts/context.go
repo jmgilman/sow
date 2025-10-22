@@ -264,3 +264,115 @@ func (c *StatechartContext) addFinalizeData(data map[string]interface{}) {
 		}
 	}
 }
+
+// NewProjectContext holds context for the "sow new" command prompt.
+type NewProjectContext struct {
+	RepoRoot        string
+	BranchName      string
+	IssueNumber     *int
+	IssueTitle      string
+	IssueBody       string
+	InitialPrompt   string
+	StatechartState string
+}
+
+// ToMap converts NewProjectContext to a map for template rendering.
+func (c *NewProjectContext) ToMap() map[string]interface{} {
+	data := make(map[string]interface{})
+	data["RepoRoot"] = c.RepoRoot
+	data["BranchName"] = c.BranchName
+	data["StatechartState"] = c.StatechartState
+	data["InitialPrompt"] = c.InitialPrompt
+
+	if c.IssueNumber != nil {
+		data["IssueNumber"] = *c.IssueNumber
+		data["IssueTitle"] = c.IssueTitle
+		data["IssueBody"] = c.IssueBody
+	}
+
+	return data
+}
+
+// ContinueProjectContext holds context for the "sow continue" command prompt.
+type ContinueProjectContext struct {
+	// Repository info
+	BranchName string
+
+	// Project metadata
+	ProjectName        string
+	ProjectDescription string
+	IssueNumber        *int
+
+	// Current state
+	StatechartState string
+
+	// Phase status
+	DiscoveryEnabled      bool
+	DiscoveryStatus       string
+	DesignEnabled         bool
+	DesignStatus          string
+	ImplementationStatus  string
+	ReviewStatus          string
+	FinalizeStatus        string
+
+	// Task information
+	TasksTotal       int
+	TasksCompleted   int
+	TasksInProgress  int
+	TasksPending     int
+	TasksAbandoned   int
+	CurrentTaskID    string
+	CurrentTaskName  string
+	CurrentTaskStatus string
+
+	// Guidance
+	StateSpecificGuidance string
+	NextActions           string
+	CurrentPhaseDescription string
+	NextActionSummary     string
+}
+
+// ToMap converts ContinueProjectContext to a map for template rendering.
+func (c *ContinueProjectContext) ToMap() map[string]interface{} {
+	data := make(map[string]interface{})
+
+	// Repository info
+	data["BranchName"] = c.BranchName
+
+	// Project metadata
+	data["ProjectName"] = c.ProjectName
+	data["ProjectDescription"] = c.ProjectDescription
+	if c.IssueNumber != nil {
+		data["IssueNumber"] = *c.IssueNumber
+	}
+
+	// Current state
+	data["StatechartState"] = c.StatechartState
+
+	// Phase status
+	data["DiscoveryEnabled"] = c.DiscoveryEnabled
+	data["DiscoveryStatus"] = c.DiscoveryStatus
+	data["DesignEnabled"] = c.DesignEnabled
+	data["DesignStatus"] = c.DesignStatus
+	data["ImplementationStatus"] = c.ImplementationStatus
+	data["ReviewStatus"] = c.ReviewStatus
+	data["FinalizeStatus"] = c.FinalizeStatus
+
+	// Task information
+	data["TasksTotal"] = c.TasksTotal
+	data["TasksCompleted"] = c.TasksCompleted
+	data["TasksInProgress"] = c.TasksInProgress
+	data["TasksPending"] = c.TasksPending
+	data["TasksAbandoned"] = c.TasksAbandoned
+	data["CurrentTaskID"] = c.CurrentTaskID
+	data["CurrentTaskName"] = c.CurrentTaskName
+	data["CurrentTaskStatus"] = c.CurrentTaskStatus
+
+	// Guidance
+	data["StateSpecificGuidance"] = c.StateSpecificGuidance
+	data["NextActions"] = c.NextActions
+	data["CurrentPhaseDescription"] = c.CurrentPhaseDescription
+	data["NextActionSummary"] = c.NextActionSummary
+
+	return data
+}

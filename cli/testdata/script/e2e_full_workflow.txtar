@@ -15,28 +15,28 @@ exec sow init
 # =====================================
 # Project Initialization
 # =====================================
-exec sow project init full-project --description 'Complete workflow test'
+exec sow agent project init full-project --description 'Complete workflow test'
 stderr '✓ Initialized project'
 
 # =====================================
 # Discovery Phase
 # =====================================
-exec sow project phase enable discovery --type feature
+exec sow agent project phase enable discovery --type feature
 stderr '✓ Enabled discovery phase'
 
 # Create and add discovery artifacts
 exec mkdir -p .sow/project/phases/discovery/research
 exec sh -c 'echo "# Requirements\n\nUser stories" > .sow/project/phases/discovery/research/requirements.md'
-exec sow project artifact add phases/discovery/research/requirements.md --phase discovery --approved
+exec sow agent project artifact add phases/discovery/research/requirements.md --phase discovery --approved
 stderr '✓ Added artifact'
 
 # Complete discovery
-exec sow project phase complete discovery
+exec sow agent project phase complete discovery
 
 # =====================================
 # Design Phase
 # =====================================
-exec sow project phase enable design
+exec sow agent project phase enable design
 stderr '✓ Enabled design phase'
 
 # Create and add design artifacts
@@ -44,44 +44,44 @@ exec mkdir -p .sow/project/phases/design/adrs
 exec sh -c 'echo "# ADR 001: Architecture\n\nDecision record" > .sow/project/phases/design/adrs/001-architecture.md'
 exec sh -c 'echo "# ADR 002: Data model\n\nDecision record" > .sow/project/phases/design/adrs/002-data-model.md'
 
-exec sow project artifact add phases/design/adrs/001-architecture.md --phase design --approved
-exec sow project artifact add phases/design/adrs/002-data-model.md --phase design --approved
+exec sow agent project artifact add phases/design/adrs/001-architecture.md --phase design --approved
+exec sow agent project artifact add phases/design/adrs/002-data-model.md --phase design --approved
 
 # Complete design
-exec sow project phase complete design
+exec sow agent project phase complete design
 
 # =====================================
 # Implementation Phase with Dependencies
 # =====================================
 # Add tasks with dependency chain: 010 → 020 → 030
-exec sow task add 'Create models' --description 'Define data models'
+exec sow agent task add 'Create models' --description 'Define data models'
 stderr '✓ Created task 010'
 
-exec sow task add 'Create service' --description 'Implement business logic' --dependencies 010
+exec sow agent task add 'Create service' --description 'Implement business logic' --dependencies 010
 stderr '✓ Created task 020'
 
-exec sow task add 'Create API' --description 'Expose REST API' --dependencies 020
+exec sow agent task add 'Create API' --description 'Expose REST API' --dependencies 020
 stderr '✓ Created task 030'
 
 # Approve task plan
-exec sow project phase approve implementation
+exec sow agent project phase approve implementation
 
 # Complete tasks in order
-exec sow task update 010 --status in_progress
-exec sow task update 010 --status completed
+exec sow agent task update 010 --status in_progress
+exec sow agent task update 010 --status completed
 
-exec sow task update 020 --status in_progress
-exec sow task update 020 --status completed
+exec sow agent task update 020 --status in_progress
+exec sow agent task update 020 --status completed
 
-exec sow task update 030 --status in_progress
-exec sow task update 030 --status completed
+exec sow agent task update 030 --status in_progress
+exec sow agent task update 030 --status completed
 
 # =====================================
 # Review Phase
 # =====================================
-exec sow project review add-report reports/001-review.md --assessment pass
+exec sow agent project review add-report reports/001-review.md --assessment pass
 stderr '✓ Added review report 001'
-exec sow project review approve 001
+exec sow agent project review approve 001
 stderr '✓ Approved review report 001'
 
 # =====================================
@@ -93,17 +93,17 @@ exec mkdir -p docs
 exec sh -c 'echo "# API Docs" > docs/api.md'
 
 # Track documentation updates
-exec sow project finalize add-document README.md
-exec sow project finalize add-document docs/api.md
+exec sow agent project finalize add-document README.md
+exec sow agent project finalize add-document docs/api.md
 
 # Complete documentation
-exec sow project finalize complete documentation
+exec sow agent project finalize complete documentation
 stderr '✓ Completed documentation subphase'
 
 # =====================================
 # Finalize Phase - Checks
 # =====================================
-exec sow project finalize complete checks
+exec sow agent project finalize complete checks
 stderr '✓ Completed checks subphase'
 
 # =====================================
@@ -113,13 +113,13 @@ stderr '✓ Completed checks subphase'
 exec mkdir -p .sow/knowledge/adrs
 exec cp .sow/project/phases/design/adrs/001-architecture.md .sow/knowledge/adrs/001-architecture.md
 exec cp .sow/project/phases/design/adrs/002-data-model.md .sow/knowledge/adrs/002-data-model.md
-exec sow project finalize move-artifact phases/design/adrs/001-architecture.md knowledge/adrs/001-architecture.md
-exec sow project finalize move-artifact phases/design/adrs/002-data-model.md knowledge/adrs/002-data-model.md
+exec sow agent project finalize move-artifact phases/design/adrs/001-architecture.md knowledge/adrs/001-architecture.md
+exec sow agent project finalize move-artifact phases/design/adrs/002-data-model.md knowledge/adrs/002-data-model.md
 
 # =====================================
 # Project Deletion
 # =====================================
-exec sow project delete --force
+exec sow agent project delete --force
 
 # =====================================
 # Final Verification

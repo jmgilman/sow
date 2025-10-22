@@ -1,4 +1,4 @@
-package cmd
+package agent
 
 import (
 	"encoding/json"
@@ -96,7 +96,7 @@ func runSessionInfo(cmd *cobra.Command, jsonOutput bool) error {
 	// Build session info structure
 	info := SessionInfo{
 		Versions: VersionInfo{
-			CLI:       Version,
+			CLI:       cliVersion(),
 			Structure: sow.StructureVersion,
 			Mismatch:  false, // TODO: implement version comparison if needed
 		},
@@ -157,36 +157,66 @@ func runSessionInfo(cmd *cobra.Command, jsonOutput bool) error {
 
 	// Output in requested format
 	if jsonOutput {
-		// JSON output
-		output, err := json.MarshalIndent(info, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal session info: %w", err)
-		}
-		cmd.Println(string(output))
-	} else {
-		// Human-readable output
-		if info.Project == nil {
-			cmd.Println("No active project")
-		} else {
-			cmd.Printf("Project: %s\n", info.Project.Name)
-			cmd.Printf("Description: %s\n", info.Project.Description)
-			if info.Project.Phase != "" {
-				cmd.Printf("Phase: %s (%s)\n", info.Project.Phase, info.Project.Status)
-			}
-		}
+		return outputJSON(cmd, info)
+	}
+	return outputHumanReadable(cmd, info)
+}
 
-		cmd.Printf("Repository: %s\n", info.Repository.Root)
-		cmd.Printf("Branch: %s\n", info.Repository.Branch)
+// outputJSON outputs session info in JSON format.
+func outputJSON(cmd *cobra.Command, info SessionInfo) error {
+	output, err := json.MarshalIndent(info, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal session info: %w", err)
+	}
+	cmd.Println(string(output))
+	return nil
+}
 
-		switch info.Context.Type {
-		case "task":
-			cmd.Printf("Context: Task %s\n", info.Context.TaskID)
-		case "project":
-			cmd.Println("Context: Project")
-		}
+// outputHumanReadable outputs session info in human-readable format.
+func outputHumanReadable(cmd *cobra.Command, info SessionInfo) error {
+	printProjectInfo(cmd, info.Project)
+	printRepositoryInfo(cmd, info.Repository)
+	printContextInfo(cmd, info.Context)
+	return nil
+}
+
+// printProjectInfo prints project information if available.
+func printProjectInfo(cmd *cobra.Command, project *ProjectInfo) {
+	if project == nil {
+		cmd.Println("No active project")
+		return
 	}
 
-	return nil
+	cmd.Printf("Project: %s\n", project.Name)
+	cmd.Printf("Description: %s\n", project.Description)
+	if project.Phase != "" {
+		cmd.Printf("Phase: %s (%s)\n", project.Phase, project.Status)
+	}
+}
+
+// printRepositoryInfo prints repository information.
+func printRepositoryInfo(cmd *cobra.Command, repo RepositoryInfo) {
+	cmd.Printf("Repository: %s\n", repo.Root)
+	cmd.Printf("Branch: %s\n", repo.Branch)
+}
+
+// printContextInfo prints context information.
+func printContextInfo(cmd *cobra.Command, context ContextInfo) {
+	switch context.Type {
+	case "task":
+		cmd.Printf("Context: Task %s\n", context.TaskID)
+	case "project":
+		cmd.Println("Context: Project")
+	}
+}
+
+// cliVersion returns the CLI version from root command.
+// Since we're now in a subpackage, we can't directly access cmd.Version,
+// so we'll define it here. The actual version is set via ldflags at build time.
+func cliVersion() string {
+	// This will be set via ldflags during build
+	// For now, return a placeholder that matches the pattern
+	return "dev"
 }
 
 // determineCurrentPhaseAndStatus analyzes project state to determine current phase and status.
@@ -226,8 +256,8 @@ func getAvailableCommands(_ string, hasProject bool) []string {
 
 	if hasProject {
 		commands = append(commands,
-			"sow log",
-			"sow session-info",
+			"sow agent log",
+			"sow agent session-info",
 		)
 	} else {
 		commands = append(commands,

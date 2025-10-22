@@ -15,16 +15,16 @@ exec sow init
 # =====================================
 # Project Initialization
 # =====================================
-exec sow project init design-project --description 'Test design phase'
+exec sow agent project init design-project --description 'Test design phase'
 stderr '✓ Initialized project'
 
 # =====================================
 # Skip Discovery, Enable Design
 # =====================================
-exec sow project phase skip discovery
+exec sow agent project phase skip discovery
 stderr '✓ Skipped discovery phase'
 
-exec sow project phase enable design
+exec sow agent project phase enable design
 stderr '✓ Enabled design phase'
 
 # Verify design phase directory created
@@ -38,25 +38,25 @@ exec sh -c 'echo "# ADR 002\n\nDatabase schema" > .sow/project/phases/design/adr
 # =====================================
 # Add Design Artifacts
 # =====================================
-exec sow project artifact add phases/design/adrs/001-jwt-rs256.md --phase design
+exec sow agent project artifact add phases/design/adrs/001-jwt-rs256.md --phase design
 stderr '✓ Added artifact to design phase'
 
-exec sow project artifact add phases/design/adrs/002-schema.md --phase design
+exec sow agent project artifact add phases/design/adrs/002-schema.md --phase design
 stderr '✓ Added artifact to design phase'
 
 # =====================================
 # Approve Artifacts
 # =====================================
-exec sow project artifact approve phases/design/adrs/001-jwt-rs256.md --phase design
+exec sow agent project artifact approve phases/design/adrs/001-jwt-rs256.md --phase design
 stderr '✓ Approved artifact'
 
-exec sow project artifact approve phases/design/adrs/002-schema.md --phase design
+exec sow agent project artifact approve phases/design/adrs/002-schema.md --phase design
 stderr '✓ Approved artifact'
 
 # =====================================
 # Complete Design Phase
 # =====================================
-exec sow project phase complete design
+exec sow agent project phase complete design
 
 # Verify state validates
 exec sow validate
@@ -66,17 +66,17 @@ stderr '✓ All validations passed'
 # Complete Workflow
 # =====================================
 # Add and complete task
-exec sow task add 'Implement design' --description 'Build per design'
-exec sow project phase approve implementation
-exec sow task update 010 --status in_progress
-exec sow task update 010 --status completed
+exec sow agent task add 'Implement design' --description 'Build per design'
+exec sow agent project phase approve implementation
+exec sow agent task update 010 --status in_progress
+exec sow agent task update 010 --status completed
 
 # Review and finalize
-exec sow project review add-report reports/001.md --assessment pass
-exec sow project review approve 001
-exec sow project finalize complete documentation
-exec sow project finalize complete checks
-exec sow project delete --force
+exec sow agent project review add-report reports/001.md --assessment pass
+exec sow agent project review approve 001
+exec sow agent project finalize complete documentation
+exec sow agent project finalize complete checks
+exec sow agent project delete --force
 
 # =====================================
 # Final Verification

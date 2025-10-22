@@ -28,7 +28,7 @@ NEXT ACTIONS:
   1. Review changes from implementation phase
   2. Identify documentation requiring updates
   3. Update documentation files
-  4. Register updates: sow project finalize add-document <path>
+  4. Register updates: sow agent project finalize add-document <path>
   5. Move design artifacts if applicable
 
   When done (or no updates needed):

@@ -19,24 +19,24 @@ exec sow init
 # Error: Invalid Project Name (Not Kebab-Case)
 # =====================================
 # This should be caught at creation time
-! exec sow project init 'Bad_Name' --description 'Test'
+! exec sow agent project init 'Bad_Name' --description 'Test'
 stderr 'kebab-case'
 
-! exec sow project init 'BadName' --description 'Test'
+! exec sow agent project init 'BadName' --description 'Test'
 stderr 'kebab-case'
 
 # =====================================
 # Error: Empty Description
 # =====================================
-! exec sow project init 'good-name' --description ''
+! exec sow agent project init 'good-name' --description ''
 stderr 'description'
 
 # =====================================
 # Create Valid Project
 # =====================================
-exec sow project init valid-project --description 'Valid description'
-exec sow project phase skip discovery
-exec sow project phase skip design
+exec sow agent project init valid-project --description 'Valid description'
+exec sow agent project phase skip discovery
+exec sow agent project phase skip design
 
 # Verify valid state
 exec sow validate
@@ -62,7 +62,7 @@ stderr '✓ All validations passed'
 # =====================================
 # Error: Invalid Task State
 # =====================================
-exec sow task add 'Test task' --description 'Description'
+exec sow agent task add 'Test task' --description 'Description'
 stderr '✓ Created task 010'
 
 # Corrupt task state with negative iteration
@@ -82,14 +82,14 @@ stderr '✓ All validations passed'
 # =====================================
 # Complete Workflow (Verify System Still Works)
 # =====================================
-exec sow project phase approve implementation
-exec sow task update 010 --status in_progress
-exec sow task update 010 --status completed
-exec sow project review add-report reports/001.md --assessment pass
-exec sow project review approve 001
-exec sow project finalize complete documentation
-exec sow project finalize complete checks
-exec sow project delete --force
+exec sow agent project phase approve implementation
+exec sow agent task update 010 --status in_progress
+exec sow agent task update 010 --status completed
+exec sow agent project review add-report reports/001.md --assessment pass
+exec sow agent project review approve 001
+exec sow agent project finalize complete documentation
+exec sow agent project finalize complete checks
+exec sow agent project delete --force
 
 # =====================================
 # Final Verification

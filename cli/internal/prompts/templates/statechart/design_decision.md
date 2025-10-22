@@ -47,10 +47,10 @@ RECOMMENDED PHRASING:
 
 NEXT ACTION:
   If design needed:
-    sow project phase enable design
+    sow agent project phase enable design
 
   If design not needed:
-    sow project phase skip design
+    sow agent project phase skip design
     (Will auto-transition to implementation)
 
 Reference: PROJECT_LIFECYCLE.md (Design Rubric)

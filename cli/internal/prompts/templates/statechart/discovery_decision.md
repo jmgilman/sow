@@ -44,10 +44,10 @@ RECOMMENDED PHRASING:
 
 NEXT ACTION:
   If discovery needed:
-    sow project phase enable discovery --type <bug|feature|docs|refactor|general>
+    sow agent project phase enable discovery --type <bug|feature|docs|refactor|general>
 
   If discovery not needed:
-    sow project phase skip discovery
+    sow agent project phase skip discovery
     (Will auto-transition to design decision)
 
 Reference: PROJECT_LIFECYCLE.md (Discovery Rubric)

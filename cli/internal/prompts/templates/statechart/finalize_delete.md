@@ -16,7 +16,7 @@ WORKFLOW:
 
 NEXT ACTIONS:
   1. Verify git status is clean (all work committed)
-  2. Run: sow project delete
+  2. Run: sow agent project delete
   3. Commit deletion: git add -A && git commit -m "chore: remove project state"
   4. Push: git push
   5. Create pull request:
@@ -28,7 +28,7 @@ NEXT ACTIONS:
        - Any important notes for reviewers
 
      Then create the PR:
-       echo "<your-pr-description>" | sow project create-pr
+       echo "<your-pr-description>" | sow agent project create-pr
 
      The command will:
        - Auto-generate title from project name
@@ -46,7 +46,7 @@ PR DESCRIPTION EXAMPLE:
   ## Changes
 
   - Added `sow issue` commands for listing, viewing, and checking issues
-  - Extended `sow project init` with `--issue` flag
+  - Extended `sow agent project init` with `--issue` flag
   - Integrated `gh issue develop` for branch creation
   - Added automatic issue closing via PR references
 
