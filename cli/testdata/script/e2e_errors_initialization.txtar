@@ -7,7 +7,7 @@
 # =====================================
 # Try to initialize without git
 ! exec sow init
-stderr 'not in git repository'
+stderr 'repository does not exist'
 
 # =====================================
 # Setup Git Repo

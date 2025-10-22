@@ -9,8 +9,8 @@ import (
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
-func TestNewManagerWithCache(t *testing.T) {
-	m := NewManagerWithCache("/cache", "/sow")
+func TestNewCacheManagerWithCache(t *testing.T) {
+	m := NewCacheManagerWithCache("/cache", "/sow")
 	if m.cacheDir != "/cache" {
 		t.Errorf("Manager.cacheDir = %q, want %q", m.cacheDir, "/cache")
 	}
@@ -34,7 +34,7 @@ func TestManager_Install_FileType_Knowledge(t *testing.T) {
 	}
 
 	// Create manager
-	m := NewManagerWithCache(cacheDir, sowDir)
+	m := NewCacheManagerWithCache(cacheDir, sowDir)
 
 	// Create ref
 	sourceURL, err := PathToFileURL(sourceDir)
@@ -116,7 +116,7 @@ func TestManager_Install_FileType_Code(t *testing.T) {
 	}
 
 	// Create manager
-	m := NewManagerWithCache(cacheDir, sowDir)
+	m := NewCacheManagerWithCache(cacheDir, sowDir)
 
 	// Create ref with code semantic
 	sourceURL, err := PathToFileURL(sourceDir)
@@ -155,7 +155,7 @@ func TestManager_Install_InvalidSource(t *testing.T) {
 	cacheDir := filepath.Join(tmpDir, "cache")
 	sowDir := filepath.Join(tmpDir, ".sow")
 
-	m := NewManagerWithCache(cacheDir, sowDir)
+	m := NewCacheManagerWithCache(cacheDir, sowDir)
 
 	// Create ref with non-existent source
 	ref := &schemas.Ref{
@@ -186,7 +186,7 @@ func TestManager_Update(t *testing.T) {
 	}
 
 	// Create manager
-	m := NewManagerWithCache(cacheDir, sowDir)
+	m := NewCacheManagerWithCache(cacheDir, sowDir)
 
 	// Create and install ref
 	sourceURL, err := PathToFileURL(sourceDir)
@@ -253,7 +253,7 @@ func TestManager_Update_RecreatesSymlink(t *testing.T) {
 	}
 
 	// Create manager
-	m := NewManagerWithCache(cacheDir, sowDir)
+	m := NewCacheManagerWithCache(cacheDir, sowDir)
 
 	// Create and install ref
 	sourceURL, err := PathToFileURL(sourceDir)
@@ -305,7 +305,7 @@ func TestManager_Remove(t *testing.T) {
 	}
 
 	// Create manager
-	m := NewManagerWithCache(cacheDir, sowDir)
+	m := NewCacheManagerWithCache(cacheDir, sowDir)
 
 	// Create and install ref
 	sourceURL, err := PathToFileURL(sourceDir)
@@ -363,7 +363,7 @@ func TestManager_Remove_AlreadyRemoved(t *testing.T) {
 	cacheDir := filepath.Join(tmpDir, "cache")
 	sowDir := filepath.Join(tmpDir, ".sow")
 
-	m := NewManagerWithCache(cacheDir, sowDir)
+	m := NewCacheManagerWithCache(cacheDir, sowDir)
 
 	// Create ref (not installed)
 	ref := &schemas.Ref{
@@ -381,7 +381,7 @@ func TestManager_Remove_AlreadyRemoved(t *testing.T) {
 }
 
 func TestManager_workspacePath(t *testing.T) {
-	m := NewManagerWithCache("/cache", "/sow")
+	m := NewCacheManagerWithCache("/cache", "/sow")
 
 	tests := []struct {
 		name     string

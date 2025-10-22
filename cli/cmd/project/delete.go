@@ -1,12 +1,13 @@
 package project
 
 import (
-	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"bufio"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	"github.com/spf13/cobra"
 )
 
@@ -43,16 +44,16 @@ Example:
 func runDelete(cmd *cobra.Command, _ []string) error {
 	force, _ := cmd.Flags().GetBool("force")
 
-	// Get Sow from context
-	sow := cmdutil.SowFromContext(cmd.Context())
+	// Get context
+	ctx := cmdutil.GetContext(cmd.Context())
 
-	// Get project to retrieve name for confirmation
-	project, err := sow.GetProject()
+	// Load project to retrieve name for confirmation
+	proj, err := projectpkg.Load(ctx)
 	if err != nil {
 		return fmt.Errorf("no active project found - nothing to delete")
 	}
 
-	projectName := project.Name()
+	projectName := proj.Name()
 
 	// Confirm deletion unless --force
 	if !force {
@@ -74,7 +75,7 @@ func runDelete(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Delete project (handles state machine transition and cleanup)
-	if err := sow.DeleteProject(); err != nil {
+	if err := projectpkg.Delete(ctx); err != nil {
 		return fmt.Errorf("failed to delete project: %w", err)
 	}
 

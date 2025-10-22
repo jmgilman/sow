@@ -2,6 +2,7 @@ package refs
 
 import (
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	"github.com/jmgilman/sow/cli/internal/refs"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -30,13 +31,16 @@ If no ID specified, updates all refs that support updates (e.g., git refs).`,
 func runRefsUpdate(cmd *cobra.Command, refID string) error {
 	ctx := cmd.Context()
 
-	// Get Sow from context
-	s := cmdutil.SowFromContext(ctx)
+	// Get context
+	sowCtx := cmdutil.GetContext(ctx)
+
+	// Create refs manager
+	mgr := refs.NewManager(sowCtx)
 
 	// Update specific ref or all refs
 	if refID != "" {
 		// Get specific ref
-		ref, err := s.GetRef(refID)
+		ref, err := mgr.Get(refID)
 		if err != nil {
 			return fmt.Errorf("ref not found: %w", err)
 		}
@@ -51,12 +55,12 @@ func runRefsUpdate(cmd *cobra.Command, refID string) error {
 	}
 
 	// Update all refs
-	refs, err := s.ListRefs()
+	refsList, err := mgr.List()
 	if err != nil {
 		return fmt.Errorf("failed to list refs: %w", err)
 	}
 
-	if len(refs) == 0 {
+	if len(refsList) == 0 {
 		cmd.Println("No refs to update")
 		return nil
 	}
@@ -64,7 +68,7 @@ func runRefsUpdate(cmd *cobra.Command, refID string) error {
 	updated := 0
 	skipped := 0
 
-	for _, ref := range refs {
+	for _, ref := range refsList {
 		id := ref.ID()
 
 		// Attempt update

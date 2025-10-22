@@ -6,6 +6,8 @@ import (
 	"os/exec"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	sowexec "github.com/jmgilman/sow/cli/internal/exec"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
@@ -37,29 +39,32 @@ Examples:
 }
 
 func runStart(cmd *cobra.Command, _ []string) error {
-	s := cmdutil.SowFromContext(cmd.Context())
+	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Validate sow initialized
-	if !s.IsInitialized() {
+	if !ctx.IsInitialized() {
 		fmt.Fprintln(os.Stderr, "Error: sow not initialized in this repository")
 		fmt.Fprintln(os.Stderr, "Run: sow init")
-		return fmt.Errorf("not initialized")
+		return sow.ErrNotInitialized
 	}
 
 	// Check claude CLI available
-	claudePath, err := exec.LookPath("claude")
-	if err != nil {
+	claude := sowexec.NewLocal("claude")
+	if !claude.Exists() {
 		fmt.Fprintln(os.Stderr, "Error: Claude Code CLI not found")
 		fmt.Fprintln(os.Stderr, "Install from: https://claude.com/download")
 		return fmt.Errorf("claude not found")
 	}
 
-	// Launch claude with /sow-greet slash command
-	claudeCmd := exec.CommandContext(cmd.Context(), claudePath, "/sow:greet")
+	// Note: We can't use executor.Run() here because we need to:
+	// - Attach stdin/stdout/stderr for interactive session
+	// - Set working directory
+	// For now, fall back to exec.Command but we could enhance Executor later
+	claudeCmd := exec.CommandContext(cmd.Context(), claude.Command(), "/sow:greet")
 	claudeCmd.Stdin = os.Stdin
 	claudeCmd.Stdout = os.Stdout
 	claudeCmd.Stderr = os.Stderr
-	claudeCmd.Dir = s.RepoRoot()
+	claudeCmd.Dir = ctx.RepoRoot()
 
 	// Run and wait for completion
 	return claudeCmd.Run()

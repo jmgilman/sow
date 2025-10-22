@@ -1,6 +1,7 @@
 # Build outputs
 /bin/
 /sow
+/cli/cli
 *.exe
 *.dll
 *.so

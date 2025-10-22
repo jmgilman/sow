@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -28,31 +29,24 @@ Exit codes:
   1 - Validation errors found
   2 - Failed to initialize (not in sow repository)`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Get Sow from context
-			s := cmdutil.SowFromContext(cmd.Context())
-			if s == nil {
-				return fmt.Errorf("not in a sow repository - run 'sow init' first")
-			}
-
-			// Check if in a git repository
-			if _, err := s.FS().Stat(".git"); err != nil {
-				return fmt.Errorf("failed to initialize sow filesystem: not in git repository")
-			}
+			ctx := cmdutil.GetContext(cmd.Context())
 
 			// Check if sow is initialized
-			if !s.IsInitialized() {
-				return fmt.Errorf("failed to initialize sow filesystem: .sow directory not found")
+			if !ctx.IsInitialized() {
+				return sow.ErrNotInitialized
 			}
 
+			repoRoot := ctx.RepoRoot()
+
 			// Validate entire structure
-			result, err := s.Validate()
+			result, err := sow.Validate(repoRoot)
 			if err != nil {
-				return fmt.Errorf("failed to initialize sow filesystem: %w", err)
+				return fmt.Errorf("validation failed: %w", err)
 			}
 
 			// Check for validation errors
 			if result.HasErrors() {
-				return fmt.Errorf("failed to initialize sow filesystem: validation failed\n%s", result.Error())
+				return fmt.Errorf("validation failed\n%s", result.Error())
 			}
 
 			// If we got here, validation passed

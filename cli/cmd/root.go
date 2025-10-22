@@ -6,8 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/go-git/go-billy/v5/osfs"
-	"github.com/jmgilman/go/fs/billy"
+	"github.com/jmgilman/sow/cli/cmd/issue"
 	"github.com/jmgilman/sow/cli/cmd/project"
 	"github.com/jmgilman/sow/cli/cmd/refs"
 	"github.com/jmgilman/sow/cli/cmd/task"
@@ -47,23 +46,16 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 				repoRoot = cwd // Fallback to cwd if not in a git repo
 			}
 
-			// Create raw billy filesystem rooted at repo root
-			rawBillyFS := osfs.New(repoRoot)
-
-			// Create unified Sow instance
-			sowInstance := sow.New(rawBillyFS)
-
-			// Create wrapped filesystem for backwards compatibility
-			baseFS := billy.NewLocal()
-			wrappedFS, err := baseFS.Chroot(repoRoot)
+			// Create sow context
+			// If .sow doesn't exist, context.FS() will be nil
+			// Commands can check context.IsInitialized() if they need .sow
+			sowContext, err := sow.NewContext(repoRoot)
 			if err != nil {
-				return fmt.Errorf("failed to chroot filesystem: %w", err)
+				return fmt.Errorf("failed to create sow context: %w", err)
 			}
 
-			// Add to context
-			ctx := cmdutil.WithFilesystem(cmd.Context(), wrappedFS)
-			ctx = cmdutil.WithSow(ctx, sowInstance)
-
+			// Add to command context
+			ctx := cmdutil.WithContext(cmd.Context(), sowContext)
 			cmd.SetContext(ctx)
 
 			return nil
@@ -81,6 +73,7 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 	cmd.AddCommand(NewSessionInfoCmd())
 	cmd.AddCommand(NewGreetCmd())
 	cmd.AddCommand(NewStartCmd())
+	cmd.AddCommand(issue.NewIssueCmd())
 	cmd.AddCommand(refs.NewRefsCmd())
 	cmd.AddCommand(project.NewProjectCmd())
 	cmd.AddCommand(task.NewTaskCmd())

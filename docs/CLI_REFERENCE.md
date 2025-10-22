@@ -12,6 +12,7 @@ This document provides comprehensive reference for all `sow` CLI commands and or
 - [Overview](#overview)
 - [Core Commands](#core-commands)
 - [Logging Commands](#logging-commands)
+- [Issue Commands](#issue-commands)
 - [Project Commands](#project-commands)
 - [Task Commands](#task-commands)
 - [Refs Commands](#refs-commands)
@@ -133,6 +134,136 @@ Display current session information for SessionStart hook.
 
 ---
 
+## Issue Commands
+
+Issue commands provide GitHub issue integration for project discovery and management. Requires GitHub CLI (`gh`) to be installed and authenticated.
+
+### sow issue list
+
+List all issues with the `sow` label.
+
+**Usage**: `sow issue list [--state STATE]`
+
+**Options**:
+- `--state STATE` - Filter by state: `open`, `closed`, or `all` (default: `open`)
+
+**Prerequisites**:
+- GitHub CLI (`gh`) installed and available in PATH
+- Authenticated via `gh auth login`
+- Repository has GitHub remote
+
+**Behavior**:
+- Queries GitHub for issues with `sow` label
+- Shows simple table with number, state, and title
+- Does not show whether issues are claimed (use `sow issue check` for that)
+
+**Output** (table):
+```
+NUMBER  STATE   TITLE
+─────── ────── ──────────────────────────────
+123     open    Add authentication system
+456     open    Fix login bug
+789     open    Refactor API endpoints
+
+Total: 3 issue(s)
+Use 'sow issue check <number>' to see if an issue is available or claimed.
+```
+
+**Error Cases**:
+- `gh` not installed: "GitHub CLI (gh) not found. Install from: https://cli.github.com/"
+- `gh` not authenticated: "GitHub CLI not authenticated. Run: gh auth login"
+- Network error: "Cannot reach GitHub API"
+
+---
+
+### sow issue show
+
+Show detailed information about a specific issue.
+
+**Usage**: `sow issue show <number>`
+
+**Arguments**:
+- `<number>`: Issue number
+
+**Behavior**:
+- Fetches issue details via `gh issue view`
+- Displays formatted output with title, state, labels, URL, and description
+- Warns if issue does not have `sow` label
+
+**Output**:
+```
+Issue #123: Add authentication system
+============================================================
+
+State: open
+Labels: sow, feature, backend
+URL: https://github.com/org/repo/issues/123
+
+Description:
+------------------------------------------------------------
+Implement JWT-based authentication system with support for
+user registration, login, and token refresh.
+
+⚠️  Warning: This issue does not have the 'sow' label.
+   Add it via: gh issue edit 123 --add-label sow
+```
+
+**Error Cases**:
+- Issue not found: "Issue #123 not found"
+- `gh` errors: Same as `sow issue list`
+
+---
+
+### sow issue check
+
+Check if an issue has linked branches (claimed or available).
+
+**Usage**: `sow issue check <number>`
+
+**Arguments**:
+- `<number>`: Issue number
+
+**Behavior**:
+- Fetches issue details via `gh issue view`
+- Queries linked branches via `gh issue develop --list`
+- Reports availability status
+- Provides next-step instructions
+
+**Output** (available):
+```
+Issue #123: Add authentication system
+State: open
+URL: https://github.com/org/repo/issues/123
+
+Status: ✓ Available
+No linked branches found. This issue is available for claiming.
+
+To create a project from this issue:
+  sow project init --issue 123
+```
+
+**Output** (claimed):
+```
+Issue #123: Add authentication system
+State: open
+URL: https://github.com/org/repo/issues/123
+
+Status: ✗ Claimed
+This issue has 1 linked branch(es):
+
+1. Branch: 123-add-authentication
+   URL: https://github.com/org/repo/tree/123-add-authentication
+
+To work on this project:
+  git checkout 123-add-authentication && sow project status
+```
+
+**Purpose**: Prevent duplicate work by checking if someone is already working on an issue.
+
+**Error Cases**: Same as `sow issue show`
+
+---
+
 ## Project Commands
 
 Project commands manage project lifecycle, phases, and artifacts. Primary users are AI agents (orchestrator), but commands are available for manual intervention.
@@ -141,13 +272,31 @@ Project commands manage project lifecycle, phases, and artifacts. Primary users 
 
 Initialize new project in current branch.
 
-**Usage**: `sow project init <name> --description "<description>"`
+**Usage**:
+- Manual: `sow project init <name> --description "<description>"`
+- From issue: `sow project init --issue <number> [--branch-name <name>]`
 
 **Arguments**:
-- `<name>`: Project name (kebab-case)
-- `--description`: Project description (quoted string)
+- `<name>`: Project name (kebab-case) - required when not using `--issue`
+- `--description, -d`: Project description (quoted string) - required when not using `--issue`
+- `--issue, -i <number>`: GitHub issue number to link this project to (optional)
+- `--branch-name <name>`: Custom branch name when using `--issue` (optional, auto-generated if not provided)
 
-**Behavior**:
+**GitHub Issue Integration**:
+
+When using `--issue`, the command will:
+1. Fetch the issue via `gh issue view`
+2. Validate the issue has the 'sow' label (fails if missing)
+3. Check for existing linked branches via `gh issue develop --list` (fails if found)
+4. Create and checkout a linked branch via `gh issue develop`
+5. Initialize project using issue title as description
+6. Store the issue number in `project.github_issue` field
+
+Branch naming (when using `--issue`):
+- Auto-generated: `<issue-number>-<title-kebab-case>`
+- Custom: Use `--branch-name` flag to override
+
+**Manual Initialization Behavior**:
 - Validates current branch is NOT default branch (main/master)
 - Checks no existing project exists
 - Creates `.sow/project/state.yaml` with initial state
@@ -156,7 +305,33 @@ Initialize new project in current branch.
 
 **Validation**: Current branch != main/master, no existing project, valid project name (kebab-case), description not empty
 
-**Output**: `✓ Initialized project '<name>' on branch '<branch>'`
+**Prerequisites for `--issue`**:
+- GitHub CLI (`gh`) installed and authenticated (`gh auth login`)
+- Issue must have 'sow' label
+- Issue must not already have a linked branch
+
+**Examples**:
+```bash
+# Manual project creation
+sow project init add-auth --description "Add authentication system"
+
+# Create project from GitHub issue (auto-named branch)
+sow project init --issue 123
+
+# Create project from issue with custom branch name
+sow project init --issue 123 --branch-name custom-branch-name
+```
+
+**Output** (manual): `✓ Initialized project '<name>' on branch '<branch>'`
+
+**Output** (from issue): `✓ Initialized project '<name>' on branch '<branch>' (linked to issue #<number>)`
+
+**Error Cases**:
+- Issue not found: "failed to fetch issue #<number>"
+- Missing 'sow' label: "issue #<number> does not have the 'sow' label"
+- Already claimed: "issue #<number> already has a linked branch: <branch-name>"
+- gh not installed: "GitHub CLI (gh) not found. Install from: https://cli.github.com/"
+- gh not authenticated: "GitHub CLI not authenticated. Run: gh auth login"
 
 ---
 
@@ -166,9 +341,31 @@ Show project summary.
 
 **Usage**: `sow project status [--format json]`
 
-**Output** (default): Project name, branch, description, phase statuses, task breakdown, pending artifacts
+**Output** (default):
+- Project name, branch, description
+- GitHub issue number (if linked)
+- Phase statuses
+- Task breakdown
+- Pending artifacts
 
 **Output** (JSON): Full state.yaml as JSON
+
+**Example output**:
+```
+Project: add-authentication (on feat/123-add-authentication)
+Description: Add authentication system
+GitHub Issue: #123
+
+Phases:
+  [enabled] Phase              Status
+  [ ] Discovery            skipped
+  [ ] Design               skipped
+  [✓] Implementation       in_progress
+  [✓] Review               pending
+  [✓] Finalize             pending
+
+Tasks: 3 total (1 completed, 1 in_progress, 1 pending)
+```
 
 ---
 
@@ -314,6 +511,81 @@ Record artifact moved to knowledge.
 **Behavior**: Records move in `phases.finalize.artifacts_moved[]` array
 
 **Validation**: Source exists, destination is under `.sow/knowledge/`
+
+---
+
+### sow project create-pr
+
+Create a pull request for the project.
+
+**Usage**:
+```bash
+# Via stdin
+echo "PR description..." | sow project create-pr
+
+# Via flag
+sow project create-pr --body "PR description..."
+
+# From file
+cat description.md | sow project create-pr
+```
+
+**Options**:
+- `--body`, `-b`: PR body (use `-` to read from stdin, default)
+
+**Behavior**:
+- Generates PR title from project name and description
+- Takes orchestrator-written body as main content
+- Automatically adds `Closes #<number>` if project linked to GitHub issue
+- Adds sow footer (`🤖 Generated with sow`)
+- Creates PR via `gh pr create`
+- Stores PR URL in `phases.finalize.pr_url`
+- Outputs PR URL on success
+
+**Prerequisites**:
+- GitHub CLI (`gh`) installed and authenticated
+- Current branch pushed to remote
+- Project exists (typically in finalize phase)
+
+**Example Body**:
+```markdown
+## Summary
+
+Implemented authentication system with JWT support.
+
+## Changes
+
+- Added User model and database schema
+- Implemented JWT token service
+- Created auth middleware and routes
+- Added login/signup frontend flows
+
+## Testing
+
+- Unit tests: 45 passing
+- Integration tests: 12 passing
+- Manual testing completed
+```
+
+**Generated PR Format**:
+```
+Title: <project-name>: <description>
+
+Body:
+<orchestrator-written-body>
+
+Closes #123
+
+---
+
+🤖 Generated with sow
+```
+
+**Error Cases**:
+- `gh` not installed or not authenticated
+- Branch not pushed to remote
+- Empty PR body
+- No active project
 
 ---
 
@@ -683,7 +955,32 @@ Finalize phase workflow.
 
 **When**: Invoked when finalize phase active. Always happens (required phase).
 
-**Behavior**: Documentation subphase (updates needed), runs final checks (tests, linters), deletes project folder (mandatory), creates pull request, hands off to human for merge.
+**Behavior**:
+- Documentation subphase: Updates needed documentation files
+- Final checks: Runs tests, linters, build
+- Project deletion: Deletes `.sow/project/` folder (mandatory)
+- PR creation: Creates pull request via GitHub CLI
+  - Title: Generated from project name and description
+  - Body: Includes summary, task count, documentation updates
+  - Auto-closes issue: If project linked via `--issue`, adds `Closes #<number>`
+  - Stores PR URL in project state (`phases.finalize.pr_url`)
+- Hands off to human for merge
+
+**Pull Request Integration**:
+- Automatic: Uses `gh pr create` to create PR after project deletion
+- Title format: `<project-name>: <description>`
+- Body includes:
+  - Summary section with project description
+  - Implementation details (task count)
+  - Documentation updates (if any)
+  - Issue reference: `Closes #<number>` (if linked to GitHub issue)
+- Fallback: If `gh` unavailable, orchestrator provides manual instructions
+
+**GitHub Issue Auto-Close**:
+When project created via `sow project init --issue <number>`:
+- PR body automatically includes `Closes #<number>`
+- Issue closes automatically when PR is merged
+- Issue remains open if PR is closed without merging
 
 **See Also**: [PHASES/FINALIZE.md](./PHASES/FINALIZE.md)
 

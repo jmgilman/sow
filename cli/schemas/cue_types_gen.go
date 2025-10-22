@@ -29,6 +29,9 @@ type ProjectState struct {
 		// Human-readable project description
 		Description string `json:"description"`
 
+		// Optional GitHub issue number this project is linked to
+		Github_issue any/* CUE disjunction: (null|int) */ `json:"github_issue"`
+
 		// ISO 8601 timestamps
 		Created_at time.Time `json:"created_at"`
 

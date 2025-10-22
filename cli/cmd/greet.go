@@ -7,6 +7,8 @@ import (
 	"text/template"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	"github.com/jmgilman/sow/cli/internal/exec"
+	projectpkg "github.com/jmgilman/sow/cli/internal/project"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/spf13/cobra"
@@ -20,6 +22,8 @@ type GreetContext struct {
 	SowInitialized bool
 	HasProject     bool
 	Project        *ProjectGreetContext
+	OpenIssues     int
+	GHAvailable    bool
 }
 
 // ProjectGreetContext holds project-specific greeting context.
@@ -63,10 +67,10 @@ provide a context-aware greeting and initialization.`,
 }
 
 func runGreet(cmd *cobra.Command, _ []string) error {
-	s := cmdutil.SowFromContext(cmd.Context())
+	sowCtx := cmdutil.GetContext(cmd.Context())
 
 	// Detect context
-	context := detectGreetContext(s)
+	context := detectGreetContext(sowCtx)
 
 	// Render template
 	output, err := renderGreetingTemplate(context)
@@ -83,23 +87,33 @@ func runGreet(cmd *cobra.Command, _ []string) error {
 }
 
 // detectGreetContext inspects the repository and builds greeting context.
-func detectGreetContext(s *sow.Sow) GreetContext {
+func detectGreetContext(sowCtx *sow.Context) GreetContext {
 	ctx := GreetContext{
-		SowInitialized: s.IsInitialized(),
+		SowInitialized: sowCtx.IsInitialized(),
 	}
 
 	if !ctx.SowInitialized {
 		return ctx
 	}
 
-	if !s.HasProject() {
+	// Try to query GitHub for open sow issues
+	ghExec := exec.NewLocal("gh")
+	gh := sow.NewGitHub(ghExec)
+	if err := gh.Ensure(); err == nil {
+		ctx.GHAvailable = true
+		if issues, err := gh.ListIssues("sow", "open"); err == nil {
+			ctx.OpenIssues = len(issues)
+		}
+	}
+
+	if !projectpkg.Exists(sowCtx) {
 		return ctx
 	}
 
 	ctx.HasProject = true
 
 	// Load project
-	project, err := s.GetProject()
+	project, err := projectpkg.Load(sowCtx)
 	if err != nil {
 		// Log error but continue with hasProject=false
 		return GreetContext{SowInitialized: true}

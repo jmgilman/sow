@@ -2,6 +2,7 @@ package refs
 
 import (
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	"github.com/jmgilman/sow/cli/internal/refs"
 	"fmt"
 	"strings"
 
@@ -36,11 +37,14 @@ the cache if no other repositories use it (--prune-cache flag).`,
 func runRefsRemove(cmd *cobra.Command, refID string, force bool, pruneCache bool) error {
 	ctx := cmd.Context()
 
-	// Get Sow from context
-	s := cmdutil.SowFromContext(ctx)
+	// Get context
+	sowCtx := cmdutil.GetContext(ctx)
+
+	// Create refs manager
+	mgr := refs.NewManager(sowCtx)
 
 	// Get the ref
-	ref, err := s.GetRef(refID)
+	ref, err := mgr.Get(refID)
 	if err != nil {
 		return fmt.Errorf("ref not found: %w", err)
 	}
@@ -81,7 +85,7 @@ func runRefsRemove(cmd *cobra.Command, refID string, force bool, pruneCache bool
 	}
 
 	// Remove the ref
-	if err := s.RemoveRef(ctx, refID, pruneCache); err != nil {
+	if err := mgr.Remove(ctx, refID, pruneCache); err != nil {
 		return fmt.Errorf("failed to remove ref: %w", err)
 	}
 

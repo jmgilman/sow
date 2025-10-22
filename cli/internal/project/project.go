@@ -1,923 +1,930 @@
-// Package project provides business logic for project operations.
+// Package project provides the Project type and its operations.
 //
-// This package handles project-specific concerns like initializing project state,
-// validating branch names, and formatting project information for display.
+// Project is the aggregate root for managing sow projects with full state machine integration.
+// It uses sow.Context for filesystem, git, and GitHub access.
+//
+// Load/Create functions are provided at package level to construct Project instances:
+//   - Load(ctx) - Loads existing project from disk
+//   - Create(ctx, name, description) - Creates new project
+//   - CreateFromIssue(ctx, issueNumber, branchName) - Creates project from GitHub issue
+//   - Delete(ctx) - Deletes the active project
+//   - Exists(ctx) - Checks if a project exists
 package project
 
 import (
+	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
+	"gopkg.in/yaml.v3"
 )
 
-// Phase name constants.
-const (
-	PhaseDiscovery      = "discovery"
-	PhaseDesign         = "design"
-	PhaseImplementation = "implementation"
-	PhaseReview         = "review"
-	PhaseFinalize       = "finalize"
-)
-
-// validPhases maps phase names to their validity.
-var validPhases = map[string]bool{
-	PhaseDiscovery:      true,
-	PhaseDesign:         true,
-	PhaseImplementation: true,
-	PhaseReview:         true,
-	PhaseFinalize:       true,
+// Project represents an active sow project with full state machine integration.
+// All operations automatically persist state changes to disk.
+//
+// Project is an aggregate root that owns its statechart and tasks.
+// It uses sow.Context for filesystem, git, and GitHub access.
+type Project struct {
+	ctx     *sow.Context
+	machine *statechart.Machine
 }
 
-// validDiscoveryTypes lists valid discovery type values.
-var validDiscoveryTypes = map[string]bool{
-	"bug":      true,
-	"feature":  true,
-	"docs":     true,
-	"refactor": true,
-	"general":  true,
+// Machine returns the underlying state machine for advanced operations.
+// Most callers should use the higher-level Project methods instead.
+func (p *Project) Machine() *statechart.Machine {
+	return p.machine
 }
 
-// protectedBranches lists branch names that cannot have active projects.
-// Projects must be on feature branches, never on main/master.
-var protectedBranches = map[string]bool{
-	"main":   true,
-	"master": true,
+// State returns the project state for read-only access.
+func (p *Project) State() *schemas.ProjectState {
+	return p.machine.ProjectState()
 }
 
-// NewProjectState creates an initial ProjectState for a new project.
-//
-// All projects start with the same 5-phase structure:
-//   - Discovery: disabled (enabled: false, status: skipped)
-//   - Design: disabled (enabled: false, status: skipped)
-//   - Implementation: enabled (enabled: true, status: pending)
-//   - Review: enabled (enabled: true, status: pending, iteration: 1)
-//   - Finalize: enabled (enabled: true, status: pending, project_deleted: false)
-//
-// The truth table in /project:new will later modify phase enablement based on
-// user requirements. This creates the minimal valid starting state.
-//
-// Parameters:
-//   - name: Project name (must be kebab-case, validated by CUE schema)
-//   - branch: Git branch name (must not be main/master)
-//   - description: Human-readable project description
-//
-// Returns:
-//   - Fully initialized ProjectState ready to be written to disk
-func NewProjectState(name, branch, description string) *schemas.ProjectState {
-	now := time.Now()
-
-	state := &schemas.ProjectState{}
-
-	// Project metadata
-	state.Project.Name = name
-	state.Project.Branch = branch
-	state.Project.Description = description
-	state.Project.Created_at = now
-	state.Project.Updated_at = now
-
-	// Phase 1: Discovery (disabled by default)
-	state.Phases.Discovery = schemas.DiscoveryPhase{
-		Status:         "skipped",
-		Created_at:     now,
-		Started_at:     nil,
-		Completed_at:   nil,
-		Enabled:        false,
-		Discovery_type: nil,
-		Artifacts:      []schemas.Artifact{},
-	}
-
-	// Phase 2: Design (disabled by default)
-	state.Phases.Design = schemas.DesignPhase{
-		Status:         "skipped",
-		Created_at:     now,
-		Started_at:     nil,
-		Completed_at:   nil,
-		Enabled:        false,
-		Architect_used: nil,
-		Artifacts:      []schemas.Artifact{},
-	}
-
-	// Phase 3: Implementation (always enabled, required)
-	state.Phases.Implementation = schemas.ImplementationPhase{
-		Status:                  "pending",
-		Created_at:              now,
-		Started_at:              nil,
-		Completed_at:            nil,
-		Enabled:                 true,
-		Planner_used:            nil,
-		Tasks:                   []schemas.Task{},
-		Pending_task_additions:  nil,
-	}
-
-	// Phase 4: Review (always enabled, required)
-	state.Phases.Review = schemas.ReviewPhase{
-		Status:       "pending",
-		Created_at:   now,
-		Started_at:   nil,
-		Completed_at: nil,
-		Enabled:      true,
-		Iteration:    1,
-		Reports:      []schemas.ReviewReport{},
-	}
-
-	// Phase 5: Finalize (always enabled, required)
-	state.Phases.Finalize = schemas.FinalizePhase{
-		Status:                "pending",
-		Created_at:            now,
-		Started_at:            nil,
-		Completed_at:          nil,
-		Enabled:               true,
-		Documentation_updates: nil,
-		Artifacts_moved:       nil,
-		Project_deleted:       false,
-		Pr_url:                nil,
-	}
-
-	return state
+// Name returns the project name.
+func (p *Project) Name() string {
+	return p.State().Project.Name
 }
 
-// ValidateBranch checks if the given branch name is allowed for projects.
-//
-// Projects cannot be created on protected branches (main, master) to ensure
-// clean separation between feature work and the main codebase. The .sow/project/
-// directory is committed to feature branches but must be deleted before merge.
-//
-// Parameters:
-//   - branch: Branch name to validate
-//
-// Returns:
-//   - nil if branch is valid
-//   - error if branch is protected
-func ValidateBranch(branch string) error {
-	if protectedBranches[branch] {
-		return fmt.Errorf("cannot create project on protected branch '%s' - use a feature branch instead", branch)
+// Branch returns the project's git branch.
+func (p *Project) Branch() string {
+	return p.State().Project.Branch
+}
+
+// Description returns the project description.
+func (p *Project) Description() string {
+	return p.State().Project.Description
+}
+
+// save persists the current state to disk atomically.
+// This is called automatically after all mutations.
+func (p *Project) save() error {
+	if err := p.machine.Save(); err != nil {
+		return fmt.Errorf("failed to save project state: %w", err)
 	}
 	return nil
 }
 
-// FormatStatus generates a human-readable status summary for a project.
-//
-// Output format:
-//   Project: {name} (on {branch})
-//   Description: {description}
-//
-//   Phases:
-//     [enabled/disabled] Phase    Status
-//     [x] Discovery               skipped
-//     [x] Design                  skipped
-//     [✓] Implementation          in_progress
-//     [✓] Review                  pending
-//     [✓] Finalize                pending
-//
-//   Tasks: 3 total (1 completed, 1 in_progress, 1 pending)
-//
-// Parameters:
-//   - state: Project state to format
-//
-// Returns:
-//   - Formatted string ready for display
-func FormatStatus(state *schemas.ProjectState) string {
-	var b strings.Builder
-
-	// Project header
-	fmt.Fprintf(&b, "Project: %s (on %s)\n", state.Project.Name, state.Project.Branch)
-	fmt.Fprintf(&b, "Description: %s\n\n", state.Project.Description)
-
-	// Phases table
-	fmt.Fprintln(&b, "Phases:")
-	fmt.Fprintln(&b, "  [enabled] Phase              Status")
-
-	phases := []struct {
-		name    string
-		enabled bool
-		status  string
-	}{
-		{"Discovery", state.Phases.Discovery.Enabled, state.Phases.Discovery.Status},
-		{"Design", state.Phases.Design.Enabled, state.Phases.Design.Status},
-		{"Implementation", state.Phases.Implementation.Enabled, state.Phases.Implementation.Status},
-		{"Review", state.Phases.Review.Enabled, state.Phases.Review.Status},
-		{"Finalize", state.Phases.Finalize.Enabled, state.Phases.Finalize.Status},
+// EnablePhase enables a phase and transitions the state machine.
+func (p *Project) EnablePhase(phaseName string, opts ...sow.PhaseOption) error {
+	// Apply options
+	cfg := &sow.PhaseConfig{}
+	for _, opt := range opts {
+		opt(cfg)
 	}
 
-	for _, p := range phases {
-		enabledMark := " "
-		if p.enabled {
-			enabledMark = "✓"
-		}
-		// Pad phase name to 20 characters for alignment
-		fmt.Fprintf(&b, "  [%s] %-20s %s\n", enabledMark, p.name, p.status)
-	}
-
-	// Task summary
-	formatTaskSummary(&b, state.Phases.Implementation.Tasks)
-
-	return b.String()
-}
-
-// formatTaskSummary formats the task summary section.
-func formatTaskSummary(b *strings.Builder, tasks []schemas.Task) {
-	if len(tasks) == 0 {
-		fmt.Fprintln(b, "\nTasks: none yet")
-		return
-	}
-
-	total := len(tasks)
-	completed := 0
-	inProgress := 0
-	pending := 0
-	abandoned := 0
-
-	for _, task := range tasks {
-		switch task.Status {
-		case "completed":
-			completed++
-		case "in_progress":
-			inProgress++
-		case "pending":
-			pending++
-		case "abandoned":
-			abandoned++
-		}
-	}
-
-	fmt.Fprintf(b, "\nTasks: %d total", total)
-	details := []string{}
-	if completed > 0 {
-		details = append(details, fmt.Sprintf("%d completed", completed))
-	}
-	if inProgress > 0 {
-		details = append(details, fmt.Sprintf("%d in_progress", inProgress))
-	}
-	if pending > 0 {
-		details = append(details, fmt.Sprintf("%d pending", pending))
-	}
-	if abandoned > 0 {
-		details = append(details, fmt.Sprintf("%d abandoned", abandoned))
-	}
-	if len(details) > 0 {
-		fmt.Fprintf(b, " (%s)", strings.Join(details, ", "))
-	}
-	fmt.Fprintln(b)
-}
-
-// ValidatePhase checks if the given phase name is valid.
-//
-// Parameters:
-//   - phase: Phase name to validate
-//
-// Returns:
-//   - nil if phase is valid
-//   - error if phase name is invalid
-func ValidatePhase(phase string) error {
-	if !validPhases[phase] {
-		return fmt.Errorf("invalid phase '%s': must be one of discovery, design, implementation, review, finalize", phase)
-	}
-	return nil
-}
-
-// EnablePhase enables a phase in the project state.
-//
-// Only discovery and design phases can be enabled (impl/review/finalize are always enabled).
-// When enabling discovery, a discovery_type must be provided.
-//
-// Parameters:
-//   - state: Project state to modify
-//   - phase: Phase name to enable
-//   - discoveryType: Discovery type (required only if phase is discovery)
-//
-// Returns:
-//   - nil on success
-//   - error if phase can't be enabled or validation fails
-func EnablePhase(state *schemas.ProjectState, phase string, discoveryType *string) error {
+	state := p.State()
 	now := time.Now()
 
-	switch phase {
-	case PhaseDiscovery:
-		// Check if already enabled
-		if state.Phases.Discovery.Enabled {
-			return fmt.Errorf("discovery phase is already enabled")
+	// Handle each phase
+	switch phaseName {
+	case "discovery":
+		if cfg.DiscoveryType() == "" {
+			return fmt.Errorf("discovery type required (use WithDiscoveryType option)")
 		}
-
-		// Validate discovery type is provided
-		if discoveryType == nil || *discoveryType == "" {
-			return fmt.Errorf("discovery_type is required when enabling discovery phase")
-		}
-		if !validDiscoveryTypes[*discoveryType] {
-			return fmt.Errorf("invalid discovery_type '%s': must be one of bug, feature, docs, refactor, general", *discoveryType)
-		}
-
-		// Enable discovery phase
 		state.Phases.Discovery.Enabled = true
 		state.Phases.Discovery.Status = "pending"
-		state.Phases.Discovery.Discovery_type = discoveryType
-		state.Project.Updated_at = now
+		state.Phases.Discovery.Discovery_type = cfg.DiscoveryType()
+		state.Phases.Discovery.Started_at = now.Format(time.RFC3339)
 
-	case PhaseDesign:
-		// Check if already enabled
-		if state.Phases.Design.Enabled {
-			return fmt.Errorf("design phase is already enabled")
+		// Create discovery directory structure
+		if err := p.createPhaseStructure("discovery"); err != nil {
+			return err
 		}
 
-		// Enable design phase
+		// Fire state machine event
+		if err := p.machine.Fire(statechart.EventEnableDiscovery); err != nil {
+			return fmt.Errorf("state transition failed: %w", err)
+		}
+
+	case "design":
 		state.Phases.Design.Enabled = true
 		state.Phases.Design.Status = "pending"
-		state.Project.Updated_at = now
+		state.Phases.Design.Started_at = now.Format(time.RFC3339)
 
-	case PhaseImplementation, PhaseReview, PhaseFinalize:
-		return fmt.Errorf("phase '%s' is always enabled and cannot be manually enabled", phase)
+		// Create design directory structure
+		if err := p.createPhaseStructure("design"); err != nil {
+			return err
+		}
+
+		// Fire state machine event
+		if err := p.machine.Fire(statechart.EventEnableDesign); err != nil {
+			return fmt.Errorf("state transition failed: %w", err)
+		}
 
 	default:
-		return fmt.Errorf("invalid phase '%s'", phase)
+		return sow.ErrInvalidPhase
 	}
 
-	return nil
+	// Auto-save
+	return p.save()
 }
 
-// CompletePhase marks a phase as completed.
-//
-// Validates that the phase can be completed (all requirements met) before
-// updating the state.
-//
-// Parameters:
-//   - state: Project state to modify
-//   - phase: Phase name to complete
-//
-// Returns:
-//   - nil on success
-//   - error if phase can't be completed or validation fails
-func CompletePhase(state *schemas.ProjectState, phase string) error {
-	// First validate the phase can be completed
-	if err := ValidatePhaseCompletion(state, phase); err != nil {
-		return err
-	}
-
+// CompletePhase marks a phase as completed and transitions the state machine.
+func (p *Project) CompletePhase(phaseName string) error {
+	state := p.State()
 	now := time.Now()
-	nowStr := now.Format(time.RFC3339)
 
-	// Update the appropriate phase
-	switch phase {
-	case PhaseDiscovery:
-		state.Phases.Discovery.Status = "completed"
-		state.Phases.Discovery.Completed_at = nowStr
-		if state.Phases.Discovery.Started_at == nil {
-			state.Phases.Discovery.Started_at = nowStr
-		}
-
-	case PhaseDesign:
-		state.Phases.Design.Status = "completed"
-		state.Phases.Design.Completed_at = nowStr
-		if state.Phases.Design.Started_at == nil {
-			state.Phases.Design.Started_at = nowStr
-		}
-
-	case PhaseImplementation:
-		state.Phases.Implementation.Status = "completed"
-		state.Phases.Implementation.Completed_at = nowStr
-		if state.Phases.Implementation.Started_at == nil {
-			state.Phases.Implementation.Started_at = nowStr
-		}
-
-	case PhaseReview:
-		state.Phases.Review.Status = "completed"
-		state.Phases.Review.Completed_at = nowStr
-		if state.Phases.Review.Started_at == nil {
-			state.Phases.Review.Started_at = nowStr
-		}
-
-	case PhaseFinalize:
-		state.Phases.Finalize.Status = "completed"
-		state.Phases.Finalize.Completed_at = nowStr
-		if state.Phases.Finalize.Started_at == nil {
-			state.Phases.Finalize.Started_at = nowStr
-		}
-
-	default:
-		return fmt.Errorf("invalid phase '%s'", phase)
-	}
-
-	// Update project timestamp
-	state.Project.Updated_at = now
-
-	return nil
-}
-
-// ValidatePhaseCompletion checks if a phase meets all requirements for completion.
-//
-// Each phase has different completion requirements:
-//   - Discovery: All artifacts must be approved
-//   - Design: All artifacts must be approved
-//   - Implementation: All tasks must be completed or abandoned
-//   - Review: Latest report must have assessment "pass"
-//   - Finalize: project_deleted must be true
-//
-// Parameters:
-//   - state: Project state to validate
-//   - phase: Phase name to check
-//
-// Returns:
-//   - nil if phase can be completed
-//   - error describing what requirements are not met
-func ValidatePhaseCompletion(state *schemas.ProjectState, phase string) error {
-	switch phase {
-	case PhaseDiscovery:
+	switch phaseName {
+	case "discovery":
 		if !state.Phases.Discovery.Enabled {
-			return fmt.Errorf("discovery phase is not enabled")
+			return sow.ErrPhaseNotEnabled
 		}
-		if state.Phases.Discovery.Status == "completed" {
-			return fmt.Errorf("discovery phase is already completed")
+		state.Phases.Discovery.Status = "completed"
+		state.Phases.Discovery.Completed_at = now.Format(time.RFC3339)
+
+		// Fire state machine event
+		if err := p.machine.Fire(statechart.EventCompleteDiscovery); err != nil {
+			return fmt.Errorf("state transition failed: %w", err)
 		}
 
-		// Check all artifacts are approved
-		for _, artifact := range state.Phases.Discovery.Artifacts {
-			if !artifact.Approved {
-				return fmt.Errorf("artifact '%s' is not approved", artifact.Path)
-			}
-		}
-
-	case PhaseDesign:
+	case "design":
 		if !state.Phases.Design.Enabled {
-			return fmt.Errorf("design phase is not enabled")
+			return sow.ErrPhaseNotEnabled
 		}
-		if state.Phases.Design.Status == "completed" {
-			return fmt.Errorf("design phase is already completed")
+		state.Phases.Design.Status = "completed"
+		state.Phases.Design.Completed_at = now.Format(time.RFC3339)
+
+		// Fire state machine event
+		if err := p.machine.Fire(statechart.EventCompleteDesign); err != nil {
+			return fmt.Errorf("state transition failed: %w", err)
 		}
 
-		// Check all artifacts are approved
-		for _, artifact := range state.Phases.Design.Artifacts {
-			if !artifact.Approved {
-				return fmt.Errorf("artifact '%s' is not approved", artifact.Path)
-			}
+	case "implementation":
+		state.Phases.Implementation.Status = "completed"
+		state.Phases.Implementation.Completed_at = now.Format(time.RFC3339)
+
+		// Fire state machine event (transitions to review)
+		if err := p.machine.Fire(statechart.EventAllTasksComplete); err != nil {
+			return fmt.Errorf("state transition failed: %w", err)
 		}
 
-	case PhaseImplementation:
-		if state.Phases.Implementation.Status == "completed" {
-			return fmt.Errorf("implementation phase is already completed")
+	case "review":
+		state.Phases.Review.Status = "completed"
+		state.Phases.Review.Completed_at = now.Format(time.RFC3339)
+
+		// Fire state machine event (handled by review pass/fail)
+		// This is a placeholder - actual review completion happens via AddReviewReport
+
+	case "finalize":
+		state.Phases.Finalize.Status = "completed"
+		state.Phases.Finalize.Completed_at = now.Format(time.RFC3339)
+
+		// Finalize has substates, handled by specialized methods
+
+	default:
+		return sow.ErrInvalidPhase
+	}
+
+	// Auto-save
+	return p.save()
+}
+
+// SkipPhase marks an optional phase as skipped and transitions the state machine.
+func (p *Project) SkipPhase(phaseName string) error {
+	state := p.State()
+
+	switch phaseName {
+	case "discovery":
+		state.Phases.Discovery.Enabled = false
+		state.Phases.Discovery.Status = "skipped"
+
+		// Fire state machine event
+		if err := p.machine.Fire(statechart.EventSkipDiscovery); err != nil {
+			return fmt.Errorf("state transition failed: %w", err)
 		}
 
-		// Check all tasks are completed or abandoned
-		for _, task := range state.Phases.Implementation.Tasks {
-			if task.Status != "completed" && task.Status != "abandoned" {
-				return fmt.Errorf("task '%s' (%s) is not completed or abandoned (status: %s)", task.Id, task.Name, task.Status)
-			}
-		}
+	case "design":
+		state.Phases.Design.Enabled = false
+		state.Phases.Design.Status = "skipped"
 
-	case PhaseReview:
-		if state.Phases.Review.Status == "completed" {
-			return fmt.Errorf("review phase is already completed")
-		}
-
-		// Check latest report has pass assessment
-		if len(state.Phases.Review.Reports) == 0 {
-			return fmt.Errorf("no review reports exist - at least one review report is required")
-		}
-
-		latestReport := state.Phases.Review.Reports[len(state.Phases.Review.Reports)-1]
-		if latestReport.Assessment != "pass" {
-			return fmt.Errorf("latest review report assessment is '%s' (must be 'pass' to complete)", latestReport.Assessment)
-		}
-
-	case PhaseFinalize:
-		if state.Phases.Finalize.Status == "completed" {
-			return fmt.Errorf("finalize phase is already completed")
-		}
-
-		// Check project_deleted is true
-		if !state.Phases.Finalize.Project_deleted {
-			return fmt.Errorf("project must be deleted before completing finalize phase (project_deleted must be true)")
+		// Fire state machine event
+		if err := p.machine.Fire(statechart.EventSkipDesign); err != nil {
+			return fmt.Errorf("state transition failed: %w", err)
 		}
 
 	default:
-		return fmt.Errorf("invalid phase '%s'", phase)
+		return fmt.Errorf("only discovery and design phases can be skipped")
 	}
 
-	return nil
+	// Auto-save
+	return p.save()
 }
 
-// FormatPhaseStatus generates a human-readable phase status table.
-//
-// This is similar to FormatStatus but focuses only on phases without
-// the project metadata and task summary.
-//
-// Output format:
-//   Phases:
-//     [enabled] Phase              Status
-//     [ ] Discovery                skipped
-//     [ ] Design                   skipped
-//     [✓] Implementation           in_progress
-//     [✓] Review                   pending
-//     [✓] Finalize                 pending
-//
-// Parameters:
-//   - state: Project state to format
-//
-// Returns:
-//   - Formatted string ready for display
-func FormatPhaseStatus(state *schemas.ProjectState) string {
-	var b strings.Builder
+// CompleteFinalizeSubphase completes a finalize subphase (documentation or checks).
+func (p *Project) CompleteFinalizeSubphase(subphase string) error {
+	var event statechart.Event
 
-	// Phases table
-	fmt.Fprintln(&b, "Phases:")
-	fmt.Fprintln(&b, "  [enabled] Phase              Status")
-
-	phases := []struct {
-		name    string
-		enabled bool
-		status  string
-	}{
-		{"Discovery", state.Phases.Discovery.Enabled, state.Phases.Discovery.Status},
-		{"Design", state.Phases.Design.Enabled, state.Phases.Design.Status},
-		{"Implementation", state.Phases.Implementation.Enabled, state.Phases.Implementation.Status},
-		{"Review", state.Phases.Review.Enabled, state.Phases.Review.Status},
-		{"Finalize", state.Phases.Finalize.Enabled, state.Phases.Finalize.Status},
+	switch subphase {
+	case "documentation":
+		event = statechart.EventDocumentationDone
+	case "checks":
+		event = statechart.EventChecksDone
+	default:
+		return fmt.Errorf("invalid finalize subphase: must be 'documentation' or 'checks'")
 	}
 
-	for _, p := range phases {
-		enabledMark := " "
-		if p.enabled {
-			enabledMark = "✓"
+	// Fire state machine event
+	if err := p.machine.Fire(event); err != nil {
+		return fmt.Errorf("state transition failed: %w", err)
+	}
+
+	// Auto-save
+	return p.save()
+}
+
+// AddTask creates a new implementation task.
+func (p *Project) AddTask(name string, opts ...sow.TaskOption) (*Task, error) {
+	state := p.State()
+
+	// Apply options
+	cfg := &sow.TaskConfig{
+		Status:   "pending",
+		Parallel: false,
+		Agent:    "implementer", // Default agent
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	// Determine task ID (explicit or auto-generated)
+	id := cfg.ID()
+	if id == "" {
+		id = p.generateTaskID()
+	} else {
+		// Validate explicit ID format
+		if !isValidTaskID(id) {
+			return nil, fmt.Errorf("invalid task ID: must be 3 digits (e.g., 010, 020, 015)")
 		}
-		// Pad phase name to 20 characters for alignment
-		fmt.Fprintf(&b, "  [%s] %-20s %s\n", enabledMark, p.name, p.status)
+		// Check for duplicates
+		for _, t := range state.Phases.Implementation.Tasks {
+			if t.Id == id {
+				return nil, fmt.Errorf("task ID already exists: %s", id)
+			}
+		}
 	}
 
-	return b.String()
+	// Validate dependencies exist
+	for _, depID := range cfg.Dependencies() {
+		found := false
+		for _, t := range state.Phases.Implementation.Tasks {
+			if t.Id == depID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("dependency task not found: %s", depID)
+		}
+	}
+
+	// Create task
+	task := schemas.Task{
+		Id:           id,
+		Name:         name,
+		Status:       cfg.Status,
+		Parallel:     cfg.Parallel,
+		Dependencies: cfg.Dependencies(),
+	}
+
+	// Add to state
+	state.Phases.Implementation.Tasks = append(state.Phases.Implementation.Tasks, task)
+
+	// Create task directory structure and files
+	if err := p.createTaskStructure(id, name, cfg); err != nil {
+		return nil, fmt.Errorf("failed to create task structure: %w", err)
+	}
+
+	// NOTE: State transition removed - tasks now require human approval
+	// before transitioning to ImplementationExecuting. Use ApproveTasks() method.
+
+	// Auto-save
+	if err := p.save(); err != nil {
+		return nil, err
+	}
+
+	return &Task{
+		project: p,
+		id:      id,
+	}, nil
 }
 
-// ============================================================================
-// Artifact Management
-// ============================================================================
+// ApproveTasks approves the task plan and transitions to execution mode.
+// This must be called after all tasks are created to begin autonomous execution.
+func (p *Project) ApproveTasks() error {
+	state := p.State()
+
+	// Validate at least one task exists
+	if len(state.Phases.Implementation.Tasks) == 0 {
+		return fmt.Errorf("cannot approve: no tasks have been created")
+	}
+
+	// Set approval flag
+	state.Phases.Implementation.Tasks_approved = true
+
+	// Fire transition event
+	if err := p.machine.Fire(statechart.EventTasksApproved); err != nil {
+		return fmt.Errorf("state transition failed: %w", err)
+	}
+
+	return p.save()
+}
+
+// GetTask retrieves a task by ID.
+func (p *Project) GetTask(id string) (*Task, error) {
+	state := p.State()
+
+	// Find task in state
+	for _, t := range state.Phases.Implementation.Tasks {
+		if t.Id == id {
+			return &Task{
+				project: p,
+				id:      id,
+			}, nil
+		}
+	}
+
+	return nil, sow.ErrNoTask
+}
+
+// ListTasks returns all tasks.
+func (p *Project) ListTasks() []*Task {
+	state := p.State()
+	tasks := make([]*Task, 0, len(state.Phases.Implementation.Tasks))
+
+	for _, t := range state.Phases.Implementation.Tasks {
+		tasks = append(tasks, &Task{
+			project: p,
+			id:      t.Id,
+		})
+	}
+
+	return tasks
+}
+
+// InferTaskID attempts to infer the task ID from context.
+// Returns the task ID from the current directory or the active in_progress task.
+func (p *Project) InferTaskID() (string, error) {
+	// TODO: Implement directory-based inference
+	// For now, check for single in_progress task
+
+	state := p.State()
+	var inProgressID string
+	count := 0
+
+	for _, t := range state.Phases.Implementation.Tasks {
+		if t.Status == "in_progress" {
+			inProgressID = t.Id
+			count++
+		}
+	}
+
+	if count == 0 {
+		return "", fmt.Errorf("no in_progress task found")
+	}
+
+	if count > 1 {
+		return "", fmt.Errorf("multiple in_progress tasks found, use --id flag")
+	}
+
+	return inProgressID, nil
+}
 
 // AddArtifact adds an artifact to a phase (discovery or design).
-//
-// Parameters:
-//   - state: Project state to modify
-//   - phase: Phase name (discovery or design)
-//   - path: Artifact path (relative to .sow/project/)
-//   - approved: Whether artifact is pre-approved
-//
-// Returns:
-//   - nil on success
-//   - error if validation fails or artifact already exists
-func AddArtifact(state *schemas.ProjectState, phase, path string, approved bool) error {
+func (p *Project) AddArtifact(phaseName, path string, approved bool) error {
+	state := p.State()
 	now := time.Now()
 
-	// Validate phase
-	if phase != PhaseDiscovery && phase != PhaseDesign {
-		return fmt.Errorf("artifacts can only be added to discovery or design phases, got: %s", phase)
-	}
-
-	// Get the appropriate artifact list
-	var artifacts *[]schemas.Artifact
-	var enabled bool
-
-	if phase == PhaseDiscovery {
-		artifacts = &state.Phases.Discovery.Artifacts
-		enabled = state.Phases.Discovery.Enabled
-	} else {
-		artifacts = &state.Phases.Design.Artifacts
-		enabled = state.Phases.Design.Enabled
-	}
-
-	// Check phase is enabled
-	if !enabled {
-		return fmt.Errorf("%s phase is not enabled", phase)
-	}
-
-	// Check if artifact already exists
-	for _, artifact := range *artifacts {
-		if artifact.Path == path {
-			return fmt.Errorf("artifact '%s' already exists in %s phase", path, phase)
-		}
-	}
-
-	// Create new artifact
-	newArtifact := schemas.Artifact{
+	artifact := schemas.Artifact{
 		Path:       path,
 		Approved:   approved,
 		Created_at: now,
 	}
 
-	// Append to list
-	*artifacts = append(*artifacts, newArtifact)
+	switch phaseName {
+	case "discovery":
+		if !state.Phases.Discovery.Enabled {
+			return sow.ErrPhaseNotEnabled
+		}
+		state.Phases.Discovery.Artifacts = append(state.Phases.Discovery.Artifacts, artifact)
 
-	// Update project timestamp
-	state.Project.Updated_at = now
+	case "design":
+		if !state.Phases.Design.Enabled {
+			return sow.ErrPhaseNotEnabled
+		}
+		state.Phases.Design.Artifacts = append(state.Phases.Design.Artifacts, artifact)
 
-	return nil
+	default:
+		return sow.ErrInvalidPhase
+	}
+
+	// Auto-save
+	return p.save()
 }
 
-// ApproveArtifact marks an artifact as approved in a phase.
-//
-// Parameters:
-//   - state: Project state to modify
-//   - phase: Phase name (discovery or design)
-//   - path: Artifact path to approve
-//
-// Returns:
-//   - nil on success
-//   - error if artifact not found or already approved
-func ApproveArtifact(state *schemas.ProjectState, phase, path string) error {
-	now := time.Now()
+// ApproveArtifact marks an artifact as approved.
+func (p *Project) ApproveArtifact(phaseName, path string) error {
+	state := p.State()
 
-	// Validate phase
-	if phase != PhaseDiscovery && phase != PhaseDesign {
-		return fmt.Errorf("artifacts can only exist in discovery or design phases, got: %s", phase)
-	}
-
-	// Get the appropriate artifact list
-	var artifacts *[]schemas.Artifact
-	var enabled bool
-
-	if phase == PhaseDiscovery {
-		artifacts = &state.Phases.Discovery.Artifacts
-		enabled = state.Phases.Discovery.Enabled
-	} else {
-		artifacts = &state.Phases.Design.Artifacts
-		enabled = state.Phases.Design.Enabled
-	}
-
-	// Check phase is enabled
-	if !enabled {
-		return fmt.Errorf("%s phase is not enabled", phase)
-	}
-
-	// Find and approve the artifact
-	found := false
-	for i := range *artifacts {
-		if (*artifacts)[i].Path == path {
-			if (*artifacts)[i].Approved {
-				return fmt.Errorf("artifact '%s' is already approved", path)
+	switch phaseName {
+	case "discovery":
+		if !state.Phases.Discovery.Enabled {
+			return sow.ErrPhaseNotEnabled
+		}
+		for i := range state.Phases.Discovery.Artifacts {
+			if state.Phases.Discovery.Artifacts[i].Path == path {
+				state.Phases.Discovery.Artifacts[i].Approved = true
+				return p.save()
 			}
-			(*artifacts)[i].Approved = true
-			found = true
-			break
 		}
-	}
 
-	if !found {
-		return fmt.Errorf("artifact '%s' not found in %s phase", path, phase)
-	}
-
-	// Update project timestamp
-	state.Project.Updated_at = now
-
-	return nil
-}
-
-// FormatArtifactList generates a human-readable artifact list.
-//
-// Parameters:
-//   - state: Project state to format
-//   - phase: Phase to show artifacts for (empty string = all phases)
-//
-// Returns:
-//   - Formatted string ready for display
-func FormatArtifactList(state *schemas.ProjectState, phase string) string {
-	var b strings.Builder
-
-	if phase == "" || phase == PhaseDiscovery {
-		formatPhaseArtifacts(&b, "Discovery", state.Phases.Discovery.Enabled, state.Phases.Discovery.Artifacts)
-	}
-
-	if phase == "" || phase == PhaseDesign {
-		if phase == "" && b.Len() > 0 {
-			fmt.Fprintln(&b)
+	case "design":
+		if !state.Phases.Design.Enabled {
+			return sow.ErrPhaseNotEnabled
 		}
-		formatPhaseArtifacts(&b, "Design", state.Phases.Design.Enabled, state.Phases.Design.Artifacts)
-	}
-
-	if b.Len() == 0 {
-		return "No artifacts\n"
-	}
-
-	return b.String()
-}
-
-// formatPhaseArtifacts formats artifacts for a single phase.
-func formatPhaseArtifacts(b *strings.Builder, phaseName string, enabled bool, artifacts []schemas.Artifact) {
-	if !enabled {
-		fmt.Fprintf(b, "%s Phase (disabled)\n", phaseName)
-		return
-	}
-
-	fmt.Fprintf(b, "%s Phase:\n", phaseName)
-
-	if len(artifacts) == 0 {
-		fmt.Fprintln(b, "  No artifacts")
-		return
-	}
-
-	fmt.Fprintln(b, "  [approved] Path")
-	for _, artifact := range artifacts {
-		approvedMark := " "
-		if artifact.Approved {
-			approvedMark = "✓"
+		for i := range state.Phases.Design.Artifacts {
+			if state.Phases.Design.Artifacts[i].Path == path {
+				state.Phases.Design.Artifacts[i].Approved = true
+				return p.save()
+			}
 		}
-		fmt.Fprintf(b, "  [%s] %s\n", approvedMark, artifact.Path)
-	}
-}
 
-// ============================================================================
-// Review Management
-// ============================================================================
+	default:
+		return sow.ErrInvalidPhase
+	}
+
+	return fmt.Errorf("artifact not found: %s", path)
+}
 
 // IncrementReviewIteration increments the review iteration counter.
-//
-// Parameters:
-//   - state: Project state to modify
-//
-// Returns:
-//   - nil on success
-func IncrementReviewIteration(state *schemas.ProjectState) error {
-	now := time.Now()
-
+func (p *Project) IncrementReviewIteration() error {
+	state := p.State()
 	state.Phases.Review.Iteration++
-	state.Project.Updated_at = now
-
-	return nil
+	return p.save()
 }
 
-// AddReviewReport adds a review report to the review phase.
-//
-// Parameters:
-//   - state: Project state to modify
-//   - path: Report path (relative to .sow/project/phases/review/)
-//   - assessment: Assessment result ("pass" or "fail")
-//
-// Returns:
-//   - nil on success
-//   - error if validation fails
-func AddReviewReport(state *schemas.ProjectState, path, assessment string) error {
+// AddReviewReport adds a review report and transitions state based on assessment.
+func (p *Project) AddReviewReport(path, assessment string) error {
+	state := p.State()
 	now := time.Now()
 
 	// Validate assessment
 	if assessment != "pass" && assessment != "fail" {
-		return fmt.Errorf("invalid assessment '%s': must be 'pass' or 'fail'", assessment)
+		return fmt.Errorf("invalid assessment: must be 'pass' or 'fail'")
 	}
 
-	// Generate next report ID
-	reportID := nextReviewReportID(state)
+	// Generate report ID (001, 002, 003...)
+	reportID := fmt.Sprintf("%03d", len(state.Phases.Review.Reports)+1)
 
-	// Create new report
-	newReport := schemas.ReviewReport{
+	// Create report (not approved by default - requires human approval)
+	report := schemas.ReviewReport{
 		Id:         reportID,
 		Path:       path,
 		Created_at: now,
 		Assessment: assessment,
+		Approved:   false,
 	}
 
-	// Append to reports list
-	state.Phases.Review.Reports = append(state.Phases.Review.Reports, newReport)
+	state.Phases.Review.Reports = append(state.Phases.Review.Reports, report)
 
-	// Update project timestamp
-	state.Project.Updated_at = now
+	// NOTE: State transition removed - reviews now require human approval
+	// before transitioning. Use ApproveReview() method.
+
+	// Auto-save
+	return p.save()
+}
+
+// ApproveReview approves a review report and triggers the appropriate state transition.
+// The transition depends on the report's assessment (pass or fail).
+func (p *Project) ApproveReview(reportID string) error {
+	state := p.State()
+
+	// Find the report
+	var report *schemas.ReviewReport
+	for i := range state.Phases.Review.Reports {
+		if state.Phases.Review.Reports[i].Id == reportID {
+			report = &state.Phases.Review.Reports[i]
+			break
+		}
+	}
+
+	if report == nil {
+		return fmt.Errorf("review report not found: %s", reportID)
+	}
+
+	// Mark as approved
+	report.Approved = true
+
+	// Fire appropriate transition based on assessment
+	var event statechart.Event
+	if report.Assessment == "pass" {
+		event = statechart.EventReviewPass
+	} else {
+		event = statechart.EventReviewFail
+	}
+
+	if err := p.machine.Fire(event); err != nil {
+		return fmt.Errorf("state transition failed: %w", err)
+	}
+
+	return p.save()
+}
+
+// AddDocumentation records a documentation file update during finalize.
+func (p *Project) AddDocumentation(path string) error {
+	state := p.State()
+	state.Phases.Finalize.Documentation_updates = appendToStringSlice(state.Phases.Finalize.Documentation_updates, path)
+	return p.save()
+}
+
+// MoveArtifact records an artifact moved to knowledge during finalize.
+func (p *Project) MoveArtifact(from, to string) error {
+	state := p.State()
+	move := map[string]string{"from": from, "to": to}
+	state.Phases.Finalize.Artifacts_moved = appendToMapSlice(state.Phases.Finalize.Artifacts_moved, move)
+	return p.save()
+}
+
+// CreatePullRequest creates a pull request for the project using GitHub CLI.
+// The provided body should contain the main PR description written by the orchestrator.
+// This function adds issue references and footer automatically.
+// The PR URL is stored in the project state.
+func (p *Project) CreatePullRequest(body string) (string, error) {
+	state := p.State()
+
+	// Generate PR title from project
+	// Capitalize first letter of project name
+	name := p.Name()
+	if len(name) > 0 {
+		name = strings.ToUpper(name[:1]) + name[1:]
+	}
+	title := fmt.Sprintf("%s: %s", name, p.Description())
+
+	// Wrap body with issue reference and footer
+	fullBody := body
+
+	// Add issue reference if linked (before footer)
+	if state.Project.Github_issue != nil {
+		var issueNum int
+		if num, ok := state.Project.Github_issue.(int); ok {
+			issueNum = num
+		} else if num, ok := state.Project.Github_issue.(float64); ok {
+			issueNum = int(num)
+		}
+
+		if issueNum > 0 {
+			fullBody += fmt.Sprintf("\n\nCloses #%d\n", issueNum)
+		}
+	}
+
+	// Add footer
+	fullBody += "\n---\n\n🤖 Generated with sow\n"
+
+	// Create PR via GitHub CLI using context
+	prURL, err := p.ctx.GitHub().CreatePullRequest(title, fullBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to create pull request: %w", err)
+	}
+
+	// Store PR URL in state
+	state.Phases.Finalize.Pr_url = prURL
+
+	// Save state
+	if err := p.save(); err != nil {
+		return "", fmt.Errorf("failed to save PR URL: %w", err)
+	}
+
+	return prURL, nil
+}
+
+// Log creates and appends a structured log entry to the project log.
+// Automatically uses "orchestrator" as agent ID.
+//
+// Example:
+//
+//	p.Log("created_file", "success",
+//	      WithFiles("design.md"),
+//	      WithNotes("Created initial design document"))
+func (p *Project) Log(action, result string, opts ...LogOption) error {
+	entry := &LogEntry{
+		Timestamp: time.Now(),
+		AgentID:   "orchestrator",
+		Action:    action,
+		Result:    result,
+	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(entry)
+	}
+
+	// Validate
+	if err := entry.Validate(); err != nil {
+		return fmt.Errorf("invalid log entry: %w", err)
+	}
+
+	// Format and append
+	formatted := entry.Format()
+	return p.appendLog(formatted)
+}
+
+// appendLog appends a raw log entry to the project log file.
+func (p *Project) appendLog(entry string) error {
+	logPath := "project/log.md"
+
+	// Read existing content
+	existing, err := p.readFile(logPath)
+	if err != nil {
+		return fmt.Errorf("failed to read project log: %w", err)
+	}
+
+	// Append new entry
+	updated := append(existing, []byte(entry)...)
+
+	// Write back
+	if err := p.writeFile(logPath, updated); err != nil {
+		return fmt.Errorf("failed to write project log: %w", err)
+	}
 
 	return nil
 }
 
-// nextReviewReportID calculates the next review report ID (001, 002, 003...).
-func nextReviewReportID(state *schemas.ProjectState) string {
-	count := len(state.Phases.Review.Reports)
-	return fmt.Sprintf("%03d", count+1)
-}
+// createPhaseStructure creates the directory structure for a phase.
+func (p *Project) createPhaseStructure(phaseName string) error {
+	phaseDir := filepath.Join("project/phases", phaseName)
+	fs := p.ctx.FS()
 
-// ============================================================================
-// Finalize Management
-// ============================================================================
-
-// AddDocumentationUpdate adds a documentation file to the finalize phase tracking.
-//
-// Parameters:
-//   - state: Project state to modify
-//   - path: Path to documentation file (relative to repo root)
-//
-// Returns:
-//   - nil on success
-//   - error if path already tracked
-func AddDocumentationUpdate(state *schemas.ProjectState, path string) error {
-	now := time.Now()
-
-	// Get existing list or create empty slice
-	docs := extractDocumentationUpdates(state.Phases.Finalize.Documentation_updates)
-
-	// Check if already tracked
-	for _, doc := range docs {
-		if doc == path {
-			return fmt.Errorf("documentation file '%s' is already tracked", path)
-		}
+	// Create phase directory
+	if err := fs.MkdirAll(phaseDir, 0755); err != nil {
+		return fmt.Errorf("failed to create phase directory: %w", err)
 	}
 
-	// Append to list
-	docs = append(docs, path)
-	state.Phases.Finalize.Documentation_updates = docs
+	// Create log file
+	logPath := filepath.Join(phaseDir, "log.md")
+	// Capitalize first letter of phase name
+	phaseTitle := strings.ToUpper(phaseName[:1]) + phaseName[1:]
+	logContent := []byte(fmt.Sprintf("# %s Phase Log\n\n", phaseTitle))
+	if err := p.writeFile(logPath, logContent); err != nil {
+		return fmt.Errorf("failed to create phase log: %w", err)
+	}
 
-	// Update project timestamp
-	state.Project.Updated_at = now
+	// Phase-specific structures
+	switch phaseName {
+	case "discovery":
+		// Create research directory
+		researchDir := filepath.Join(phaseDir, "research")
+		if err := fs.MkdirAll(researchDir, 0755); err != nil {
+			return fmt.Errorf("failed to create research directory: %w", err)
+		}
+
+	case "design":
+		// Create ADRs and design docs directories
+		adrsDir := filepath.Join(phaseDir, "adrs")
+		if err := fs.MkdirAll(adrsDir, 0755); err != nil {
+			return fmt.Errorf("failed to create adrs directory: %w", err)
+		}
+
+		docsDir := filepath.Join(phaseDir, "design-docs")
+		if err := fs.MkdirAll(docsDir, 0755); err != nil {
+			return fmt.Errorf("failed to create design-docs directory: %w", err)
+		}
+	}
 
 	return nil
 }
 
-// extractDocumentationUpdates converts the any type to []string.
-func extractDocumentationUpdates(value any) []string {
-	if value == nil {
-		return []string{}
+// createTaskStructure creates the directory structure for a task.
+func (p *Project) createTaskStructure(id, name string, cfg *sow.TaskConfig) error {
+	taskDir := filepath.Join("project/phases/implementation/tasks", id)
+	fs := p.ctx.FS()
+
+	// Create task directory
+	if err := fs.MkdirAll(taskDir, 0755); err != nil {
+		return fmt.Errorf("failed to create task directory: %w", err)
 	}
 
-	// Type assert from any to []interface{} then convert to []string
-	if docsList, ok := value.([]interface{}); ok {
-		docs := make([]string, len(docsList))
-		for i, doc := range docsList {
-			if docStr, ok := doc.(string); ok {
-				docs[i] = docStr
-			}
-		}
-		return docs
+	// Create state.yaml with actual values
+	taskState := schemas.TaskState{}
+	taskState.Task.Id = id
+	taskState.Task.Name = name
+	taskState.Task.Phase = "implementation"
+	taskState.Task.Status = cfg.Status
+	taskState.Task.Created_at = time.Now()
+	taskState.Task.Updated_at = time.Now()
+	taskState.Task.Iteration = 1
+	taskState.Task.Assigned_agent = cfg.Agent
+	taskState.Task.References = []string{}
+	taskState.Task.Feedback = []schemas.Feedback{}
+	taskState.Task.Files_modified = []string{}
+
+	statePath := filepath.Join(taskDir, "state.yaml")
+	if err := p.writeYAML(statePath, &taskState); err != nil {
+		return err
 	}
 
-	// Already the correct type
-	if docsList, ok := value.([]string); ok {
-		return docsList
+	// Create description.md with actual description
+	descPath := filepath.Join(taskDir, "description.md")
+	descContent := fmt.Sprintf("# Task %s: %s\n\n%s\n", id, name, cfg.Description())
+	if err := p.writeFile(descPath, []byte(descContent)); err != nil {
+		return err
 	}
 
-	return []string{}
-}
-
-// MovedArtifact represents an artifact moved from project to knowledge.
-type MovedArtifact struct {
-	From string `json:"from" yaml:"from"`
-	To   string `json:"to" yaml:"to"`
-}
-
-// AddMovedArtifact records an artifact that was moved from project to knowledge.
-//
-// Parameters:
-//   - state: Project state to modify
-//   - from: Source path (relative to .sow/project/)
-//   - to: Destination path (relative to .sow/)
-//
-// Returns:
-//   - nil on success
-//   - error if validation fails
-func AddMovedArtifact(state *schemas.ProjectState, from, to string) error {
-	now := time.Now()
-
-	// Validate destination is under .sow/knowledge/
-	if !strings.HasPrefix(to, "knowledge/") {
-		return fmt.Errorf("destination '%s' must be under knowledge/ directory", to)
+	// Create log.md
+	logPath := filepath.Join(taskDir, "log.md")
+	logContent := fmt.Sprintf("# Task %s Log\n\nWorker actions will be logged here.\n", id)
+	if err := p.writeFile(logPath, []byte(logContent)); err != nil {
+		return err
 	}
 
-	// Get existing list or create empty slice
-	artifacts := extractMovedArtifacts(state.Phases.Finalize.Artifacts_moved)
-
-	// Create moved artifact record
-	movedArtifact := MovedArtifact{
-		From: from,
-		To:   to,
+	// Create feedback directory
+	feedbackDir := filepath.Join(taskDir, "feedback")
+	if err := fs.MkdirAll(feedbackDir, 0755); err != nil {
+		return fmt.Errorf("failed to create feedback directory: %w", err)
 	}
-
-	// Append to list
-	artifacts = append(artifacts, movedArtifact)
-	state.Phases.Finalize.Artifacts_moved = artifacts
-
-	// Update project timestamp
-	state.Project.Updated_at = now
 
 	return nil
 }
 
-// extractMovedArtifacts converts the any type to []MovedArtifact.
-func extractMovedArtifacts(value any) []MovedArtifact {
-	if value == nil {
-		return []MovedArtifact{}
-	}
+// generateTaskID generates a gap-numbered task ID (010, 020, 030...).
+func (p *Project) generateTaskID() string {
+	state := p.State()
 
-	// Already the correct type
-	if artifactsList, ok := value.([]MovedArtifact); ok {
-		return artifactsList
-	}
-
-	// Type assert from any to []interface{} then convert to []MovedArtifact
-	if artifactsList, ok := value.([]interface{}); ok {
-		return convertToMovedArtifacts(artifactsList)
-	}
-
-	return []MovedArtifact{}
-}
-
-// convertToMovedArtifacts converts []interface{} to []MovedArtifact.
-func convertToMovedArtifacts(list []interface{}) []MovedArtifact {
-	artifacts := make([]MovedArtifact, len(list))
-	for i, artifact := range list {
-		if artifactMap, ok := artifact.(map[string]interface{}); ok {
-			if from, ok := artifactMap["from"].(string); ok {
-				artifacts[i].From = from
-			}
-			if to, ok := artifactMap["to"].(string); ok {
-				artifacts[i].To = to
-			}
+	// Find the highest existing ID
+	maxID := 0
+	for _, t := range state.Phases.Implementation.Tasks {
+		var id int
+		_, _ = fmt.Sscanf(t.Id, "%d", &id)
+		if id > maxID {
+			maxID = id
 		}
 	}
-	return artifacts
+
+	// Next ID is maxID + 10
+	nextID := maxID + 10
+	return fmt.Sprintf("%03d", nextID)
+}
+
+// isValidTaskID validates that a task ID is a valid 3-digit number.
+// Gap-numbered IDs (010, 020, 030) are auto-generated, but users can
+// specify intermediate IDs (015, 025) for insertion between tasks.
+func isValidTaskID(id string) bool {
+	// Must be exactly 3 digits
+	if len(id) != 3 {
+		return false
+	}
+
+	// Must be numeric and greater than 0
+	var num int
+	if _, err := fmt.Sscanf(id, "%d", &num); err != nil {
+		return false
+	}
+
+	return num > 0
+}
+
+// Helper methods for filesystem operations
+
+// readYAML reads and unmarshals a YAML file.
+func (p *Project) readYAML(path string, v interface{}) error {
+	data, err := p.readFile(path)
+	if err != nil {
+		return err
+	}
+
+	if err := yaml.Unmarshal(data, v); err != nil {
+		return fmt.Errorf("failed to unmarshal YAML: %w", err)
+	}
+	return nil
+}
+
+// writeFile writes a file using the context's filesystem.
+func (p *Project) writeFile(path string, data []byte) error {
+	fs := p.ctx.FS()
+	f, err := fs.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open file for writing: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	if _, err = f.Write(data); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	return nil
+}
+
+// readFile reads a file's contents using the context's filesystem.
+func (p *Project) readFile(path string) ([]byte, error) {
+	fs := p.ctx.FS()
+	f, err := fs.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file for reading: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	var data []byte
+	buf := make([]byte, 4096)
+	for {
+		n, err := f.Read(buf)
+		if n > 0 {
+			data = append(data, buf[:n]...)
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, fmt.Errorf("failed to read file: %w", err)
+		}
+	}
+
+	return data, nil
+}
+
+// writeYAML marshals a value to YAML and writes it atomically.
+func (p *Project) writeYAML(path string, v interface{}) error {
+	data, err := yaml.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("failed to marshal YAML: %w", err)
+	}
+
+	fs := p.ctx.FS()
+
+	// Write to temp file first
+	tmpPath := path + ".tmp"
+	if err := p.writeFile(tmpPath, data); err != nil {
+		return err
+	}
+
+	// Atomic rename
+	if err := fs.Rename(tmpPath, path); err != nil {
+		_ = fs.Remove(tmpPath) // Clean up temp file
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	return nil
+}
+
+// appendToStringSlice appends a string to an any-typed field that should be []string.
+// Handles type assertions for YAML unmarshaling edge cases.
+func appendToStringSlice(field any, value string) any {
+	if field == nil {
+		return []string{value}
+	}
+
+	// Type assert to []string
+	if updates, ok := field.([]string); ok {
+		return append(updates, value)
+	}
+
+	// Handle interface{} slice from YAML unmarshaling
+	if updates, ok := field.([]interface{}); ok {
+		strUpdates := make([]string, 0, len(updates)+1)
+		for _, u := range updates {
+			if s, ok := u.(string); ok {
+				strUpdates = append(strUpdates, s)
+			}
+		}
+		return append(strUpdates, value)
+	}
+
+	// If type is unexpected, reset to new slice
+	return []string{value}
+}
+
+// appendToMapSlice appends a map[string]string to an any-typed field that should be []map[string]string.
+// Handles type assertions for YAML unmarshaling edge cases.
+func appendToMapSlice(field any, value map[string]string) any {
+	if field == nil {
+		return []map[string]string{value}
+	}
+
+	// Type assert to []map[string]string
+	if moves, ok := field.([]map[string]string); ok {
+		return append(moves, value)
+	}
+
+	// Handle interface{} slice from YAML unmarshaling
+	if moves, ok := field.([]interface{}); ok {
+		mapMoves := make([]map[string]string, 0, len(moves)+1)
+		for _, m := range moves {
+			if mm, ok := m.(map[string]interface{}); ok {
+				strMap := make(map[string]string)
+				for k, v := range mm {
+					if s, ok := v.(string); ok {
+						strMap[k] = s
+					}
+				}
+				mapMoves = append(mapMoves, strMap)
+			}
+		}
+		return append(mapMoves, value)
+	}
+
+	// If type is unexpected, reset to new slice
+	return []map[string]string{value}
 }

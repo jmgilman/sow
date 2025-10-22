@@ -13,16 +13,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const stateFilePath = ".sow/project/state.yaml"
-
-// Load reads the state from disk and creates a state machine.
-// If no project exists, returns a machine in NoProject state.
-//
-// This function uses os.ReadFile for backwards compatibility with existing commands.
-// New code should use LoadFS instead.
-func Load() (*Machine, error) {
-	return LoadFS(nil)
-}
+const (
+	// stateFilePath is the absolute path from repo root (for os operations).
+	stateFilePath = ".sow/project/state.yaml"
+	// stateFilePathChrooted is the relative path from .sow/ (for chrooted billy FS).
+	stateFilePathChrooted = "project/state.yaml"
+)
 
 // LoadFS reads the state from disk using the provided filesystem.
 // If fs is nil, uses os.ReadFile for backwards compatibility.
@@ -32,7 +28,8 @@ func LoadFS(fs billy.Filesystem) (*Machine, error) {
 	var err error
 
 	if fs != nil {
-		data, err = readFile(fs, stateFilePath)
+		// Use chrooted path when fs is provided (assumes fs is already chrooted to .sow/)
+		data, err = readFile(fs, stateFilePathChrooted)
 	} else {
 		data, err = os.ReadFile(stateFilePath)
 	}
@@ -144,21 +141,24 @@ func (m *Machine) Save() error {
 	return m.saveOS(data)
 }
 
-// saveFS saves using billy filesystem.
+// saveFS saves using billy filesystem (assumes fs is already chrooted to .sow/).
 func (m *Machine) saveFS(data []byte) error {
+	// Use chrooted path
+	path := stateFilePathChrooted
+
 	// Ensure directory exists
-	dir := filepath.Dir(stateFilePath)
+	dir := filepath.Dir(path)
 	if err := m.fs.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create state directory: %w", err)
 	}
 
 	// Atomic write: write to temp file, then rename
-	tmpFile := stateFilePath + ".tmp"
+	tmpFile := path + ".tmp"
 	if err := writeFile(m.fs, tmpFile, data); err != nil {
 		return fmt.Errorf("failed to write state file: %w", err)
 	}
 
-	if err := m.fs.Rename(tmpFile, stateFilePath); err != nil {
+	if err := m.fs.Rename(tmpFile, path); err != nil {
 		_ = m.fs.Remove(tmpFile) // Clean up
 		return fmt.Errorf("failed to rename state file: %w", err)
 	}
@@ -191,7 +191,7 @@ func (m *Machine) saveOS(data []byte) error {
 func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 	f, err := fs.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer func() { _ = f.Close() }()
 
@@ -206,7 +206,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return nil, err
+			return nil, fmt.Errorf("failed to read file: %w", err)
 		}
 	}
 	return data, nil
@@ -216,10 +216,12 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 func writeFile(fs billy.Filesystem, path string, data []byte) error {
 	f, err := fs.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open file for writing: %w", err)
 	}
 	defer func() { _ = f.Close() }()
 
-	_, err = f.Write(data)
-	return err
+	if _, err = f.Write(data); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	return nil
 }

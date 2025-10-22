@@ -9,29 +9,30 @@ import (
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
-// Manager orchestrates ref caching and workspace symlinking.
-type Manager struct {
+// CacheManager orchestrates ref caching and workspace symlinking.
+// This is a low-level manager that handles the physical caching operations.
+type CacheManager struct {
 	cacheDir string // Base cache directory (e.g., ~/.cache/sow/refs)
 	sowDir   string // .sow directory path
 }
 
-// NewManager creates a new refs manager using the default cache directory.
+// NewCacheManager creates a new refs cache manager using the default cache directory.
 // The default cache directory is ~/.cache/sow/refs.
-func NewManager(sowDir string) (*Manager, error) {
+func NewCacheManager(sowDir string) (*CacheManager, error) {
 	cacheDir, err := DefaultCacheDir()
 	if err != nil {
 		return nil, err
 	}
-	return &Manager{
+	return &CacheManager{
 		cacheDir: cacheDir,
 		sowDir:   sowDir,
 	}, nil
 }
 
-// NewManagerWithCache creates a new refs manager with a custom cache directory.
-// This is primarily for testing; production code should use NewManager.
-func NewManagerWithCache(cacheDir, sowDir string) *Manager {
-	return &Manager{
+// NewCacheManagerWithCache creates a new refs cache manager with a custom cache directory.
+// This is primarily for testing; production code should use NewCacheManager.
+func NewCacheManagerWithCache(cacheDir, sowDir string) *CacheManager {
+	return &CacheManager{
 		cacheDir: cacheDir,
 		sowDir:   sowDir,
 	}
@@ -49,7 +50,7 @@ func DefaultCacheDir() (string, error) {
 
 // Install installs a ref by caching it and creating a workspace symlink.
 // Returns the workspace symlink path.
-func (m *Manager) Install(ctx context.Context, ref *schemas.Ref) (string, error) {
+func (m *CacheManager) Install(ctx context.Context, ref *schemas.Ref) (string, error) {
 	// Infer type from URL
 	typeName, err := InferTypeFromURL(ref.Source)
 	if err != nil {
@@ -90,7 +91,7 @@ func (m *Manager) Install(ctx context.Context, ref *schemas.Ref) (string, error)
 }
 
 // Update updates a ref by refreshing its cache and verifying the symlink.
-func (m *Manager) Update(ctx context.Context, ref *schemas.Ref) error {
+func (m *CacheManager) Update(ctx context.Context, ref *schemas.Ref) error {
 	// Infer type from URL
 	typeName, err := InferTypeFromURL(ref.Source)
 	if err != nil {
@@ -129,7 +130,7 @@ func (m *Manager) Update(ctx context.Context, ref *schemas.Ref) error {
 
 // verifyWorkspaceSymlink checks if workspace symlink exists and points to correct cache path.
 // If it doesn't exist or points to wrong location, it will be created/fixed.
-func (m *Manager) verifyWorkspaceSymlink(cachePath, workspacePath string) error {
+func (m *CacheManager) verifyWorkspaceSymlink(cachePath, workspacePath string) error {
 	linkInfo, err := os.Lstat(workspacePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -164,7 +165,7 @@ func (m *Manager) verifyWorkspaceSymlink(cachePath, workspacePath string) error 
 }
 
 // Remove removes a ref by cleaning up its cache and workspace symlink.
-func (m *Manager) Remove(ctx context.Context, ref *schemas.Ref) error {
+func (m *CacheManager) Remove(ctx context.Context, ref *schemas.Ref) error {
 	// Infer type from URL
 	typeName, err := InferTypeFromURL(ref.Source)
 	if err != nil {
@@ -193,12 +194,12 @@ func (m *Manager) Remove(ctx context.Context, ref *schemas.Ref) error {
 
 // workspacePath determines the workspace symlink path.
 // All refs go to .sow/refs/{link} regardless of semantic type.
-func (m *Manager) workspacePath(ref *schemas.Ref) string {
+func (m *CacheManager) workspacePath(ref *schemas.Ref) string {
 	return filepath.Join(m.sowDir, "refs", ref.Link)
 }
 
 // createWorkspaceSymlink creates a symlink from workspace to cache.
-func (m *Manager) createWorkspaceSymlink(cachePath, workspacePath string) error {
+func (m *CacheManager) createWorkspaceSymlink(cachePath, workspacePath string) error {
 	// Create parent directory if needed
 	parentDir := filepath.Dir(workspacePath)
 	if err := os.MkdirAll(parentDir, 0o755); err != nil {

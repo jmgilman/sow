@@ -2,9 +2,9 @@ package refs
 
 import (
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	"github.com/jmgilman/sow/cli/internal/refs"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
@@ -86,35 +86,38 @@ func runRefsAdd(
 	rawURL := args[0]
 	ctx := c.Context()
 
-	// Get Sow from context
-	s := cmdutil.SowFromContext(ctx)
+	// Get context
+	sowCtx := cmdutil.GetContext(ctx)
+
+	// Create refs manager
+	mgr := refs.NewManager(sowCtx)
 
 	// Build options
-	opts := []sow.RefOption{
-		sow.WithRefLink(link),
-		sow.WithRefSemantic(semantic),
-		sow.WithRefDescription(description),
-		sow.WithRefLocal(local),
+	opts := []refs.RefOption{
+		refs.WithRefLink(link),
+		refs.WithRefSemantic(semantic),
+		refs.WithRefDescription(description),
+		refs.WithRefLocal(local),
 	}
 
 	if id != "" {
-		opts = append(opts, sow.WithRefID(id))
+		opts = append(opts, refs.WithRefID(id))
 	}
 
 	if len(tags) > 0 {
-		opts = append(opts, sow.WithRefTags(tags...))
+		opts = append(opts, refs.WithRefTags(tags...))
 	}
 
 	if branch != "" {
-		opts = append(opts, sow.WithRefBranch(branch))
+		opts = append(opts, refs.WithRefBranch(branch))
 	}
 
 	if path != "" {
-		opts = append(opts, sow.WithRefPath(path))
+		opts = append(opts, refs.WithRefPath(path))
 	}
 
 	// Add ref (handles all validation, type inference, caching, symlinking)
-	ref, err := s.AddRef(ctx, rawURL, opts...)
+	ref, err := mgr.Add(ctx, rawURL, opts...)
 	if err != nil {
 		return err
 	}
@@ -123,7 +126,7 @@ func runRefsAdd(
 	return printAddConfirmation(c, ref)
 }
 
-func printAddConfirmation(c *cobra.Command, ref *sow.Ref) error {
+func printAddConfirmation(c *cobra.Command, ref *refs.Ref) error {
 	refID := ref.ID()
 
 	// Get ref details

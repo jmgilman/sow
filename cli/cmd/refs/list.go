@@ -2,9 +2,9 @@ package refs
 
 import (
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	"github.com/jmgilman/sow/cli/internal/refs"
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
@@ -61,44 +61,47 @@ func runRefsList(
 ) error {
 	ctx := cmd.Context()
 
-	// Get Sow from context
-	s := cmdutil.SowFromContext(ctx)
+	// Get context
+	sowCtx := cmdutil.GetContext(ctx)
+
+	// Create refs manager
+	mgr := refs.NewManager(sowCtx)
 
 	// Build filter options
-	var opts []sow.RefListOption
+	var opts []refs.RefListOption
 
 	if typeFilter != "" {
-		opts = append(opts, sow.WithRefTypeFilter(typeFilter))
+		opts = append(opts, refs.WithRefTypeFilter(typeFilter))
 	}
 	if semanticFilter != "" {
-		opts = append(opts, sow.WithRefSemanticFilter(semanticFilter))
+		opts = append(opts, refs.WithRefSemanticFilter(semanticFilter))
 	}
 	if len(tagsFilter) > 0 {
-		opts = append(opts, sow.WithRefTagsFilter(tagsFilter...))
+		opts = append(opts, refs.WithRefTagsFilter(tagsFilter...))
 	}
 
 	// Handle local/committed filters
 	if showLocal && !showCommitted {
-		opts = append(opts, sow.WithRefLocalOnly())
+		opts = append(opts, refs.WithRefLocalOnly())
 	} else if showCommitted && !showLocal {
-		opts = append(opts, sow.WithRefCommittedOnly())
+		opts = append(opts, refs.WithRefCommittedOnly())
 	}
 	// If both true or both false, show both (default behavior)
 
 	// List refs
-	refs, err := s.ListRefs(opts...)
+	refsList, err := mgr.List(opts...)
 	if err != nil {
 		return fmt.Errorf("failed to list refs: %w", err)
 	}
 
-	if len(refs) == 0 {
+	if len(refsList) == 0 {
 		cmd.Println("No refs configured")
 		return nil
 	}
 
 	// Convert to refWithSource for printing
-	var refsList []refWithSource
-	for _, ref := range refs {
+	var refsWithSource []refWithSource
+	for _, ref := range refsList {
 		schema, err := ref.Schema()
 		if err != nil {
 			return fmt.Errorf("failed to get ref schema: %w", err)
@@ -111,19 +114,19 @@ func runRefsList(
 		if isLocal {
 			source = "local"
 		}
-		refsList = append(refsList, refWithSource{Ref: *schema, Source: source})
+		refsWithSource = append(refsWithSource, refWithSource{Ref: *schema, Source: source})
 	}
 
 	// Output in requested format
 	switch format {
 	case "table":
-		printRefsTable(cmd, refsList)
+		printRefsTable(cmd, refsWithSource)
 	case "json":
-		if err := printRefsJSON(cmd, refsList); err != nil {
+		if err := printRefsJSON(cmd, refsWithSource); err != nil {
 			return err
 		}
 	case "yaml":
-		if err := printRefsYAML(cmd, refsList); err != nil {
+		if err := printRefsYAML(cmd, refsWithSource); err != nil {
 			return err
 		}
 	default:

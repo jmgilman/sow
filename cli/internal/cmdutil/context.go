@@ -4,7 +4,6 @@ package cmdutil
 import (
 	"context"
 
-	"github.com/jmgilman/go/fs/core"
 	"github.com/jmgilman/sow/cli/internal/sow"
 )
 
@@ -12,26 +11,30 @@ import (
 type contextKey string
 
 const (
-	sowKey        contextKey = "sow"
-	filesystemKey contextKey = "filesystem"
+	sowContextKey contextKey = "sowContext"
 )
 
-// SowFromContext retrieves the Sow instance from the command context.
+// GetContext retrieves the sow.Context from the command context.
 // Panics if not found (should always be available via root command setup).
-func SowFromContext(ctx context.Context) *sow.Sow {
-	s, ok := ctx.Value(sowKey).(*sow.Sow)
+func GetContext(ctx context.Context) *sow.Context {
+	c, ok := ctx.Value(sowContextKey).(*sow.Context)
 	if !ok {
-		panic("sow instance not found in context")
+		panic("sow context not found in context")
 	}
-	return s
+	return c
 }
 
-// WithSow adds a Sow instance to the context.
-func WithSow(ctx context.Context, s *sow.Sow) context.Context {
-	return context.WithValue(ctx, sowKey, s)
+// RequireInitialized retrieves the sow.Context and returns an error if .sow doesn't exist.
+// Use this in commands that require .sow to be initialized.
+func RequireInitialized(ctx context.Context) (*sow.Context, error) {
+	c := GetContext(ctx)
+	if !c.IsInitialized() {
+		return nil, sow.ErrNotInitialized
+	}
+	return c, nil
 }
 
-// WithFilesystem adds a filesystem to the context (for backwards compatibility).
-func WithFilesystem(ctx context.Context, fs core.FS) context.Context {
-	return context.WithValue(ctx, filesystemKey, fs)
+// WithContext adds a sow.Context to the command context.
+func WithContext(ctx context.Context, sowCtx *sow.Context) context.Context {
+	return context.WithValue(ctx, sowContextKey, sowCtx)
 }

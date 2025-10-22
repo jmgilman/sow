@@ -1,14 +1,20 @@
-// Package logging provides structured log entry formatting and validation.
-//
-// This package handles the creation of markdown-formatted log entries
-// for sow project and task logs.
-package logging
+package project
 
 import (
 	"fmt"
 	"strings"
 	"time"
 )
+
+// LogEntry represents a structured log entry.
+type LogEntry struct {
+	Timestamp time.Time
+	AgentID   string
+	Action    string
+	Result    string
+	Files     []string
+	Notes     string
+}
 
 // ValidActions defines the allowed action types for log entries.
 var ValidActions = []string{
@@ -30,27 +36,6 @@ var ValidResults = []string{
 	"success",
 	"error",
 	"partial",
-}
-
-// LogEntry represents a structured log entry.
-type LogEntry struct {
-	// Timestamp is when the action occurred (ISO 8601 format)
-	Timestamp time.Time
-
-	// AgentID identifies the agent (e.g., "implementer-1", "orchestrator")
-	AgentID string
-
-	// Action is the type of action from ValidActions
-	Action string
-
-	// Result is the outcome: success, error, or partial
-	Result string
-
-	// Files is an optional list of files affected by this action
-	Files []string
-
-	// Notes is optional free-form description
-	Notes string
 }
 
 // Format renders the log entry as structured markdown.
@@ -100,10 +85,10 @@ func (e *LogEntry) Format() string {
 
 // Validate checks if the log entry has valid action and result values.
 func (e *LogEntry) Validate() error {
-	if err := ValidateAction(e.Action); err != nil {
+	if err := validateAction(e.Action); err != nil {
 		return err
 	}
-	if err := ValidateResult(e.Result); err != nil {
+	if err := validateResult(e.Result); err != nil {
 		return err
 	}
 	if e.AgentID == "" {
@@ -112,8 +97,8 @@ func (e *LogEntry) Validate() error {
 	return nil
 }
 
-// ValidateAction checks if the given action is in the valid actions list.
-func ValidateAction(action string) error {
+// validateAction checks if the given action is in the valid actions list.
+func validateAction(action string) error {
 	for _, valid := range ValidActions {
 		if action == valid {
 			return nil
@@ -122,8 +107,8 @@ func ValidateAction(action string) error {
 	return fmt.Errorf("invalid action %q: must be one of %v", action, ValidActions)
 }
 
-// ValidateResult checks if the given result is in the valid results list.
-func ValidateResult(result string) error {
+// validateResult checks if the given result is in the valid results list.
+func validateResult(result string) error {
 	for _, valid := range ValidResults {
 		if result == valid {
 			return nil
@@ -132,18 +117,35 @@ func ValidateResult(result string) error {
 	return fmt.Errorf("invalid result %q: must be one of %v", result, ValidResults)
 }
 
-// BuildAgentID constructs an agent ID from role and iteration.
+// buildAgentID constructs an agent ID from role and iteration.
 //
 // For workers with iterations, format is: {role}-{iteration}
 // For orchestrator, just use "orchestrator"
 //
 // Examples:
-//   - BuildAgentID("implementer", 1) -> "implementer-1"
-//   - BuildAgentID("architect", 3) -> "architect-3"
-//   - BuildAgentID("orchestrator", 0) -> "orchestrator"
-func BuildAgentID(role string, iteration int) string {
+//   - buildAgentID("implementer", 1) -> "implementer-1"
+//   - buildAgentID("architect", 3) -> "architect-3"
+//   - buildAgentID("orchestrator", 0) -> "orchestrator"
+func buildAgentID(role string, iteration int) string {
 	if role == "orchestrator" || iteration == 0 {
 		return role
 	}
 	return fmt.Sprintf("%s-%d", role, iteration)
+}
+
+// LogOption configures a log entry.
+type LogOption func(*LogEntry)
+
+// WithFiles adds files to the log entry.
+func WithFiles(files ...string) LogOption {
+	return func(e *LogEntry) {
+		e.Files = append(e.Files, files...)
+	}
+}
+
+// WithNotes adds notes to the log entry.
+func WithNotes(notes string) LogOption {
+	return func(e *LogEntry) {
+		e.Notes = notes
+	}
 }

@@ -1,4 +1,4 @@
-package sow
+package refs
 
 import (
 	"context"
@@ -6,15 +6,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jmgilman/sow/cli/internal/refs"
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
 // Ref represents a reference with operations.
 // All operations automatically persist state changes.
 type Ref struct {
-	sow *Sow
-	id  string
+	manager *Manager
+	id      string
 }
 
 // ID returns the ref ID.
@@ -24,7 +23,7 @@ func (r *Ref) ID() string {
 
 // Source returns the ref source URL.
 func (r *Ref) Source() (string, error) {
-	ref, _, err := r.sow.findRefInIndexes(r.id)
+	ref, _, err := r.manager.findRefInIndexes(r.id)
 	if err != nil {
 		return "", err
 	}
@@ -33,7 +32,7 @@ func (r *Ref) Source() (string, error) {
 
 // Link returns the workspace symlink name.
 func (r *Ref) Link() (string, error) {
-	ref, _, err := r.sow.findRefInIndexes(r.id)
+	ref, _, err := r.manager.findRefInIndexes(r.id)
 	if err != nil {
 		return "", err
 	}
@@ -42,7 +41,7 @@ func (r *Ref) Link() (string, error) {
 
 // Semantic returns the semantic type (knowledge or code).
 func (r *Ref) Semantic() (string, error) {
-	ref, _, err := r.sow.findRefInIndexes(r.id)
+	ref, _, err := r.manager.findRefInIndexes(r.id)
 	if err != nil {
 		return "", err
 	}
@@ -51,7 +50,7 @@ func (r *Ref) Semantic() (string, error) {
 
 // Tags returns the topic tags.
 func (r *Ref) Tags() ([]string, error) {
-	ref, _, err := r.sow.findRefInIndexes(r.id)
+	ref, _, err := r.manager.findRefInIndexes(r.id)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +59,7 @@ func (r *Ref) Tags() ([]string, error) {
 
 // Description returns the ref description.
 func (r *Ref) Description() (string, error) {
-	ref, _, err := r.sow.findRefInIndexes(r.id)
+	ref, _, err := r.manager.findRefInIndexes(r.id)
 	if err != nil {
 		return "", err
 	}
@@ -69,7 +68,7 @@ func (r *Ref) Description() (string, error) {
 
 // Config returns the ref configuration.
 func (r *Ref) Config() (schemas.RefConfig, error) {
-	ref, _, err := r.sow.findRefInIndexes(r.id)
+	ref, _, err := r.manager.findRefInIndexes(r.id)
 	if err != nil {
 		return schemas.RefConfig{}, err
 	}
@@ -78,57 +77,58 @@ func (r *Ref) Config() (schemas.RefConfig, error) {
 
 // Type returns the ref type (git, file, etc.).
 func (r *Ref) Type() (string, error) {
-	ref, _, err := r.sow.findRefInIndexes(r.id)
+	ref, _, err := r.manager.findRefInIndexes(r.id)
 	if err != nil {
 		return "", err
 	}
-	return refs.InferTypeFromURL(ref.Source)
+	return InferTypeFromURL(ref.Source)
 }
 
 // IsLocal returns true if the ref is in the local index (not shared).
 func (r *Ref) IsLocal() (bool, error) {
-	_, isLocal, err := r.sow.findRefInIndexes(r.id)
+	_, isLocal, err := r.manager.findRefInIndexes(r.id)
 	return isLocal, err
 }
 
 // Update updates the ref by refreshing its cache.
 func (r *Ref) Update(ctx context.Context) error {
-	ref, _, err := r.sow.findRefInIndexes(r.id)
+	ref, _, err := r.manager.findRefInIndexes(r.id)
 	if err != nil {
 		return err
 	}
 
-	// Create manager
-	manager, err := refs.NewManager(filepath.Join(r.sow.fs.Root(), ".sow"))
+	// Create cache manager
+	sowDir := filepath.Join(r.manager.ctx.RepoRoot(), ".sow")
+	cacheManager, err := NewCacheManager(sowDir)
 	if err != nil {
-		return fmt.Errorf("failed to create refs manager: %w", err)
+		return fmt.Errorf("failed to create refs cache manager: %w", err)
 	}
 
 	// Update the ref
-	return manager.Update(ctx, ref)
+	return cacheManager.Update(ctx, ref)
 }
 
 // Remove removes the ref and optionally prunes the cache.
 func (r *Ref) Remove(ctx context.Context, pruneCache bool) error {
-	return r.sow.RemoveRef(ctx, r.id, pruneCache)
+	return r.manager.Remove(ctx, r.id, pruneCache)
 }
 
 // Status checks if the ref is stale (behind remote).
 // Returns true if stale, false if current.
 func (r *Ref) Status(ctx context.Context) (bool, error) {
-	ref, _, err := r.sow.findRefInIndexes(r.id)
+	ref, _, err := r.manager.findRefInIndexes(r.id)
 	if err != nil {
 		return false, err
 	}
 
 	// Infer type
-	typeName, err := refs.InferTypeFromURL(ref.Source)
+	typeName, err := InferTypeFromURL(ref.Source)
 	if err != nil {
 		return false, fmt.Errorf("failed to infer type: %w", err)
 	}
 
 	// Get type implementation
-	refType, err := refs.GetType(typeName)
+	refType, err := GetType(typeName)
 	if err != nil {
 		return false, fmt.Errorf("unknown reference type: %s", typeName)
 	}
@@ -139,11 +139,11 @@ func (r *Ref) Status(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("failed to check if type enabled: %w", err)
 	}
 	if !enabled {
-		return false, ErrRefTypeDisabled
+		return false, fmt.Errorf("reference type %s is not enabled", typeName)
 	}
 
 	// Get cache directory
-	cacheDir, err := refs.DefaultCacheDir()
+	cacheDir, err := DefaultCacheDir()
 	if err != nil {
 		return false, fmt.Errorf("failed to get cache directory: %w", err)
 	}
@@ -160,34 +160,34 @@ func (r *Ref) Status(ctx context.Context) (bool, error) {
 
 // WorkspacePath returns the filesystem path where the ref is symlinked.
 func (r *Ref) WorkspacePath() (string, error) {
-	ref, _, err := r.sow.findRefInIndexes(r.id)
+	ref, _, err := r.manager.findRefInIndexes(r.id)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(r.sow.fs.Root(), ".sow", "refs", ref.Link), nil
+	return filepath.Join(r.manager.ctx.RepoRoot(), ".sow", "refs", ref.Link), nil
 }
 
 // CachePath returns the filesystem path where the ref is cached.
 func (r *Ref) CachePath() (string, error) {
-	ref, _, err := r.sow.findRefInIndexes(r.id)
+	ref, _, err := r.manager.findRefInIndexes(r.id)
 	if err != nil {
 		return "", err
 	}
 
 	// Infer type
-	typeName, err := refs.InferTypeFromURL(ref.Source)
+	typeName, err := InferTypeFromURL(ref.Source)
 	if err != nil {
 		return "", fmt.Errorf("failed to infer type: %w", err)
 	}
 
 	// Get type implementation
-	refType, err := refs.GetType(typeName)
+	refType, err := GetType(typeName)
 	if err != nil {
 		return "", fmt.Errorf("unknown reference type: %s", typeName)
 	}
 
 	// Get cache directory
-	cacheDir, err := refs.DefaultCacheDir()
+	cacheDir, err := DefaultCacheDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get cache directory: %w", err)
 	}
@@ -224,7 +224,7 @@ func (r *Ref) Exists() (bool, error) {
 // Schema returns the full schemas.Ref structure for this ref.
 // This is useful for operations that need all ref details at once.
 func (r *Ref) Schema() (*schemas.Ref, error) {
-	ref, _, err := r.sow.findRefInIndexes(r.id)
+	ref, _, err := r.manager.findRefInIndexes(r.id)
 	if err != nil {
 		return nil, err
 	}
