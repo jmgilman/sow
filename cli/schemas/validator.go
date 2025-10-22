@@ -34,8 +34,9 @@ func NewCUEValidator() (*CUEValidator, error) {
 	// Create loader from filesystem
 	loader := cuepkg.NewLoader(memFS)
 
-	// Load CUE package from filesystem
-	cueValue, err := loader.LoadPackage(context.Background(), ".")
+	// Load CUE module from filesystem
+	// The updated loader now supports cross-package imports with overlays
+	cueValue, err := loader.LoadModule(context.Background(), ".")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load CUE schemas: %w", err)
 	}

@@ -53,6 +53,8 @@ github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 h1:BQSFePA1RWJOl
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99/go.mod h1:1lJo3i6rXxKeerYnT8Nvf0QmHCRC1n8sfWVwXF2Frvo=
 github.com/jmgilman/go/cue v0.1.0 h1:UGmfmfrt61CmTaSZvjnOrmiYssUCf8w58up460AAqlA=
 github.com/jmgilman/go/cue v0.1.0/go.mod h1:DYepfgyzi8aAzT7eSwekFyH3eSKJATYLyML3oQi/woc=
+github.com/jmgilman/go/cue v0.1.1 h1:/NLRWgPYMGLCZ2QtbA1LuH1D/kLTa51/LNLYIKuXADQ=
+github.com/jmgilman/go/cue v0.1.1/go.mod h1:uJ+uzQO+0W9+Dk0B2KPD2J3RJukIumWD0PWuM73678M=
 github.com/jmgilman/go/errors v0.1.0 h1:PIYnc5JN+JjMSpQnd3qy00Oilp6hCtojseQaAzQrLzQ=
 github.com/jmgilman/go/errors v0.1.0/go.mod h1:cXyBzxRapDlPguqA/iTfnsndeuX6MPjA0llGgJZ2lR8=
 github.com/jmgilman/go/fs/billy v0.1.0 h1:2IEjve8g33svSY5CYEbB/+uvPREaiOEGDRHMgdv3rQE=
@@ -130,6 +132,8 @@ golang.org/x/oauth2 v0.30.0 h1:dnDm7JmhM45NNpd8FDDeLhK6FwqbOf4MLCM9zb1BOHI=
 golang.org/x/oauth2 v0.30.0/go.mod h1:B++QgG3ZKulg6sRPGD/mqlHQs5rB3Ml9erfeDY7xKlU=
 golang.org/x/sync v0.16.0 h1:ycBJEhp9p4vXvUZNszeOq0kGTPghopOL8q0fq3vstxw=
 golang.org/x/sync v0.16.0/go.mod h1:1dzgHSNfp02xaA81J2MS99Qcpr2w7fw1gpm99rleRqA=
+golang.org/x/sync v0.17.0 h1:l60nONMj9l5drqw6jlhIELNv9I0A4OFgRsG9k2oT9Ug=
+golang.org/x/sync v0.17.0/go.mod h1:9KTHXmSnoGruLpwFjVSX0lNNA75CykiMECbovNTZqGI=
 golang.org/x/sys v0.0.0-20191026070338-33540a1f6037/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=

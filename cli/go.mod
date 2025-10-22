@@ -5,7 +5,7 @@ go 1.24.2
 require (
 	cuelang.org/go v0.14.2
 	github.com/go-git/go-billy/v5 v5.6.2
-	github.com/jmgilman/go/cue v0.1.0
+	github.com/jmgilman/go/cue v0.1.1
 	github.com/jmgilman/go/fs/billy v0.1.0
 	github.com/jmgilman/go/fs/core v0.1.0
 	github.com/jmgilman/go/git v0.3.1
@@ -49,7 +49,7 @@ require (
 	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
-	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/tools v0.36.0 // indirect

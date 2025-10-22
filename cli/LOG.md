@@ -200,6 +200,103 @@ state.Project.Github_issue = &issueNum64
 
 ---
 
+---
+
+## 2025-01-22: Phase 1 Complete - Embed and Validator Fixes
+
+### Problem
+
+After completing the schema reorganization in Phase 1, the validator was failing to load CUE schemas with the error:
+```
+imports are unavailable because there is no cue.mod/module.cue file
+```
+
+This was blocking all E2E tests from running.
+
+### Root Cause
+
+Two interconnected issues:
+
+1. **Incomplete embed directive**: The `//go:embed` directive in `schemas/embed.go` was only embedding `*.cue` files from the root directory, missing the new subdirectories (`phases/`, `projects/`) and the `cue.mod/module.cue` file.
+
+2. **Import resolution failure**: Even after fixing the embed directive, the custom CUE loader (`github.com/jmgilman/go/cue`) couldn't resolve imports between packages when loading from a memory filesystem. The reorganized schemas use imports:
+   - `project_state.cue` imports `"github.com/jmgilman/sow/cli/schemas/phases"` and `"github.com/jmgilman/sow/cli/schemas/projects"`
+   - `projects/standard.cue` imports `"github.com/jmgilman/sow/cli/schemas/phases"`
+
+### Resolution
+
+**Fix 1: Updated embed directive** (`schemas/embed.go`)
+```go
+// Before:
+//go:embed *.cue
+
+// After:
+//go:embed *.cue phases/*.cue projects/*.cue cue.mod/module.cue
+```
+
+**Fix 2: Switched to CUE overlay API** (`schemas/validator.go`)
+
+Replaced the custom loader with CUE's native overlay feature:
+
+```go
+// Old approach (didn't work with imports):
+loader := cuepkg.NewLoader(memFS)
+cueValue, err := loader.LoadModule(context.Background(), ".")
+
+// New approach (supports imports):
+overlay := make(map[string]load.Source)
+// ... build overlay from embedded files ...
+cfg := &load.Config{
+    Dir:     "/",
+    Overlay: overlay,
+    Module:  "github.com/jmgilman/sow/cli/schemas",
+}
+instances := load.Instances([]string{"."}, cfg)
+cueValue := cueCtx.BuildInstance(instances[0])
+```
+
+### Outcome
+
+✅ **Validator successfully loads schemas with cross-package imports**
+✅ **E2E tests now run** (validation errors exposed are actual data issues, not loader issues)
+✅ **Manual validation works**: `sow validate` command functions correctly
+
+### Files Modified
+
+- `cli/schemas/embed.go` - Updated embed directive
+- `cli/schemas/validator.go` - Rewrote to use CUE overlay API
+
+### Next Steps
+
+Some E2E tests are revealing validation errors in test data:
+1. Missing `project.type` field in some test fixtures
+2. Issues with null/time.Time validation for optional timestamp fields
+
+These are separate from the loader fix and should be addressed next.
+
+### Status
+
+✅ **RESOLVED** - Phase 1 is now fully complete with working validation. Ready to proceed with Phase 2 (Phase Library Foundation).
+
+### Update: Custom Loader Fix Applied
+
+After identifying the issue, the `github.com/jmgilman/go/cue` package was updated to support cross-package imports with overlays. The fix included:
+
+1. **Reading module import path** from `cue.mod/module.cue`
+2. **Explicitly setting `Config.Module`** for import resolution
+3. **Adding module file to overlay** for CUE reference
+4. **Normalizing directory paths** (`.` → `/`)
+
+The sow CLI validator has been **reverted to use the custom loader** and validation now works correctly with cross-package imports.
+
+**Verification:**
+- ✅ Schema package tests pass
+- ✅ Manual `sow validate` works correctly
+- ✅ Validator successfully loads schemas with imports from embedded filesystem
+- ✅ E2E test failures are now legitimate validation errors (not loader errors)
+
+---
+
 ## Next Decisions
 
 _(Future decisions will be logged here as they arise during MVP development)_
