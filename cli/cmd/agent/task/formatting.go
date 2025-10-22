@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/cli/schemas/phases"
 )
 
 // formatTaskList generates a human-readable task list.
@@ -21,7 +22,7 @@ import (
 //
 // Returns:
 //   - Formatted string ready for display
-func formatTaskList(tasks []schemas.Task) string {
+func formatTaskList(tasks []phases.Task) string {
 	if len(tasks) == 0 {
 		return "No tasks yet\n"
 	}
@@ -33,7 +34,7 @@ func formatTaskList(tasks []schemas.Task) string {
 	fmt.Fprintln(&b, "  ID   Status        Name")
 
 	// Sort tasks by ID
-	sorted := make([]schemas.Task, len(tasks))
+	sorted := make([]phases.Task, len(tasks))
 	copy(sorted, tasks)
 	// Simple bubble sort for 3-digit IDs
 	for i := 0; i < len(sorted)-1; i++ {
@@ -83,16 +84,12 @@ func formatTaskStatus(taskState *schemas.TaskState) string {
 	fmt.Fprintln(&b, "Timestamps:")
 	fmt.Fprintf(&b, "  Created:   %s\n", taskState.Task.Created_at.Format("2006-01-02 15:04:05"))
 	if taskState.Task.Started_at != nil {
-		if startedStr, ok := taskState.Task.Started_at.(string); ok {
-			fmt.Fprintf(&b, "  Started:   %s\n", startedStr)
-		}
+		fmt.Fprintf(&b, "  Started:   %s\n", taskState.Task.Started_at.Format("2006-01-02 15:04:05"))
 	} else {
 		fmt.Fprintln(&b, "  Started:   not started")
 	}
 	if taskState.Task.Completed_at != nil {
-		if completedStr, ok := taskState.Task.Completed_at.(string); ok {
-			fmt.Fprintf(&b, "  Completed: %s\n", completedStr)
-		}
+		fmt.Fprintf(&b, "  Completed: %s\n", taskState.Task.Completed_at.Format("2006-01-02 15:04:05"))
 	} else {
 		fmt.Fprintln(&b, "  Completed: not completed")
 	}

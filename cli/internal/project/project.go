@@ -23,6 +23,7 @@ import (
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/cli/schemas/phases"
 	"gopkg.in/yaml.v3"
 )
 
@@ -90,8 +91,10 @@ func (p *Project) EnablePhase(phaseName string, opts ...sow.PhaseOption) error {
 		}
 		state.Phases.Discovery.Enabled = true
 		state.Phases.Discovery.Status = "pending"
-		state.Phases.Discovery.Discovery_type = cfg.DiscoveryType()
-		state.Phases.Discovery.Started_at = now.Format(time.RFC3339)
+		discoveryType := cfg.DiscoveryType()
+		state.Phases.Discovery.Discovery_type = &discoveryType
+		startedAt := now
+		state.Phases.Discovery.Started_at = &startedAt
 
 		// Create discovery directory structure
 		if err := p.createPhaseStructure("discovery"); err != nil {
@@ -106,7 +109,8 @@ func (p *Project) EnablePhase(phaseName string, opts ...sow.PhaseOption) error {
 	case "design":
 		state.Phases.Design.Enabled = true
 		state.Phases.Design.Status = "pending"
-		state.Phases.Design.Started_at = now.Format(time.RFC3339)
+		designStartedAt := now
+		state.Phases.Design.Started_at = &designStartedAt
 
 		// Create design directory structure
 		if err := p.createPhaseStructure("design"); err != nil {
@@ -137,7 +141,8 @@ func (p *Project) CompletePhase(phaseName string) error {
 			return sow.ErrPhaseNotEnabled
 		}
 		state.Phases.Discovery.Status = "completed"
-		state.Phases.Discovery.Completed_at = now.Format(time.RFC3339)
+		discoveryCompletedAt := now
+		state.Phases.Discovery.Completed_at = &discoveryCompletedAt
 
 		// Fire state machine event
 		if err := p.machine.Fire(statechart.EventCompleteDiscovery); err != nil {
@@ -149,7 +154,8 @@ func (p *Project) CompletePhase(phaseName string) error {
 			return sow.ErrPhaseNotEnabled
 		}
 		state.Phases.Design.Status = "completed"
-		state.Phases.Design.Completed_at = now.Format(time.RFC3339)
+		designCompletedAt := now
+		state.Phases.Design.Completed_at = &designCompletedAt
 
 		// Fire state machine event
 		if err := p.machine.Fire(statechart.EventCompleteDesign); err != nil {
@@ -158,7 +164,8 @@ func (p *Project) CompletePhase(phaseName string) error {
 
 	case "implementation":
 		state.Phases.Implementation.Status = "completed"
-		state.Phases.Implementation.Completed_at = now.Format(time.RFC3339)
+		implCompletedAt := now
+		state.Phases.Implementation.Completed_at = &implCompletedAt
 
 		// Fire state machine event (transitions to review)
 		if err := p.machine.Fire(statechart.EventAllTasksComplete); err != nil {
@@ -167,14 +174,16 @@ func (p *Project) CompletePhase(phaseName string) error {
 
 	case "review":
 		state.Phases.Review.Status = "completed"
-		state.Phases.Review.Completed_at = now.Format(time.RFC3339)
+		reviewCompletedAt := now
+		state.Phases.Review.Completed_at = &reviewCompletedAt
 
 		// Fire state machine event (handled by review pass/fail)
 		// This is a placeholder - actual review completion happens via AddReviewReport
 
 	case "finalize":
 		state.Phases.Finalize.Status = "completed"
-		state.Phases.Finalize.Completed_at = now.Format(time.RFC3339)
+		finalizeCompletedAt := now
+		state.Phases.Finalize.Completed_at = &finalizeCompletedAt
 
 		// Finalize has substates, handled by specialized methods
 
@@ -285,7 +294,7 @@ func (p *Project) AddTask(name string, opts ...sow.TaskOption) (*Task, error) {
 	}
 
 	// Create task
-	task := schemas.Task{
+	task := phases.Task{
 		Id:           id,
 		Name:         name,
 		Status:       cfg.Status,
@@ -401,7 +410,7 @@ func (p *Project) AddArtifact(phaseName, path string, approved bool) error {
 	state := p.State()
 	now := time.Now()
 
-	artifact := schemas.Artifact{
+	artifact := phases.Artifact{
 		Path:       path,
 		Approved:   approved,
 		Created_at: now,
@@ -483,7 +492,7 @@ func (p *Project) AddReviewReport(path, assessment string) error {
 	reportID := fmt.Sprintf("%03d", len(state.Phases.Review.Reports)+1)
 
 	// Create report (not approved by default - requires human approval)
-	report := schemas.ReviewReport{
+	report := phases.ReviewReport{
 		Id:         reportID,
 		Path:       path,
 		Created_at: now,
@@ -506,7 +515,7 @@ func (p *Project) ApproveReview(reportID string) error {
 	state := p.State()
 
 	// Find the report
-	var report *schemas.ReviewReport
+	var report *phases.ReviewReport
 	for i := range state.Phases.Review.Reports {
 		if state.Phases.Review.Reports[i].Id == reportID {
 			report = &state.Phases.Review.Reports[i]
@@ -539,15 +548,18 @@ func (p *Project) ApproveReview(reportID string) error {
 // AddDocumentation records a documentation file update during finalize.
 func (p *Project) AddDocumentation(path string) error {
 	state := p.State()
-	state.Phases.Finalize.Documentation_updates = appendToStringSlice(state.Phases.Finalize.Documentation_updates, path)
+	state.Phases.Finalize.Documentation_updates = append(state.Phases.Finalize.Documentation_updates, path)
 	return p.save()
 }
 
 // MoveArtifact records an artifact moved to knowledge during finalize.
 func (p *Project) MoveArtifact(from, to string) error {
 	state := p.State()
-	move := map[string]string{"from": from, "to": to}
-	state.Phases.Finalize.Artifacts_moved = appendToMapSlice(state.Phases.Finalize.Artifacts_moved, move)
+	move := struct {
+		From string `json:"from"`
+		To   string `json:"to"`
+	}{From: from, To: to}
+	state.Phases.Finalize.Artifacts_moved = append(state.Phases.Finalize.Artifacts_moved, move)
 	return p.save()
 }
 
@@ -570,17 +582,8 @@ func (p *Project) CreatePullRequest(body string) (string, error) {
 	fullBody := body
 
 	// Add issue reference if linked (before footer)
-	if state.Project.Github_issue != nil {
-		var issueNum int
-		if num, ok := state.Project.Github_issue.(int); ok {
-			issueNum = num
-		} else if num, ok := state.Project.Github_issue.(float64); ok {
-			issueNum = int(num)
-		}
-
-		if issueNum > 0 {
-			fullBody += fmt.Sprintf("\n\nCloses #%d\n", issueNum)
-		}
+	if state.Project.Github_issue != nil && *state.Project.Github_issue > 0 {
+		fullBody += fmt.Sprintf("\n\nCloses #%d\n", *state.Project.Github_issue)
 	}
 
 	// Add footer
@@ -593,7 +596,7 @@ func (p *Project) CreatePullRequest(body string) (string, error) {
 	}
 
 	// Store PR URL in state
-	state.Phases.Finalize.Pr_url = prURL
+	state.Phases.Finalize.Pr_url = &prURL
 
 	// Save state
 	if err := p.save(); err != nil {

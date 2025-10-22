@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/cli/schemas/phases"
 	"gopkg.in/yaml.v3"
 )
 
@@ -81,19 +82,19 @@ func NewWithProject(name, description, branch string, fs billy.Filesystem) (*Mac
 	state.Phases.Discovery.Enabled = false
 	state.Phases.Discovery.Status = "skipped"
 	state.Phases.Discovery.Created_at = now
-	state.Phases.Discovery.Artifacts = []schemas.Artifact{}
+	state.Phases.Discovery.Artifacts = []phases.Artifact{}
 
 	// Design phase (optional, disabled by default)
 	state.Phases.Design.Enabled = false
 	state.Phases.Design.Status = "skipped"
 	state.Phases.Design.Created_at = now
-	state.Phases.Design.Artifacts = []schemas.Artifact{}
+	state.Phases.Design.Artifacts = []phases.Artifact{}
 
 	// Implementation phase (required, enabled by default)
 	state.Phases.Implementation.Enabled = true
 	state.Phases.Implementation.Status = "pending"
 	state.Phases.Implementation.Created_at = now
-	state.Phases.Implementation.Tasks = []schemas.Task{}
+	state.Phases.Implementation.Tasks = []phases.Task{}
 	state.Phases.Implementation.Tasks_approved = false
 
 	// Review phase (required, enabled by default)
@@ -101,7 +102,7 @@ func NewWithProject(name, description, branch string, fs billy.Filesystem) (*Mac
 	state.Phases.Review.Status = "pending"
 	state.Phases.Review.Created_at = now
 	state.Phases.Review.Iteration = 1
-	state.Phases.Review.Reports = []schemas.ReviewReport{}
+	state.Phases.Review.Reports = []phases.ReviewReport{}
 
 	// Finalize phase (required, enabled by default)
 	state.Phases.Finalize.Enabled = true

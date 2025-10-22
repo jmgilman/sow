@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/cli/schemas/phases"
 )
 
 // Phase name constants used for formatting.
@@ -42,20 +43,13 @@ func formatStatus(state *schemas.ProjectState) string {
 	fmt.Fprintf(&b, "Description: %s\n", state.Project.Description)
 
 	// GitHub issue link (if present)
-	if state.Project.Github_issue != nil {
-		if issueNum, ok := state.Project.Github_issue.(int); ok && issueNum > 0 {
-			fmt.Fprintf(&b, "GitHub Issue: #%d\n", issueNum)
-		} else if issueNum, ok := state.Project.Github_issue.(float64); ok && issueNum > 0 {
-			// Handle JSON unmarshaling as float64
-			fmt.Fprintf(&b, "GitHub Issue: #%d\n", int(issueNum))
-		}
+	if state.Project.Github_issue != nil && *state.Project.Github_issue > 0 {
+		fmt.Fprintf(&b, "GitHub Issue: #%d\n", *state.Project.Github_issue)
 	}
 
 	// Pull request URL (if created)
-	if state.Phases.Finalize.Pr_url != nil {
-		if prURL, ok := state.Phases.Finalize.Pr_url.(string); ok && prURL != "" {
-			fmt.Fprintf(&b, "Pull Request: %s\n", prURL)
-		}
+	if state.Phases.Finalize.Pr_url != nil && *state.Phases.Finalize.Pr_url != "" {
+		fmt.Fprintf(&b, "Pull Request: %s\n", *state.Phases.Finalize.Pr_url)
 	}
 	fmt.Fprintln(&b)
 
@@ -91,7 +85,7 @@ func formatStatus(state *schemas.ProjectState) string {
 }
 
 // formatTaskSummary formats the task summary section.
-func formatTaskSummary(b *strings.Builder, tasks []schemas.Task) {
+func formatTaskSummary(b *strings.Builder, tasks []phases.Task) {
 	if len(tasks) == 0 {
 		fmt.Fprintln(b, "\nTasks: none yet")
 		return
@@ -216,7 +210,7 @@ func formatArtifactList(state *schemas.ProjectState, phase string) string {
 }
 
 // formatPhaseArtifacts formats artifacts for a single phase.
-func formatPhaseArtifacts(b *strings.Builder, phaseName string, enabled bool, artifacts []schemas.Artifact) {
+func formatPhaseArtifacts(b *strings.Builder, phaseName string, enabled bool, artifacts []phases.Artifact) {
 	if !enabled {
 		fmt.Fprintf(b, "%s Phase (disabled)\n", phaseName)
 		return

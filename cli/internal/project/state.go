@@ -195,7 +195,8 @@ func CreateFromIssue(ctx *sow.Context, issueNumber int, branchName string) (*Pro
 
 	// Set github_issue field
 	state := project.State()
-	state.Project.Github_issue = issueNumber
+	issueNum64 := int64(issueNumber)
+	state.Project.Github_issue = &issueNum64
 
 	// Save the updated state
 	if err := project.save(); err != nil {

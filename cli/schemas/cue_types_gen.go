@@ -3,144 +3,13 @@
 package schemas
 
 import (
+	"github.com/jmgilman/sow/cli/schemas/projects"
 	"time"
 )
 
-// ProjectState defines the schema for .sow/project/state.yaml
-//
-// This file tracks the state of an active project across all 5 phases.
-// All projects have the same 5 phases; the 'enabled' flag controls
-// which phases actually execute.
-type ProjectState struct {
-	// Statechart metadata (tracks state machine position)
-	Statechart struct {
-		// Current state in the lifecycle state machine
-		Current_state string `json:"current_state"`
-	} `json:"statechart"`
-
-	// Project metadata
-	Project struct {
-		// Kebab-case project identifier
-		Name string `json:"name"`
-
-		// Git branch name this project belongs to
-		Branch string `json:"branch"`
-
-		// Human-readable project description
-		Description string `json:"description"`
-
-		// Optional GitHub issue number this project is linked to
-		Github_issue any/* CUE disjunction: (null|int) */ `json:"github_issue"`
-
-		// ISO 8601 timestamps
-		Created_at time.Time `json:"created_at"`
-
-		Updated_at time.Time `json:"updated_at"`
-	} `json:"project"`
-
-	// 5-phase structure (fixed phases, enabled flag controls execution)
-	Phases struct {
-		// Phase 1: Discovery (optional, human-led)
-		Discovery DiscoveryPhase `json:"discovery"`
-
-		// Phase 2: Design (optional, human-led)
-		Design DesignPhase `json:"design"`
-
-		// Phase 3: Implementation (required, AI-autonomous)
-		Implementation ImplementationPhase `json:"implementation"`
-
-		// Phase 4: Review (required, AI-autonomous)
-		Review ReviewPhase `json:"review"`
-
-		// Phase 5: Finalize (required, AI-autonomous)
-		Finalize FinalizePhase `json:"finalize"`
-	} `json:"phases"`
-}
-
-// Phase represents common phase fields
-type Phase struct {
-	// Phase execution status
-	Status string `json:"status"`
-
-	// Timestamps
-	Created_at time.Time `json:"created_at"`
-
-	Started_at any/* CUE disjunction: (null|string) */ `json:"started_at"`
-
-	Completed_at any/* CUE disjunction: (null|string) */ `json:"completed_at"`
-}
-
-// DiscoveryPhase represents the discovery phase
-type DiscoveryPhase struct {
-	// Phase execution status
-	Status string `json:"status"`
-
-	// Timestamps
-	Created_at time.Time `json:"created_at"`
-
-	Started_at any/* CUE disjunction: (null|string) */ `json:"started_at"`
-
-	Completed_at any/* CUE disjunction: (null|string) */ `json:"completed_at"`
-
-	// Can be disabled
-	Enabled bool `json:"enabled"`
-
-	// Discovery type categorization
-	Discovery_type any/* CUE disjunction: (null|string) */ `json:"discovery_type"`
-
-	// Discovery artifacts requiring approval
-	Artifacts []Artifact `json:"artifacts"`
-}
-
-// DesignPhase represents the design phase
-type DesignPhase struct {
-	// Phase execution status
-	Status string `json:"status"`
-
-	// Timestamps
-	Created_at time.Time `json:"created_at"`
-
-	Started_at any/* CUE disjunction: (null|string) */ `json:"started_at"`
-
-	Completed_at any/* CUE disjunction: (null|string) */ `json:"completed_at"`
-
-	// Can be disabled
-	Enabled bool `json:"enabled"`
-
-	// Whether architect agent was used
-	Architect_used any/* CUE disjunction: (null|bool) */ `json:"architect_used"`
-
-	// Design artifacts requiring approval (ADRs, design docs)
-	Artifacts []Artifact `json:"artifacts"`
-}
-
-// ImplementationPhase represents the implementation phase
-type ImplementationPhase struct {
-	// Phase execution status
-	Status string `json:"status"`
-
-	// Timestamps
-	Created_at time.Time `json:"created_at"`
-
-	Started_at any/* CUE disjunction: (null|string) */ `json:"started_at"`
-
-	Completed_at any/* CUE disjunction: (null|string) */ `json:"completed_at"`
-
-	// Always enabled
-	Enabled bool `json:"enabled"`
-
-	// Whether planner agent was used
-	Planner_used any/* CUE disjunction: (null|bool) */ `json:"planner_used"`
-
-	// Approved task list (gap-numbered)
-	Tasks []Task `json:"tasks"`
-
-	// Human approval of task plan before autonomous execution
-	Tasks_approved bool `json:"tasks_approved"`
-
-	// Tasks awaiting human approval before execution
-	Pending_task_additions any/* CUE disjunction: (null|list) */ `json:"pending_task_additions"`
-}
+// Re-export project types for backward compatibility
+// This ensures existing code importing schemas.ProjectState continues to work
+type ProjectState projects.ProjectState
 
 // RefsCacheIndex defines the schema for ~/.cache/sow/index.json
 //
@@ -175,13 +44,25 @@ type CachedRef struct {
 	Metadata CacheMetadata `json:"metadata"`
 }
 
+// CacheUsage represents a repository using this cached ref
+type CacheUsage struct {
+	// Absolute path to consuming repository
+	Repo_path string `json:"repo_path"`
+
+	// How the cache is linked (symlink on Unix, copy on Windows)
+	Link_type string `json:"link_type"`
+
+	// Link name in the consuming repo's .sow/refs/ directory
+	Link_name string `json:"link_name"`
+}
+
 // CacheMetadata is polymorphic based on type
 type CacheMetadata struct {
 	// Git type metadata
-	Git *GitMetadata `json:"git,omitempty"`
+	Git GitMetadata `json:"git,omitempty"`
 
 	// File type metadata
-	File *FileMetadata `json:"file,omitempty"`
+	File FileMetadata `json:"file,omitempty"`
 }
 
 // GitMetadata contains git-specific cache data
@@ -204,18 +85,6 @@ type GitMetadata struct {
 
 // FileMetadata contains file-specific cache data
 type FileMetadata struct {
-}
-
-// CacheUsage represents a repository using this cached ref
-type CacheUsage struct {
-	// Absolute path to consuming repository
-	Repo_path string `json:"repo_path"`
-
-	// How the cache is linked (symlink on Unix, copy on Windows)
-	Link_type string `json:"link_type"`
-
-	// Link name in the consuming repo's .sow/refs/ directory
-	Link_name string `json:"link_name"`
 }
 
 // RefsCommittedIndex defines the schema for .sow/refs/index.json
@@ -298,104 +167,6 @@ type RefsLocalIndex struct {
 	Refs []Ref `json:"refs"`
 }
 
-// ReviewPhase represents the review phase
-type ReviewPhase struct {
-	// Phase execution status
-	Status string `json:"status"`
-
-	// Timestamps
-	Created_at time.Time `json:"created_at"`
-
-	Started_at any/* CUE disjunction: (null|string) */ `json:"started_at"`
-
-	Completed_at any/* CUE disjunction: (null|string) */ `json:"completed_at"`
-
-	// Always enabled
-	Enabled bool `json:"enabled"`
-
-	// Current review iteration (increments on loop-back)
-	Iteration int64 `json:"iteration"`
-
-	// Review reports (numbered 001, 002, 003...)
-	Reports []ReviewReport `json:"reports"`
-}
-
-// FinalizePhase represents the finalize phase
-type FinalizePhase struct {
-	// Phase execution status
-	Status string `json:"status"`
-
-	// Timestamps
-	Created_at time.Time `json:"created_at"`
-
-	Started_at any/* CUE disjunction: (null|string) */ `json:"started_at"`
-
-	Completed_at any/* CUE disjunction: (null|string) */ `json:"completed_at"`
-
-	// Always enabled
-	Enabled bool `json:"enabled"`
-
-	// Documentation files updated
-	Documentation_updates any/* CUE disjunction: (null|list) */ `json:"documentation_updates"`
-
-	// Design artifacts moved to knowledge (from→to pairs)
-	Artifacts_moved any/* CUE disjunction: (null|list) */ `json:"artifacts_moved"`
-
-	// Critical gate: must be true before phase completion
-	Project_deleted bool `json:"project_deleted"`
-
-	// Pull request URL (created during finalize)
-	Pr_url any/* CUE disjunction: (null|string) */ `json:"pr_url"`
-}
-
-// Artifact represents an artifact requiring human approval
-type Artifact struct {
-	// Path relative to .sow/project/
-	Path string `json:"path"`
-
-	// Human approval status
-	Approved bool `json:"approved"`
-
-	// When artifact was created
-	Created_at time.Time `json:"created_at"`
-}
-
-// Task represents an implementation task
-type Task struct {
-	// Gap-numbered ID (010, 020, 030...)
-	Id string `json:"id"`
-
-	// Task name
-	Name string `json:"name"`
-
-	// Task status
-	Status string `json:"status"`
-
-	// Can run in parallel with other tasks
-	Parallel bool `json:"parallel"`
-
-	// Task IDs this task depends on
-	Dependencies any/* CUE disjunction: (null|list) */ `json:"dependencies"`
-}
-
-// ReviewReport represents a review iteration report
-type ReviewReport struct {
-	// Report ID (001, 002, 003...)
-	Id string `json:"id"`
-
-	// Path relative to .sow/project/phases/review/
-	Path string `json:"path"`
-
-	// When report was created
-	Created_at time.Time `json:"created_at"`
-
-	// Review assessment
-	Assessment string `json:"assessment"`
-
-	// Human approval of orchestrator's review
-	Approved bool `json:"approved"`
-}
-
 // TaskState defines the schema for task state files at:
 // .sow/project/phases/implementation/tasks/<id>/state.yaml
 //
@@ -417,11 +188,11 @@ type TaskState struct {
 		// Timestamps
 		Created_at time.Time `json:"created_at"`
 
-		Started_at any/* CUE disjunction: (null|string) */ `json:"started_at"`
+		Started_at *time.Time `json:"started_at,omitempty"`
 
 		Updated_at time.Time `json:"updated_at"`
 
-		Completed_at any/* CUE disjunction: (null|string) */ `json:"completed_at"`
+		Completed_at *time.Time `json:"completed_at,omitempty"`
 
 		// Iteration counter (managed by orchestrator)
 		// Used to construct agent ID: {assigned_agent}-{iteration}

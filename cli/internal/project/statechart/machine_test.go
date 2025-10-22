@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/cli/schemas/phases"
 )
 
 // testMachine creates a machine with prompts suppressed for cleaner test output.
@@ -19,30 +20,30 @@ func TestProjectLifecycle(t *testing.T) {
 	// Start with no project
 	state := &schemas.ProjectState{
 		Phases: struct {
-			Discovery      schemas.DiscoveryPhase      `json:"discovery"`
-			Design         schemas.DesignPhase         `json:"design"`
-			Implementation schemas.ImplementationPhase `json:"implementation"`
-			Review         schemas.ReviewPhase         `json:"review"`
-			Finalize       schemas.FinalizePhase       `json:"finalize"`
+			Discovery      phases.DiscoveryPhase      `json:"discovery"`
+			Design         phases.DesignPhase         `json:"design"`
+			Implementation phases.ImplementationPhase `json:"implementation"`
+			Review         phases.ReviewPhase         `json:"review"`
+			Finalize       phases.FinalizePhase       `json:"finalize"`
 		}{
-			Discovery: schemas.DiscoveryPhase{
+			Discovery: phases.DiscoveryPhase{
 				Enabled: false,
 				Status:  "skipped",
 			},
-			Design: schemas.DesignPhase{
+			Design: phases.DesignPhase{
 				Enabled: false,
 				Status:  "skipped",
 			},
-			Implementation: schemas.ImplementationPhase{
+			Implementation: phases.ImplementationPhase{
 				Enabled: true,
 				Status:  "pending",
 			},
-			Review: schemas.ReviewPhase{
+			Review: phases.ReviewPhase{
 				Enabled:   true,
 				Iteration: 1,
 				Status:    "pending",
 			},
-			Finalize: schemas.FinalizePhase{
+			Finalize: phases.FinalizePhase{
 				Enabled:         true,
 				Status:          "pending",
 				Project_deleted: false,
@@ -84,7 +85,7 @@ func TestProjectLifecycle(t *testing.T) {
 	// Step 4: Create tasks and transition to executing
 	// Update the machine's project state to have at least one task
 	machine.projectState = state
-	state.Phases.Implementation.Tasks = []schemas.Task{
+	state.Phases.Implementation.Tasks = []phases.Task{
 		{Id: "010", Name: "Create model", Status: "pending", Parallel: false},
 	}
 
@@ -109,7 +110,7 @@ func TestProjectLifecycle(t *testing.T) {
 
 	// Step 6: Review passes
 	// Add review report and approve it
-	state.Phases.Review.Reports = []schemas.ReviewReport{
+	state.Phases.Review.Reports = []phases.ReviewReport{
 		{Id: "001", Path: "reports/001.md", Assessment: "pass", Approved: true},
 	}
 	if err := machine.Fire(EventReviewPass); err != nil {
@@ -151,10 +152,10 @@ func TestProjectLifecycle(t *testing.T) {
 // TestDiscoveryPhase tests the discovery phase workflow.
 func TestDiscoveryPhase(t *testing.T) {
 	state := &schemas.ProjectState{}
-	state.Phases.Discovery = schemas.DiscoveryPhase{
+	state.Phases.Discovery = phases.DiscoveryPhase{
 		Enabled: true,
 		Status:  "pending",
-		Artifacts: []schemas.Artifact{
+		Artifacts: []phases.Artifact{
 			{Path: "phases/discovery/notes.md", Approved: false},
 		},
 	}
@@ -190,14 +191,14 @@ func TestDiscoveryPhase(t *testing.T) {
 // TestReviewLoop tests the review fail → implementation loop.
 func TestReviewLoop(t *testing.T) {
 	state := &schemas.ProjectState{}
-	state.Phases.Implementation = schemas.ImplementationPhase{
+	state.Phases.Implementation = phases.ImplementationPhase{
 		Enabled: true,
 		Status:  "completed",
-		Tasks: []schemas.Task{
+		Tasks: []phases.Task{
 			{Id: "010", Name: "Fix bug", Status: "completed", Parallel: false},
 		},
 	}
-	state.Phases.Review = schemas.ReviewPhase{
+	state.Phases.Review = phases.ReviewPhase{
 		Enabled:   true,
 		Iteration: 1,
 		Status:    "pending",
@@ -219,7 +220,7 @@ func TestReviewLoop(t *testing.T) {
 	}
 
 	// Review fails - add review report and approve it
-	state.Phases.Review.Reports = []schemas.ReviewReport{
+	state.Phases.Review.Reports = []phases.ReviewReport{
 		{Id: "001", Path: "reports/001.md", Assessment: "fail", Approved: true},
 	}
 	if err := machine.Fire(EventReviewFail); err != nil {
@@ -255,10 +256,10 @@ func TestReviewLoop(t *testing.T) {
 // TestGuardPreventsInvalidTransition tests that guards properly block transitions.
 func TestGuardPreventsInvalidTransition(t *testing.T) {
 	state := &schemas.ProjectState{}
-	state.Phases.Implementation = schemas.ImplementationPhase{
+	state.Phases.Implementation = phases.ImplementationPhase{
 		Enabled: true,
 		Status:  "pending",
-		Tasks:   []schemas.Task{}, // No tasks
+		Tasks:   []phases.Task{}, // No tasks
 	}
 
 	machine := testMachine(state)
@@ -331,10 +332,10 @@ func TestPersistence(t *testing.T) {
 	// Create a machine and advance through some states
 	machine := testMachine(nil)
 	state := &schemas.ProjectState{}
-	state.Phases.Implementation = schemas.ImplementationPhase{
+	state.Phases.Implementation = phases.ImplementationPhase{
 		Enabled: true,
 		Status:  "pending",
-		Tasks: []schemas.Task{
+		Tasks: []phases.Task{
 			{Id: "010", Name: "Test task", Status: "pending", Parallel: false},
 		},
 	}

@@ -177,15 +177,10 @@ func generateContinuePrompt(ctx *sow.Context, project *projectpkg.Project) (stri
 		StatechartState:    state.Statechart.Current_state,
 	}
 
-	// Add issue number if present (needs type assertion since Github_issue is `any`)
+	// Add issue number if present
 	if state.Project.Github_issue != nil {
-		if issueNum, ok := state.Project.Github_issue.(int); ok {
-			promptCtx.IssueNumber = &issueNum
-		} else if issueNum, ok := state.Project.Github_issue.(float64); ok {
-			// JSON unmarshaling sometimes gives float64 for numbers
-			issueNumInt := int(issueNum)
-			promptCtx.IssueNumber = &issueNumInt
-		}
+		issueNum := int(*state.Project.Github_issue)
+		promptCtx.IssueNumber = &issueNum
 	}
 
 	// Add phase status

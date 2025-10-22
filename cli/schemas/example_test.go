@@ -6,20 +6,24 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/cli/schemas/phases"
+	"github.com/jmgilman/sow/cli/schemas/projects"
 )
 
 // Example demonstrating usage of generated types.
 func TestGeneratedTypes(t *testing.T) {
 	// Create a ProjectState instance using generated types
-	state := schemas.ProjectState{
+	state := projects.ProjectState{
 		Project: struct {
+			Type         string    `json:"type"`
 			Name         string    `json:"name"`
 			Branch       string    `json:"branch"`
 			Description  string    `json:"description"`
-			Github_issue any       `json:"github_issue"`
+			Github_issue *int64    `json:"github_issue,omitempty"`
 			Created_at   time.Time `json:"created_at"`
 			Updated_at   time.Time `json:"updated_at"`
 		}{
+			Type:         "standard",
 			Name:         "my-feature",
 			Branch:       "feat/my-feature",
 			Description:  "Implement new feature",
@@ -28,17 +32,17 @@ func TestGeneratedTypes(t *testing.T) {
 			Updated_at:   time.Now(),
 		},
 		Phases: struct {
-			Discovery      schemas.DiscoveryPhase      `json:"discovery"`
-			Design         schemas.DesignPhase         `json:"design"`
-			Implementation schemas.ImplementationPhase `json:"implementation"`
-			Review         schemas.ReviewPhase         `json:"review"`
-			Finalize       schemas.FinalizePhase       `json:"finalize"`
+			Discovery      phases.DiscoveryPhase      `json:"discovery"`
+			Design         phases.DesignPhase         `json:"design"`
+			Implementation phases.ImplementationPhase `json:"implementation"`
+			Review         phases.ReviewPhase         `json:"review"`
+			Finalize       phases.FinalizePhase       `json:"finalize"`
 		}{
-			Implementation: schemas.ImplementationPhase{
+			Implementation: phases.ImplementationPhase{
 				Status:     "in_progress",
 				Created_at: time.Now(),
 				Enabled:    true,
-				Tasks: []schemas.Task{
+				Tasks: []phases.Task{
 					{
 						Id:       "010",
 						Name:     "Implement core logic",
@@ -73,9 +77,9 @@ func TestGeneratedTypes(t *testing.T) {
 			Phase          string              `json:"phase"`
 			Status         string              `json:"status"`
 			Created_at     time.Time           `json:"created_at"`
-			Started_at     any                 `json:"started_at"`
+			Started_at     *time.Time          `json:"started_at,omitempty"`
 			Updated_at     time.Time           `json:"updated_at"`
-			Completed_at   any                 `json:"completed_at"`
+			Completed_at   *time.Time          `json:"completed_at,omitempty"`
 			Iteration      int64               `json:"iteration"`
 			Assigned_agent string              `json:"assigned_agent"`
 			References     []string            `json:"references"`
