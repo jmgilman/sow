@@ -32,7 +32,7 @@ Guide the developer through phase selection based on their needs.
 ```bash
 sow issue list              # See all sow-labeled issues
 sow issue check <number>    # Check if issue is claimed
-sow project init --issue <number>  # Start project from issue
+sow agent project init --issue <number>  # Start project from issue
 ```
 {{end}}{{end}}
 

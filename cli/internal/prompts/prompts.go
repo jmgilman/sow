@@ -33,6 +33,12 @@ const (
 	PromptGreetStateOrch     PromptID = "greet.state.orchestrator"
 )
 
+// Command prompt IDs - Entry point prompts for CLI commands.
+const (
+	PromptCommandNew      PromptID = "command.new"
+	PromptCommandContinue PromptID = "command.continue"
+)
+
 // Context represents data needed to render a prompt.
 // Implementations must provide a ToMap method that converts
 // the context into template-compatible data.
@@ -85,7 +91,7 @@ func (r *Registry) Render(id PromptID, ctx Context) (string, error) {
 
 // Embed all prompt templates from the templates/ directory
 //
-//go:embed templates/**/*.md templates/greet/*.md templates/greet/states/*.md
+//go:embed templates/**/*.md templates/greet/*.md templates/greet/states/*.md templates/commands/*.md
 var templatesFS embed.FS
 
 // Default registry, initialized at startup.
@@ -114,6 +120,10 @@ func init() {
 		PromptGreetStateUninit:   "templates/greet/states/uninitialized.md",
 		PromptGreetStateOperator: "templates/greet/states/operator.md",
 		PromptGreetStateOrch:     "templates/greet/states/orchestrator.md",
+
+		// Entry point command prompts
+		PromptCommandNew:      "templates/commands/new.md",
+		PromptCommandContinue: "templates/commands/continue.md",
 	}
 
 	// Load and parse all templates

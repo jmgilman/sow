@@ -3,6 +3,8 @@ package sow
 import (
 	"fmt"
 
+	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/jmgilman/go/git"
 )
 
@@ -129,4 +131,33 @@ func (g *Git) Branches() ([]string, error) {
 	}
 
 	return names, nil
+}
+
+// CheckoutBranch checks out the specified branch.
+//
+// Parameters:
+//   - branchName: The name of the branch to checkout (e.g., "feat/auth", "123-add-auth")
+//
+// Returns an error if:
+//   - The branch doesn't exist
+//   - The checkout operation fails
+//
+// Example:
+//   err := git.CheckoutBranch("feat/auth")
+func (g *Git) CheckoutBranch(branchName string) error {
+	// Get the worktree
+	wt, err := g.repo.Underlying().Worktree()
+	if err != nil {
+		return fmt.Errorf("failed to get worktree: %w", err)
+	}
+
+	// Checkout the branch using the underlying go-git
+	err = wt.Checkout(&gogit.CheckoutOptions{
+		Branch: plumbing.NewBranchReferenceName(branchName),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to checkout branch %s: %w", branchName, err)
+	}
+
+	return nil
 }

@@ -25,7 +25,7 @@ For **complex features** requiring planning, design, implementation, and review:
 
 **When to recommend**: Multi-day features, architectural changes, anything requiring design artifacts or systematic implementation.
 
-**How developers start**: `/project:new` or `sow project init --issue <number>`
+**How developers start**: `/project:new` or `sow agent project init --issue <number>`
 
 ### 2. One-Off Tasks (Direct Execution)
 
@@ -108,21 +108,21 @@ sow refs update
 
 **Project Management**:
 ```bash
-sow project init <name> --description "..."  # Create new project
-sow project init --issue <number>            # Create from GitHub issue
-sow project status                           # Show current state
-sow project delete                           # Clean up completed project
+sow agent project init <name> --description "..."  # Create new project
+sow agent project init --issue <number>            # Create from GitHub issue
+sow agent project status                           # Show current state
+sow agent project delete                           # Clean up completed project
 ```
 
 **Task Management** (within projects):
 ```bash
-sow task add <name>        # Add new task
-sow task status            # Show task details
+sow agent task add <name>        # Add new task
+sow agent task status            # Show task details
 ```
 
 **Logging** (critical for workers):
 ```bash
-sow log --action <action> --result <result> "description"
+sow agent log --action <action> --result <result> "description"
 # Auto-detects context (project vs task log)
 ```
 
@@ -160,7 +160,7 @@ sow issue show <number>    # Show issue details
 **State Management**:
 - All state lives at `.sow/project/state.yaml`
 - Use CLI commands to update (never edit YAML directly)
-- Log all actions using `sow log`
+- Log all actions using `sow agent log`
 
 ---
 

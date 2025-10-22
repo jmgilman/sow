@@ -42,8 +42,8 @@ Continue the {{.Project.CurrentPhase}} phase where you left off.
 
 **Project commands**:
 ```bash
-sow project status           # View detailed status
-sow project delete           # Clean up after completion
+sow agent project status           # View detailed status
+sow agent project delete           # Clean up after completion
 ```
 
 ### Other Capabilities Still Available
