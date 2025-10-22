@@ -15,41 +15,41 @@ exec sow init
 # =====================================
 # Project Initialization
 # =====================================
-exec sow project init review-loop-project --description 'Test review failure and loop'
+exec sow agent project init review-loop-project --description 'Test review failure and loop'
 stderr '✓ Initialized project'
 
 # Skip optional phases
-exec sow project phase skip discovery
-exec sow project phase skip design
+exec sow agent project phase skip discovery
+exec sow agent project phase skip design
 
 # =====================================
 # Initial Implementation
 # =====================================
 # Add initial tasks
-exec sow task add 'Implement feature' --description 'Core functionality'
+exec sow agent task add 'Implement feature' --description 'Core functionality'
 stderr '✓ Created task 010'
 
-exec sow task add 'Add tests' --description 'Unit tests'
+exec sow agent task add 'Add tests' --description 'Unit tests'
 stderr '✓ Created task 020'
 
 # Approve task plan
-exec sow project phase approve implementation
+exec sow agent project phase approve implementation
 stderr '✓ Approved implementation phase plan'
 
 # Complete both tasks
-exec sow task update 010 --status in_progress
-exec sow task update 010 --status completed
-exec sow task update 020 --status in_progress
-exec sow task update 020 --status completed
+exec sow agent task update 010 --status in_progress
+exec sow agent task update 010 --status completed
+exec sow agent task update 020 --status in_progress
+exec sow agent task update 020 --status completed
 
 # =====================================
 # First Review - FAIL
 # =====================================
-exec sow project review add-report reports/001-review.md --assessment fail
+exec sow agent project review add-report reports/001-review.md --assessment fail
 stderr '✓ Added review report 001'
 
 # Approve review (triggers loop back to implementation)
-exec sow project review approve 001
+exec sow agent project review approve 001
 stderr '✓ Approved review report 001'
 
 # Verify we're back in ImplementationPlanning
@@ -64,25 +64,25 @@ stderr '✓ All validations passed'
 # Additional Task After Review Failure
 # =====================================
 # Add task to fix issues found in review
-exec sow task add 'Fix review issues' --description 'Address feedback from review'
+exec sow agent task add 'Fix review issues' --description 'Address feedback from review'
 stderr '✓ Created task 030'
 
 # Approve task plan again
-exec sow project phase approve implementation
+exec sow agent project phase approve implementation
 stderr '✓ Approved implementation phase plan'
 
 # Complete the fix task
-exec sow task update 030 --status in_progress
-exec sow task update 030 --status completed
+exec sow agent task update 030 --status in_progress
+exec sow agent task update 030 --status completed
 
 # =====================================
 # Second Review - PASS
 # =====================================
-exec sow project review add-report reports/002-review.md --assessment pass
+exec sow agent project review add-report reports/002-review.md --assessment pass
 stderr '✓ Added review report 002'
 
 # Approve review (triggers transition to finalize)
-exec sow project review approve 002
+exec sow agent project review approve 002
 stderr '✓ Approved review report 002'
 
 # Verify two reports exist
@@ -94,9 +94,9 @@ stdout 'assessment: pass'
 # =====================================
 # Finalize and Complete
 # =====================================
-exec sow project finalize complete documentation
-exec sow project finalize complete checks
-exec sow project delete --force
+exec sow agent project finalize complete documentation
+exec sow agent project finalize complete checks
+exec sow agent project delete --force
 
 # =====================================
 # Final Verification

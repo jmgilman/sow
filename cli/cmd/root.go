@@ -6,10 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jmgilman/sow/cli/cmd/agent"
 	"github.com/jmgilman/sow/cli/cmd/issue"
-	"github.com/jmgilman/sow/cli/cmd/project"
 	"github.com/jmgilman/sow/cli/cmd/refs"
-	"github.com/jmgilman/sow/cli/cmd/task"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
@@ -69,13 +68,10 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 	// Add subcommands
 	cmd.AddCommand(NewInitCmd())
 	cmd.AddCommand(NewValidateCmd())
-	cmd.AddCommand(NewLogCmd())
-	cmd.AddCommand(NewSessionInfoCmd())
 	cmd.AddCommand(NewStartCmd())
 	cmd.AddCommand(issue.NewIssueCmd())
 	cmd.AddCommand(refs.NewRefsCmd())
-	cmd.AddCommand(project.NewProjectCmd())
-	cmd.AddCommand(task.NewTaskCmd())
+	cmd.AddCommand(agent.NewAgentCmd())
 
 	return cmd
 }

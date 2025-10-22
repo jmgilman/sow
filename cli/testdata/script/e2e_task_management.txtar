@@ -15,39 +15,39 @@ exec sow init
 # =====================================
 # Project Initialization
 # =====================================
-exec sow project init task-mgmt --description 'Test task management'
-exec sow project phase skip discovery
-exec sow project phase skip design
+exec sow agent project init task-mgmt --description 'Test task management'
+exec sow agent project phase skip discovery
+exec sow agent project phase skip design
 
 # =====================================
 # Create Tasks with Dependencies
 # =====================================
 # Task 010: Base task
-exec sow task add 'Create models' --description 'Define data models'
+exec sow agent task add 'Create models' --description 'Define data models'
 stderr '✓ Created task 010'
 exists .sow/project/phases/implementation/tasks/010
 
 # Task 020: Depends on 010
-exec sow task add 'Create service' --description 'Business logic' --dependencies 010
+exec sow agent task add 'Create service' --description 'Business logic' --dependencies 010
 stderr '✓ Created task 020'
 stderr 'Dependencies: 010'
 
 # Task 030: Parallel task (no dependencies)
-exec sow task add 'Write documentation' --description 'API docs' --parallel
+exec sow agent task add 'Write documentation' --description 'API docs' --parallel
 stderr '✓ Created task 030'
 stderr 'Parallel:     true'
 
 # Task 040: Depends on both 010 and 020
-exec sow task add 'Create API endpoints' --description 'REST API' --dependencies 010,020
+exec sow agent task add 'Create API endpoints' --description 'REST API' --dependencies 010,020
 stderr '✓ Created task 040'
 stderr 'Dependencies: 010, 020'
 
 # Task 015: Custom ID (inserted between 010 and 020)
-exec sow task add 'Add validation' --description 'Input validation' --id 015
+exec sow agent task add 'Add validation' --description 'Input validation' --id 015
 stderr '✓ Created task 015'
 
 # Approve task plan
-exec sow project phase approve implementation
+exec sow agent project phase approve implementation
 
 # Verify all tasks created
 exists .sow/project/phases/implementation/tasks/010
@@ -60,18 +60,18 @@ exists .sow/project/phases/implementation/tasks/040
 # Task State Commands
 # =====================================
 # Set custom agent for task 030
-exec sow task state set-agent documenter 030
+exec sow agent task state set-agent documenter 030
 stderr 'Updated assigned agent'
 
 # Add reference to task 010
 exec mkdir -p .sow/refs
 exec sh -c 'echo "# Style Guide" > .sow/refs/style-guide.md'
-exec sow task state add-reference refs/style-guide.md 010
+exec sow agent task state add-reference refs/style-guide.md 010
 stderr '✓ Added reference'
 
 # Add multiple files to task state
-exec sow task state add-file src/models.py 010
-exec sow task state add-file tests/test_models.py 010
+exec sow agent task state add-file src/models.py 010
+exec sow agent task state add-file tests/test_models.py 010
 
 # Verify reference in state
 exec cat .sow/project/phases/implementation/tasks/010/state.yaml
@@ -84,28 +84,28 @@ stdout 'src/models.py'
 # Task Feedback Workflow
 # =====================================
 # Start working on task 010
-exec sow task update 010 --status in_progress
+exec sow agent task update 010 --status in_progress
 
 # Add feedback to task 010
-exec sow task feedback add 'Use pydantic models instead of dataclasses' 010
+exec sow agent task feedback add 'Use pydantic models instead of dataclasses' 010
 stderr '✓ Created feedback 001'
 exists .sow/project/phases/implementation/tasks/010/feedback/001.md
 
 # Increment iteration manually
-exec sow task state increment 010
+exec sow agent task state increment 010
 exists .sow/project/phases/implementation/tasks/010/state.yaml
 
 # Mark feedback as addressed
-exec sow task feedback mark-addressed 001 010
+exec sow agent task feedback mark-addressed 001 010
 stderr 'addressed'
 
 # Complete task 010
-exec sow task update 010 --status completed
+exec sow agent task update 010 --status completed
 
 # =====================================
 # List Tasks
 # =====================================
-exec sow task list
+exec sow agent task list
 stderr '010'
 stderr '015'
 stderr '020'
@@ -115,26 +115,26 @@ stderr '040'
 # =====================================
 # Complete Remaining Tasks
 # =====================================
-exec sow task update 015 --status in_progress
-exec sow task update 015 --status completed
+exec sow agent task update 015 --status in_progress
+exec sow agent task update 015 --status completed
 
-exec sow task update 020 --status in_progress
-exec sow task update 020 --status completed
+exec sow agent task update 020 --status in_progress
+exec sow agent task update 020 --status completed
 
-exec sow task update 030 --status in_progress
-exec sow task update 030 --status completed
+exec sow agent task update 030 --status in_progress
+exec sow agent task update 030 --status completed
 
-exec sow task update 040 --status in_progress
-exec sow task update 040 --status completed
+exec sow agent task update 040 --status in_progress
+exec sow agent task update 040 --status completed
 
 # =====================================
 # Complete Workflow
 # =====================================
-exec sow project review add-report reports/001.md --assessment pass
-exec sow project review approve 001
-exec sow project finalize complete documentation
-exec sow project finalize complete checks
-exec sow project delete --force
+exec sow agent project review add-report reports/001.md --assessment pass
+exec sow agent project review approve 001
+exec sow agent project finalize complete documentation
+exec sow agent project finalize complete checks
+exec sow agent project delete --force
 
 # =====================================
 # Final Verification

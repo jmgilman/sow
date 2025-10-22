@@ -16,13 +16,13 @@ stderr '✓ sow initialized successfully'
 # =====================================
 # Project Initialization
 # =====================================
-exec sow project init discovery-project --description 'Test discovery phase'
+exec sow agent project init discovery-project --description 'Test discovery phase'
 stderr '✓ Initialized project ''discovery-project'''
 
 # =====================================
 # Enable Discovery Phase
 # =====================================
-exec sow project phase enable discovery --type feature
+exec sow agent project phase enable discovery --type feature
 stderr '✓ Enabled discovery phase'
 
 # Verify discovery phase directory created
@@ -37,11 +37,11 @@ exec sh -c 'echo "# Research Report 2\n\nAuth patterns" > .sow/project/phases/di
 # Add Artifacts
 # =====================================
 # Add first artifact
-exec sow project artifact add phases/discovery/research/001-jwt.md --phase discovery
+exec sow agent project artifact add phases/discovery/research/001-jwt.md --phase discovery
 stderr '✓ Added artifact to discovery phase'
 
 # Add second artifact (pre-approved)
-exec sow project artifact add phases/discovery/research/002-auth.md --phase discovery --approved
+exec sow agent project artifact add phases/discovery/research/002-auth.md --phase discovery --approved
 stderr '✓ Added artifact to discovery phase'
 stderr 'approved'
 
@@ -54,7 +54,7 @@ stdout '002-auth.md'
 # =====================================
 # Approve First Artifact
 # =====================================
-exec sow project artifact approve phases/discovery/research/001-jwt.md --phase discovery
+exec sow agent project artifact approve phases/discovery/research/001-jwt.md --phase discovery
 stderr '✓ Approved artifact'
 
 # Verify both artifacts now approved
@@ -64,7 +64,7 @@ stdout 'approved: true'
 # =====================================
 # Complete Discovery Phase
 # =====================================
-exec sow project phase complete discovery
+exec sow agent project phase complete discovery
 stderr 'discovery'
 
 # Verify state validates
@@ -74,32 +74,32 @@ stderr '✓ All validations passed'
 # =====================================
 # Skip Design and Continue
 # =====================================
-exec sow project phase skip design
+exec sow agent project phase skip design
 stderr '✓ Skipped design phase'
 
 # Add task
-exec sow task add 'Implement auth' --description 'Add JWT authentication'
+exec sow agent task add 'Implement auth' --description 'Add JWT authentication'
 stderr '✓ Created task 010'
 
 # Approve task plan
-exec sow project phase approve implementation
+exec sow agent project phase approve implementation
 
 # Complete task
-exec sow task update 010 --status in_progress
-exec sow task update 010 --status completed
+exec sow agent task update 010 --status in_progress
+exec sow agent task update 010 --status completed
 
 # Review pass
-exec sow project review add-report reports/001-review.md --assessment pass
+exec sow agent project review add-report reports/001-review.md --assessment pass
 stderr '✓ Added review report 001'
-exec sow project review approve 001
+exec sow agent project review approve 001
 stderr '✓ Approved review report 001'
 
 # Finalize
-exec sow project finalize complete documentation
-exec sow project finalize complete checks
+exec sow agent project finalize complete documentation
+exec sow agent project finalize complete checks
 
 # Delete project
-exec sow project delete --force
+exec sow agent project delete --force
 
 # =====================================
 # Final Verification

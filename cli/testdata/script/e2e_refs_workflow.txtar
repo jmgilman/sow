@@ -41,25 +41,25 @@ stderr 'No refs'
 # =====================================
 # Create Project for Context
 # =====================================
-exec sow project init refs-project --description 'Test refs commands'
-exec sow project phase skip discovery
-exec sow project phase skip design
+exec sow agent project init refs-project --description 'Test refs commands'
+exec sow agent project phase skip discovery
+exec sow agent project phase skip design
 
-exec sow task add 'Test task' --description 'Testing refs commands'
+exec sow agent task add 'Test task' --description 'Testing refs commands'
 stderr '✓ Created task 010'
 
-exec sow project phase approve implementation
+exec sow agent project phase approve implementation
 
 # =====================================
 # Complete Workflow
 # =====================================
-exec sow task update 010 --status in_progress
-exec sow task update 010 --status completed
-exec sow project review add-report reports/001.md --assessment pass
-exec sow project review approve 001
-exec sow project finalize complete documentation
-exec sow project finalize complete checks
-exec sow project delete --force
+exec sow agent task update 010 --status in_progress
+exec sow agent task update 010 --status completed
+exec sow agent project review add-report reports/001.md --assessment pass
+exec sow agent project review approve 001
+exec sow agent project finalize complete documentation
+exec sow agent project finalize complete checks
+exec sow agent project delete --force
 
 # =====================================
 # Final Verification

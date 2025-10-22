@@ -23,7 +23,7 @@ exists .sow/refs/index.json
 # =====================================
 # Project Initialization
 # =====================================
-exec sow project init minimal-project --description 'Minimal test project'
+exec sow agent project init minimal-project --description 'Minimal test project'
 stderr '✓ Initialized project ''minimal-project'''
 
 # Verify project structure created
@@ -42,11 +42,11 @@ stderr '✓ All validations passed'
 # Skip Optional Phases
 # =====================================
 # Skip discovery phase
-exec sow project phase skip discovery
+exec sow agent project phase skip discovery
 stderr '✓ Skipped discovery phase'
 
 # Skip design phase
-exec sow project phase skip design
+exec sow agent project phase skip design
 stderr '✓ Skipped design phase'
 
 # Verify state after skipping phases
@@ -57,7 +57,7 @@ stderr '✓ All validations passed'
 # Implementation Phase
 # =====================================
 # Add single task
-exec sow task add 'Implement feature' --description 'Add core functionality'
+exec sow agent task add 'Implement feature' --description 'Add core functionality'
 stderr '✓ Created task 010'
 
 # Verify task directory created
@@ -67,15 +67,15 @@ exists .sow/project/phases/implementation/tasks/010/description.md
 exists .sow/project/phases/implementation/tasks/010/log.md
 
 # Approve task plan
-exec sow project phase approve implementation
+exec sow agent project phase approve implementation
 stderr '✓ Approved implementation phase plan'
 
 # Update task to in_progress
-exec sow task update 010 --status in_progress
+exec sow agent task update 010 --status in_progress
 stderr '✓ Updated task 010'
 
 # Update task to completed
-exec sow task update 010 --status completed
+exec sow agent task update 010 --status completed
 stderr '✓ Updated task 010'
 
 # Verify state transitions to review
@@ -86,11 +86,11 @@ stderr '✓ All validations passed'
 # Review Phase
 # =====================================
 # Add passing review report
-exec sow project review add-report reports/001-review.md --assessment pass
+exec sow agent project review add-report reports/001-review.md --assessment pass
 stderr '✓ Added review report 001'
 
 # Approve review report
-exec sow project review approve 001
+exec sow agent project review approve 001
 stderr '✓ Approved review report 001'
 
 # Verify review report added
@@ -101,18 +101,18 @@ stdout 'assessment: pass'
 # Finalize Phase
 # =====================================
 # Complete documentation subphase
-exec sow project finalize complete documentation
+exec sow agent project finalize complete documentation
 stderr '✓ Completed documentation subphase'
 
 # Complete checks subphase
-exec sow project finalize complete checks
+exec sow agent project finalize complete checks
 stderr '✓ Completed checks subphase'
 
 # =====================================
 # Project Deletion
 # =====================================
 # Delete project
-exec sow project delete --force
+exec sow agent project delete --force
 stderr 'Deleted project'
 
 # Verify project directory removed
