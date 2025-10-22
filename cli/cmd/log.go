@@ -69,22 +69,34 @@ func runLog(cmd *cobra.Command, _ []string) error {
 
 	// Log to appropriate level
 	if forceProject || contextType == "project" {
-		if err := proj.Log(action, result, opts...); err != nil {
-			return err
-		}
-		cmd.Println("✓ Log entry added to project log")
-	} else if contextType == "task" {
-		task, err := proj.GetTask(taskID)
-		if err != nil {
-			return fmt.Errorf("failed to get task: %w", err)
-		}
-		if err := task.Log(action, result, opts...); err != nil {
-			return err
-		}
-		cmd.Println("✓ Log entry added to task log")
-	} else {
-		return fmt.Errorf("unknown context type: %s", contextType)
+		return logToProject(cmd, proj, action, result, opts)
 	}
 
+	if contextType == "task" {
+		return logToTask(cmd, proj, taskID, action, result, opts)
+	}
+
+	return fmt.Errorf("unknown context type: %s", contextType)
+}
+
+// logToProject logs an entry to the project log.
+func logToProject(cmd *cobra.Command, proj *project.Project, action, result string, opts []project.LogOption) error {
+	if err := proj.Log(action, result, opts...); err != nil {
+		return err
+	}
+	cmd.Println("✓ Log entry added to project log")
+	return nil
+}
+
+// logToTask logs an entry to a task log.
+func logToTask(cmd *cobra.Command, proj *project.Project, taskID, action, result string, opts []project.LogOption) error {
+	task, err := proj.GetTask(taskID)
+	if err != nil {
+		return fmt.Errorf("failed to get task: %w", err)
+	}
+	if err := task.Log(action, result, opts...); err != nil {
+		return err
+	}
+	cmd.Println("✓ Log entry added to task log")
 	return nil
 }

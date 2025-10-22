@@ -467,7 +467,7 @@ func (m *Manager) loadCommittedRefIndex() (*schemas.RefsCommittedIndex, error) {
 				Refs:    []schemas.Ref{},
 			}, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to stat committed refs index: %w", err)
 	}
 
 	data, err := fs.ReadFile(path)
@@ -495,7 +495,7 @@ func (m *Manager) loadLocalRefIndex() (*schemas.RefsLocalIndex, error) {
 
 	data, err := fs.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read local refs index: %w", err)
 	}
 
 	var index schemas.RefsLocalIndex

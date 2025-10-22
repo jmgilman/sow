@@ -191,7 +191,7 @@ func (m *Machine) saveOS(data []byte) error {
 func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 	f, err := fs.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer func() { _ = f.Close() }()
 
@@ -206,7 +206,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return nil, err
+			return nil, fmt.Errorf("failed to read file: %w", err)
 		}
 	}
 	return data, nil
@@ -216,10 +216,12 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 func writeFile(fs billy.Filesystem, path string, data []byte) error {
 	f, err := fs.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open file for writing: %w", err)
 	}
 	defer func() { _ = f.Close() }()
 
-	_, err = f.Write(data)
-	return err
+	if _, err = f.Write(data); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	return nil
 }
