@@ -1,0 +1,140 @@
+# Test: E2E New Commands - Status and Info Validation
+# Purpose: Validate status and info commands show correct information throughout lifecycle
+# Exercises: Detailed output validation for status and info commands
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/status-info-test
+exec sow init
+
+# =====================================
+# Project Initialization
+# =====================================
+exec sow agent project init status-test --description 'Test status and info commands'
+
+# =====================================
+# Test status at discovery decision state
+# =====================================
+exec sow agent status
+stderr 'Project: status-test'
+stderr 'Branch: feat/status-info-test'
+stderr 'Active Phase: discovery'
+stderr 'pending'
+stderr 'Next Actions:'
+stderr 'sow agent enable discovery'
+stderr 'sow agent skip discovery'
+
+# =====================================
+# Test info shows discovery metadata
+# =====================================
+exec sow agent info
+stderr 'Phase: discovery'
+stderr '✗ Tasks'
+stderr '✓ Artifacts'
+stderr 'Custom Fields:'
+stderr 'discovery_type'
+
+# Test info with explicit phase
+exec sow agent info --phase design
+stderr 'Phase: design'
+stderr 'architect_used'
+
+exec sow agent info --phase implementation
+stderr 'Phase: implementation'
+stdout 'planner_used'
+stdout 'tasks_approved'
+
+# =====================================
+# Enable discovery and check status change
+# =====================================
+exec sow agent enable discovery --type feature
+
+exec sow agent status
+stderr 'Active Phase: discovery'
+stderr 'in_progress'
+stderr 'Next Actions:'
+stderr 'sow agent artifact add'
+stderr 'sow agent complete'
+
+# =====================================
+# Skip to implementation and test task counts
+# =====================================
+exec sow agent complete
+exec sow agent skip design
+
+exec sow agent status
+stderr 'Active Phase: implementation'
+
+# Add multiple tasks with different statuses
+exec sow agent task add 'Task 1' --description 'First'
+exec sow agent task add 'Task 2' --description 'Second'
+exec sow agent task add 'Task 3' --description 'Third'
+
+# Check status shows task breakdown
+exec sow agent status
+stderr 'Tasks: 3 total'
+stderr '○ 3 pending'
+
+# Update tasks to different statuses
+exec sow agent project phase approve implementation
+exec sow agent task update 010 --status completed
+exec sow agent task update 020 --status in_progress
+
+exec sow agent status
+stderr 'Tasks: 3 total'
+stderr '✓ 1 completed'
+stderr '⟳ 1 in progress'
+stderr '○ 1 pending'
+
+# Mark one as abandoned
+exec sow agent task update 030 --status abandoned
+
+exec sow agent status
+stderr 'Tasks: 3 total'
+stderr '✓ 1 completed'
+stderr '⟳ 1 in progress'
+stderr '✗ 1 abandoned'
+
+# =====================================
+# Complete implementation and check review info
+# =====================================
+exec sow agent task update 020 --status completed
+
+exec sow agent complete
+
+exec sow agent status
+stderr 'Active Phase: review'
+stderr 'Next Actions:'
+stderr 'sow agent complete'
+
+exec sow agent info
+stderr 'Phase: review'
+stdout 'iteration'
+
+# =====================================
+# Complete to finalize
+# =====================================
+exec sow agent project review add-report reports/001-review.md --assessment pass
+exec sow agent project review approve 001
+
+exec sow agent complete
+
+exec sow agent status
+stderr 'Active Phase: finalize'
+
+exec sow agent info
+stderr 'Phase: finalize'
+stdout 'project_deleted'
+stdout 'pr_url'
+
+# =====================================
+# Cleanup
+# =====================================
+exec sow agent project finalize complete documentation
+exec sow agent project finalize complete checks
+exec sow agent project delete --force

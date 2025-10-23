@@ -90,7 +90,7 @@ func (p *Project) EnablePhase(phaseName string, opts ...sow.PhaseOption) error {
 			return fmt.Errorf("discovery type required (use WithDiscoveryType option)")
 		}
 		state.Phases.Discovery.Enabled = true
-		state.Phases.Discovery.Status = "pending"
+		state.Phases.Discovery.Status = "in_progress"
 		discoveryType := cfg.DiscoveryType()
 		state.Phases.Discovery.Discovery_type = &discoveryType
 		startedAt := now
@@ -108,7 +108,7 @@ func (p *Project) EnablePhase(phaseName string, opts ...sow.PhaseOption) error {
 
 	case "design":
 		state.Phases.Design.Enabled = true
-		state.Phases.Design.Status = "pending"
+		state.Phases.Design.Status = "in_progress"
 		designStartedAt := now
 		state.Phases.Design.Started_at = &designStartedAt
 

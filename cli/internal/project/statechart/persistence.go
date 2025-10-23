@@ -96,15 +96,15 @@ func NewProjectState(name, description, branch string) *schemas.ProjectState {
 	state.Project.Created_at = now
 	state.Project.Updated_at = now
 
-	// Discovery phase (optional, disabled by default)
+	// Discovery phase (optional, starts in decision state)
 	state.Phases.Discovery.Enabled = false
-	state.Phases.Discovery.Status = "skipped"
+	state.Phases.Discovery.Status = "pending"  // Decision state
 	state.Phases.Discovery.Created_at = now
 	state.Phases.Discovery.Artifacts = []phases.Artifact{}
 
-	// Design phase (optional, disabled by default)
+	// Design phase (optional, starts in decision state)
 	state.Phases.Design.Enabled = false
-	state.Phases.Design.Status = "skipped"
+	state.Phases.Design.Status = "pending"  // Decision state
 	state.Phases.Design.Created_at = now
 	state.Phases.Design.Artifacts = []phases.Artifact{}
 

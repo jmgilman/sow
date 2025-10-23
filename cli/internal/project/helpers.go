@@ -9,23 +9,48 @@ import (
 
 // DetermineActivePhase returns the current active phase name and its status.
 // It checks phases in order (discovery → design → implementation → review → finalize)
-// and returns the first phase that is enabled but not completed or skipped.
+// and returns the first phase that is not completed or skipped.
+//
+// For optional phases (discovery, design):
+// - If enabled and not completed/skipped: returns phase with current status
+// - If not enabled and status is "pending": returns phase with "pending" (decision state)
+// - If not enabled and status is "skipped": skips to next phase
 //
 // Returns ("unknown", "unknown") if no active phase is found (e.g., all phases completed).
 func DetermineActivePhase(state *schemas.ProjectState) (phaseName string, phaseStatus string) {
 	// Check phases in order
-	if state.Phases.Discovery.Enabled && state.Phases.Discovery.Status != "completed" && state.Phases.Discovery.Status != "skipped" {
+
+	// Discovery (optional)
+	if state.Phases.Discovery.Status == "skipped" {
+		// Explicitly skipped, continue to next phase
+	} else if state.Phases.Discovery.Status == "completed" {
+		// Completed, continue to next phase
+	} else {
+		// Either in pending decision state or active (enabled)
 		return "discovery", state.Phases.Discovery.Status
 	}
-	if state.Phases.Design.Enabled && state.Phases.Design.Status != "completed" && state.Phases.Design.Status != "skipped" {
+
+	// Design (optional)
+	if state.Phases.Design.Status == "skipped" {
+		// Explicitly skipped, continue to next phase
+	} else if state.Phases.Design.Status == "completed" {
+		// Completed, continue to next phase
+	} else {
+		// Either in pending decision state or active (enabled)
 		return "design", state.Phases.Design.Status
 	}
+
+	// Implementation (required)
 	if state.Phases.Implementation.Status != "completed" && state.Phases.Implementation.Status != "skipped" {
 		return "implementation", state.Phases.Implementation.Status
 	}
+
+	// Review (required)
 	if state.Phases.Review.Status != "completed" && state.Phases.Review.Status != "skipped" {
 		return "review", state.Phases.Review.Status
 	}
+
+	// Finalize (required)
 	if state.Phases.Finalize.Status != "completed" && state.Phases.Finalize.Status != "skipped" {
 		return "finalize", state.Phases.Finalize.Status
 	}

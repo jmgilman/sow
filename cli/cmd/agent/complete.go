@@ -53,7 +53,8 @@ Example:
 			}
 
 			// Validate we're in an active state (not a decision state)
-			if phaseStatus == "pending" {
+			// Only optional phases (discovery, design) have decision states
+			if phaseStatus == "pending" && (activePhase == "discovery" || activePhase == "design") {
 				return fmt.Errorf("phase %s is in decision state - enable or skip it first", activePhase)
 			}
 
