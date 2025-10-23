@@ -984,3 +984,124 @@ E2E tests now execute properly (no more panics). There are some validation error
 ## Next Decisions
 
 _(Future decisions will be logged here as they arise during MVP development)_
+
+---
+
+## 2025-01-22: Plan - Remove Obsolete Code & Complete Command Simplification
+
+### Context
+
+After implementing 7 new simplified commands (enable, skip, complete, status, info, artifact add, set) and fixing 6 critical bugs in the composable phases architecture, we now have duplicate command implementations. The old `sow agent project` namespace commands need to be removed and replaced with the new flattened command structure.
+
+### Decision
+
+**Complete the command simplification initiative** by:
+1. Implementing missing simplified commands (artifact approve/list, review, finalize, task approve)
+2. Deleting old E2E tests that use legacy commands
+3. Removing the entire `cmd/agent/project/` directory (24 files)
+4. Flattening command namespace from `sow agent project <subcommand>` to `sow agent <subcommand>`
+
+### Implementation Plan
+
+#### Phase 1: Implement Missing Simplified Commands (17 new files)
+
+**Artifact Commands:**
+- `cmd/agent/artifact_approve.go` - Approve artifact on active phase (no --phase flag)
+- `cmd/agent/artifact_list.go` - List artifacts for active phase
+- Update `cmd/agent/artifact.go` to add subcommands
+
+**Review Commands (flatten namespace):**
+- `cmd/agent/review.go` - Parent command
+- `cmd/agent/review_add.go` - Add review report (renamed from add-report)
+- `cmd/agent/review_approve.go` - Approve review report  
+- `cmd/agent/review_increment.go` - Increment iteration
+
+**Finalize Commands (flatten namespace):**
+- `cmd/agent/finalize.go` - Parent command
+- `cmd/agent/finalize_complete.go` - Complete subphase
+- `cmd/agent/finalize_doc.go` - Track documentation (renamed from add-document)
+- `cmd/agent/finalize_move.go` - Move artifact (renamed from move-artifact)
+
+**Project Lifecycle (flatten namespace):**
+- `cmd/agent/init.go` - Project init (move from project/init.go)
+- `cmd/agent/delete.go` - Project delete (move from project/delete.go)
+- `cmd/agent/create_pr.go` - Create PR (move from project/create_pr.go)
+
+**Task Commands:**
+- `cmd/agent/task/approve.go` - Approve implementation plan (replaces project phase approve)
+- Update `cmd/agent/task/task.go` to add approve subcommand
+
+#### Phase 2: Update E2E Tests
+
+**Delete old E2E tests (8 files):**
+- `testdata/script/e2e_full_workflow.txtar`
+- `testdata/script/e2e_minimal_path.txtar`
+- `testdata/script/e2e_discovery_only.txtar`
+- `testdata/script/e2e_design_only.txtar`
+- `testdata/script/e2e_review_loop.txtar`
+- `testdata/script/e2e_task_management.txtar`
+- `testdata/script/e2e_errors_phase_guards.txtar`
+- `testdata/script/e2e_errors_invalid_operations.txtar`
+
+**Keep & update:**
+- 4 new command tests (update any remaining old command usage)
+- Other E2E tests (logging, refs, initialization, validation)
+
+#### Phase 3: Remove Obsolete Files
+
+**Delete entire directory:**
+- `cmd/agent/project/` (24 files total)
+
+**Update:**
+- `cmd/agent/agent.go` - Remove project command, add new registrations
+
+#### Phase 4: Update Documentation
+
+- Update help text to reflect flattened namespace
+- Remove references to legacy commands
+
+### Command Changes Summary
+
+```
+# Before → After
+sow agent project init                    → sow agent init
+sow agent project delete                  → sow agent delete  
+sow agent project status                  → sow agent status ✅
+sow agent project phase enable            → sow agent enable ✅
+sow agent project phase skip              → sow agent skip ✅
+sow agent project phase complete          → sow agent complete ✅
+sow agent project phase approve           → sow agent task approve
+sow agent project artifact add --phase    → sow agent artifact add ✅
+sow agent project artifact approve --phase → sow agent artifact approve
+sow agent project artifact list --phase   → sow agent artifact list
+sow agent project review add-report       → sow agent review add
+sow agent project review approve          → sow agent review approve
+sow agent project review increment        → sow agent review increment
+sow agent project finalize complete       → sow agent finalize complete
+sow agent project finalize add-document   → sow agent finalize doc
+sow agent project finalize move-artifact  → sow agent finalize move
+sow agent project create-pr               → sow agent create-pr
+```
+
+(✅ = already implemented)
+
+### Impact
+
+**Benefits:**
+- Simpler, more intuitive command structure
+- Removes ~1,000 lines of duplicate code
+- Consistent auto-detection of active phase across all commands
+- Cleaner test suite with better coverage
+
+**Breaking Change:**
+All `sow agent project` commands will be removed. Users must update to new commands.
+
+**Files Changed:**
+- Delete: 24 files + 8 test files = 32 files
+- Create: 17 new command files
+- Net: -15 files, cleaner codebase
+
+### Status
+
+🚧 **PLANNED** - Ready to implement after plan approval
+
