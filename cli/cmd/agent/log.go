@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	"github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/domain"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
@@ -49,12 +50,12 @@ func runLog(cmd *cobra.Command, _ []string) error {
 	forceProject, _ := cmd.Flags().GetBool("project")
 
 	// Build options
-	var opts []project.LogOption
+	var opts []domain.LogOption
 	if len(files) > 0 {
-		opts = append(opts, project.WithFiles(files...))
+		opts = append(opts, domain.WithFiles(files...))
 	}
 	if notes != "" {
-		opts = append(opts, project.WithNotes(notes))
+		opts = append(opts, domain.WithNotes(notes))
 	}
 
 	// Get context
@@ -62,7 +63,7 @@ func runLog(cmd *cobra.Command, _ []string) error {
 	contextType, taskID := sow.DetectContext(ctx.RepoRoot())
 
 	// Load project
-	proj, err := project.Load(ctx)
+	proj, err := loader.Load(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
@@ -80,7 +81,7 @@ func runLog(cmd *cobra.Command, _ []string) error {
 }
 
 // logToProject logs an entry to the project log.
-func logToProject(cmd *cobra.Command, proj *project.Project, action, result string, opts []project.LogOption) error {
+func logToProject(cmd *cobra.Command, proj domain.Project, action, result string, opts []domain.LogOption) error {
 	if err := proj.Log(action, result, opts...); err != nil {
 		return err
 	}
@@ -89,7 +90,7 @@ func logToProject(cmd *cobra.Command, proj *project.Project, action, result stri
 }
 
 // logToTask logs an entry to a task log.
-func logToTask(cmd *cobra.Command, proj *project.Project, taskID, action, result string, opts []project.LogOption) error {
+func logToTask(cmd *cobra.Command, proj domain.Project, taskID, action, result string, opts []domain.LogOption) error {
 	task, err := proj.GetTask(taskID)
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)

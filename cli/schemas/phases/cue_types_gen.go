@@ -6,19 +6,13 @@ import (
 	"time"
 )
 
-// DesignPhase represents the design phase
-type DesignPhase struct {
-	// Can be disabled
-	Enabled bool `json:"enabled"`
-
-	// Whether architect agent was used
-	Architect_used *bool `json:"architect_used,omitempty"`
-
-	// Design artifacts requiring approval (ADRs, design docs)
-	Artifacts []Artifact `json:"artifacts"`
-
-	// Phase execution status
+// Phase is the universal schema for all phases in all project types.
+// What makes a phase unique is its guards, prompts, and which operations it supports.
+type Phase struct {
+	// Common metadata
 	Status string `json:"status"`
+
+	Enabled bool `json:"enabled"`
 
 	// Timestamps
 	Created_at time.Time `json:"created_at"`
@@ -26,9 +20,17 @@ type DesignPhase struct {
 	Started_at *time.Time `json:"started_at,omitempty"`
 
 	Completed_at *time.Time `json:"completed_at,omitempty"`
+
+	// Generic collections (used by phases that need them)
+	Artifacts []Artifact `json:"artifacts"`
+
+	Tasks []Task `json:"tasks"`
+
+	// Phase-specific data (discovery_type, iteration, etc.)
+	Metadata map[string]any/* CUE top */ `json:"metadata,omitempty"`
 }
 
-// Artifact represents an artifact requiring human approval
+// Artifact represents a phase artifact requiring human approval
 type Artifact struct {
 	// Path relative to .sow/project/
 	Path string `json:"path"`
@@ -38,88 +40,9 @@ type Artifact struct {
 
 	// When artifact was created
 	Created_at time.Time `json:"created_at"`
-}
 
-// DiscoveryPhase represents the discovery phase
-type DiscoveryPhase struct {
-	// Can be disabled
-	Enabled bool `json:"enabled"`
-
-	// Discovery type categorization
-	Discovery_type *string `json:"discovery_type,omitempty"`
-
-	// Discovery artifacts requiring approval
-	Artifacts []Artifact `json:"artifacts"`
-
-	// Phase execution status
-	Status string `json:"status"`
-
-	// Timestamps
-	Created_at time.Time `json:"created_at"`
-
-	Started_at *time.Time `json:"started_at,omitempty"`
-
-	Completed_at *time.Time `json:"completed_at,omitempty"`
-}
-
-// FinalizePhase represents the finalize phase
-type FinalizePhase struct {
-	// Always enabled
-	Enabled bool `json:"enabled"`
-
-	// Documentation files updated
-	Documentation_updates []string `json:"documentation_updates,omitempty"`
-
-	// Design artifacts moved to knowledge (from→to pairs)
-	Artifacts_moved []struct {
-		From string `json:"from"`
-
-		To string `json:"to"`
-	} `json:"artifacts_moved,omitempty"`
-
-	// Critical gate: must be true before phase completion
-	Project_deleted bool `json:"project_deleted"`
-
-	// Pull request URL (created during finalize)
-	Pr_url *string `json:"pr_url,omitempty"`
-
-	// Phase execution status
-	Status string `json:"status"`
-
-	// Timestamps
-	Created_at time.Time `json:"created_at"`
-
-	Started_at *time.Time `json:"started_at,omitempty"`
-
-	Completed_at *time.Time `json:"completed_at,omitempty"`
-}
-
-// ImplementationPhase represents the implementation phase
-type ImplementationPhase struct {
-	// Always enabled
-	Enabled bool `json:"enabled"`
-
-	// Whether planner agent was used
-	Planner_used *bool `json:"planner_used,omitempty"`
-
-	// Phase execution status
-	Status string `json:"status"`
-
-	// Timestamps
-	Created_at time.Time `json:"created_at"`
-
-	Started_at *time.Time `json:"started_at,omitempty"`
-
-	Completed_at *time.Time `json:"completed_at,omitempty"`
-
-	// Approved task list (gap-numbered)
-	Tasks []Task `json:"tasks"`
-
-	// Human approval of task plan before autonomous execution
-	Tasks_approved bool `json:"tasks_approved"`
-
-	// Tasks awaiting human approval before execution
-	Pending_task_additions []Task `json:"pending_task_additions,omitempty"`
+	// Phase-specific metadata (type, assessment, etc.)
+	Metadata map[string]any/* CUE top */ `json:"metadata,omitempty"`
 }
 
 // Task represents an implementation task
@@ -138,57 +61,4 @@ type Task struct {
 
 	// Task IDs this task depends on
 	Dependencies []string `json:"dependencies,omitempty"`
-}
-
-// Phase represents common phase fields
-type Phase struct {
-	// Phase execution status
-	Status string `json:"status"`
-
-	// Timestamps
-	Created_at time.Time `json:"created_at"`
-
-	Started_at *time.Time `json:"started_at,omitempty"`
-
-	Completed_at *time.Time `json:"completed_at,omitempty"`
-}
-
-// ReviewPhase represents the review phase
-type ReviewPhase struct {
-	// Always enabled
-	Enabled bool `json:"enabled"`
-
-	// Current review iteration (increments on loop-back)
-	Iteration int64 `json:"iteration"`
-
-	// Review reports (numbered 001, 002, 003...)
-	Reports []ReviewReport `json:"reports"`
-
-	// Phase execution status
-	Status string `json:"status"`
-
-	// Timestamps
-	Created_at time.Time `json:"created_at"`
-
-	Started_at *time.Time `json:"started_at,omitempty"`
-
-	Completed_at *time.Time `json:"completed_at,omitempty"`
-}
-
-// ReviewReport represents a review iteration report
-type ReviewReport struct {
-	// Report ID (001, 002, 003...)
-	Id string `json:"id"`
-
-	// Path relative to .sow/project/phases/review/
-	Path string `json:"path"`
-
-	// When report was created
-	Created_at time.Time `json:"created_at"`
-
-	// Review assessment
-	Assessment string `json:"assessment"`
-
-	// Human approval of orchestrator's review
-	Approved bool `json:"approved"`
 }

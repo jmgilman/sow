@@ -35,8 +35,12 @@ stderr 'description'
 # Create Valid Project
 # =====================================
 exec sow agent init valid-project --description 'Valid description'
-exec sow agent skip discovery
-exec sow agent skip design
+# Project starts at DiscoveryDecision
+# Enable and complete optional phases to reach implementation
+exec sow agent enable discovery
+exec sow agent complete
+exec sow agent enable design
+exec sow agent complete
 
 # Verify valid state
 exec sow validate
@@ -85,12 +89,15 @@ stderr '✓ All validations passed'
 exec sow agent task approve
 exec sow agent task update 010 --status in_progress
 exec sow agent task update 010 --status completed
+# Auto-transitions to review when all tasks complete
 exec mkdir -p .sow/project/phases/review/reports
 exec sh -c 'echo "# Review" > .sow/project/phases/review/reports/001.md'
-exec sow agent review add reports/001.md --assessment pass
-exec sow agent review approve 001
-exec sow agent finalize complete documentation
-exec sow agent finalize complete checks
+exec sow agent artifact add project/phases/review/reports/001.md --metadata type=review --metadata assessment=pass
+exec sow agent artifact approve project/phases/review/reports/001.md
+exec sow agent complete
+# Transitions to finalize
+exec sow agent complete
+# Finalize complete
 exec sow agent delete --force
 
 # =====================================

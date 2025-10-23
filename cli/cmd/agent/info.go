@@ -5,7 +5,8 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/domain"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/spf13/cobra"
 )
 
@@ -44,96 +45,53 @@ Example:
 			ctx := cmdutil.GetContext(cmd.Context())
 
 			// Load project
-			project, err := projectpkg.Load(ctx)
+			project, err := loader.Load(ctx)
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow agent project init' first")
+				return fmt.Errorf("no active project - run 'sow project init' first")
 			}
-
-			// Get state
-			state := project.State()
 
 			// Determine which phase to show
+			var phase domain.Phase
 			var targetPhase string
-			var phaseStatus string
 
 			if phaseName == "" {
-				// Use active phase
-				targetPhase, phaseStatus = projectpkg.DetermineActivePhase(state)
-				if targetPhase == "unknown" {
+				// Use current active phase
+				phase = project.CurrentPhase()
+				if phase == nil {
 					return fmt.Errorf("no active phase found - use --phase to specify a phase")
 				}
+				targetPhase = phase.Name()
 			} else {
 				// Use specified phase
-				targetPhase = phaseName
-
-				// Get status for specified phase
-				switch phaseName {
-				case "discovery":
-					phaseStatus = state.Phases.Discovery.Status
-				case "design":
-					phaseStatus = state.Phases.Design.Status
-				case "implementation":
-					phaseStatus = state.Phases.Implementation.Status
-				case "review":
-					phaseStatus = state.Phases.Review.Status
-				case "finalize":
-					phaseStatus = state.Phases.Finalize.Status
-				default:
+				phase, err = project.Phase(phaseName)
+				if err != nil {
 					return fmt.Errorf("unknown phase: %s", phaseName)
 				}
-			}
-
-			// Get phase metadata
-			metadata, err := projectpkg.GetPhaseMetadata(targetPhase)
-			if err != nil {
-				return fmt.Errorf("failed to get phase metadata: %w", err)
+				targetPhase = phaseName
 			}
 
 			// Build output
 			var output strings.Builder
 			output.WriteString(fmt.Sprintf("\n━━━ Phase: %s ━━━\n", targetPhase))
-			output.WriteString(fmt.Sprintf("Status: %s\n\n", phaseStatus))
+			output.WriteString(fmt.Sprintf("Status: %s\n\n", phase.Status()))
 
-			// Supported operations
+			// Supported operations (determined by checking what operations are available)
 			output.WriteString("Supported Operations:\n")
-			if metadata.SupportsTasks {
-				output.WriteString("  ✓ Tasks\n")
+
+			// Check if phase supports tasks by trying to list them
+			tasks := phase.ListTasks()
+			if tasks != nil && len(tasks) >= 0 {
+				output.WriteString(fmt.Sprintf("  ✓ Tasks (%d)\n", len(tasks)))
 			} else {
 				output.WriteString("  ✗ Tasks\n")
 			}
-			if metadata.SupportsArtifacts {
-				output.WriteString("  ✓ Artifacts\n")
+
+			// Check if phase supports artifacts by trying to list them
+			artifacts := phase.ListArtifacts()
+			if artifacts != nil && len(artifacts) >= 0 {
+				output.WriteString(fmt.Sprintf("  ✓ Artifacts (%d)\n", len(artifacts)))
 			} else {
 				output.WriteString("  ✗ Artifacts\n")
-			}
-
-			// Custom fields
-			if len(metadata.CustomFields) > 0 {
-				output.WriteString("\nCustom Fields:\n")
-				for _, field := range metadata.CustomFields {
-					desc := field.Description
-					if desc == "" {
-						desc = "No description"
-					}
-					output.WriteString(fmt.Sprintf("  • %s (%s): %s\n", field.Name, field.Type, desc))
-				}
-			}
-
-			// Current counts
-			output.WriteString("\nCurrent State:\n")
-			if metadata.SupportsTasks {
-				tasks := project.ListTasks()
-				output.WriteString(fmt.Sprintf("  Tasks: %d\n", len(tasks)))
-			}
-			if metadata.SupportsArtifacts {
-				var artifactCount int
-				switch targetPhase {
-				case "discovery":
-					artifactCount = len(state.Phases.Discovery.Artifacts)
-				case "design":
-					artifactCount = len(state.Phases.Design.Artifacts)
-				}
-				output.WriteString(fmt.Sprintf("  Artifacts: %d\n", artifactCount))
 			}
 
 			cmd.Print(output.String())

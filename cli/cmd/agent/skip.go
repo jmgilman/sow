@@ -1,62 +1,74 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/spf13/cobra"
 )
 
-// NewSkipCmd creates the command to skip an optional phase.
+// NewSkipCmd creates the command to skip the active phase.
 //
 // Usage:
 //
-//	sow agent skip <phase>
+//	sow agent skip
 //
-// Only discovery and design phases can be skipped (they are optional).
-// Implementation, review, and finalize are always required and cannot be skipped.
+// Skips the currently active phase and transitions to the next phase.
+// Only optional phases (discovery, design) can be skipped.
 func NewSkipCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "skip <phase>",
-		Short: "Skip an optional phase",
-		Long: `Skip an optional phase (discovery or design).
+		Use:   "skip",
+		Short: "Skip the active phase",
+		Long: `Skip the currently active phase and transition to the next phase.
 
-Only discovery and design phases can be skipped as they are optional.
-Implementation, review, and finalize phases are always required and cannot be skipped.
+This command automatically detects which phase is currently active and skips it.
+You don't need to specify the phase name - it's determined from the project state.
 
-Skipping a phase marks it as "skipped" and transitions to the next phase.
+Only optional phases can be skipped:
+  - discovery: Skip discovery and move to design decision
+  - design: Skip design and move to implementation planning
+
+Required phases cannot be skipped:
+  - implementation: Required for all projects
+  - review: Required for all projects
+  - finalize: Required for all projects
 
 Example:
-  # Skip discovery phase
-  sow agent skip discovery
-
-  # Skip design phase
-  sow agent skip design`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			phase := args[0]
-
-			// Validate phase
-			if phase != "discovery" && phase != "design" {
-				return fmt.Errorf("only discovery and design phases can be skipped (got: %s)", phase)
-			}
-
+  # Skip whichever phase is currently active
+  sow agent skip`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Get context
 			ctx := cmdutil.GetContext(cmd.Context())
 
-			// Load project
-			project, err := projectpkg.Load(ctx)
+			// Load project via loader to get interface
+			proj, err := loader.Load(ctx)
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow agent project init' first")
+				if errors.Is(err, project.ErrNoProject) {
+					return fmt.Errorf("no active project - run 'sow agent init' first")
+				}
+				return fmt.Errorf("failed to load project: %w", err)
 			}
 
-			// Skip the phase
-			if err := project.SkipPhase(phase); err != nil {
-				return fmt.Errorf("failed to skip %s phase: %w", phase, err)
+			// Get current phase
+			phase := proj.CurrentPhase()
+			if phase == nil {
+				return fmt.Errorf("no active phase found - project may be complete")
 			}
 
-			cmd.Printf("\n✓ Skipped %s phase\n", phase)
+			// Skip the phase via Phase interface
+			err = phase.Skip()
+			if errors.Is(err, project.ErrNotSupported) {
+				return fmt.Errorf("phase %s cannot be skipped (required phase)", phase.Name())
+			}
+			if err != nil {
+				return fmt.Errorf("failed to skip phase: %w", err)
+			}
+
+			cmd.Printf("\n✓ Skipped %s phase\n", phase.Name())
 			return nil
 		},
 	}

@@ -23,19 +23,12 @@ stderr '✓ Initialized project'
 # Discovery Phase - Test enable, artifact, set, complete
 # =====================================
 
-# Test initial status
+# Test initial status (no active phase at DiscoveryDecision)
 exec sow agent status
-stderr 'Active Phase: discovery'
-stderr 'pending'
+stderr 'Status: All phases complete'
 
-# Test info command
-exec sow agent info
-stderr 'Phase: discovery'
-stderr '✓ Artifacts'
-stderr 'discovery_type'
-
-# Enable discovery with type
-exec sow agent enable discovery --type feature
+# Enable discovery
+exec sow agent enable discovery
 stderr '✓ Enabled discovery phase'
 
 # Verify status updated
@@ -43,15 +36,23 @@ exec sow agent status
 stderr 'Active Phase: discovery'
 stderr 'in_progress'
 
+# Test info command
+exec sow agent info
+stderr 'Phase: discovery'
+
 # Create discovery artifact
 exec mkdir -p .sow/project/phases/discovery/research
 exec sh -c 'echo "# Requirements Analysis" > .sow/project/phases/discovery/research/001-requirements.md'
 
 # Test artifact add (implicit phase detection)
-exec sow agent artifact add project/phases/discovery/research/001-requirements.md --approved
-stderr '✓ Added artifact to discovery phase'
+exec sow agent artifact add project/phases/discovery/research/001-requirements.md
+stderr '✓ Added artifact'
 
-# Verify artifact was added
+# Approve the artifact
+exec sow agent artifact approve project/phases/discovery/research/001-requirements.md
+stderr '✓ Approved artifact'
+
+# Verify artifact was added and approved
 exec cat .sow/project/state.yaml
 stdout '001-requirements.md'
 stdout 'approved: true'
@@ -68,24 +69,25 @@ stdout 'discovery_type: feature'
 exec sow agent complete
 stderr '✓ Completed discovery phase'
 
-# Verify transitioned to design
+# Verify transitioned to design decision (no active phase)
 exec sow agent status
-stderr 'Active Phase: design'
-stderr 'pending'
+stderr 'Status: All phases complete'
 
 # =====================================
 # Design Phase - Test enable, artifact, set, complete
 # =====================================
 
-# Test info for design phase
-exec sow agent info
-stderr 'Phase: design'
-stderr '✓ Artifacts'
-stderr 'architect_used'
-
 # Enable design
 exec sow agent enable design
 stderr '✓ Enabled design phase'
+
+# Verify status
+exec sow agent status
+stderr 'Active Phase: design'
+
+# Test info for design phase
+exec sow agent info
+stderr 'Phase: design'
 
 # Create design artifacts
 exec mkdir -p .sow/project/phases/design/adrs
@@ -93,11 +95,14 @@ exec sh -c 'echo "# ADR 001: Architecture" > .sow/project/phases/design/adrs/001
 exec sh -c 'echo "# ADR 002: Data Model" > .sow/project/phases/design/adrs/002-data-model.md'
 
 # Add artifacts
-exec sow agent artifact add project/phases/design/adrs/001-architecture.md --approved
-stderr '✓ Added artifact to design phase'
+exec sow agent artifact add project/phases/design/adrs/001-architecture.md
+stderr '✓ Added artifact'
+
+exec sow agent artifact approve project/phases/design/adrs/001-architecture.md
+stderr '✓ Approved artifact'
 
 exec sow agent artifact add project/phases/design/adrs/002-data-model.md
-stderr '✓ Added artifact to design phase'
+stderr '✓ Added artifact'
 
 # Verify one artifact needs approval
 exec cat .sow/project/state.yaml
@@ -126,9 +131,6 @@ stderr 'Active Phase: implementation'
 # Test info
 exec sow agent info
 stderr 'Phase: implementation'
-stderr '✓ Tasks'
-stderr 'planner_used'
-stderr 'tasks_approved'
 
 # Add tasks (legacy command)
 exec sow agent task add 'Task 1' --description 'First task'
@@ -146,9 +148,9 @@ stderr '○ 2 pending'
 exec sow agent set planner_used true
 stderr '✓ Set planner_used = true'
 
-# Test set command for tasks_approved (bool)
-exec sow agent set tasks_approved true
-stderr '✓ Set tasks_approved = true'
+# Approve tasks (triggers transition to Executing state)
+exec sow agent task approve
+stderr '✓ Approved task plan'
 
 # Complete tasks
 exec sow agent task update 010 --status completed

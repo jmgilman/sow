@@ -86,7 +86,8 @@ func NewProjectState(name, description, branch string) *schemas.ProjectState {
 	state := &schemas.ProjectState{}
 
 	// Statechart metadata
-	state.Statechart.Current_state = string(NoProject)
+	// StandardProject starts in DiscoveryDecision state
+	state.Statechart.Current_state = string(DiscoveryDecision)
 
 	// Project metadata
 	state.Project.Type = "standard"
@@ -113,20 +114,27 @@ func NewProjectState(name, description, branch string) *schemas.ProjectState {
 	state.Phases.Implementation.Status = "pending"
 	state.Phases.Implementation.Created_at = now
 	state.Phases.Implementation.Tasks = []phases.Task{}
-	state.Phases.Implementation.Tasks_approved = false
+	state.Phases.Implementation.Metadata = map[string]interface{}{
+		"tasks_approved": false,
+	}
 
 	// Review phase (required, enabled by default)
 	state.Phases.Review.Enabled = true
 	state.Phases.Review.Status = "pending"
 	state.Phases.Review.Created_at = now
-	state.Phases.Review.Iteration = 1
-	state.Phases.Review.Reports = []phases.ReviewReport{}
+	state.Phases.Review.Artifacts = []phases.Artifact{}
+	state.Phases.Review.Metadata = map[string]interface{}{
+		"iteration": 1,
+	}
 
 	// Finalize phase (required, enabled by default)
 	state.Phases.Finalize.Enabled = true
 	state.Phases.Finalize.Status = "pending"
 	state.Phases.Finalize.Created_at = now
-	state.Phases.Finalize.Project_deleted = false
+	state.Phases.Finalize.Artifacts = []phases.Artifact{}
+	state.Phases.Finalize.Metadata = map[string]interface{}{
+		"project_deleted": false,
+	}
 
 	return state
 }

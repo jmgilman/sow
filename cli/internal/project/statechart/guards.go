@@ -8,7 +8,7 @@ import (
 // Guards for conditional transitions
 
 // ArtifactsApproved checks if all artifacts for a phase are approved (or no artifacts exist).
-func ArtifactsApproved(phase phases.DiscoveryPhase) bool {
+func ArtifactsApproved(phase phases.Phase) bool {
 	if len(phase.Artifacts) == 0 {
 		return true
 	}
@@ -21,7 +21,7 @@ func ArtifactsApproved(phase phases.DiscoveryPhase) bool {
 }
 
 // ArtifactsApprovedDesign checks if all design artifacts are approved (or no artifacts exist).
-func ArtifactsApprovedDesign(phase phases.DesignPhase) bool {
+func ArtifactsApprovedDesign(phase phases.Phase) bool {
 	if len(phase.Artifacts) == 0 {
 		return true
 	}
@@ -40,8 +40,14 @@ func HasAtLeastOneTask(state *schemas.ProjectState) bool {
 
 // TasksApproved checks if task plan has been approved by human.
 func TasksApproved(state *schemas.ProjectState) bool {
-	return state.Phases.Implementation.Tasks_approved &&
-		len(state.Phases.Implementation.Tasks) >= 1
+	// Check metadata for tasks_approved
+	tasksApproved := false
+	if state.Phases.Implementation.Metadata != nil {
+		if approved, ok := state.Phases.Implementation.Metadata["tasks_approved"].(bool); ok {
+			tasksApproved = approved
+		}
+	}
+	return tasksApproved && len(state.Phases.Implementation.Tasks) >= 1
 }
 
 // AllTasksComplete checks if all tasks are completed or abandoned.
@@ -76,15 +82,31 @@ func ChecksAssessed(_ *schemas.ProjectState) bool {
 
 // LatestReviewApproved checks if the most recent review report is approved by human.
 func LatestReviewApproved(state *schemas.ProjectState) bool {
-	reports := state.Phases.Review.Reports
-	if len(reports) == 0 {
+	// Find review artifacts (artifacts with type=review metadata)
+	var reviewArtifacts []phases.Artifact
+	for _, artifact := range state.Phases.Review.Artifacts {
+		if artifact.Metadata != nil {
+			if artifactType, ok := artifact.Metadata["type"].(string); ok && artifactType == "review" {
+				reviewArtifacts = append(reviewArtifacts, artifact)
+			}
+		}
+	}
+
+	if len(reviewArtifacts) == 0 {
 		return false
 	}
-	latest := reports[len(reports)-1]
+
+	latest := reviewArtifacts[len(reviewArtifacts)-1]
 	return latest.Approved
 }
 
 // ProjectDeleted checks if the project folder has been deleted.
 func ProjectDeleted(state *schemas.ProjectState) bool {
-	return state.Phases.Finalize.Project_deleted
+	// Check metadata for project_deleted
+	if state.Phases.Finalize.Metadata != nil {
+		if deleted, ok := state.Phases.Finalize.Metadata["project_deleted"].(bool); ok {
+			return deleted
+		}
+	}
+	return false
 }

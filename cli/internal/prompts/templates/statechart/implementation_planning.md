@@ -30,9 +30,9 @@ PLANNING APPROACH:
 NEXT ACTIONS:
   1. Review available artifacts (design docs, discovery notes)
   2. Break work into discrete tasks with clear acceptance criteria
-  3. Create tasks: sow agent task add "<name>" --description "..." [--id <id>]
+  3. Create tasks: sow agent task add "<name>" --description "..."
   4. When all tasks created, request human approval
-  5. Human approves: sow agent project phase approve implementation
+  5. Human approves: sow agent task approve
   6. Then autonomous execution begins
 
 Reference: PHASES/IMPLEMENTATION.md

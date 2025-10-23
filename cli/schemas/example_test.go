@@ -12,8 +12,9 @@ import (
 
 // Example demonstrating usage of generated types.
 func TestGeneratedTypes(t *testing.T) {
-	// Create a ProjectState instance using generated types
-	state := projects.ProjectState{
+	// Create a StandardProjectState instance using generated types
+	now := time.Now()
+	state := projects.StandardProjectState{
 		Project: struct {
 			Type         string    `json:"type"`
 			Name         string    `json:"name"`
@@ -28,20 +29,22 @@ func TestGeneratedTypes(t *testing.T) {
 			Branch:       "feat/my-feature",
 			Description:  "Implement new feature",
 			Github_issue: nil,
-			Created_at:   time.Now(),
-			Updated_at:   time.Now(),
+			Created_at:   now,
+			Updated_at:   now,
 		},
 		Phases: struct {
-			Discovery      phases.DiscoveryPhase      `json:"discovery"`
-			Design         phases.DesignPhase         `json:"design"`
-			Implementation phases.ImplementationPhase `json:"implementation"`
-			Review         phases.ReviewPhase         `json:"review"`
-			Finalize       phases.FinalizePhase       `json:"finalize"`
+			Discovery      phases.Phase `json:"discovery"`
+			Design         phases.Phase `json:"design"`
+			Implementation phases.Phase `json:"implementation"`
+			Review         phases.Phase `json:"review"`
+			Finalize       phases.Phase `json:"finalize"`
 		}{
-			Implementation: phases.ImplementationPhase{
+			// All phases now use the same generic Phase schema
+			Implementation: phases.Phase{
 				Status:     "in_progress",
-				Created_at: time.Now(),
+				Created_at: now,
 				Enabled:    true,
+				Artifacts:  []phases.Artifact{}, // Generic artifacts field
 				Tasks: []phases.Task{
 					{
 						Id:       "010",
@@ -124,5 +127,78 @@ func TestGeneratedTypes(t *testing.T) {
 
 	if len(index.Refs) != 1 {
 		t.Errorf("Expected 1 ref, got %d", len(index.Refs))
+	}
+}
+
+// TestGenericPhaseWithMetadata demonstrates using the generic Phase schema
+// with metadata for phase-specific data (like review assessments).
+func TestGenericPhaseWithMetadata(t *testing.T) {
+	now := time.Now()
+
+	// Create a review phase with artifacts containing metadata
+	reviewPhase := phases.Phase{
+		Status:     "in_progress",
+		Created_at: now,
+		Enabled:    true,
+		Tasks:      []phases.Task{}, // Review doesn't use tasks
+		Artifacts: []phases.Artifact{
+			{
+				Path:       "project/phases/review/reports/001.md",
+				Approved:   true,
+				Created_at: now,
+				Metadata: map[string]interface{}{
+					"type":       "review",
+					"assessment": "pass",
+				},
+			},
+			{
+				Path:       "project/phases/review/reports/002.md",
+				Approved:   false,
+				Created_at: now,
+				Metadata: map[string]interface{}{
+					"type":       "review",
+					"assessment": "fail",
+				},
+			},
+		},
+		Metadata: map[string]interface{}{
+			"iteration": 2,
+		},
+	}
+
+	// Verify we can access phase data
+	if len(reviewPhase.Artifacts) != 2 {
+		t.Errorf("Expected 2 artifacts, got %d", len(reviewPhase.Artifacts))
+	}
+
+	// Verify we can filter artifacts by metadata
+	var reviewArtifacts []phases.Artifact
+	for _, artifact := range reviewPhase.Artifacts {
+		if artifactType, ok := artifact.Metadata["type"].(string); ok && artifactType == "review" {
+			reviewArtifacts = append(reviewArtifacts, artifact)
+		}
+	}
+
+	if len(reviewArtifacts) != 2 {
+		t.Errorf("Expected 2 review artifacts, got %d", len(reviewArtifacts))
+	}
+
+	// Verify we can check assessment from metadata
+	firstArtifact := reviewPhase.Artifacts[0]
+	if assessment, ok := firstArtifact.Metadata["assessment"].(string); ok {
+		if assessment != "pass" {
+			t.Errorf("Expected assessment 'pass', got '%s'", assessment)
+		}
+	} else {
+		t.Error("Expected assessment metadata to be present")
+	}
+
+	// Verify phase metadata
+	if iteration, ok := reviewPhase.Metadata["iteration"].(int); ok {
+		if iteration != 2 {
+			t.Errorf("Expected iteration 2, got %d", iteration)
+		}
+	} else {
+		t.Error("Expected iteration metadata to be present")
 	}
 }

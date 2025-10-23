@@ -44,19 +44,19 @@ type StandardProjectState struct {
 	// 5-phase structure (composing reusable phase definitions)
 	Phases struct {
 		// Phase 1: Discovery (optional, human-led)
-		Discovery phases.DiscoveryPhase `json:"discovery"`
+		Discovery phases.Phase `json:"discovery"`
 
 		// Phase 2: Design (optional, human-led)
-		Design phases.DesignPhase `json:"design"`
+		Design phases.Phase `json:"design"`
 
 		// Phase 3: Implementation (required, AI-autonomous)
-		Implementation phases.ImplementationPhase `json:"implementation"`
+		Implementation phases.Phase `json:"implementation"`
 
 		// Phase 4: Review (required, AI-autonomous)
-		Review phases.ReviewPhase `json:"review"`
+		Review phases.Phase `json:"review"`
 
 		// Phase 5: Finalize (required, AI-autonomous)
-		Finalize phases.FinalizePhase `json:"finalize"`
+		Finalize phases.Phase `json:"finalize"`
 	} `json:"phases"`
 }
 

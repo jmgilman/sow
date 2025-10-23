@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
@@ -84,7 +84,7 @@ func initFromIssue(cmd *cobra.Command, args []string, ctx *sow.Context, issueNum
 		_, _ = fmt.Fprintf(cmd.OutOrStderr(), "ℹ️  Note: --description is ignored when using --issue (description will be taken from issue)\n\n")
 	}
 
-	proj, err := projectpkg.CreateFromIssue(ctx, issueNumber, branchName)
+	proj, err := loader.CreateFromIssue(ctx, issueNumber, branchName)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func initManual(cmd *cobra.Command, args []string, ctx *sow.Context, description
 	}
 
 	name := args[0]
-	proj, err := projectpkg.Create(ctx, name, description)
+	proj, err := loader.Create(ctx, name, description)
 	if err != nil {
 		return err
 	}

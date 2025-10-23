@@ -1,12 +1,14 @@
 package task
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
-	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/domain"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/spf13/cobra"
 )
 
@@ -56,7 +58,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	agent, _ := cmd.Flags().GetString("agent")
 	parallel, _ := cmd.Flags().GetBool("parallel")
 	dependencies, _ := cmd.Flags().GetStringSlice("dependencies")
-	idFlag, _ := cmd.Flags().GetString("id")
+	_ /* idFlag */, _ = cmd.Flags().GetString("id")
 
 	// Trim dependencies
 	for i, dep := range dependencies {
@@ -66,38 +68,48 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	// Get Sow from context
 	ctx := cmdutil.GetContext(cmd.Context())
 
-	// Get project
-	project, err := projectpkg.Load(ctx)
+	// Load project via loader to get interface
+	proj, err := loader.Load(ctx)
 	if err != nil {
-		return fmt.Errorf("no active project - run 'sow project init' first")
+		if errors.Is(err, project.ErrNoProject) {
+			return fmt.Errorf("no active project - run 'sow agent init' first")
+		}
+		return fmt.Errorf("failed to load project: %w", err)
 	}
 
-	// Build task options
-	opts := []sow.TaskOption{
-		sow.WithAgent(agent),
-		sow.WithParallel(parallel),
-		sow.WithDescription(description),
+	// Get current phase
+	phase := proj.CurrentPhase()
+	if phase == nil {
+		return fmt.Errorf("no active phase found")
+	}
+
+	// Build task options using domain package
+	opts := []domain.TaskOption{
+		domain.WithAgent(agent),
+		domain.WithParallel(parallel),
+		domain.WithDescription(description),
 	}
 
 	if len(dependencies) > 0 {
-		opts = append(opts, sow.WithDependencies(dependencies...))
+		opts = append(opts, domain.WithDependencies(dependencies))
 	}
 
-	if idFlag != "" {
-		opts = append(opts, sow.WithID(idFlag))
-	}
+	// Note: ID auto-generation is handled by the phase implementation
+	// Custom IDs are not supported in the new interface-based approach
 
-	// Create task (handles validation, state machine transitions, file creation)
-	task, err := project.AddTask(name, opts...)
+	// Create task via Phase interface
+	task, err := phase.AddTask(name, opts...)
+	if errors.Is(err, project.ErrNotSupported) {
+		return fmt.Errorf("phase %s does not support tasks", phase.Name())
+	}
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to add task: %w", err)
 	}
 
 	// Success
-	taskID := task.ID()
-	cmd.Printf("\n✓ Created task %s: %s\n", taskID, name)
+	cmd.Printf("\n✓ Created task %s: %s\n", task.ID, name)
 	cmd.Printf("\nTask Details:\n")
-	cmd.Printf("  ID:           %s\n", taskID)
+	cmd.Printf("  ID:           %s\n", task.ID)
 	cmd.Printf("  Name:         %s\n", name)
 	cmd.Printf("  Status:       pending\n")
 	cmd.Printf("  Agent:        %s\n", agent)

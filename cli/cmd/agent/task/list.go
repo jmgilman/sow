@@ -2,10 +2,13 @@ package task
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
+	"github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/spf13/cobra"
 )
 
@@ -47,29 +50,52 @@ func runList(cmd *cobra.Command, _ []string) error {
 	// Get Sow from context
 	ctx := cmdutil.GetContext(cmd.Context())
 
-	// Get project
-	proj, err := projectpkg.Load(ctx)
+	// Load project via loader to get interface
+	proj, err := loader.Load(ctx)
 	if err != nil {
-		return fmt.Errorf("no active project - run 'sow project init' first")
+		if errors.Is(err, project.ErrNoProject) {
+			return fmt.Errorf("no active project - run 'sow agent init' first")
+		}
+		return fmt.Errorf("failed to load project: %w", err)
 	}
 
-	// Get state
-	state := proj.State()
+	// Get current phase
+	phase := proj.CurrentPhase()
+	if phase == nil {
+		return fmt.Errorf("no active phase found")
+	}
 
-	// Get tasks from implementation phase
-	tasks := state.Phases.Implementation.Tasks
+	// Get tasks via Phase interface
+	domainTasks := phase.ListTasks()
+
+	// Convert domain.Task to phases.Task for formatting
+	phaseTasks := make([]phases.Task, len(domainTasks))
+	for i, t := range domainTasks {
+		// Get task state to extract schema fields
+		taskState, err := t.State()
+		if err != nil {
+			return fmt.Errorf("failed to get task %s state: %w", t.ID, err)
+		}
+		phaseTasks[i] = phases.Task{
+			Id:           taskState.Task.Id,
+			Name:         taskState.Task.Name,
+			Status:       taskState.Task.Status,
+			Parallel:     false, // Not stored in TaskState currently
+			Dependencies: nil,   // Not stored in TaskState currently
+		}
+	}
 
 	// Output based on format
 	if format == "json" {
 		// JSON output: serialize tasks array
-		jsonData, err := json.MarshalIndent(tasks, "", "  ")
+		jsonData, err := json.MarshalIndent(phaseTasks, "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal tasks to JSON: %w", err)
 		}
 		cmd.Println(string(jsonData))
 	} else {
 		// Text output: use formatted display
-		output := formatTaskList(tasks)
+		output := formatTaskList(phaseTasks)
 		cmd.Print(output)
 	}
 

@@ -125,8 +125,11 @@ func (c *StatechartContext) addDiscoveryData(data map[string]interface{}) {
 		return
 	}
 
-	if c.ProjectState.Phases.Discovery.Discovery_type != nil && *c.ProjectState.Phases.Discovery.Discovery_type != "" {
-		data["DiscoveryType"] = *c.ProjectState.Phases.Discovery.Discovery_type
+	// Get discovery_type from metadata
+	if c.ProjectState.Phases.Discovery.Metadata != nil {
+		if discoveryType, ok := c.ProjectState.Phases.Discovery.Metadata["discovery_type"].(string); ok && discoveryType != "" {
+			data["DiscoveryType"] = discoveryType
+		}
 	}
 
 	artifacts := c.ProjectState.Phases.Discovery.Artifacts
@@ -223,27 +226,53 @@ func (c *StatechartContext) addReviewData(data map[string]interface{}) {
 		return
 	}
 
-	iteration := c.ProjectState.Phases.Review.Iteration
-	if iteration == 0 {
-		iteration = 1 // Default to 1 if not set
+	// Get iteration from metadata (default to 1)
+	iteration := int64(1)
+	if c.ProjectState.Phases.Review.Metadata != nil {
+		if iter, ok := c.ProjectState.Phases.Review.Metadata["iteration"].(int); ok && iter > 0 {
+			iteration = int64(iter)
+		} else if iter, ok := c.ProjectState.Phases.Review.Metadata["iteration"].(int64); ok && iter > 0 {
+			iteration = iter
+		}
 	}
 	data["ReviewIteration"] = iteration
 
+	// Get review artifacts (artifacts with type=review metadata)
+	var reviewArtifacts []interface{}
+	for _, artifact := range c.ProjectState.Phases.Review.Artifacts {
+		if artifact.Metadata != nil {
+			if artifactType, ok := artifact.Metadata["type"].(string); ok && artifactType == "review" {
+				reviewArtifacts = append(reviewArtifacts, artifact)
+			}
+		}
+	}
+
 	// Previous iteration context
-	if iteration > 1 && len(c.ProjectState.Phases.Review.Reports) > 0 {
+	if iteration > 1 && len(reviewArtifacts) > 0 {
 		data["HasPreviousReview"] = true
-		prevReport := c.ProjectState.Phases.Review.Reports[len(c.ProjectState.Phases.Review.Reports)-1]
-		data["PreviousAssessment"] = prevReport.Assessment
+		// Get the last review artifact's assessment
+		lastArtifact := c.ProjectState.Phases.Review.Artifacts[len(c.ProjectState.Phases.Review.Artifacts)-1]
+		if lastArtifact.Metadata != nil {
+			if assessment, ok := lastArtifact.Metadata["assessment"].(string); ok {
+				data["PreviousAssessment"] = assessment
+			}
+		}
 	}
 }
 
 // addFinalizeData adds finalize phase data to the template data.
 func (c *StatechartContext) addFinalizeData(data map[string]interface{}) {
 	if c.State == StateFinalizeDocumentation {
-		updates := c.ProjectState.Phases.Finalize.Documentation_updates
-		if len(updates) > 0 {
-			data["HasDocumentationUpdates"] = true
-			data["DocumentationUpdates"] = updates
+		// Get documentation_updates from metadata
+		if c.ProjectState.Phases.Finalize.Metadata != nil {
+			if updates, ok := c.ProjectState.Phases.Finalize.Metadata["documentation_updates"].([]interface{}); ok && len(updates) > 0 {
+				data["HasDocumentationUpdates"] = true
+				data["DocumentationUpdates"] = updates
+			} else if update, ok := c.ProjectState.Phases.Finalize.Metadata["documentation_updates"].(string); ok && update != "" {
+				// Handle string case
+				data["HasDocumentationUpdates"] = true
+				data["DocumentationUpdates"] = []string{update}
+			}
 		}
 	}
 
@@ -252,10 +281,15 @@ func (c *StatechartContext) addFinalizeData(data map[string]interface{}) {
 	}
 
 	if c.State == StateFinalizeDelete {
-		data["ProjectDeleted"] = c.ProjectState.Phases.Finalize.Project_deleted
-		if c.ProjectState.Phases.Finalize.Pr_url != nil && *c.ProjectState.Phases.Finalize.Pr_url != "" {
-			data["HasPR"] = true
-			data["PRURL"] = *c.ProjectState.Phases.Finalize.Pr_url
+		// Get project_deleted from metadata
+		if c.ProjectState.Phases.Finalize.Metadata != nil {
+			if deleted, ok := c.ProjectState.Phases.Finalize.Metadata["project_deleted"].(bool); ok {
+				data["ProjectDeleted"] = deleted
+			}
+			if prURL, ok := c.ProjectState.Phases.Finalize.Metadata["pr_url"].(string); ok && prURL != "" {
+				data["HasPR"] = true
+				data["PRURL"] = prURL
+			}
 		}
 	}
 }

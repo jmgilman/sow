@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/spf13/cobra"
@@ -115,10 +115,10 @@ func runSessionInfo(cmd *cobra.Command, jsonOutput bool) error {
 	}
 
 	// Get project information if project exists
-	proj, err := projectpkg.Load(ctx)
+	proj, err := loader.Load(ctx)
 	if err == nil {
 		// Project exists - read state
-		state := proj.State()
+		state := proj.Machine().ProjectState()
 
 		info.Project = &ProjectInfo{
 			Name:        state.Project.Name,

@@ -6,7 +6,8 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	sowexec "github.com/jmgilman/sow/cli/internal/exec"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/domain"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/jmgilman/sow/cli/internal/prompts"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
@@ -74,12 +75,12 @@ func runContinue(cmd *cobra.Command, branchName string, issueNumber int) error {
 	}
 
 	// Check project exists
-	if !projectpkg.Exists(ctx) {
+	if !loader.Exists(ctx) {
 		return fmt.Errorf("no project found in branch '%s' - use 'sow new' to create one", selectedBranch)
 	}
 
 	// Load project
-	project, err := projectpkg.Load(ctx)
+	project, err := loader.Load(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
@@ -155,8 +156,8 @@ func checkoutIssueBranch(ctx *sow.Context, issueNumber int) (string, error) {
 
 // generateContinuePrompt creates the custom prompt for continuing projects.
 // Composes base greeting + continue project context.
-func generateContinuePrompt(ctx *sow.Context, project *projectpkg.Project) (string, error) {
-	state := project.State()
+func generateContinuePrompt(ctx *sow.Context, project domain.Project) (string, error) {
+	state := project.Machine().ProjectState()
 
 	// Render base greeting (orchestrator introduction)
 	baseCtx := &prompts.GreetContext{
@@ -272,7 +273,14 @@ func generateNextActions(state *schemas.ProjectState) string {
 	case "ImplementationPlanning":
 		return "Create a task breakdown using `sow agent task add`. When all tasks are defined, mark them approved to transition to execution."
 	case "ImplementationExecuting":
-		if state.Phases.Implementation.Tasks_approved {
+		// Check tasks_approved in metadata
+		tasksApproved := false
+		if state.Phases.Implementation.Metadata != nil {
+			if approved, ok := state.Phases.Implementation.Metadata["tasks_approved"].(bool); ok {
+				tasksApproved = approved
+			}
+		}
+		if tasksApproved {
 			return "Spawn implementer agents via Task tool to execute pending tasks. Update task status as work completes."
 		}
 		return "Await human approval of the task plan before execution."

@@ -11,22 +11,9 @@ import (
 
 #StandardProjectState: projects.#StandardProjectState
 
-// Re-export phase types for backward compatibility
-#DiscoveryPhase: phases.#DiscoveryPhase
-
-#DesignPhase: phases.#DesignPhase
-
-#ImplementationPhase: phases.#ImplementationPhase
-
-#ReviewPhase: phases.#ReviewPhase
-
-#FinalizePhase: phases.#FinalizePhase
-
 // Re-export common types
 #Phase: phases.#Phase
 
 #Artifact: phases.#Artifact
 
 #Task: phases.#Task
-
-#ReviewReport: phases.#ReviewReport

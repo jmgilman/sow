@@ -17,9 +17,9 @@ CURRENT STATUS:
 
 NEXT ACTIONS:
   1. Create design artifacts as needed
-  2. Register artifacts: sow agent project artifact add <path> --phase design
-  3. Request human approval for each artifact
-  4. When all approved: sow agent project phase complete design
+  2. Register artifacts: sow agent artifact add <path>
+  3. Request human approval for each artifact: sow agent artifact approve <path>
+  4. When all approved: sow agent complete
 
 Reference: PHASES/DESIGN.md
 

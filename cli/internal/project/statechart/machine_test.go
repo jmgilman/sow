@@ -20,33 +20,33 @@ func TestProjectLifecycle(t *testing.T) {
 	// Start with no project
 	state := &schemas.ProjectState{
 		Phases: struct {
-			Discovery      phases.DiscoveryPhase      `json:"discovery"`
-			Design         phases.DesignPhase         `json:"design"`
-			Implementation phases.ImplementationPhase `json:"implementation"`
-			Review         phases.ReviewPhase         `json:"review"`
-			Finalize       phases.FinalizePhase       `json:"finalize"`
+			Discovery      phases.Phase `json:"discovery"`
+			Design         phases.Phase `json:"design"`
+			Implementation phases.Phase `json:"implementation"`
+			Review         phases.Phase `json:"review"`
+			Finalize       phases.Phase `json:"finalize"`
 		}{
-			Discovery: phases.DiscoveryPhase{
+			Discovery: phases.Phase{
 				Enabled: false,
 				Status:  "skipped",
 			},
-			Design: phases.DesignPhase{
+			Design: phases.Phase{
 				Enabled: false,
 				Status:  "skipped",
 			},
-			Implementation: phases.ImplementationPhase{
+			Implementation: phases.Phase{
 				Enabled: true,
 				Status:  "pending",
 			},
-			Review: phases.ReviewPhase{
-				Enabled:   true,
-				Iteration: 1,
-				Status:    "pending",
+			Review: phases.Phase{
+				Enabled:  true,
+				Status:   "pending",
+				Metadata: map[string]interface{}{"iteration": 1},
 			},
-			Finalize: phases.FinalizePhase{
-				Enabled:         true,
-				Status:          "pending",
-				Project_deleted: false,
+			Finalize: phases.Phase{
+				Enabled:  true,
+				Status:   "pending",
+				Metadata: map[string]interface{}{"project_deleted": false},
 			},
 		},
 	}
@@ -90,7 +90,10 @@ func TestProjectLifecycle(t *testing.T) {
 	}
 
 	// Approve tasks to transition to executing
-	state.Phases.Implementation.Tasks_approved = true
+	if state.Phases.Implementation.Metadata == nil {
+		state.Phases.Implementation.Metadata = make(map[string]interface{})
+	}
+	state.Phases.Implementation.Metadata["tasks_approved"] = true
 	if err := machine.Fire(EventTasksApproved); err != nil {
 		t.Fatalf("Failed to transition to executing: %v", err)
 	}
@@ -109,9 +112,13 @@ func TestProjectLifecycle(t *testing.T) {
 	}
 
 	// Step 6: Review passes
-	// Add review report and approve it
-	state.Phases.Review.Reports = []phases.ReviewReport{
-		{Id: "001", Path: "reports/001.md", Assessment: "pass", Approved: true},
+	// Add review report as artifact and approve it
+	state.Phases.Review.Artifacts = []phases.Artifact{
+		{
+			Path:     "reports/001.md",
+			Approved: true,
+			Metadata: map[string]interface{}{"type": "review", "assessment": "pass"},
+		},
 	}
 	if err := machine.Fire(EventReviewPass); err != nil {
 		t.Fatalf("Failed to pass review: %v", err)
@@ -139,7 +146,10 @@ func TestProjectLifecycle(t *testing.T) {
 	}
 
 	// Step 9: Delete project
-	state.Phases.Finalize.Project_deleted = true
+	if state.Phases.Finalize.Metadata == nil {
+		state.Phases.Finalize.Metadata = make(map[string]interface{})
+	}
+	state.Phases.Finalize.Metadata["project_deleted"] = true
 
 	if err := machine.Fire(EventProjectDelete); err != nil {
 		t.Fatalf("Failed to delete project: %v", err)
@@ -152,7 +162,7 @@ func TestProjectLifecycle(t *testing.T) {
 // TestDiscoveryPhase tests the discovery phase workflow.
 func TestDiscoveryPhase(t *testing.T) {
 	state := &schemas.ProjectState{}
-	state.Phases.Discovery = phases.DiscoveryPhase{
+	state.Phases.Discovery = phases.Phase{
 		Enabled: true,
 		Status:  "pending",
 		Artifacts: []phases.Artifact{
@@ -191,17 +201,17 @@ func TestDiscoveryPhase(t *testing.T) {
 // TestReviewLoop tests the review fail → implementation loop.
 func TestReviewLoop(t *testing.T) {
 	state := &schemas.ProjectState{}
-	state.Phases.Implementation = phases.ImplementationPhase{
+	state.Phases.Implementation = phases.Phase{
 		Enabled: true,
 		Status:  "completed",
 		Tasks: []phases.Task{
 			{Id: "010", Name: "Fix bug", Status: "completed", Parallel: false},
 		},
 	}
-	state.Phases.Review = phases.ReviewPhase{
-		Enabled:   true,
-		Iteration: 1,
-		Status:    "pending",
+	state.Phases.Review = phases.Phase{
+		Enabled:  true,
+		Status:   "pending",
+		Metadata: map[string]interface{}{"iteration": 1},
 	}
 
 	machine := testMachine(state)
@@ -211,7 +221,10 @@ func TestReviewLoop(t *testing.T) {
 	_ = machine.Fire(EventSkipDiscovery)
 	_ = machine.Fire(EventSkipDesign)
 	machine.projectState = state
-	state.Phases.Implementation.Tasks_approved = true
+	if state.Phases.Implementation.Metadata == nil {
+		state.Phases.Implementation.Metadata = make(map[string]interface{})
+	}
+	state.Phases.Implementation.Metadata["tasks_approved"] = true
 	_ = machine.Fire(EventTasksApproved)
 	_ = machine.Fire(EventAllTasksComplete)
 
@@ -219,9 +232,13 @@ func TestReviewLoop(t *testing.T) {
 		t.Fatalf("Expected ReviewActive, got %s", machine.State())
 	}
 
-	// Review fails - add review report and approve it
-	state.Phases.Review.Reports = []phases.ReviewReport{
-		{Id: "001", Path: "reports/001.md", Assessment: "fail", Approved: true},
+	// Review fails - add review report as artifact and approve it
+	state.Phases.Review.Artifacts = []phases.Artifact{
+		{
+			Path:     "reports/001.md",
+			Approved: true,
+			Metadata: map[string]interface{}{"type": "review", "assessment": "fail"},
+		},
 	}
 	if err := machine.Fire(EventReviewFail); err != nil {
 		t.Fatalf("Failed to loop back to implementation: %v", err)
@@ -233,7 +250,10 @@ func TestReviewLoop(t *testing.T) {
 
 	// Add new task (or proceed with existing tasks)
 	// Since tasks already exist, guard will pass after approval
-	state.Phases.Implementation.Tasks_approved = true
+	if state.Phases.Implementation.Metadata == nil {
+		state.Phases.Implementation.Metadata = make(map[string]interface{})
+	}
+	state.Phases.Implementation.Metadata["tasks_approved"] = true
 	if err := machine.Fire(EventTasksApproved); err != nil {
 		t.Fatalf("Failed to transition to executing: %v", err)
 	}
@@ -243,7 +263,10 @@ func TestReviewLoop(t *testing.T) {
 	}
 
 	// Complete tasks again and transition back to review
-	state.Phases.Review.Iteration = 2
+	if state.Phases.Review.Metadata == nil {
+		state.Phases.Review.Metadata = make(map[string]interface{})
+	}
+	state.Phases.Review.Metadata["iteration"] = 2
 	if err := machine.Fire(EventAllTasksComplete); err != nil {
 		t.Fatalf("Failed to return to review: %v", err)
 	}
@@ -256,7 +279,7 @@ func TestReviewLoop(t *testing.T) {
 // TestGuardPreventsInvalidTransition tests that guards properly block transitions.
 func TestGuardPreventsInvalidTransition(t *testing.T) {
 	state := &schemas.ProjectState{}
-	state.Phases.Implementation = phases.ImplementationPhase{
+	state.Phases.Implementation = phases.Phase{
 		Enabled: true,
 		Status:  "pending",
 		Tasks:   []phases.Task{}, // No tasks
@@ -332,7 +355,7 @@ func TestPersistence(t *testing.T) {
 	// Create a machine and advance through some states
 	machine := testMachine(nil)
 	state := &schemas.ProjectState{}
-	state.Phases.Implementation = phases.ImplementationPhase{
+	state.Phases.Implementation = phases.Phase{
 		Enabled: true,
 		Status:  "pending",
 		Tasks: []phases.Task{

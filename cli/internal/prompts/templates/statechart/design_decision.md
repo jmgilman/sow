@@ -47,11 +47,11 @@ RECOMMENDED PHRASING:
 
 NEXT ACTION:
   If design needed:
-    sow agent project phase enable design
+    - Enable design phase (orchestrator handles state transition)
 
   If design not needed:
-    sow agent project phase skip design
-    (Will auto-transition to implementation)
+    - Skip design phase (orchestrator handles state transition)
+    - Will auto-transition to implementation
 
 Reference: PROJECT_LIFECYCLE.md (Design Rubric)
 

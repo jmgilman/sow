@@ -2,7 +2,7 @@ package task
 
 import (
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -59,7 +59,7 @@ func runStateAddFile(cmd *cobra.Command, args []string) error {
 	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Get project
-	proj, err := projectpkg.Load(ctx)
+	proj, err := loader.Load(ctx)
 	if err != nil {
 		return fmt.Errorf("no active project - run 'sow project init' first")
 	}

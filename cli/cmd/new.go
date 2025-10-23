@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	sowexec "github.com/jmgilman/sow/cli/internal/exec"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/jmgilman/sow/cli/internal/prompts"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
@@ -73,7 +73,7 @@ func runNew(cmd *cobra.Command, args []string, issueNumber int) error {
 	}
 
 	// Check no existing project
-	if projectpkg.Exists(ctx) {
+	if loader.Exists(ctx) {
 		return fmt.Errorf("project already exists in this branch - use 'sow continue' to resume")
 	}
 
@@ -177,14 +177,14 @@ func initializeProject(ctx *sow.Context, issue *sow.Issue, initialPrompt string)
 	}
 
 	// Create project using the internal project package
-	project, err := projectpkg.Create(ctx, projectName, projectDescription)
+	project, err := loader.Create(ctx, projectName, projectDescription)
 	if err != nil {
 		return fmt.Errorf("failed to create project: %w", err)
 	}
 
 	// Set github_issue field if provided
 	if githubIssueNum != nil {
-		state := project.State()
+		state := project.Machine().ProjectState()
 		issueNum64 := int64(*githubIssueNum)
 		state.Project.Github_issue = &issueNum64
 
