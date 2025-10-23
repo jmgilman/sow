@@ -21,13 +21,33 @@ intervention, they are designed for agent workflows.
 Agent commands include:
   - log: Fast structured logging for agent actions
   - session-info: Context detection for agents
-  - project: Project lifecycle management
-  - task: Task management within implementation phase`,
+  - project: Project lifecycle management (legacy)
+  - task: Task management
+
+New simplified commands (work on implicit active phase):
+  - enable: Enable an optional phase
+  - skip: Skip an optional phase
+  - complete: Complete the active phase
+  - status: Show current project status
+  - info: Show phase information
+  - artifact: Manage artifacts
+  - set: Set custom fields on active phase`,
 	}
 
 	// Add subcommands
 	cmd.AddCommand(NewLogCmd())
 	cmd.AddCommand(NewSessionInfoCmd())
+
+	// New simplified commands
+	cmd.AddCommand(NewEnableCmd())
+	cmd.AddCommand(NewSkipCmd())
+	cmd.AddCommand(NewCompleteCmd())
+	cmd.AddCommand(NewStatusCmd())
+	cmd.AddCommand(NewInfoCmd())
+	cmd.AddCommand(NewArtifactCmd())
+	cmd.AddCommand(NewSetCmd())
+
+	// Legacy commands (to be deprecated)
 	cmd.AddCommand(project.NewProjectCmd())
 	cmd.AddCommand(task.NewTaskCmd())
 
