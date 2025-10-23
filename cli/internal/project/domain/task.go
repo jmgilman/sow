@@ -96,7 +96,7 @@ func (t *Task) SetStatus(status string) error {
 
 	statePath := filepath.Join("project/phases/implementation/tasks", t.ID, "state.yaml")
 	if err := t.Project.WriteYAML(statePath, taskState); err != nil {
-		return err
+		return fmt.Errorf("failed to write task state: %w", err)
 	}
 
 	// Check if all tasks are now complete
@@ -243,14 +243,14 @@ func (t *Task) AddFeedback(message string) (string, error) {
 	// Save task state
 	statePath := filepath.Join("project/phases/implementation/tasks", t.ID, "state.yaml")
 	if err := t.Project.WriteYAML(statePath, taskState); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to write task state: %w", err)
 	}
 
 	// Create feedback file
 	feedbackPath := filepath.Join("project/phases/implementation/tasks", t.ID, "feedback", feedbackID+".md")
 	feedbackContent := []byte(fmt.Sprintf("# Feedback %s\n\n%s\n", feedbackID, message))
 	if err := t.Project.WriteFile(feedbackPath, feedbackContent); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to write feedback file: %w", err)
 	}
 
 	return feedbackID, nil

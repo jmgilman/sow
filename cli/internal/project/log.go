@@ -117,22 +117,6 @@ func validateResult(result string) error {
 	return fmt.Errorf("invalid result %q: must be one of %v", result, ValidResults)
 }
 
-// buildAgentID constructs an agent ID from role and iteration.
-//
-// For workers with iterations, format is: {role}-{iteration}
-// For orchestrator, just use "orchestrator"
-//
-// Examples:
-//   - buildAgentID("implementer", 1) -> "implementer-1"
-//   - buildAgentID("architect", 3) -> "architect-3"
-//   - buildAgentID("orchestrator", 0) -> "orchestrator"
-func buildAgentID(role string, iteration int) string {
-	if role == "orchestrator" || iteration == 0 {
-		return role
-	}
-	return fmt.Sprintf("%s-%d", role, iteration)
-}
-
 // LogOption configures a log entry.
 type LogOption func(*LogEntry)
 

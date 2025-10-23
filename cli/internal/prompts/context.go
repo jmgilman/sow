@@ -281,16 +281,22 @@ func (c *StatechartContext) addFinalizeData(data map[string]interface{}) {
 	}
 
 	if c.State == StateFinalizeDelete {
-		// Get project_deleted from metadata
-		if c.ProjectState.Phases.Finalize.Metadata != nil {
-			if deleted, ok := c.ProjectState.Phases.Finalize.Metadata["project_deleted"].(bool); ok {
-				data["ProjectDeleted"] = deleted
-			}
-			if prURL, ok := c.ProjectState.Phases.Finalize.Metadata["pr_url"].(string); ok && prURL != "" {
-				data["HasPR"] = true
-				data["PRURL"] = prURL
-			}
-		}
+		c.extractFinalizeDeleteData(data)
+	}
+}
+
+// extractFinalizeDeleteData extracts metadata for the FinalizeDelete state.
+func (c *StatechartContext) extractFinalizeDeleteData(data map[string]interface{}) {
+	if c.ProjectState.Phases.Finalize.Metadata == nil {
+		return
+	}
+
+	if deleted, ok := c.ProjectState.Phases.Finalize.Metadata["project_deleted"].(bool); ok {
+		data["ProjectDeleted"] = deleted
+	}
+	if prURL, ok := c.ProjectState.Phases.Finalize.Metadata["pr_url"].(string); ok && prURL != "" {
+		data["HasPR"] = true
+		data["PRURL"] = prURL
 	}
 }
 

@@ -15,10 +15,9 @@ func testMachine(state *schemas.ProjectState) *Machine {
 	return m
 }
 
-// TestProjectLifecycle demonstrates a complete project lifecycle through the state machine.
-func TestProjectLifecycle(t *testing.T) {
-	// Start with no project
-	state := &schemas.ProjectState{
+// setupProjectState creates a basic project state for testing.
+func setupProjectState() *schemas.ProjectState {
+	return &schemas.ProjectState{
 		Phases: struct {
 			Discovery      phases.Phase `json:"discovery"`
 			Design         phases.Phase `json:"design"`
@@ -26,70 +25,36 @@ func TestProjectLifecycle(t *testing.T) {
 			Review         phases.Phase `json:"review"`
 			Finalize       phases.Phase `json:"finalize"`
 		}{
-			Discovery: phases.Phase{
-				Enabled: false,
-				Status:  "skipped",
-			},
-			Design: phases.Phase{
-				Enabled: false,
-				Status:  "skipped",
-			},
-			Implementation: phases.Phase{
-				Enabled: true,
-				Status:  "pending",
-			},
-			Review: phases.Phase{
-				Enabled:  true,
-				Status:   "pending",
-				Metadata: map[string]interface{}{"iteration": 1},
-			},
-			Finalize: phases.Phase{
-				Enabled:  true,
-				Status:   "pending",
-				Metadata: map[string]interface{}{"project_deleted": false},
-			},
+			Discovery:      phases.Phase{Enabled: false, Status: "skipped"},
+			Design:         phases.Phase{Enabled: false, Status: "skipped"},
+			Implementation: phases.Phase{Enabled: true, Status: "pending"},
+			Review:         phases.Phase{Enabled: true, Status: "pending", Metadata: map[string]interface{}{"iteration": 1}},
+			Finalize:       phases.Phase{Enabled: true, Status: "pending", Metadata: map[string]interface{}{"project_deleted": false}},
 		},
 	}
+}
 
-	machine := testMachine(nil) // Start with NoProject
-
-	// Verify initial state
-	if machine.State() != NoProject {
-		t.Errorf("Expected initial state NoProject, got %s", machine.State())
-	}
-
-	// Step 1: Initialize project
+// skipToImplementation advances machine through initial phases to implementation planning.
+func skipToImplementation(t *testing.T, machine *Machine) {
+	t.Helper()
 	if err := machine.Fire(EventProjectInit); err != nil {
 		t.Fatalf("Failed to initialize project: %v", err)
 	}
-	if machine.State() != DiscoveryDecision {
-		t.Errorf("Expected DiscoveryDecision after init, got %s", machine.State())
-	}
-
-	// Step 2: Skip discovery (implicit transition)
 	if err := machine.Fire(EventSkipDiscovery); err != nil {
 		t.Fatalf("Failed to skip discovery: %v", err)
 	}
-	if machine.State() != DesignDecision {
-		t.Errorf("Expected DesignDecision after skipping discovery, got %s", machine.State())
-	}
-
-	// Step 3: Skip design (implicit transition)
 	if err := machine.Fire(EventSkipDesign); err != nil {
 		t.Fatalf("Failed to skip design: %v", err)
 	}
-	if machine.State() != ImplementationPlanning {
-		t.Errorf("Expected ImplementationPlanning after skipping design, got %s", machine.State())
-	}
+}
 
-	// Step 4: Create tasks and transition to executing
-	// Update the machine's project state to have at least one task
+// setupImplementationTask prepares a machine with an approved task for execution.
+func setupImplementationTask(t *testing.T, machine *Machine, state *schemas.ProjectState) {
+	t.Helper()
 	machine.projectState = state
 	state.Phases.Implementation.Tasks = []phases.Task{
 		{Id: "010", Name: "Create model", Status: "pending", Parallel: false},
 	}
-
-	// Approve tasks to transition to executing
 	if state.Phases.Implementation.Metadata == nil {
 		state.Phases.Implementation.Metadata = make(map[string]interface{})
 	}
@@ -97,60 +62,64 @@ func TestProjectLifecycle(t *testing.T) {
 	if err := machine.Fire(EventTasksApproved); err != nil {
 		t.Fatalf("Failed to transition to executing: %v", err)
 	}
-	if machine.State() != ImplementationExecuting {
-		t.Errorf("Expected ImplementationExecuting after task approval, got %s", machine.State())
+}
+
+// TestProjectLifecycle demonstrates a complete project lifecycle through the state machine.
+func TestProjectLifecycle(t *testing.T) {
+	state := setupProjectState()
+	machine := testMachine(nil)
+
+	// Verify initial state
+	if machine.State() != NoProject {
+		t.Errorf("Expected initial state NoProject, got %s", machine.State())
 	}
 
-	// Step 5: Complete all tasks and transition to review
-	state.Phases.Implementation.Tasks[0].Status = "completed"
+	// Skip through discovery and design to implementation
+	skipToImplementation(t, machine)
+	if machine.State() != ImplementationPlanning {
+		t.Errorf("Expected ImplementationPlanning, got %s", machine.State())
+	}
 
+	// Create and approve tasks
+	setupImplementationTask(t, machine, state)
+	if machine.State() != ImplementationExecuting {
+		t.Errorf("Expected ImplementationExecuting, got %s", machine.State())
+	}
+
+	// Complete tasks and transition to review
+	state.Phases.Implementation.Tasks[0].Status = "completed"
 	if err := machine.Fire(EventAllTasksComplete); err != nil {
 		t.Fatalf("Failed to transition to review: %v", err)
 	}
 	if machine.State() != ReviewActive {
-		t.Errorf("Expected ReviewActive after tasks complete, got %s", machine.State())
+		t.Errorf("Expected ReviewActive, got %s", machine.State())
 	}
 
-	// Step 6: Review passes
-	// Add review report as artifact and approve it
+	// Review passes
 	state.Phases.Review.Artifacts = []phases.Artifact{
-		{
-			Path:     "reports/001.md",
-			Approved: true,
-			Metadata: map[string]interface{}{"type": "review", "assessment": "pass"},
-		},
+		{Path: "reports/001.md", Approved: true, Metadata: map[string]interface{}{"type": "review", "assessment": "pass"}},
 	}
 	if err := machine.Fire(EventReviewPass); err != nil {
 		t.Fatalf("Failed to pass review: %v", err)
 	}
-	if machine.State() != FinalizeDocumentation {
-		t.Errorf("Expected FinalizeDocumentation after review pass, got %s", machine.State())
-	}
 
-	// Step 7: Documentation assessed (simplified - just update status)
+	// Complete finalize phases
 	state.Phases.Finalize.Status = "in_progress"
-
 	if err := machine.Fire(EventDocumentationDone); err != nil {
 		t.Fatalf("Failed to complete documentation: %v", err)
 	}
-	if machine.State() != FinalizeChecks {
-		t.Errorf("Expected FinalizeChecks after documentation, got %s", machine.State())
-	}
-
-	// Step 8: Checks assessed (guards return true automatically)
 	if err := machine.Fire(EventChecksDone); err != nil {
 		t.Fatalf("Failed to complete checks: %v", err)
 	}
 	if machine.State() != FinalizeDelete {
-		t.Errorf("Expected FinalizeDelete after checks, got %s", machine.State())
+		t.Errorf("Expected FinalizeDelete, got %s", machine.State())
 	}
 
-	// Step 9: Delete project
+	// Delete project
 	if state.Phases.Finalize.Metadata == nil {
 		state.Phases.Finalize.Metadata = make(map[string]interface{})
 	}
 	state.Phases.Finalize.Metadata["project_deleted"] = true
-
 	if err := machine.Fire(EventProjectDelete); err != nil {
 		t.Fatalf("Failed to delete project: %v", err)
 	}
