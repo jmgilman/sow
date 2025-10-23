@@ -1,3 +1,4 @@
+// Package loader provides project loading functionality.
 package loader
 
 import (

@@ -126,7 +126,10 @@ func (t *Task) SetStatus(status string) error {
 	}
 
 	// Auto-save project state
-	return t.Project.Save()
+	if err := t.Project.Save(); err != nil {
+		return fmt.Errorf("failed to save project after updating task status: %w", err)
+	}
+	return nil
 }
 
 // IncrementIteration increments the task iteration counter.
@@ -140,7 +143,10 @@ func (t *Task) IncrementIteration() error {
 	taskState.Task.Updated_at = time.Now()
 
 	statePath := filepath.Join("project/phases/implementation/tasks", t.ID, "state.yaml")
-	return t.Project.WriteYAML(statePath, taskState)
+	if err := t.Project.WriteYAML(statePath, taskState); err != nil {
+		return fmt.Errorf("failed to write task state after incrementing iteration: %w", err)
+	}
+	return nil
 }
 
 // SetAgent sets the assigned agent for the task.
@@ -154,7 +160,10 @@ func (t *Task) SetAgent(agent string) error {
 	taskState.Task.Updated_at = time.Now()
 
 	statePath := filepath.Join("project/phases/implementation/tasks", t.ID, "state.yaml")
-	return t.Project.WriteYAML(statePath, taskState)
+	if err := t.Project.WriteYAML(statePath, taskState); err != nil {
+		return fmt.Errorf("failed to write task state after setting agent: %w", err)
+	}
+	return nil
 }
 
 // AddReference adds a reference path to the task.
@@ -176,7 +185,10 @@ func (t *Task) AddReference(path string) error {
 	taskState.Task.Updated_at = time.Now()
 
 	statePath := filepath.Join("project/phases/implementation/tasks", t.ID, "state.yaml")
-	return t.Project.WriteYAML(statePath, taskState)
+	if err := t.Project.WriteYAML(statePath, taskState); err != nil {
+		return fmt.Errorf("failed to write task state after adding reference: %w", err)
+	}
+	return nil
 }
 
 // AddFile adds a modified file path to the task.
@@ -198,7 +210,10 @@ func (t *Task) AddFile(path string) error {
 	taskState.Task.Updated_at = time.Now()
 
 	statePath := filepath.Join("project/phases/implementation/tasks", t.ID, "state.yaml")
-	return t.Project.WriteYAML(statePath, taskState)
+	if err := t.Project.WriteYAML(statePath, taskState); err != nil {
+		return fmt.Errorf("failed to write task state after adding file: %w", err)
+	}
+	return nil
 }
 
 // AddFeedback creates a new feedback entry for the task.
@@ -255,7 +270,10 @@ func (t *Task) MarkFeedbackAddressed(feedbackID string) error {
 			taskState.Task.Updated_at = time.Now()
 
 			statePath := filepath.Join("project/phases/implementation/tasks", t.ID, "state.yaml")
-			return t.Project.WriteYAML(statePath, taskState)
+			if err := t.Project.WriteYAML(statePath, taskState); err != nil {
+				return fmt.Errorf("failed to write task state after marking feedback addressed: %w", err)
+			}
+			return nil
 		}
 	}
 

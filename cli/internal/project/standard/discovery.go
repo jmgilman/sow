@@ -29,46 +29,63 @@ func NewDiscoveryPhase(state *phasesSchema.Phase, proj *StandardProject, ctx *so
 	}
 }
 
+// Name returns the name of the phase.
 func (p *DiscoveryPhase) Name() string {
 	return "discovery"
 }
 
+// Status returns the current status of the phase.
 func (p *DiscoveryPhase) Status() string {
 	return p.state.Status
 }
 
+// Enabled returns whether the phase is enabled.
 func (p *DiscoveryPhase) Enabled() bool {
 	return p.state.Enabled
 }
 
+// AddArtifact adds an artifact to the discovery phase.
 func (p *DiscoveryPhase) AddArtifact(path string, opts ...domain.ArtifactOption) error {
-	return p.artifacts.Add(path, opts...)
+	if err := p.artifacts.Add(path, opts...); err != nil {
+		return fmt.Errorf("failed to add artifact: %w", err)
+	}
+	return nil
 }
 
+// ApproveArtifact approves an artifact in the discovery phase.
 func (p *DiscoveryPhase) ApproveArtifact(path string) error {
-	return p.artifacts.Approve(path)
+	if err := p.artifacts.Approve(path); err != nil {
+		return fmt.Errorf("failed to approve artifact: %w", err)
+	}
+	return nil
 }
 
+// ListArtifacts returns all artifacts in the discovery phase.
 func (p *DiscoveryPhase) ListArtifacts() []*phasesSchema.Artifact {
 	return p.artifacts.List()
 }
 
-func (p *DiscoveryPhase) AddTask(name string, opts ...domain.TaskOption) (*domain.Task, error) {
+// AddTask is not supported in the discovery phase.
+func (p *DiscoveryPhase) AddTask(_ string, _ ...domain.TaskOption) (*domain.Task, error) {
 	return nil, project.ErrNotSupported
 }
 
-func (p *DiscoveryPhase) GetTask(id string) (*domain.Task, error) {
+// GetTask is not supported in the discovery phase.
+func (p *DiscoveryPhase) GetTask(_ string) (*domain.Task, error) {
 	return nil, project.ErrNotSupported
 }
 
+// ListTasks returns an empty list as tasks are not supported in discovery phase.
 func (p *DiscoveryPhase) ListTasks() []*domain.Task {
 	return []*domain.Task{}
 }
 
+// ApproveTasks is not supported in the discovery phase.
 func (p *DiscoveryPhase) ApproveTasks() error {
 	return project.ErrNotSupported
 }
 
+// Set sets a metadata field in the discovery phase.
 func (p *DiscoveryPhase) Set(field string, value interface{}) error {
 	if p.state.Metadata == nil {
 		p.state.Metadata = make(map[string]interface{})
@@ -77,6 +94,7 @@ func (p *DiscoveryPhase) Set(field string, value interface{}) error {
 	return p.project.Save()
 }
 
+// Get retrieves a metadata field from the discovery phase.
 func (p *DiscoveryPhase) Get(field string) (interface{}, error) {
 	if p.state.Metadata == nil {
 		return nil, fmt.Errorf("field not found: %s", field)
@@ -88,30 +106,33 @@ func (p *DiscoveryPhase) Get(field string) (interface{}, error) {
 	return val, nil
 }
 
+// Complete marks the discovery phase as completed.
 func (p *DiscoveryPhase) Complete() error {
 	p.state.Status = "completed"
 	now := time.Now()
 	p.state.Completed_at = &now
 
 	if err := p.project.Machine().Fire(statechart.EventCompleteDiscovery); err != nil {
-		return err
+		return fmt.Errorf("failed to fire complete discovery event: %w", err)
 	}
 
 	return p.project.Save()
 }
 
+// Skip marks the discovery phase as skipped.
 func (p *DiscoveryPhase) Skip() error {
 	p.state.Status = "skipped"
 	now := time.Now()
 	p.state.Completed_at = &now
 
 	if err := p.project.Machine().Fire(statechart.EventSkipDiscovery); err != nil {
-		return err
+		return fmt.Errorf("failed to fire skip discovery event: %w", err)
 	}
 
 	return p.project.Save()
 }
 
+// Enable enables the discovery phase.
 func (p *DiscoveryPhase) Enable(opts ...domain.PhaseOption) error {
 	cfg := &domain.PhaseConfig{}
 	for _, opt := range opts {
@@ -134,7 +155,7 @@ func (p *DiscoveryPhase) Enable(opts ...domain.PhaseOption) error {
 
 	// Fire event first to transition the machine
 	if err := p.project.Machine().Fire(statechart.EventEnableDiscovery); err != nil {
-		return err
+		return fmt.Errorf("failed to fire enable discovery event: %w", err)
 	}
 
 	// Then save the state (including the new machine state)

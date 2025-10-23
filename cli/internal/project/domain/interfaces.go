@@ -1,3 +1,4 @@
+// Package domain defines the core interfaces and types for the project system.
 package domain
 
 import (

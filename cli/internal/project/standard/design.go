@@ -1,3 +1,4 @@
+// Package standard implements the standard project type with a 5-phase workflow.
 package standard
 
 import (
@@ -29,46 +30,63 @@ func NewDesignPhase(state *phasesSchema.Phase, proj *StandardProject, ctx *sow.C
 	}
 }
 
+// Name returns the name of the phase.
 func (p *DesignPhase) Name() string {
 	return "design"
 }
 
+// Status returns the current status of the phase.
 func (p *DesignPhase) Status() string {
 	return p.state.Status
 }
 
+// Enabled returns whether the phase is enabled.
 func (p *DesignPhase) Enabled() bool {
 	return p.state.Enabled
 }
 
+// AddArtifact adds an artifact to the design phase.
 func (p *DesignPhase) AddArtifact(path string, opts ...domain.ArtifactOption) error {
-	return p.artifacts.Add(path, opts...)
+	if err := p.artifacts.Add(path, opts...); err != nil {
+		return fmt.Errorf("failed to add artifact: %w", err)
+	}
+	return nil
 }
 
+// ApproveArtifact approves an artifact in the design phase.
 func (p *DesignPhase) ApproveArtifact(path string) error {
-	return p.artifacts.Approve(path)
+	if err := p.artifacts.Approve(path); err != nil {
+		return fmt.Errorf("failed to approve artifact: %w", err)
+	}
+	return nil
 }
 
+// ListArtifacts returns all artifacts in the design phase.
 func (p *DesignPhase) ListArtifacts() []*phasesSchema.Artifact {
 	return p.artifacts.List()
 }
 
-func (p *DesignPhase) AddTask(name string, opts ...domain.TaskOption) (*domain.Task, error) {
+// AddTask is not supported in the design phase.
+func (p *DesignPhase) AddTask(_ string, _ ...domain.TaskOption) (*domain.Task, error) {
 	return nil, project.ErrNotSupported
 }
 
-func (p *DesignPhase) GetTask(id string) (*domain.Task, error) {
+// GetTask is not supported in the design phase.
+func (p *DesignPhase) GetTask(_ string) (*domain.Task, error) {
 	return nil, project.ErrNotSupported
 }
 
+// ListTasks returns an empty list as tasks are not supported in design phase.
 func (p *DesignPhase) ListTasks() []*domain.Task {
 	return []*domain.Task{}
 }
 
+// ApproveTasks is not supported in the design phase.
 func (p *DesignPhase) ApproveTasks() error {
 	return project.ErrNotSupported
 }
 
+// Set sets a metadata field in the design phase.
 func (p *DesignPhase) Set(field string, value interface{}) error {
 	if p.state.Metadata == nil {
 		p.state.Metadata = make(map[string]interface{})
@@ -77,6 +95,7 @@ func (p *DesignPhase) Set(field string, value interface{}) error {
 	return p.project.Save()
 }
 
+// Get retrieves a metadata field from the design phase.
 func (p *DesignPhase) Get(field string) (interface{}, error) {
 	if p.state.Metadata == nil {
 		return nil, fmt.Errorf("field not found: %s", field)
@@ -88,30 +107,33 @@ func (p *DesignPhase) Get(field string) (interface{}, error) {
 	return val, nil
 }
 
+// Complete marks the design phase as completed.
 func (p *DesignPhase) Complete() error {
 	p.state.Status = "completed"
 	now := time.Now()
 	p.state.Completed_at = &now
 
 	if err := p.project.Machine().Fire(statechart.EventCompleteDesign); err != nil {
-		return err
+		return fmt.Errorf("failed to fire complete design event: %w", err)
 	}
 
 	return p.project.Save()
 }
 
+// Skip marks the design phase as skipped.
 func (p *DesignPhase) Skip() error {
 	p.state.Status = "skipped"
 	now := time.Now()
 	p.state.Completed_at = &now
 
 	if err := p.project.Machine().Fire(statechart.EventSkipDesign); err != nil {
-		return err
+		return fmt.Errorf("failed to fire skip design event: %w", err)
 	}
 
 	return p.project.Save()
 }
 
+// Enable enables the design phase.
 func (p *DesignPhase) Enable(opts ...domain.PhaseOption) error {
 	cfg := &domain.PhaseConfig{}
 	for _, opt := range opts {
@@ -133,7 +155,7 @@ func (p *DesignPhase) Enable(opts ...domain.PhaseOption) error {
 	}
 
 	if err := p.project.Machine().Fire(statechart.EventEnableDesign); err != nil {
-		return err
+		return fmt.Errorf("failed to fire enable design event: %w", err)
 	}
 
 	return p.project.Save()

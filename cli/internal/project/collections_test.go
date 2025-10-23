@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,28 +23,37 @@ func setupTestRepo(t *testing.T) *sow.Context {
 	// Create temp directory
 	tmpDir := t.TempDir()
 
+	cmdCtx := context.Background()
+
 	// Initialize git repo
-	cmd := exec.Command("git", "init")
+	cmd := exec.CommandContext(cmdCtx, "git", "init")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init git repo: %v", err)
 	}
 
 	// Configure git user (required for commits)
-	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd = exec.CommandContext(cmdCtx, "git", "config", "user.email", "test@example.com")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to configure git user.email: %v", err)
 	}
 
-	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd = exec.CommandContext(cmdCtx, "git", "config", "user.name", "Test User")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to configure git user.name: %v", err)
 	}
 
+	// Disable GPG signing for tests
+	cmd = exec.CommandContext(cmdCtx, "git", "config", "commit.gpgsign", "false")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to disable gpgsign: %v", err)
+	}
+
 	// Create initial commit
-	cmd = exec.Command("git", "commit", "--allow-empty", "-m", "Initial commit")
+	cmd = exec.CommandContext(cmdCtx, "git", "commit", "--allow-empty", "-m", "Initial commit")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to create initial commit: %v", err)
@@ -64,31 +74,31 @@ func setupTestRepo(t *testing.T) *sow.Context {
 	return ctx
 }
 
-// mockProject implements domain.Project for testing
+// mockProject implements domain.Project for testing.
 type mockProject struct {
 	saveCount int
 }
 
-func (m *mockProject) Name() string                                         { return "test" }
-func (m *mockProject) Branch() string                                       { return "test" }
-func (m *mockProject) Description() string                                  { return "test" }
-func (m *mockProject) Type() string                                         { return "test" }
-func (m *mockProject) CurrentPhase() domain.Phase                           { return nil }
-func (m *mockProject) Phase(name string) (domain.Phase, error)             { return nil, nil }
-func (m *mockProject) Machine() *statechart.Machine                         { return nil }
-func (m *mockProject) InitialState() statechart.State                       { return statechart.NoProject }
+func (m *mockProject) Name() string                                        { return "test" }
+func (m *mockProject) Branch() string                                      { return "test" }
+func (m *mockProject) Description() string                                 { return "test" }
+func (m *mockProject) Type() string                                        { return "test" }
+func (m *mockProject) CurrentPhase() domain.Phase                          { return nil }
+func (m *mockProject) Phase(_ string) (domain.Phase, error)               { return nil, nil }
+func (m *mockProject) Machine() *statechart.Machine                        { return nil }
+func (m *mockProject) InitialState() statechart.State                      { return statechart.NoProject }
 func (m *mockProject) Save() error {
 	m.saveCount++
 	return nil
 }
-func (m *mockProject) Log(action, result string, opts ...domain.LogOption) error { return nil }
-func (m *mockProject) InferTaskID() (string, error)                              { return "", nil }
-func (m *mockProject) GetTask(id string) (*domain.Task, error)                   { return nil, nil }
-func (m *mockProject) CreatePullRequest(body string) (string, error)             { return "", nil }
-func (m *mockProject) ReadYAML(path string, v interface{}) error                 { return nil }
-func (m *mockProject) WriteYAML(path string, v interface{}) error                { return nil }
-func (m *mockProject) ReadFile(path string) ([]byte, error)                      { return nil, nil }
-func (m *mockProject) WriteFile(path string, data []byte) error                  { return nil }
+func (m *mockProject) Log(_, _ string, _ ...domain.LogOption) error       { return nil }
+func (m *mockProject) InferTaskID() (string, error)                        { return "", nil }
+func (m *mockProject) GetTask(_ string) (*domain.Task, error)              { return nil, nil }
+func (m *mockProject) CreatePullRequest(_ string) (string, error)          { return "", nil }
+func (m *mockProject) ReadYAML(_ string, _ interface{}) error              { return nil }
+func (m *mockProject) WriteYAML(_ string, _ interface{}) error             { return nil }
+func (m *mockProject) ReadFile(_ string) ([]byte, error)                   { return nil, nil }
+func (m *mockProject) WriteFile(_ string, _ []byte) error                  { return nil }
 
 // TestArtifactCollectionAdd verifies artifacts can be added with metadata.
 func TestArtifactCollectionAdd(t *testing.T) {

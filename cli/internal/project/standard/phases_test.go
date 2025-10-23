@@ -1,6 +1,7 @@
 package standard
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -24,28 +25,37 @@ func setupTestRepo(t *testing.T) *sow.Context {
 	// Create temp directory
 	tmpDir := t.TempDir()
 
+	cmdCtx := context.Background()
+
 	// Initialize git repo
-	cmd := exec.Command("git", "init")
+	cmd := exec.CommandContext(cmdCtx, "git", "init")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init git repo: %v", err)
 	}
 
 	// Configure git user (required for commits)
-	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd = exec.CommandContext(cmdCtx, "git", "config", "user.email", "test@example.com")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to configure git user.email: %v", err)
 	}
 
-	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd = exec.CommandContext(cmdCtx, "git", "config", "user.name", "Test User")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to configure git user.name: %v", err)
 	}
 
+	// Disable GPG signing for tests
+	cmd = exec.CommandContext(cmdCtx, "git", "config", "commit.gpgsign", "false")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to disable gpgsign: %v", err)
+	}
+
 	// Create initial commit
-	cmd = exec.Command("git", "commit", "--allow-empty", "-m", "Initial commit")
+	cmd = exec.CommandContext(cmdCtx, "git", "commit", "--allow-empty", "-m", "Initial commit")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to create initial commit: %v", err)
@@ -78,9 +88,9 @@ func TestPhaseImplementsInterface(t *testing.T) {
 			Name         string    `json:"name"`
 			Branch       string    `json:"branch"`
 			Description  string    `json:"description"`
-			Github_issue *int64    `json:"github_issue,omitempty"`
-			Created_at   time.Time `json:"created_at"`
-			Updated_at   time.Time `json:"updated_at"`
+			Github_issue *int64    `json:"github_issue,omitempty"` //nolint:revive // matches JSON schema
+			Created_at   time.Time `json:"created_at"`              //nolint:revive // matches JSON schema
+			Updated_at   time.Time `json:"updated_at"`              //nolint:revive // matches JSON schema
 		}{
 			Type:        "standard",
 			Name:        "test",
@@ -301,7 +311,7 @@ func TestStandardProjectInitialState(t *testing.T) {
 	// Create a fresh project state as would happen during initialization
 	state := &projects.StandardProjectState{
 		Statechart: struct {
-			Current_state string `json:"current_state"`
+			Current_state string `json:"current_state"` //nolint:revive // matches JSON schema
 		}{
 			Current_state: "DiscoveryDecision", // StandardProject's initial state
 		},
@@ -310,9 +320,9 @@ func TestStandardProjectInitialState(t *testing.T) {
 			Name         string    `json:"name"`
 			Branch       string    `json:"branch"`
 			Description  string    `json:"description"`
-			Github_issue *int64    `json:"github_issue,omitempty"`
-			Created_at   time.Time `json:"created_at"`
-			Updated_at   time.Time `json:"updated_at"`
+			Github_issue *int64    `json:"github_issue,omitempty"` //nolint:revive // matches JSON schema
+			Created_at   time.Time `json:"created_at"`              //nolint:revive // matches JSON schema
+			Updated_at   time.Time `json:"updated_at"`              //nolint:revive // matches JSON schema
 		}{
 			Type:        "standard",
 			Name:        "test",

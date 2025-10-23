@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/domain"
 	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/spf13/cobra"
 )
@@ -57,51 +58,7 @@ Example:
 			if phase == nil {
 				output.WriteString("Status: All phases complete\n")
 			} else {
-				output.WriteString(fmt.Sprintf("Active Phase: %s (%s)\n", phase.Name(), phase.Status()))
-
-				// Try to show task summary (only works for implementation phase)
-				tasks := phase.ListTasks()
-				if len(tasks) > 0 {
-					completed := 0
-					inProgress := 0
-					pending := 0
-					abandoned := 0
-
-					for _, task := range tasks {
-						taskState, err := task.State()
-						if err != nil {
-							continue // Skip tasks with errors
-						}
-						switch taskState.Task.Status {
-						case "completed":
-							completed++
-						case "in_progress":
-							inProgress++
-						case "pending":
-							pending++
-						case "abandoned":
-							abandoned++
-						}
-					}
-
-					output.WriteString(fmt.Sprintf("\nTasks: %d total\n", len(tasks)))
-					if completed > 0 {
-						output.WriteString(fmt.Sprintf("  ✓ %d completed\n", completed))
-					}
-					if inProgress > 0 {
-						output.WriteString(fmt.Sprintf("  ⟳ %d in progress\n", inProgress))
-					}
-					if pending > 0 {
-						output.WriteString(fmt.Sprintf("  ○ %d pending\n", pending))
-					}
-					if abandoned > 0 {
-						output.WriteString(fmt.Sprintf("  ✗ %d abandoned\n", abandoned))
-					}
-				}
-
-				// Next actions
-				output.WriteString("\nNext Actions:\n")
-				output.WriteString(getNextActions(phase.Name(), phase.Status()))
+				writePhaseStatus(&output, phase)
 			}
 
 			cmd.Print(output.String())
@@ -110,6 +67,60 @@ Example:
 	}
 
 	return cmd
+}
+
+// writePhaseStatus writes the current phase status and task summary to the output.
+func writePhaseStatus(output *strings.Builder, phase domain.Phase) {
+	fmt.Fprintf(output, "Active Phase: %s (%s)\n", phase.Name(), phase.Status())
+
+	// Try to show task summary (only works for implementation phase)
+	tasks := phase.ListTasks()
+	if len(tasks) > 0 {
+		writeTaskSummary(output, tasks)
+	}
+
+	// Next actions
+	output.WriteString("\nNext Actions:\n")
+	output.WriteString(getNextActions(phase.Name(), phase.Status()))
+}
+
+// writeTaskSummary writes the task summary to the output.
+func writeTaskSummary(output *strings.Builder, tasks []*domain.Task) {
+	completed := 0
+	inProgress := 0
+	pending := 0
+	abandoned := 0
+
+	for _, task := range tasks {
+		taskState, err := task.State()
+		if err != nil {
+			continue // Skip tasks with errors
+		}
+		switch taskState.Task.Status {
+		case "completed":
+			completed++
+		case "in_progress":
+			inProgress++
+		case "pending":
+			pending++
+		case "abandoned":
+			abandoned++
+		}
+	}
+
+	fmt.Fprintf(output, "\nTasks: %d total\n", len(tasks))
+	if completed > 0 {
+		fmt.Fprintf(output, "  ✓ %d completed\n", completed)
+	}
+	if inProgress > 0 {
+		fmt.Fprintf(output, "  ⟳ %d in progress\n", inProgress)
+	}
+	if pending > 0 {
+		fmt.Fprintf(output, "  ○ %d pending\n", pending)
+	}
+	if abandoned > 0 {
+		fmt.Fprintf(output, "  ✗ %d abandoned\n", abandoned)
+	}
 }
 
 // getNextActions returns suggested next actions based on the current phase and status.

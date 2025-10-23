@@ -31,46 +31,63 @@ func NewReviewPhase(state *phasesSchema.Phase, proj *StandardProject, ctx *sow.C
 
 // Implements Phase interface - delegate to helpers
 
+// Name returns the name of the phase.
 func (p *ReviewPhase) Name() string {
 	return "review"
 }
 
+// Status returns the current status of the phase.
 func (p *ReviewPhase) Status() string {
 	return p.state.Status
 }
 
+// Enabled returns whether the phase is enabled.
 func (p *ReviewPhase) Enabled() bool {
 	return p.state.Enabled
 }
 
+// AddArtifact adds an artifact to the review phase.
 func (p *ReviewPhase) AddArtifact(path string, opts ...domain.ArtifactOption) error {
-	return p.artifacts.Add(path, opts...)
+	if err := p.artifacts.Add(path, opts...); err != nil {
+		return fmt.Errorf("failed to add artifact: %w", err)
+	}
+	return nil
 }
 
+// ApproveArtifact approves an artifact in the review phase.
 func (p *ReviewPhase) ApproveArtifact(path string) error {
-	return p.artifacts.Approve(path)
+	if err := p.artifacts.Approve(path); err != nil {
+		return fmt.Errorf("failed to approve artifact: %w", err)
+	}
+	return nil
 }
 
+// ListArtifacts returns all artifacts in the review phase.
 func (p *ReviewPhase) ListArtifacts() []*phasesSchema.Artifact {
 	return p.artifacts.List()
 }
 
-func (p *ReviewPhase) AddTask(name string, opts ...domain.TaskOption) (*domain.Task, error) {
+// AddTask is not supported in the review phase.
+func (p *ReviewPhase) AddTask(_ string, _ ...domain.TaskOption) (*domain.Task, error) {
 	return nil, project.ErrNotSupported
 }
 
-func (p *ReviewPhase) GetTask(id string) (*domain.Task, error) {
+// GetTask is not supported in the review phase.
+func (p *ReviewPhase) GetTask(_ string) (*domain.Task, error) {
 	return nil, project.ErrNotSupported
 }
 
+// ListTasks returns an empty list as tasks are not supported in review phase.
 func (p *ReviewPhase) ListTasks() []*domain.Task {
 	return []*domain.Task{}
 }
 
+// ApproveTasks is not supported in the review phase.
 func (p *ReviewPhase) ApproveTasks() error {
 	return project.ErrNotSupported
 }
 
+// Set sets a metadata field in the review phase.
 func (p *ReviewPhase) Set(field string, value interface{}) error {
 	if p.state.Metadata == nil {
 		p.state.Metadata = make(map[string]interface{})
@@ -79,6 +96,7 @@ func (p *ReviewPhase) Set(field string, value interface{}) error {
 	return p.project.Save()
 }
 
+// Get retrieves a metadata field from the review phase.
 func (p *ReviewPhase) Get(field string) (interface{}, error) {
 	if p.state.Metadata == nil {
 		return nil, fmt.Errorf("field not found: %s", field)
@@ -90,6 +108,7 @@ func (p *ReviewPhase) Get(field string) (interface{}, error) {
 	return val, nil
 }
 
+// Complete marks the review phase as completed.
 func (p *ReviewPhase) Complete() error {
 	// Update status and timestamps
 	p.state.Status = "completed"
@@ -98,21 +117,23 @@ func (p *ReviewPhase) Complete() error {
 
 	// Fire state machine event
 	if err := p.project.Machine().Fire(statechart.EventReviewPass); err != nil {
-		return err
+		return fmt.Errorf("failed to fire review pass event: %w", err)
 	}
 
 	return p.project.Save()
 }
 
+// Skip is not supported as review phase is required.
 func (p *ReviewPhase) Skip() error {
 	return project.ErrNotSupported // Review is required
 }
 
-func (p *ReviewPhase) Enable(opts ...domain.PhaseOption) error {
+// Enable is not supported as review phase is always enabled.
+func (p *ReviewPhase) Enable(_ ...domain.PhaseOption) error {
 	return project.ErrNotSupported // Review is always enabled
 }
 
-// Phase-specific guard (used by state machine)
+// AllReviewsApproved checks if all review artifacts have been approved.
 func (p *ReviewPhase) AllReviewsApproved() bool {
 	// Check for artifacts with type=review that aren't approved
 	for _, artifact := range p.state.Artifacts {
@@ -125,7 +146,7 @@ func (p *ReviewPhase) AllReviewsApproved() bool {
 	return true
 }
 
-// Helper for accessing metadata
+// Iteration returns the current iteration count from metadata.
 func (p *ReviewPhase) Iteration() int {
 	if p.state.Metadata == nil {
 		return 1

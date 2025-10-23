@@ -1,6 +1,8 @@
+// Package project provides the core project management functionality for sow.
 package project
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/project/domain"
@@ -37,7 +39,10 @@ func (ac *ArtifactCollection) Add(path string, opts ...domain.ArtifactOption) er
 	}
 
 	ac.state.Artifacts = append(ac.state.Artifacts, artifact)
-	return ac.project.Save()
+	if err := ac.project.Save(); err != nil {
+		return fmt.Errorf("failed to save project after adding artifact: %w", err)
+	}
+	return nil
 }
 
 // Approve marks an artifact as approved.
@@ -45,7 +50,10 @@ func (ac *ArtifactCollection) Approve(path string) error {
 	for i := range ac.state.Artifacts {
 		if ac.state.Artifacts[i].Path == path {
 			ac.state.Artifacts[i].Approved = true
-			return ac.project.Save()
+			if err := ac.project.Save(); err != nil {
+				return fmt.Errorf("failed to save project after approving artifact: %w", err)
+			}
+			return nil
 		}
 	}
 	return ErrArtifactNotFound

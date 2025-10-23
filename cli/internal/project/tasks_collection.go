@@ -66,7 +66,7 @@ func (tc *TaskCollection) Add(name string, opts ...domain.TaskOption) (*domain.T
 	}
 
 	if err := tc.project.Save(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to save project after adding task: %w", err)
 	}
 
 	return &domain.Task{Project: tc.project, ID: id}, nil
@@ -107,7 +107,10 @@ func (tc *TaskCollection) Approve() error {
 		tc.state.Started_at = &now
 	}
 
-	return tc.project.Save()
+	if err := tc.project.Save(); err != nil {
+		return fmt.Errorf("failed to save project after approving tasks: %w", err)
+	}
+	return nil
 }
 
 // Helper methods
@@ -116,7 +119,10 @@ func (tc *TaskCollection) generateTaskID() string {
 	maxID := 0
 	for _, t := range tc.state.Tasks {
 		var id int
-		fmt.Sscanf(t.Id, "%d", &id)
+		if _, err := fmt.Sscanf(t.Id, "%d", &id); err != nil {
+			// Skip tasks with non-numeric IDs
+			continue
+		}
 		if id > maxID {
 			maxID = id
 		}
@@ -173,21 +179,21 @@ func (tc *TaskCollection) createTaskStructure(id, name string, cfg *domain.TaskC
 		return fmt.Errorf("failed to marshal task state: %w", err)
 	}
 	if err := fs.WriteFile(statePath, stateData, 0644); err != nil {
-		return err
+		return fmt.Errorf("failed to write task state file: %w", err)
 	}
 
 	// Create description.md
 	descPath := filepath.Join(taskDir, "description.md")
 	descContent := fmt.Sprintf("# Task %s: %s\n\n%s\n", id, name, cfg.Description)
 	if err := fs.WriteFile(descPath, []byte(descContent), 0644); err != nil {
-		return err
+		return fmt.Errorf("failed to write task description file: %w", err)
 	}
 
 	// Create log.md
 	logPath := filepath.Join(taskDir, "log.md")
 	logContent := fmt.Sprintf("# Task %s Log\n\nWorker actions will be logged here.\n", id)
 	if err := fs.WriteFile(logPath, []byte(logContent), 0644); err != nil {
-		return err
+		return fmt.Errorf("failed to write task log file: %w", err)
 	}
 
 	// Create feedback directory

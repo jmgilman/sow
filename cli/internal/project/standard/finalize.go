@@ -26,46 +26,57 @@ func NewFinalizePhase(state *phasesSchema.Phase, proj *StandardProject, ctx *sow
 	}
 }
 
+// Name returns the name of the phase.
 func (p *FinalizePhase) Name() string {
 	return "finalize"
 }
 
+// Status returns the current status of the phase.
 func (p *FinalizePhase) Status() string {
 	return p.state.Status
 }
 
+// Enabled returns whether the phase is enabled.
 func (p *FinalizePhase) Enabled() bool {
 	return p.state.Enabled
 }
 
-func (p *FinalizePhase) AddArtifact(path string, opts ...domain.ArtifactOption) error {
+// AddArtifact is not supported in the finalize phase.
+func (p *FinalizePhase) AddArtifact(_ string, _ ...domain.ArtifactOption) error {
 	return project.ErrNotSupported
 }
 
-func (p *FinalizePhase) ApproveArtifact(path string) error {
+// ApproveArtifact is not supported in the finalize phase.
+func (p *FinalizePhase) ApproveArtifact(_ string) error {
 	return project.ErrNotSupported
 }
 
+// ListArtifacts returns an empty list as artifacts are not supported in finalize phase.
 func (p *FinalizePhase) ListArtifacts() []*phasesSchema.Artifact {
 	return []*phasesSchema.Artifact{}
 }
 
-func (p *FinalizePhase) AddTask(name string, opts ...domain.TaskOption) (*domain.Task, error) {
+// AddTask is not supported in the finalize phase.
+func (p *FinalizePhase) AddTask(_ string, _ ...domain.TaskOption) (*domain.Task, error) {
 	return nil, project.ErrNotSupported
 }
 
-func (p *FinalizePhase) GetTask(id string) (*domain.Task, error) {
+// GetTask is not supported in the finalize phase.
+func (p *FinalizePhase) GetTask(_ string) (*domain.Task, error) {
 	return nil, project.ErrNotSupported
 }
 
+// ListTasks returns an empty list as tasks are not supported in finalize phase.
 func (p *FinalizePhase) ListTasks() []*domain.Task {
 	return []*domain.Task{}
 }
 
+// ApproveTasks is not supported in the finalize phase.
 func (p *FinalizePhase) ApproveTasks() error {
 	return project.ErrNotSupported
 }
 
+// Set sets a metadata field in the finalize phase.
 func (p *FinalizePhase) Set(field string, value interface{}) error {
 	if p.state.Metadata == nil {
 		p.state.Metadata = make(map[string]interface{})
@@ -74,6 +85,7 @@ func (p *FinalizePhase) Set(field string, value interface{}) error {
 	return p.project.Save()
 }
 
+// Get retrieves a metadata field from the finalize phase.
 func (p *FinalizePhase) Get(field string) (interface{}, error) {
 	if p.state.Metadata == nil {
 		return nil, fmt.Errorf("field not found: %s", field)
@@ -85,6 +97,7 @@ func (p *FinalizePhase) Get(field string) (interface{}, error) {
 	return val, nil
 }
 
+// Complete marks the finalize phase as completed.
 func (p *FinalizePhase) Complete() error {
 	p.state.Status = "completed"
 	now := time.Now()
@@ -94,10 +107,12 @@ func (p *FinalizePhase) Complete() error {
 	return p.project.Save()
 }
 
+// Skip is not supported as finalize phase is required.
 func (p *FinalizePhase) Skip() error {
 	return project.ErrNotSupported // Finalize is required
 }
 
-func (p *FinalizePhase) Enable(opts ...domain.PhaseOption) error {
+// Enable is not supported as finalize phase is always enabled.
+func (p *FinalizePhase) Enable(_ ...domain.PhaseOption) error {
 	return project.ErrNotSupported // Finalize is always enabled
 }

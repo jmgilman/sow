@@ -21,6 +21,8 @@ import (
 //  3. Implementation (required) - Code implementation with tasks
 //  4. Review (required) - Code review with possible iteration
 //  5. Finalize (required) - Documentation, checks, and cleanup
+//
+//nolint:revive // name is intentional to distinguish from custom project types
 type StandardProject struct {
 	state   *projects.StandardProjectState
 	ctx     *sow.Context
@@ -51,22 +53,27 @@ func New(state *projects.StandardProjectState, ctx *sow.Context) *StandardProjec
 
 // Implements Project interface
 
+// Name returns the project name.
 func (p *StandardProject) Name() string {
 	return p.state.Project.Name
 }
 
+// Branch returns the git branch for this project.
 func (p *StandardProject) Branch() string {
 	return p.state.Project.Branch
 }
 
+// Description returns the project description.
 func (p *StandardProject) Description() string {
 	return p.state.Project.Description
 }
 
+// Type returns the project type identifier.
 func (p *StandardProject) Type() string {
 	return "standard"
 }
 
+// CurrentPhase returns the currently active phase based on state machine state.
 func (p *StandardProject) CurrentPhase() domain.Phase {
 	currentState := p.machine.State()
 
@@ -86,6 +93,7 @@ func (p *StandardProject) CurrentPhase() domain.Phase {
 	}
 }
 
+// Phase retrieves a phase by name.
 func (p *StandardProject) Phase(name string) (domain.Phase, error) {
 	phase, ok := p.phases[name]
 	if !ok {
@@ -94,19 +102,26 @@ func (p *StandardProject) Phase(name string) (domain.Phase, error) {
 	return phase, nil
 }
 
+// Machine returns the project's state machine.
 func (p *StandardProject) Machine() *statechart.Machine {
 	return p.machine
 }
 
+// InitialState returns the initial state for the project's state machine.
 func (p *StandardProject) InitialState() statechart.State {
 	return statechart.DiscoveryDecision
 }
 
+// Save persists the project state to disk.
 func (p *StandardProject) Save() error {
-	return p.machine.Save()
+	if err := p.machine.Save(); err != nil {
+		return fmt.Errorf("failed to save state machine: %w", err)
+	}
+	return nil
 }
 
-func (p *StandardProject) Log(action, result string, opts ...domain.LogOption) error {
+// Log records an action in the project log.
+func (p *StandardProject) Log(_, _ string, _ ...domain.LogOption) error {
 	// TODO: Implement project-level logging
 	return nil
 }
@@ -246,7 +261,10 @@ func (p *StandardProject) ReadFile(path string) ([]byte, error) {
 // WriteFile writes a file using the context's filesystem.
 func (p *StandardProject) WriteFile(path string, data []byte) error {
 	fs := p.ctx.FS()
-	return fs.WriteFile(path, data, 0644)
+	if err := fs.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write file %s: %w", path, err)
+	}
+	return nil
 }
 
 // CreatePullRequest creates a pull request for the project using GitHub CLI.
