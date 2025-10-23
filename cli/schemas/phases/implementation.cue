@@ -8,7 +8,7 @@ package phases
 	enabled: true
 
 	// Whether planner agent was used
-	planner_used?: null | bool @go(,optional=nillable)
+	planner_used?: bool @go(,optional=nillable)
 
 	// Approved task list (gap-numbered)
 	tasks: [...#Task]
@@ -17,5 +17,5 @@ package phases
 	tasks_approved: bool
 
 	// Tasks awaiting human approval before execution
-	pending_task_additions?: null | [...#Task] @go(,optional=nillable)
+	pending_task_additions?: [...#Task] @go(,optional=nillable)
 }

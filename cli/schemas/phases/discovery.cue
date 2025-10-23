@@ -8,7 +8,7 @@ package phases
 	enabled: bool
 
 	// Discovery type categorization
-	discovery_type?: null | "bug" | "feature" | "docs" | "refactor" | "general" @go(,optional=nillable)
+	discovery_type?: "bug" | "feature" | "docs" | "refactor" | "general" @go(,optional=nillable)
 
 	// Discovery artifacts requiring approval
 	artifacts: [...#Artifact]

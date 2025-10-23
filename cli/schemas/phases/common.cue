@@ -9,8 +9,8 @@ import "time"
 
 	// Timestamps
 	created_at:    time.Time
-	started_at?:   null | time.Time @go(,optional=nillable)
-	completed_at?: null | time.Time @go(,optional=nillable)
+	started_at?:   time.Time @go(,optional=nillable)
+	completed_at?: time.Time @go(,optional=nillable)
 }
 
 // Artifact represents an artifact requiring human approval
@@ -40,7 +40,7 @@ import "time"
 	parallel: bool
 
 	// Task IDs this task depends on
-	dependencies?: null | [...string] @go(,optional=nillable)
+	dependencies?: [...string] @go(,optional=nillable)
 }
 
 // ReviewReport represents a review iteration report

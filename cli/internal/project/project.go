@@ -857,7 +857,17 @@ func (p *Project) readFile(path string) ([]byte, error) {
 
 // writeYAML marshals a value to YAML and writes it atomically.
 func (p *Project) writeYAML(path string, v interface{}) error {
-	data, err := yaml.Marshal(v)
+	// Encode to a node first, then customize it to remove null values.
+	var node yaml.Node
+	if err := node.Encode(v); err != nil {
+		return fmt.Errorf("failed to encode YAML: %w", err)
+	}
+
+	// Remove null values from the node tree.
+	removeNullNodes(&node)
+
+	// Marshal the cleaned node.
+	data, err := yaml.Marshal(&node)
 	if err != nil {
 		return fmt.Errorf("failed to marshal YAML: %w", err)
 	}
@@ -877,4 +887,39 @@ func (p *Project) writeYAML(path string, v interface{}) error {
 	}
 
 	return nil
+}
+
+// removeNullNodes recursively removes null value nodes from a YAML node tree.
+// This ensures that optional fields with nil pointers are omitted rather than written as "null".
+func removeNullNodes(node *yaml.Node) {
+	if node == nil {
+		return
+	}
+
+	switch node.Kind {
+	case yaml.DocumentNode, yaml.SequenceNode:
+		// For documents and sequences, recurse into content.
+		for _, child := range node.Content {
+			removeNullNodes(child)
+		}
+	case yaml.MappingNode:
+		// For mappings, filter out key-value pairs where value is null.
+		filtered := make([]*yaml.Node, 0, len(node.Content))
+		for i := 0; i < len(node.Content); i += 2 {
+			key := node.Content[i]
+			value := node.Content[i+1]
+
+			// Skip this pair if value is null.
+			if value.Kind == yaml.ScalarNode && value.Tag == "!!null" {
+				continue
+			}
+
+			// Recursively clean the value.
+			removeNullNodes(value)
+
+			// Keep this key-value pair.
+			filtered = append(filtered, key, value)
+		}
+		node.Content = filtered
+	}
 }
