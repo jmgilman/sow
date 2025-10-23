@@ -1,0 +1,138 @@
+# Test: E2E New Commands - Minimal Path
+# Purpose: Test new simplified commands (enable, skip, complete, status, info) with minimal workflow
+# Exercises: New commands that work with implicit active phase detection
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/new-commands-test
+exec sow init
+stderr '✓ sow initialized successfully'
+
+# =====================================
+# Project Initialization (legacy command)
+# =====================================
+exec sow agent init new-cmd-test --description 'Test new simplified commands'
+stderr '✓ Initialized project'
+
+# =====================================
+# Test: sow agent status (initial state)
+# =====================================
+exec sow agent status
+stderr 'Active Phase: discovery'
+stderr 'pending'
+
+# =====================================
+# Test: sow agent info (discovery phase)
+# =====================================
+exec sow agent info
+stderr 'Phase: discovery'
+stderr '✓ Artifacts'
+
+# =====================================
+# Test: sow agent skip discovery
+# =====================================
+exec sow agent skip discovery
+stderr '✓ Skipped discovery phase'
+
+# Verify status updated
+exec sow agent status
+stderr 'Active Phase: design'
+stderr 'pending'
+
+# =====================================
+# Test: sow agent skip design
+# =====================================
+exec sow agent skip design
+stderr '✓ Skipped design phase'
+
+# Verify status updated to implementation
+exec sow agent status
+stderr 'Active Phase: implementation'
+
+# =====================================
+# Test: sow agent info (implementation phase)
+# =====================================
+exec sow agent info
+stderr 'Phase: implementation'
+stderr '✓ Tasks'
+
+# =====================================
+# Implementation Phase (use legacy task commands)
+# =====================================
+exec sow agent task add 'Test task' --description 'Test the new commands'
+stderr '✓ Created task 010'
+
+# Approve task plan
+exec sow agent task approve
+stderr '✓ Approved task plan'
+
+# Check status shows task count
+exec sow agent status
+stderr 'Tasks: 1 total'
+stderr '○ 1 pending'
+
+# Complete task (auto-transitions to review)
+exec sow agent task update 010 --status completed
+stderr '✓ Updated task 010'
+
+# Verify transitioned to review automatically
+exec sow agent status
+stderr 'Active Phase: review'
+
+# =====================================
+# Test: sow agent complete (review phase)
+# =====================================
+
+# =====================================
+# Test: sow agent info (review phase)
+# =====================================
+exec sow agent info
+stderr 'Phase: review'
+stderr '✗ Artifacts'
+stderr '✗ Tasks'
+
+# =====================================
+# Review Phase (legacy commands for adding reports)
+# =====================================
+exec sow agent review add reports/001-review.md --assessment pass
+stderr '✓ Added review report 001'
+exec sow agent review approve 001
+stderr '✓ Approved review report 001'
+
+# =====================================
+# Test: sow agent complete (review)
+# =====================================
+exec sow agent complete
+stderr '✓ Completed review phase'
+
+# Verify transitioned to finalize
+exec sow agent status
+stderr 'Active Phase: finalize'
+
+# =====================================
+# Finalize Phase (legacy commands)
+# =====================================
+exec sow agent finalize complete documentation
+stderr '✓ Completed documentation subphase'
+exec sow agent finalize complete checks
+stderr '✓ Completed checks subphase'
+
+# =====================================
+# Project Deletion (legacy command)
+# =====================================
+exec sow agent delete --force
+stderr 'Deleted project'
+
+# Verify project removed
+! exists .sow/project
+
+# =====================================
+# Final Validation
+# =====================================
+exec sow validate
+stderr '✓ All validations passed'

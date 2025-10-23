@@ -185,7 +185,8 @@ func initializeProject(ctx *sow.Context, issue *sow.Issue, initialPrompt string)
 	// Set github_issue field if provided
 	if githubIssueNum != nil {
 		state := project.State()
-		state.Project.Github_issue = *githubIssueNum
+		issueNum64 := int64(*githubIssueNum)
+		state.Project.Github_issue = &issueNum64
 
 		// Save the updated state via the machine
 		if err := project.Machine().Save(); err != nil {

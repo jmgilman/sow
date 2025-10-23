@@ -99,6 +99,11 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Save the state
+	if err := proj.Machine().Save(); err != nil {
+		return fmt.Errorf("failed to save project state: %w", err)
+	}
+
 	// Print success message
 	cmd.Printf("✓ Updated task %s\n", taskID)
 	for _, update := range updated {

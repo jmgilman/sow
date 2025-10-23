@@ -22,9 +22,9 @@ import "time"
 
 		// Timestamps
 		created_at:   time.Time
-		started_at:   *null | time.Time
+		started_at?:   time.Time @go(,optional=nillable)
 		updated_at:   time.Time
-		completed_at: *null | time.Time
+		completed_at?: time.Time @go(,optional=nillable)
 
 		// Iteration counter (managed by orchestrator)
 		// Used to construct agent ID: {assigned_agent}-{iteration}

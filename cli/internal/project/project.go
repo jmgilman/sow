@@ -23,6 +23,7 @@ import (
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/cli/schemas/phases"
 	"gopkg.in/yaml.v3"
 )
 
@@ -89,9 +90,11 @@ func (p *Project) EnablePhase(phaseName string, opts ...sow.PhaseOption) error {
 			return fmt.Errorf("discovery type required (use WithDiscoveryType option)")
 		}
 		state.Phases.Discovery.Enabled = true
-		state.Phases.Discovery.Status = "pending"
-		state.Phases.Discovery.Discovery_type = cfg.DiscoveryType()
-		state.Phases.Discovery.Started_at = now.Format(time.RFC3339)
+		state.Phases.Discovery.Status = "in_progress"
+		discoveryType := cfg.DiscoveryType()
+		state.Phases.Discovery.Discovery_type = &discoveryType
+		startedAt := now
+		state.Phases.Discovery.Started_at = &startedAt
 
 		// Create discovery directory structure
 		if err := p.createPhaseStructure("discovery"); err != nil {
@@ -105,8 +108,9 @@ func (p *Project) EnablePhase(phaseName string, opts ...sow.PhaseOption) error {
 
 	case "design":
 		state.Phases.Design.Enabled = true
-		state.Phases.Design.Status = "pending"
-		state.Phases.Design.Started_at = now.Format(time.RFC3339)
+		state.Phases.Design.Status = "in_progress"
+		designStartedAt := now
+		state.Phases.Design.Started_at = &designStartedAt
 
 		// Create design directory structure
 		if err := p.createPhaseStructure("design"); err != nil {
@@ -137,7 +141,8 @@ func (p *Project) CompletePhase(phaseName string) error {
 			return sow.ErrPhaseNotEnabled
 		}
 		state.Phases.Discovery.Status = "completed"
-		state.Phases.Discovery.Completed_at = now.Format(time.RFC3339)
+		discoveryCompletedAt := now
+		state.Phases.Discovery.Completed_at = &discoveryCompletedAt
 
 		// Fire state machine event
 		if err := p.machine.Fire(statechart.EventCompleteDiscovery); err != nil {
@@ -149,7 +154,8 @@ func (p *Project) CompletePhase(phaseName string) error {
 			return sow.ErrPhaseNotEnabled
 		}
 		state.Phases.Design.Status = "completed"
-		state.Phases.Design.Completed_at = now.Format(time.RFC3339)
+		designCompletedAt := now
+		state.Phases.Design.Completed_at = &designCompletedAt
 
 		// Fire state machine event
 		if err := p.machine.Fire(statechart.EventCompleteDesign); err != nil {
@@ -158,7 +164,8 @@ func (p *Project) CompletePhase(phaseName string) error {
 
 	case "implementation":
 		state.Phases.Implementation.Status = "completed"
-		state.Phases.Implementation.Completed_at = now.Format(time.RFC3339)
+		implCompletedAt := now
+		state.Phases.Implementation.Completed_at = &implCompletedAt
 
 		// Fire state machine event (transitions to review)
 		if err := p.machine.Fire(statechart.EventAllTasksComplete); err != nil {
@@ -167,14 +174,16 @@ func (p *Project) CompletePhase(phaseName string) error {
 
 	case "review":
 		state.Phases.Review.Status = "completed"
-		state.Phases.Review.Completed_at = now.Format(time.RFC3339)
+		reviewCompletedAt := now
+		state.Phases.Review.Completed_at = &reviewCompletedAt
 
 		// Fire state machine event (handled by review pass/fail)
 		// This is a placeholder - actual review completion happens via AddReviewReport
 
 	case "finalize":
 		state.Phases.Finalize.Status = "completed"
-		state.Phases.Finalize.Completed_at = now.Format(time.RFC3339)
+		finalizeCompletedAt := now
+		state.Phases.Finalize.Completed_at = &finalizeCompletedAt
 
 		// Finalize has substates, handled by specialized methods
 
@@ -285,7 +294,7 @@ func (p *Project) AddTask(name string, opts ...sow.TaskOption) (*Task, error) {
 	}
 
 	// Create task
-	task := schemas.Task{
+	task := phases.Task{
 		Id:           id,
 		Name:         name,
 		Status:       cfg.Status,
@@ -325,8 +334,15 @@ func (p *Project) ApproveTasks() error {
 		return fmt.Errorf("cannot approve: no tasks have been created")
 	}
 
-	// Set approval flag
+	// Set approval flag and update phase status
 	state.Phases.Implementation.Tasks_approved = true
+	state.Phases.Implementation.Status = "in_progress"
+
+	// Set started_at if not already set
+	if state.Phases.Implementation.Started_at == nil {
+		now := time.Now()
+		state.Phases.Implementation.Started_at = &now
+	}
 
 	// Fire transition event
 	if err := p.machine.Fire(statechart.EventTasksApproved); err != nil {
@@ -401,7 +417,7 @@ func (p *Project) AddArtifact(phaseName, path string, approved bool) error {
 	state := p.State()
 	now := time.Now()
 
-	artifact := schemas.Artifact{
+	artifact := phases.Artifact{
 		Path:       path,
 		Approved:   approved,
 		Created_at: now,
@@ -483,7 +499,7 @@ func (p *Project) AddReviewReport(path, assessment string) error {
 	reportID := fmt.Sprintf("%03d", len(state.Phases.Review.Reports)+1)
 
 	// Create report (not approved by default - requires human approval)
-	report := schemas.ReviewReport{
+	report := phases.ReviewReport{
 		Id:         reportID,
 		Path:       path,
 		Created_at: now,
@@ -506,7 +522,7 @@ func (p *Project) ApproveReview(reportID string) error {
 	state := p.State()
 
 	// Find the report
-	var report *schemas.ReviewReport
+	var report *phases.ReviewReport
 	for i := range state.Phases.Review.Reports {
 		if state.Phases.Review.Reports[i].Id == reportID {
 			report = &state.Phases.Review.Reports[i]
@@ -539,15 +555,18 @@ func (p *Project) ApproveReview(reportID string) error {
 // AddDocumentation records a documentation file update during finalize.
 func (p *Project) AddDocumentation(path string) error {
 	state := p.State()
-	state.Phases.Finalize.Documentation_updates = appendToStringSlice(state.Phases.Finalize.Documentation_updates, path)
+	state.Phases.Finalize.Documentation_updates = append(state.Phases.Finalize.Documentation_updates, path)
 	return p.save()
 }
 
 // MoveArtifact records an artifact moved to knowledge during finalize.
 func (p *Project) MoveArtifact(from, to string) error {
 	state := p.State()
-	move := map[string]string{"from": from, "to": to}
-	state.Phases.Finalize.Artifacts_moved = appendToMapSlice(state.Phases.Finalize.Artifacts_moved, move)
+	move := struct {
+		From string `json:"from"`
+		To   string `json:"to"`
+	}{From: from, To: to}
+	state.Phases.Finalize.Artifacts_moved = append(state.Phases.Finalize.Artifacts_moved, move)
 	return p.save()
 }
 
@@ -570,17 +589,8 @@ func (p *Project) CreatePullRequest(body string) (string, error) {
 	fullBody := body
 
 	// Add issue reference if linked (before footer)
-	if state.Project.Github_issue != nil {
-		var issueNum int
-		if num, ok := state.Project.Github_issue.(int); ok {
-			issueNum = num
-		} else if num, ok := state.Project.Github_issue.(float64); ok {
-			issueNum = int(num)
-		}
-
-		if issueNum > 0 {
-			fullBody += fmt.Sprintf("\n\nCloses #%d\n", issueNum)
-		}
+	if state.Project.Github_issue != nil && *state.Project.Github_issue > 0 {
+		fullBody += fmt.Sprintf("\n\nCloses #%d\n", *state.Project.Github_issue)
 	}
 
 	// Add footer
@@ -593,7 +603,7 @@ func (p *Project) CreatePullRequest(body string) (string, error) {
 	}
 
 	// Store PR URL in state
-	state.Phases.Finalize.Pr_url = prURL
+	state.Phases.Finalize.Pr_url = &prURL
 
 	// Save state
 	if err := p.save(); err != nil {
@@ -847,7 +857,17 @@ func (p *Project) readFile(path string) ([]byte, error) {
 
 // writeYAML marshals a value to YAML and writes it atomically.
 func (p *Project) writeYAML(path string, v interface{}) error {
-	data, err := yaml.Marshal(v)
+	// Encode to a node first, then customize it to remove null values.
+	var node yaml.Node
+	if err := node.Encode(v); err != nil {
+		return fmt.Errorf("failed to encode YAML: %w", err)
+	}
+
+	// Remove null values from the node tree.
+	removeNullNodes(&node)
+
+	// Marshal the cleaned node.
+	data, err := yaml.Marshal(&node)
 	if err != nil {
 		return fmt.Errorf("failed to marshal YAML: %w", err)
 	}
@@ -869,62 +889,37 @@ func (p *Project) writeYAML(path string, v interface{}) error {
 	return nil
 }
 
-// appendToStringSlice appends a string to an any-typed field that should be []string.
-// Handles type assertions for YAML unmarshaling edge cases.
-func appendToStringSlice(field any, value string) any {
-	if field == nil {
-		return []string{value}
+// removeNullNodes recursively removes null value nodes from a YAML node tree.
+// This ensures that optional fields with nil pointers are omitted rather than written as "null".
+func removeNullNodes(node *yaml.Node) {
+	if node == nil {
+		return
 	}
 
-	// Type assert to []string
-	if updates, ok := field.([]string); ok {
-		return append(updates, value)
-	}
-
-	// Handle interface{} slice from YAML unmarshaling
-	if updates, ok := field.([]interface{}); ok {
-		strUpdates := make([]string, 0, len(updates)+1)
-		for _, u := range updates {
-			if s, ok := u.(string); ok {
-				strUpdates = append(strUpdates, s)
-			}
+	switch node.Kind {
+	case yaml.DocumentNode, yaml.SequenceNode:
+		// For documents and sequences, recurse into content.
+		for _, child := range node.Content {
+			removeNullNodes(child)
 		}
-		return append(strUpdates, value)
-	}
+	case yaml.MappingNode:
+		// For mappings, filter out key-value pairs where value is null.
+		filtered := make([]*yaml.Node, 0, len(node.Content))
+		for i := 0; i < len(node.Content); i += 2 {
+			key := node.Content[i]
+			value := node.Content[i+1]
 
-	// If type is unexpected, reset to new slice
-	return []string{value}
-}
-
-// appendToMapSlice appends a map[string]string to an any-typed field that should be []map[string]string.
-// Handles type assertions for YAML unmarshaling edge cases.
-func appendToMapSlice(field any, value map[string]string) any {
-	if field == nil {
-		return []map[string]string{value}
-	}
-
-	// Type assert to []map[string]string
-	if moves, ok := field.([]map[string]string); ok {
-		return append(moves, value)
-	}
-
-	// Handle interface{} slice from YAML unmarshaling
-	if moves, ok := field.([]interface{}); ok {
-		mapMoves := make([]map[string]string, 0, len(moves)+1)
-		for _, m := range moves {
-			if mm, ok := m.(map[string]interface{}); ok {
-				strMap := make(map[string]string)
-				for k, v := range mm {
-					if s, ok := v.(string); ok {
-						strMap[k] = s
-					}
-				}
-				mapMoves = append(mapMoves, strMap)
+			// Skip this pair if value is null.
+			if value.Kind == yaml.ScalarNode && value.Tag == "!!null" {
+				continue
 			}
-		}
-		return append(mapMoves, value)
-	}
 
-	// If type is unexpected, reset to new slice
-	return []map[string]string{value}
+			// Recursively clean the value.
+			removeNullNodes(value)
+
+			// Keep this key-value pair.
+			filtered = append(filtered, key, value)
+		}
+		node.Content = filtered
+	}
 }

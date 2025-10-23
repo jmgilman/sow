@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-git/go-billy/v5"
-	fsbilly "github.com/jmgilman/go/fs/billy"
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
+	"github.com/jmgilman/sow/cli/internal/project/types"
+	_ "github.com/jmgilman/sow/cli/internal/project/types/standard" // Register StandardProject
 	"github.com/jmgilman/sow/cli/internal/sow"
 )
 
@@ -23,14 +23,25 @@ func Load(ctx *sow.Context) (*Project, error) {
 		return nil, sow.ErrNoProject
 	}
 
-	// Unwrap the core.FS to get billy.Filesystem for statechart
-	billyFS := unwrapBillyFS(ctx.FS())
-
-	// Load state machine
-	machine, err := statechart.LoadFS(billyFS)
+	// Load state from disk
+	state, _, err := statechart.LoadProjectState(ctx.FS())
 	if err != nil {
 		return nil, fmt.Errorf("failed to load project state: %w", err)
 	}
+
+	// Detect project type and build state machine using composable phases architecture
+	projectType, err := types.DetectProjectType(state)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect project type: %w", err)
+	}
+
+	// Build state machine from project type
+	// The project type's BuildStateMachine() reads state.Statechart.Current_state
+	// and creates the machine at the correct state automatically
+	machine := projectType.BuildStateMachine()
+
+	// Set filesystem for persistence
+	machine.SetFilesystem(ctx.FS())
 
 	return &Project{
 		ctx:     ctx,
@@ -121,14 +132,20 @@ func Create(ctx *sow.Context, name, description string) (*Project, error) {
 		return nil, fmt.Errorf("failed to create project log: %w", err)
 	}
 
-	// Unwrap the core.FS to get billy.Filesystem for statechart
-	billyFS := unwrapBillyFS(fs)
+	// Create initial project state with default values
+	state := statechart.NewProjectState(name, description, branch)
 
-	// Create state machine with initial project state
-	machine, err := statechart.NewWithProject(name, description, branch, billyFS)
+	// Detect project type and build state machine using composable phases architecture
+	projectType, err := types.DetectProjectType(state)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create state machine: %w", err)
+		return nil, fmt.Errorf("failed to detect project type: %w", err)
 	}
+
+	// Build state machine from project type
+	machine := projectType.BuildStateMachine()
+
+	// Set filesystem for persistence
+	machine.SetFilesystem(fs)
 
 	// Fire project init event to transition to DiscoveryDecision
 	if err := machine.Fire(statechart.EventProjectInit); err != nil {
@@ -195,7 +212,8 @@ func CreateFromIssue(ctx *sow.Context, issueNumber int, branchName string) (*Pro
 
 	// Set github_issue field
 	state := project.State()
-	state.Project.Github_issue = issueNumber
+	issueNum64 := int64(issueNumber)
+	state.Project.Github_issue = &issueNum64
 
 	// Save the updated state
 	if err := project.save(); err != nil {
@@ -216,11 +234,8 @@ func Delete(ctx *sow.Context) error {
 		return sow.ErrNoProject
 	}
 
-	// Unwrap the core.FS to get billy.Filesystem for statechart
-	billyFS := unwrapBillyFS(fs)
-
 	// Load the machine to update state before deletion
-	machine, err := statechart.LoadFS(billyFS)
+	machine, err := statechart.LoadFS(fs) //nolint:staticcheck // Deprecated but needed for backward compatibility
 	if err != nil {
 		return fmt.Errorf("failed to load project state: %w", err)
 	}
@@ -251,19 +266,6 @@ func Delete(ctx *sow.Context) error {
 func Exists(ctx *sow.Context) bool {
 	exists, _ := ctx.FS().Exists("project/state.yaml")
 	return exists
-}
-
-// Helper functions
-
-// unwrapBillyFS extracts the underlying billy.Filesystem from core.FS.
-// This is needed because statechart package uses go-billy directly.
-func unwrapBillyFS(fs sow.FS) billy.Filesystem {
-	if localFS, ok := fs.(*fsbilly.LocalFS); ok {
-		return localFS.Unwrap()
-	}
-	// If not a LocalFS, this will panic - but that's intentional
-	// since we require a billy-backed filesystem
-	panic(fmt.Sprintf("filesystem type %T does not support Unwrap", fs))
 }
 
 // isKebabCase validates that a string is in kebab-case format.

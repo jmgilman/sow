@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/prompts"
 	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/cli/schemas/phases"
 )
 
 func TestRender_GreetContext_Uninitialized(t *testing.T) {
@@ -154,7 +155,7 @@ func TestRender_StatechartContext_DesignActive(t *testing.T) {
 	state.Project.Description = "Test description"
 	state.Project.Branch = "main"
 	state.Phases.Design.Status = "in_progress"
-	state.Phases.Design.Artifacts = []schemas.Artifact{
+	state.Phases.Design.Artifacts = []phases.Artifact{
 		{Path: "docs/design.md", Approved: true},
 		{Path: "docs/adr-001.md", Approved: false},
 	}
@@ -194,7 +195,7 @@ func TestRender_StatechartContext_ImplementationExecuting(t *testing.T) {
 	state.Project.Description = "Implementation test"
 	state.Project.Branch = "feat/impl"
 	state.Phases.Implementation.Status = "in_progress"
-	state.Phases.Implementation.Tasks = []schemas.Task{
+	state.Phases.Implementation.Tasks = []phases.Task{
 		{Id: "010", Name: "Task 1", Status: "completed"},
 		{Id: "020", Name: "Task 2", Status: "in_progress"},
 		{Id: "030", Name: "Task 3", Status: "pending"},

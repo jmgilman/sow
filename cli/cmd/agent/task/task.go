@@ -39,6 +39,7 @@ between existing ones if needed. Each task has:
 
 	// Add subcommands
 	cmd.AddCommand(NewAddCmd())
+	cmd.AddCommand(NewApproveCmd())
 	cmd.AddCommand(NewListCmd())
 	cmd.AddCommand(NewStatusCmd())
 	cmd.AddCommand(NewUpdateCmd())

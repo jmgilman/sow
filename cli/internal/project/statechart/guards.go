@@ -2,12 +2,13 @@ package statechart
 
 import (
 	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/cli/schemas/phases"
 )
 
 // Guards for conditional transitions
 
 // ArtifactsApproved checks if all artifacts for a phase are approved (or no artifacts exist).
-func ArtifactsApproved(phase schemas.DiscoveryPhase) bool {
+func ArtifactsApproved(phase phases.DiscoveryPhase) bool {
 	if len(phase.Artifacts) == 0 {
 		return true
 	}
@@ -20,7 +21,7 @@ func ArtifactsApproved(phase schemas.DiscoveryPhase) bool {
 }
 
 // ArtifactsApprovedDesign checks if all design artifacts are approved (or no artifacts exist).
-func ArtifactsApprovedDesign(phase schemas.DesignPhase) bool {
+func ArtifactsApprovedDesign(phase phases.DesignPhase) bool {
 	if len(phase.Artifacts) == 0 {
 		return true
 	}

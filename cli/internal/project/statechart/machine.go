@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-git/go-billy/v5"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/qmuntal/stateless"
 )
@@ -13,8 +13,8 @@ import (
 type Machine struct {
 	sm              *stateless.StateMachine
 	projectState    *schemas.ProjectState
-	fs              billy.Filesystem // Optional filesystem for testability
-	suppressPrompts bool             // Suppress prompt printing (useful for tests and CLI commands)
+	fs              sow.FS // Optional filesystem for testability
+	suppressPrompts bool   // Suppress prompt printing (useful for tests and CLI commands)
 }
 
 // NewMachine creates a new state machine for project lifecycle management.
@@ -45,6 +45,11 @@ func (m *Machine) ProjectState() *schemas.ProjectState {
 // SetProjectState sets the machine's project state.
 func (m *Machine) SetProjectState(state *schemas.ProjectState) {
 	m.projectState = state
+}
+
+// SetFilesystem sets the filesystem for persistence operations.
+func (m *Machine) SetFilesystem(fs sow.FS) {
+	m.fs = fs
 }
 
 // SuppressPrompts disables prompt output (useful for tests and non-interactive CLI commands).

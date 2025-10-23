@@ -34,7 +34,7 @@ stderr 'already initialized'
 # Error: Project Init on Protected Branch
 # =====================================
 # git init creates master/main branch - we're currently on it
-! exec sow agent project init test-project --description 'Should fail'
+! exec sow agent init test-project --description 'Should fail'
 stderr 'protected branch'
 
 # Switch to a feature branch temporarily
@@ -42,7 +42,7 @@ exec git checkout -b temp-branch
 
 # Go back to master to verify it's also protected
 exec git checkout master
-! exec sow agent project init test-project --description 'Should fail'
+! exec sow agent init test-project --description 'Should fail'
 stderr 'protected branch'
 
 # =====================================
@@ -53,41 +53,41 @@ exec git checkout -b feat/test-feature
 # =====================================
 # Error: Project Init Without Description
 # =====================================
-! exec sow agent project init test-project
+! exec sow agent init test-project
 stderr 'required'
 
 # =====================================
 # Successful Project Init
 # =====================================
-exec sow agent project init test-project --description 'Test project'
+exec sow agent init test-project --description 'Test project'
 stderr '✓ Initialized project'
 exists .sow/project
 
 # =====================================
 # Error: Project Init When Project Exists
 # =====================================
-! exec sow agent project init another-project --description 'Should fail'
+! exec sow agent init another-project --description 'Should fail'
 stderr 'already exists'
 
 # =====================================
 # Error: Invalid Project Name (Not Kebab-Case)
 # =====================================
 # Delete existing project first
-exec sow agent project delete --force
+exec sow agent delete --force
 ! exists .sow/project
 
 # Try with invalid name
-! exec sow agent project init 'Bad_Name' --description 'Should fail'
+! exec sow agent init 'Bad_Name' --description 'Should fail'
 stderr 'kebab-case'
 
-! exec sow agent project init 'BadName' --description 'Should fail'
+! exec sow agent init 'BadName' --description 'Should fail'
 stderr 'kebab-case'
 
-! exec sow agent project init 'bad name' --description 'Should fail'
+! exec sow agent init 'bad name' --description 'Should fail'
 stderr 'kebab-case'
 
 # Valid kebab-case should work
-exec sow agent project init good-name --description 'Valid name'
+exec sow agent init good-name --description 'Valid name'
 stderr '✓ Initialized project'
 
 # =====================================

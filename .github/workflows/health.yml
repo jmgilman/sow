@@ -76,8 +76,7 @@ jobs:
           cache-dependency-path: cli/go.sum
 
       - name: Install CUE
-        working-directory: ./cli
-        run: go install cuelang.org/go/cmd/cue@latest
+        uses: cue-lang/setup-cue@v1.0.1
 
       - name: Validate CUE schemas
         working-directory: ./cli/schemas

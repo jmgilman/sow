@@ -7,6 +7,7 @@ package prompts
 
 import (
 	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/cli/schemas/phases"
 )
 
 // State constants (matching statechart.State values).
@@ -124,8 +125,8 @@ func (c *StatechartContext) addDiscoveryData(data map[string]interface{}) {
 		return
 	}
 
-	if discoveryType, ok := c.ProjectState.Phases.Discovery.Discovery_type.(string); ok && discoveryType != "" {
-		data["DiscoveryType"] = discoveryType
+	if c.ProjectState.Phases.Discovery.Discovery_type != nil && *c.ProjectState.Phases.Discovery.Discovery_type != "" {
+		data["DiscoveryType"] = *c.ProjectState.Phases.Discovery.Discovery_type
 	}
 
 	artifacts := c.ProjectState.Phases.Discovery.Artifacts
@@ -194,7 +195,7 @@ func (c *StatechartContext) addImplementationData(data map[string]interface{}) {
 }
 
 // addTaskStatusBreakdown adds task status counts to the template data.
-func (c *StatechartContext) addTaskStatusBreakdown(tasks []schemas.Task, data map[string]interface{}) {
+func (c *StatechartContext) addTaskStatusBreakdown(tasks []phases.Task, data map[string]interface{}) {
 	completed := 0
 	inProgress := 0
 	pending := 0
@@ -239,16 +240,10 @@ func (c *StatechartContext) addReviewData(data map[string]interface{}) {
 // addFinalizeData adds finalize phase data to the template data.
 func (c *StatechartContext) addFinalizeData(data map[string]interface{}) {
 	if c.State == StateFinalizeDocumentation {
-		if updates, ok := c.ProjectState.Phases.Finalize.Documentation_updates.([]interface{}); ok && len(updates) > 0 {
-			// Convert to string slice
-			strUpdates := make([]string, 0, len(updates))
-			for _, u := range updates {
-				if s, ok := u.(string); ok {
-					strUpdates = append(strUpdates, s)
-				}
-			}
-			data["HasDocumentationUpdates"] = len(strUpdates) > 0
-			data["DocumentationUpdates"] = strUpdates
+		updates := c.ProjectState.Phases.Finalize.Documentation_updates
+		if len(updates) > 0 {
+			data["HasDocumentationUpdates"] = true
+			data["DocumentationUpdates"] = updates
 		}
 	}
 
@@ -258,9 +253,9 @@ func (c *StatechartContext) addFinalizeData(data map[string]interface{}) {
 
 	if c.State == StateFinalizeDelete {
 		data["ProjectDeleted"] = c.ProjectState.Phases.Finalize.Project_deleted
-		if prURL, ok := c.ProjectState.Phases.Finalize.Pr_url.(string); ok && prURL != "" {
+		if c.ProjectState.Phases.Finalize.Pr_url != nil && *c.ProjectState.Phases.Finalize.Pr_url != "" {
 			data["HasPR"] = true
-			data["PRURL"] = prURL
+			data["PRURL"] = *c.ProjectState.Phases.Finalize.Pr_url
 		}
 	}
 }

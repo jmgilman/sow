@@ -19,24 +19,24 @@ exec sow init
 # Error: Invalid Project Name (Not Kebab-Case)
 # =====================================
 # This should be caught at creation time
-! exec sow agent project init 'Bad_Name' --description 'Test'
+! exec sow agent init 'Bad_Name' --description 'Test'
 stderr 'kebab-case'
 
-! exec sow agent project init 'BadName' --description 'Test'
+! exec sow agent init 'BadName' --description 'Test'
 stderr 'kebab-case'
 
 # =====================================
 # Error: Empty Description
 # =====================================
-! exec sow agent project init 'good-name' --description ''
+! exec sow agent init 'good-name' --description ''
 stderr 'description'
 
 # =====================================
 # Create Valid Project
 # =====================================
-exec sow agent project init valid-project --description 'Valid description'
-exec sow agent project phase skip discovery
-exec sow agent project phase skip design
+exec sow agent init valid-project --description 'Valid description'
+exec sow agent skip discovery
+exec sow agent skip design
 
 # Verify valid state
 exec sow validate
@@ -82,14 +82,16 @@ stderr '✓ All validations passed'
 # =====================================
 # Complete Workflow (Verify System Still Works)
 # =====================================
-exec sow agent project phase approve implementation
+exec sow agent task approve
 exec sow agent task update 010 --status in_progress
 exec sow agent task update 010 --status completed
-exec sow agent project review add-report reports/001.md --assessment pass
-exec sow agent project review approve 001
-exec sow agent project finalize complete documentation
-exec sow agent project finalize complete checks
-exec sow agent project delete --force
+exec mkdir -p .sow/project/phases/review/reports
+exec sh -c 'echo "# Review" > .sow/project/phases/review/reports/001.md'
+exec sow agent review add reports/001.md --assessment pass
+exec sow agent review approve 001
+exec sow agent finalize complete documentation
+exec sow agent finalize complete checks
+exec sow agent delete --force
 
 # =====================================
 # Final Verification
