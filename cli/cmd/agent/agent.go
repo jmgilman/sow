@@ -2,7 +2,6 @@
 package agent
 
 import (
-	"github.com/jmgilman/sow/cli/cmd/agent/project"
 	"github.com/jmgilman/sow/cli/cmd/agent/task"
 	"github.com/spf13/cobra"
 )
@@ -21,16 +20,30 @@ intervention, they are designed for agent workflows.
 Agent commands include:
   - log: Fast structured logging for agent actions
   - session-info: Context detection for agents
-  - project: Project lifecycle management (legacy)
   - task: Task management
 
-New simplified commands (work on implicit active phase):
+Project lifecycle:
+  - init: Initialize a new project
+  - delete: Delete the project directory
+  - create-pr: Create a pull request
+
+Phase management (work on implicit active phase):
   - enable: Enable an optional phase
   - skip: Skip an optional phase
   - complete: Complete the active phase
   - status: Show current project status
   - info: Show phase information
-  - artifact: Manage artifacts
+
+Artifact management:
+  - artifact: Manage artifacts (add, approve, list)
+
+Review management:
+  - review: Manage review phase (add, approve, increment)
+
+Finalize management:
+  - finalize: Manage finalize phase (complete, doc, move)
+
+Utilities:
   - set: Set custom fields on active phase`,
 	}
 
@@ -38,18 +51,32 @@ New simplified commands (work on implicit active phase):
 	cmd.AddCommand(NewLogCmd())
 	cmd.AddCommand(NewSessionInfoCmd())
 
-	// New simplified commands
+	// Project lifecycle
+	cmd.AddCommand(NewInitCmd())
+	cmd.AddCommand(NewDeleteCmd())
+	cmd.AddCommand(NewCreatePRCmd())
+
+	// Phase management (implicit active phase)
 	cmd.AddCommand(NewEnableCmd())
 	cmd.AddCommand(NewSkipCmd())
 	cmd.AddCommand(NewCompleteCmd())
 	cmd.AddCommand(NewStatusCmd())
 	cmd.AddCommand(NewInfoCmd())
-	cmd.AddCommand(NewArtifactCmd())
-	cmd.AddCommand(NewSetCmd())
 
-	// Legacy commands (to be deprecated)
-	cmd.AddCommand(project.NewProjectCmd())
+	// Artifact management
+	cmd.AddCommand(NewArtifactCmd())
+
+	// Review management
+	cmd.AddCommand(NewReviewCmd())
+
+	// Finalize management
+	cmd.AddCommand(NewFinalizeCmd())
+
+	// Task management
 	cmd.AddCommand(task.NewTaskCmd())
+
+	// Utilities
+	cmd.AddCommand(NewSetCmd())
 
 	return cmd
 }

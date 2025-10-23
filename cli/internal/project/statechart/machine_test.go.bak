@@ -20,11 +20,11 @@ func TestProjectLifecycle(t *testing.T) {
 	// Start with no project
 	state := &schemas.ProjectState{
 		Phases: struct {
-			Discovery      phases.DiscoveryPhase      `json:"discovery" yaml:"discovery"`
-			Design         phases.DesignPhase         `json:"design" yaml:"design"`
-			Implementation phases.ImplementationPhase `json:"implementation" yaml:"implementation"`
-			Review         phases.ReviewPhase         `json:"review" yaml:"review"`
-			Finalize       phases.FinalizePhase       `json:"finalize" yaml:"finalize"`
+			Discovery      phases.DiscoveryPhase      `json:"discovery"`
+			Design         phases.DesignPhase         `json:"design"`
+			Implementation phases.ImplementationPhase `json:"implementation"`
+			Review         phases.ReviewPhase         `json:"review"`
+			Finalize       phases.FinalizePhase       `json:"finalize"`
 		}{
 			Discovery: phases.DiscoveryPhase{
 				Enabled: false,

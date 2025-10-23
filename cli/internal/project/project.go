@@ -334,8 +334,15 @@ func (p *Project) ApproveTasks() error {
 		return fmt.Errorf("cannot approve: no tasks have been created")
 	}
 
-	// Set approval flag
+	// Set approval flag and update phase status
 	state.Phases.Implementation.Tasks_approved = true
+	state.Phases.Implementation.Status = "in_progress"
+
+	// Set started_at if not already set
+	if state.Phases.Implementation.Started_at == nil {
+		now := time.Now()
+		state.Phases.Implementation.Started_at = &now
+	}
 
 	// Fire transition event
 	if err := p.machine.Fire(statechart.EventTasksApproved); err != nil {
@@ -556,8 +563,8 @@ func (p *Project) AddDocumentation(path string) error {
 func (p *Project) MoveArtifact(from, to string) error {
 	state := p.State()
 	move := struct {
-		From string `json:"from"`
-		To   string `json:"to"`
+		From string `json:"from" yaml:"from"`
+		To   string `json:"to" yaml:"to"`
 	}{From: from, To: to}
 	state.Phases.Finalize.Artifacts_moved = append(state.Phases.Finalize.Artifacts_moved, move)
 	return p.save()

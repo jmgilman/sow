@@ -1,4 +1,4 @@
-package project
+package agent
 
 import (
 	"fmt"
@@ -8,10 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newFinalizeCompleteCmd creates the command to complete a finalize subphase.
+// NewFinalizeCompleteCmd creates the command to complete a finalize subphase.
 //
 // Usage:
-//   sow project finalize complete <subphase>
+//   sow agent finalize complete <subphase>
 //
 // Arguments:
 //   <subphase>: The subphase to complete (documentation or checks)
@@ -19,8 +19,8 @@ import (
 // The finalize phase has three subphases:
 //   1. documentation - Update documentation files
 //   2. checks - Run tests, linters, and build
-//   3. delete - Delete project directory (uses `sow project delete`)
-func newFinalizeCompleteCmd() *cobra.Command {
+//   3. delete - Delete project directory (uses `sow agent delete`)
+func NewFinalizeCompleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "complete <subphase>",
 		Short: "Complete a finalize subphase",
@@ -29,17 +29,17 @@ func newFinalizeCompleteCmd() *cobra.Command {
 The finalize phase has three subphases:
   1. documentation - Update documentation files (README, API docs, etc.)
   2. checks - Run final validation (tests, linters, build)
-  3. delete - Delete project directory (use 'sow project delete')
+  3. delete - Delete project directory (use 'sow agent delete')
 
 This command is used to signal completion of documentation updates or final checks,
 allowing the state machine to advance to the next finalize step.
 
 Examples:
   # Complete documentation subphase
-  sow project finalize complete documentation
+  sow agent finalize complete documentation
 
   # Complete checks subphase
-  sow project finalize complete checks`,
+  sow agent finalize complete checks`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			subphase := args[0]
@@ -55,7 +55,7 @@ Examples:
 			// Get project
 			project, err := projectpkg.Load(ctx)
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first")
+				return fmt.Errorf("no active project - run 'sow agent init' first")
 			}
 
 			// Complete finalize subphase (handles validation, state machine transitions)
@@ -70,7 +70,7 @@ Examples:
 			case "documentation":
 				cmd.Println("\n→ Next: Run final checks (tests, linters, build)")
 			case "checks":
-				cmd.Println("\n→ Next: Delete project directory with 'sow project delete'")
+				cmd.Println("\n→ Next: Delete project directory with 'sow agent delete'")
 			}
 
 			return nil

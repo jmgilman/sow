@@ -15,18 +15,18 @@ func createTestState() *projects.StandardProjectState {
 
 	return &projects.StandardProjectState{
 		Statechart: struct {
-			Current_state string `json:"current_state" yaml:"current_state"`
+			Current_state string `json:"current_state"`
 		}{
 			Current_state: "NoProject",
 		},
 		Project: struct {
-			Type          string     `json:"type" yaml:"type"`
-			Name          string     `json:"name" yaml:"name"`
-			Branch        string     `json:"branch" yaml:"branch"`
-			Description   string     `json:"description" yaml:"description"`
-			Github_issue  *int64     `json:"github_issue,omitempty" yaml:"github_issue,omitempty"`
-			Created_at    time.Time  `json:"created_at" yaml:"created_at"`
-			Updated_at    time.Time  `json:"updated_at" yaml:"updated_at"`
+			Type          string     `json:"type"`
+			Name          string     `json:"name"`
+			Branch        string     `json:"branch"`
+			Description   string     `json:"description"`
+			Github_issue  *int64     `json:"github_issue,omitempty"`
+			Created_at    time.Time  `json:"created_at"`
+			Updated_at    time.Time  `json:"updated_at"`
 		}{
 			Type:        "standard",
 			Name:        "test-project",
@@ -36,11 +36,11 @@ func createTestState() *projects.StandardProjectState {
 			Updated_at:  now,
 		},
 		Phases: struct {
-			Discovery      phasesSchema.DiscoveryPhase      `json:"discovery" yaml:"discovery"`
-			Design         phasesSchema.DesignPhase         `json:"design" yaml:"design"`
-			Implementation phasesSchema.ImplementationPhase `json:"implementation" yaml:"implementation"`
-			Review         phasesSchema.ReviewPhase         `json:"review" yaml:"review"`
-			Finalize       phasesSchema.FinalizePhase       `json:"finalize" yaml:"finalize"`
+			Discovery      phasesSchema.DiscoveryPhase      `json:"discovery"`
+			Design         phasesSchema.DesignPhase         `json:"design"`
+			Implementation phasesSchema.ImplementationPhase `json:"implementation"`
+			Review         phasesSchema.ReviewPhase         `json:"review"`
+			Finalize       phasesSchema.FinalizePhase       `json:"finalize"`
 		}{
 			Discovery: phasesSchema.DiscoveryPhase{
 				Status:     "pending",

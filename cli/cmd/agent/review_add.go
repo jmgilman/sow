@@ -1,4 +1,4 @@
-package project
+package agent
 
 import (
 	"fmt"
@@ -8,21 +8,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newReviewAddReportCmd creates the command to add a review report.
+// NewReviewAddCmd creates the command to add a review report.
 //
 // Usage:
-//   sow project review add-report <path> --assessment <assessment>
+//   sow agent review add <path> --assessment <assessment>
 //
 // Arguments:
 //   <path>: Path to report file (relative to .sow/project/phases/review/)
 //
 // Flags:
 //   --assessment: Assessment result (pass or fail, required)
-func newReviewAddReportCmd() *cobra.Command {
+func NewReviewAddCmd() *cobra.Command {
 	var assessment string
 
 	cmd := &cobra.Command{
-		Use:   "add-report <path>",
+		Use:   "add <path>",
 		Short: "Add a review report with assessment",
 		Long: `Add a review report to the review phase.
 
@@ -36,10 +36,10 @@ are added.
 
 Examples:
   # Add passing review report
-  sow project review add-report reports/001-review.md --assessment pass
+  sow agent review add reports/001-review.md --assessment pass
 
   # Add failing review report (requires loop-back)
-  sow project review add-report reports/002-review.md --assessment fail`,
+  sow agent review add reports/002-review.md --assessment fail`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reportPath := args[0]
@@ -55,7 +55,7 @@ Examples:
 			// Get project
 			proj, err := projectpkg.Load(ctx)
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first")
+				return fmt.Errorf("no active project - run 'sow agent init' first")
 			}
 
 			// Add review report (handles state machine transition based on assessment)
@@ -71,9 +71,9 @@ Examples:
 			cmd.Printf("  %s\n", reportPath)
 
 			if assessment == "pass" {
-				cmd.Println("\n→ Review passed. Transitioning to finalize phase.")
+				cmd.Println("\n→ Review passed. Use 'sow agent review approve <id>' to transition to finalize.")
 			} else {
-				cmd.Println("\n→ Review failed. Looping back to implementation planning.")
+				cmd.Println("\n→ Review failed. Use 'sow agent review approve <id>' to loop back to implementation.")
 			}
 
 			return nil

@@ -9,186 +9,186 @@ import (
 // DesignPhase represents the design phase
 type DesignPhase struct {
 	// Can be disabled
-	Enabled bool `json:"enabled"`
+	Enabled bool `json:"enabled" yaml:"enabled"`
 
 	// Whether architect agent was used
-	Architect_used *bool `json:"architect_used,omitempty"`
+	Architect_used *bool `json:"architect_used,omitempty" yaml:"architect_used,omitempty"`
 
 	// Design artifacts requiring approval (ADRs, design docs)
-	Artifacts []Artifact `json:"artifacts"`
+	Artifacts []Artifact `json:"artifacts" yaml:"artifacts"`
 
 	// Phase execution status
-	Status string `json:"status"`
+	Status string `json:"status" yaml:"status"`
 
 	// Timestamps
-	Created_at time.Time `json:"created_at"`
+	Created_at time.Time `json:"created_at" yaml:"created_at"`
 
-	Started_at *time.Time `json:"started_at,omitempty"`
+	Started_at *time.Time `json:"started_at,omitempty" yaml:"started_at,omitempty"`
 
-	Completed_at *time.Time `json:"completed_at,omitempty"`
+	Completed_at *time.Time `json:"completed_at,omitempty" yaml:"completed_at,omitempty"`
 }
 
 // Artifact represents an artifact requiring human approval
 type Artifact struct {
 	// Path relative to .sow/project/
-	Path string `json:"path"`
+	Path string `json:"path" yaml:"path"`
 
 	// Human approval status
-	Approved bool `json:"approved"`
+	Approved bool `json:"approved" yaml:"approved"`
 
 	// When artifact was created
-	Created_at time.Time `json:"created_at"`
+	Created_at time.Time `json:"created_at" yaml:"created_at"`
 }
 
 // DiscoveryPhase represents the discovery phase
 type DiscoveryPhase struct {
 	// Can be disabled
-	Enabled bool `json:"enabled"`
+	Enabled bool `json:"enabled" yaml:"enabled"`
 
 	// Discovery type categorization
-	Discovery_type *string `json:"discovery_type,omitempty"`
+	Discovery_type *string `json:"discovery_type,omitempty" yaml:"discovery_type,omitempty"`
 
 	// Discovery artifacts requiring approval
-	Artifacts []Artifact `json:"artifacts"`
+	Artifacts []Artifact `json:"artifacts" yaml:"artifacts"`
 
 	// Phase execution status
-	Status string `json:"status"`
+	Status string `json:"status" yaml:"status"`
 
 	// Timestamps
-	Created_at time.Time `json:"created_at"`
+	Created_at time.Time `json:"created_at" yaml:"created_at"`
 
-	Started_at *time.Time `json:"started_at,omitempty"`
+	Started_at *time.Time `json:"started_at,omitempty" yaml:"started_at,omitempty"`
 
-	Completed_at *time.Time `json:"completed_at,omitempty"`
+	Completed_at *time.Time `json:"completed_at,omitempty" yaml:"completed_at,omitempty"`
 }
 
 // FinalizePhase represents the finalize phase
 type FinalizePhase struct {
 	// Always enabled
-	Enabled bool `json:"enabled"`
+	Enabled bool `json:"enabled" yaml:"enabled"`
 
 	// Documentation files updated
-	Documentation_updates []string `json:"documentation_updates,omitempty"`
+	Documentation_updates []string `json:"documentation_updates,omitempty" yaml:"documentation_updates,omitempty"`
 
 	// Design artifacts moved to knowledge (from→to pairs)
 	Artifacts_moved []struct {
-		From string `json:"from"`
+		From string `json:"from" yaml:"from"`
 
-		To string `json:"to"`
-	} `json:"artifacts_moved,omitempty"`
+		To string `json:"to" yaml:"to"`
+	} `json:"artifacts_moved,omitempty" yaml:"artifacts_moved,omitempty"`
 
 	// Critical gate: must be true before phase completion
-	Project_deleted bool `json:"project_deleted"`
+	Project_deleted bool `json:"project_deleted" yaml:"project_deleted"`
 
 	// Pull request URL (created during finalize)
-	Pr_url *string `json:"pr_url,omitempty"`
+	Pr_url *string `json:"pr_url,omitempty" yaml:"pr_url,omitempty"`
 
 	// Phase execution status
-	Status string `json:"status"`
+	Status string `json:"status" yaml:"status"`
 
 	// Timestamps
-	Created_at time.Time `json:"created_at"`
+	Created_at time.Time `json:"created_at" yaml:"created_at"`
 
-	Started_at *time.Time `json:"started_at,omitempty"`
+	Started_at *time.Time `json:"started_at,omitempty" yaml:"started_at,omitempty"`
 
-	Completed_at *time.Time `json:"completed_at,omitempty"`
+	Completed_at *time.Time `json:"completed_at,omitempty" yaml:"completed_at,omitempty"`
 }
 
 // ImplementationPhase represents the implementation phase
 type ImplementationPhase struct {
 	// Always enabled
-	Enabled bool `json:"enabled"`
+	Enabled bool `json:"enabled" yaml:"enabled"`
 
 	// Whether planner agent was used
-	Planner_used *bool `json:"planner_used,omitempty"`
+	Planner_used *bool `json:"planner_used,omitempty" yaml:"planner_used,omitempty"`
 
 	// Phase execution status
-	Status string `json:"status"`
+	Status string `json:"status" yaml:"status"`
 
 	// Timestamps
-	Created_at time.Time `json:"created_at"`
+	Created_at time.Time `json:"created_at" yaml:"created_at"`
 
-	Started_at *time.Time `json:"started_at,omitempty"`
+	Started_at *time.Time `json:"started_at,omitempty" yaml:"started_at,omitempty"`
 
-	Completed_at *time.Time `json:"completed_at,omitempty"`
+	Completed_at *time.Time `json:"completed_at,omitempty" yaml:"completed_at,omitempty"`
 
 	// Approved task list (gap-numbered)
-	Tasks []Task `json:"tasks"`
+	Tasks []Task `json:"tasks" yaml:"tasks"`
 
 	// Human approval of task plan before autonomous execution
-	Tasks_approved bool `json:"tasks_approved"`
+	Tasks_approved bool `json:"tasks_approved" yaml:"tasks_approved"`
 
 	// Tasks awaiting human approval before execution
-	Pending_task_additions []Task `json:"pending_task_additions,omitempty"`
+	Pending_task_additions []Task `json:"pending_task_additions,omitempty" yaml:"pending_task_additions,omitempty"`
 }
 
 // Task represents an implementation task
 type Task struct {
 	// Gap-numbered ID (010, 020, 030...)
-	Id string `json:"id"`
+	Id string `json:"id" yaml:"id"`
 
 	// Task name
-	Name string `json:"name"`
+	Name string `json:"name" yaml:"name"`
 
 	// Task status
-	Status string `json:"status"`
+	Status string `json:"status" yaml:"status"`
 
 	// Can run in parallel with other tasks
-	Parallel bool `json:"parallel"`
+	Parallel bool `json:"parallel" yaml:"parallel"`
 
 	// Task IDs this task depends on
-	Dependencies []string `json:"dependencies,omitempty"`
+	Dependencies []string `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
 }
 
 // Phase represents common phase fields
 type Phase struct {
 	// Phase execution status
-	Status string `json:"status"`
+	Status string `json:"status" yaml:"status"`
 
 	// Timestamps
-	Created_at time.Time `json:"created_at"`
+	Created_at time.Time `json:"created_at" yaml:"created_at"`
 
-	Started_at *time.Time `json:"started_at,omitempty"`
+	Started_at *time.Time `json:"started_at,omitempty" yaml:"started_at,omitempty"`
 
-	Completed_at *time.Time `json:"completed_at,omitempty"`
+	Completed_at *time.Time `json:"completed_at,omitempty" yaml:"completed_at,omitempty"`
 }
 
 // ReviewPhase represents the review phase
 type ReviewPhase struct {
 	// Always enabled
-	Enabled bool `json:"enabled"`
+	Enabled bool `json:"enabled" yaml:"enabled"`
 
 	// Current review iteration (increments on loop-back)
-	Iteration int64 `json:"iteration"`
+	Iteration int64 `json:"iteration" yaml:"iteration"`
 
 	// Review reports (numbered 001, 002, 003...)
-	Reports []ReviewReport `json:"reports"`
+	Reports []ReviewReport `json:"reports" yaml:"reports"`
 
 	// Phase execution status
-	Status string `json:"status"`
+	Status string `json:"status" yaml:"status"`
 
 	// Timestamps
-	Created_at time.Time `json:"created_at"`
+	Created_at time.Time `json:"created_at" yaml:"created_at"`
 
-	Started_at *time.Time `json:"started_at,omitempty"`
+	Started_at *time.Time `json:"started_at,omitempty" yaml:"started_at,omitempty"`
 
-	Completed_at *time.Time `json:"completed_at,omitempty"`
+	Completed_at *time.Time `json:"completed_at,omitempty" yaml:"completed_at,omitempty"`
 }
 
 // ReviewReport represents a review iteration report
 type ReviewReport struct {
 	// Report ID (001, 002, 003...)
-	Id string `json:"id"`
+	Id string `json:"id" yaml:"id"`
 
 	// Path relative to .sow/project/phases/review/
-	Path string `json:"path"`
+	Path string `json:"path" yaml:"path"`
 
 	// When report was created
-	Created_at time.Time `json:"created_at"`
+	Created_at time.Time `json:"created_at" yaml:"created_at"`
 
 	// Review assessment
-	Assessment string `json:"assessment"`
+	Assessment string `json:"assessment" yaml:"assessment"`
 
 	// Human approval of orchestrator's review
-	Approved bool `json:"approved"`
+	Approved bool `json:"approved" yaml:"approved"`
 }

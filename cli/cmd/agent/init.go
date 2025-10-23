@@ -1,4 +1,4 @@
-package project
+package agent
 
 import (
 	"fmt"
@@ -36,13 +36,13 @@ Requirements:
 
 Examples:
   # Create project manually
-  sow project init my-feature --description "Add authentication feature"
+  sow agent init my-feature --description "Add authentication feature"
 
   # Create project from GitHub issue
-  sow project init --issue 123
+  sow agent init --issue 123
 
   # Create project from issue with custom branch name
-  sow project init --issue 123 --branch-name custom-branch`,
+  sow agent init --issue 123 --branch-name custom-branch`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInit(cmd, args)

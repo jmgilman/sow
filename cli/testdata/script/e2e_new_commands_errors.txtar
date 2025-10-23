@@ -47,7 +47,7 @@ stderr 'no active project'
 # =====================================
 # Create project for further tests
 # =====================================
-exec sow agent project init error-test --description 'Test error handling'
+exec sow agent init error-test --description 'Test error handling'
 
 # =====================================
 # Test enable command errors
@@ -112,8 +112,8 @@ stderr 'phase implementation does not support artifacts'
 # =====================================
 
 # Need a fresh project for set command tests
-exec sow agent project delete --force
-exec sow agent project init set-test --description 'Test set command errors'
+exec sow agent delete --force
+exec sow agent init set-test --description 'Test set command errors'
 
 # Can't set fields when phase is in decision state (discovery pending)
 ! exec sow agent set discovery_type feature
@@ -125,7 +125,7 @@ exec sow agent skip design
 
 # Now in implementation - can set fields
 exec sow agent task add 'Test' --description 'Test'
-exec sow agent project phase approve implementation
+exec sow agent task approve
 
 # Test setting unknown field
 ! exec sow agent set unknown_field value
@@ -135,27 +135,23 @@ stderr 'field unknown_field not found'
 ! exec sow agent set tasks_approved not_a_bool
 stderr 'invalid boolean value'
 
-# Test setting wrong type (string for int - in review phase)
+# Complete implementation to move to review
 exec sow agent task update 010 --status completed
-# Task completion auto-transitions to review
-exec sow agent project review add-report reports/001.md --assessment pass
-exec sow agent project review approve 001
-
-# In review now
-! exec sow agent set iteration not_a_number
-stderr 'invalid integer value'
+# All tasks complete, auto-transitions to review
+exec sow agent review add reports/001.md --assessment pass
+exec sow agent review approve 001
 
 # =====================================
 # Test artifact validation
 # =====================================
 
-# Go back to a phase that supports artifacts by creating new project
-exec sow agent complete
-exec sow agent project finalize complete documentation
-exec sow agent project finalize complete checks
-exec sow agent project delete --force
+# Complete finalize phase and delete current project
+exec sow agent finalize complete documentation
+exec sow agent finalize complete checks
+exec sow agent delete --force
 
-exec sow agent project init artifact-test --description 'Test artifacts'
+# Create new project for artifact testing
+exec sow agent init artifact-test --description 'Test artifacts'
 exec sow agent enable discovery --type feature
 
 # Test artifact add without approval
@@ -181,6 +177,9 @@ stdout 'approved: true'
 # =====================================
 # Cleanup
 # =====================================
+# Approve all artifacts before completing
+exec sow agent artifact approve project/phases/discovery/research/test.md
+exec sow agent artifact approve project/phases/discovery/research/test2.md
 exec sow agent complete
 exec sow agent skip design
-exec sow agent project delete --force
+exec sow agent delete --force

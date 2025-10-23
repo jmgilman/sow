@@ -1,4 +1,4 @@
-package project
+package agent
 
 import (
 	"fmt"
@@ -8,18 +8,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newFinalizeAddDocumentCmd creates the command to track documentation updates.
+// NewFinalizeDocCmd creates the command to track documentation updates.
 //
 // Usage:
-//   sow project finalize add-document <path>
+//   sow agent finalize doc <path>
 //
 // Arguments:
 //   <path>: Path to documentation file (relative to repo root)
 //
 // This command tracks which documentation files were updated during finalization.
-func newFinalizeAddDocumentCmd() *cobra.Command {
+func NewFinalizeDocCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add-document <path>",
+		Use:   "doc <path>",
 		Short: "Track a documentation file update",
 		Long: `Track a documentation file that was updated during finalization.
 
@@ -34,10 +34,10 @@ Common documentation files:
 
 Examples:
   # Track README update
-  sow project finalize add-document README.md
+  sow agent finalize doc README.md
 
   # Track API docs update
-  sow project finalize add-document docs/api/authentication.md`,
+  sow agent finalize doc docs/api/authentication.md`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			docPath := args[0]
@@ -48,7 +48,7 @@ Examples:
 			// Get project
 			proj, err := projectpkg.Load(ctx)
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first")
+				return fmt.Errorf("no active project - run 'sow agent init' first")
 			}
 
 			// Add documentation update (auto-saves)

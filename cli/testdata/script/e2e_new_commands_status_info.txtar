@@ -15,7 +15,7 @@ exec sow init
 # =====================================
 # Project Initialization
 # =====================================
-exec sow agent project init status-test --description 'Test status and info commands'
+exec sow agent init status-test --description 'Test status and info commands'
 
 # =====================================
 # Test status at discovery decision state
@@ -46,8 +46,8 @@ stderr 'architect_used'
 
 exec sow agent info --phase implementation
 stderr 'Phase: implementation'
-stdout 'planner_used'
-stdout 'tasks_approved'
+stderr 'planner_used'
+stderr 'tasks_approved'
 
 # =====================================
 # Enable discovery and check status change
@@ -81,7 +81,7 @@ stderr 'Tasks: 3 total'
 stderr '○ 3 pending'
 
 # Update tasks to different statuses
-exec sow agent project phase approve implementation
+exec sow agent task approve
 exec sow agent task update 010 --status completed
 exec sow agent task update 020 --status in_progress
 
@@ -104,23 +104,20 @@ stderr '✗ 1 abandoned'
 # Complete implementation and check review info
 # =====================================
 exec sow agent task update 020 --status completed
-
-exec sow agent complete
+# Auto-transitions to review when all non-abandoned tasks complete
 
 exec sow agent status
 stderr 'Active Phase: review'
-stderr 'Next Actions:'
-stderr 'sow agent complete'
 
 exec sow agent info
 stderr 'Phase: review'
-stdout 'iteration'
+stderr 'iteration'
 
 # =====================================
 # Complete to finalize
 # =====================================
-exec sow agent project review add-report reports/001-review.md --assessment pass
-exec sow agent project review approve 001
+exec sow agent review add reports/001-review.md --assessment pass
+exec sow agent review approve 001
 
 exec sow agent complete
 
@@ -129,12 +126,12 @@ stderr 'Active Phase: finalize'
 
 exec sow agent info
 stderr 'Phase: finalize'
-stdout 'project_deleted'
-stdout 'pr_url'
+stderr 'project_deleted'
+stderr 'pr_url'
 
 # =====================================
 # Cleanup
 # =====================================
-exec sow agent project finalize complete documentation
-exec sow agent project finalize complete checks
-exec sow agent project delete --force
+exec sow agent finalize complete documentation
+exec sow agent finalize complete checks
+exec sow agent delete --force

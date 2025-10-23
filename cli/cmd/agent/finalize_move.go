@@ -1,4 +1,4 @@
-package project
+package agent
 
 import (
 	"fmt"
@@ -8,19 +8,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newFinalizeMoveArtifactCmd creates the command to record moved artifacts.
+// NewFinalizeMoveCmd creates the command to record moved artifacts.
 //
 // Usage:
-//   sow project finalize move-artifact <from> <to>
+//   sow agent finalize move <from> <to>
 //
 // Arguments:
 //   <from>: Source path (relative to .sow/project/)
 //   <to>: Destination path (relative to .sow/)
 //
 // This command tracks artifacts moved from project directory to knowledge directory.
-func newFinalizeMoveArtifactCmd() *cobra.Command {
+func NewFinalizeMoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "move-artifact <from> <to>",
+		Use:   "move <from> <to>",
 		Short: "Record an artifact moved to knowledge",
 		Long: `Record an artifact that was moved from project to knowledge directory.
 
@@ -36,10 +36,10 @@ Common artifact moves:
 
 Examples:
   # Move ADR to knowledge
-  sow project finalize move-artifact phases/design/adrs/001-use-jwt.md knowledge/adrs/001-use-jwt.md
+  sow agent finalize move phases/design/adrs/001-use-jwt.md knowledge/adrs/001-use-jwt.md
 
   # Move design doc to architecture
-  sow project finalize move-artifact phases/design/design-docs/auth-system.md knowledge/architecture/auth-system.md`,
+  sow agent finalize move phases/design/design-docs/auth-system.md knowledge/architecture/auth-system.md`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fromPath := args[0]
@@ -51,7 +51,7 @@ Examples:
 			// Get project
 			proj, err := projectpkg.Load(ctx)
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first")
+				return fmt.Errorf("no active project - run 'sow agent init' first")
 			}
 
 			// Record moved artifact (auto-saves)

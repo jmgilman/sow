@@ -16,7 +16,7 @@ stderr '✓ sow initialized successfully'
 # =====================================
 # Project Initialization (legacy command)
 # =====================================
-exec sow agent project init new-cmd-test --description 'Test new simplified commands'
+exec sow agent init new-cmd-test --description 'Test new simplified commands'
 stderr '✓ Initialized project'
 
 # =====================================
@@ -68,8 +68,8 @@ exec sow agent task add 'Test task' --description 'Test the new commands'
 stderr '✓ Created task 010'
 
 # Approve task plan
-exec sow agent project phase approve implementation
-stderr '✓ Approved implementation phase plan'
+exec sow agent task approve
+stderr '✓ Approved task plan'
 
 # Check status shows task count
 exec sow agent status
@@ -99,9 +99,9 @@ stderr '✗ Tasks'
 # =====================================
 # Review Phase (legacy commands for adding reports)
 # =====================================
-exec sow agent project review add-report reports/001-review.md --assessment pass
+exec sow agent review add reports/001-review.md --assessment pass
 stderr '✓ Added review report 001'
-exec sow agent project review approve 001
+exec sow agent review approve 001
 stderr '✓ Approved review report 001'
 
 # =====================================
@@ -117,15 +117,15 @@ stderr 'Active Phase: finalize'
 # =====================================
 # Finalize Phase (legacy commands)
 # =====================================
-exec sow agent project finalize complete documentation
+exec sow agent finalize complete documentation
 stderr '✓ Completed documentation subphase'
-exec sow agent project finalize complete checks
+exec sow agent finalize complete checks
 stderr '✓ Completed checks subphase'
 
 # =====================================
 # Project Deletion (legacy command)
 # =====================================
-exec sow agent project delete --force
+exec sow agent delete --force
 stderr 'Deleted project'
 
 # Verify project removed

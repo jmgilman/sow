@@ -83,7 +83,20 @@ func (t *Task) SetStatus(status string) error {
 		return err
 	}
 
+	taskState.Task.Status = status
 	taskState.Task.Updated_at = time.Now()
+
+	// Set timestamps based on status
+	now := time.Now()
+	if status == "in_progress" && taskState.Task.Started_at == nil {
+		taskState.Task.Started_at = &now
+	}
+	if (status == "completed" || status == "abandoned") && taskState.Task.Completed_at == nil {
+		taskState.Task.Completed_at = &now
+		if taskState.Task.Started_at == nil {
+			taskState.Task.Started_at = &now
+		}
+	}
 
 	statePath := filepath.Join("project/phases/implementation/tasks", t.id, "state.yaml")
 	if err := t.project.writeYAML(statePath, taskState); err != nil {
@@ -99,10 +112,21 @@ func (t *Task) SetStatus(status string) error {
 		}
 	}
 
-	// If all complete, fire state machine event
+	// If all complete, mark implementation as complete and fire state machine event
 	if allComplete && status == "completed" {
-		_ = t.project.machine.Fire(statechart.EventAllTasksComplete)
-		// Don't fail the operation if transition fails
+		now := time.Now()
+		projectState.Phases.Implementation.Status = "completed"
+		projectState.Phases.Implementation.Completed_at = &now
+
+		// Fire state machine event to transition to review
+		if err := t.project.machine.Fire(statechart.EventAllTasksComplete); err == nil {
+			// Transition succeeded - set review phase status
+			projectState.Phases.Review.Status = "in_progress"
+			if projectState.Phases.Review.Started_at == nil {
+				projectState.Phases.Review.Started_at = &now
+			}
+		}
+		// Silently ignore transition errors - task status update should still succeed
 	}
 
 	// Auto-save project state

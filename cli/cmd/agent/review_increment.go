@@ -1,4 +1,4 @@
-package project
+package agent
 
 import (
 	"fmt"
@@ -8,15 +8,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newReviewIncrementCmd creates the command to increment review iteration.
+// NewReviewIncrementCmd creates the command to increment review iteration.
 //
 // Usage:
-//   sow project review increment
+//   sow agent review increment
 //
 // This command increments the review iteration counter when looping back
 // from review to implementation. The counter tracks how many review cycles
 // have occurred.
-func newReviewIncrementCmd() *cobra.Command {
+func NewReviewIncrementCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "increment",
 		Short: "Increment review iteration counter",
@@ -30,7 +30,7 @@ to implementation phase from review.
 
 Example:
   # Increment review iteration before loop-back
-  sow project review increment`,
+  sow agent review increment`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Get Sow from context
@@ -39,7 +39,7 @@ Example:
 			// Get project
 			proj, err := projectpkg.Load(ctx)
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first")
+				return fmt.Errorf("no active project - run 'sow agent init' first")
 			}
 
 			// Get current iteration before incrementing

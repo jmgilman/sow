@@ -1,4 +1,4 @@
-package project
+package agent
 
 import (
 	"bufio"
@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newCreatePRCmd creates the command to create a pull request.
-func newCreatePRCmd() *cobra.Command {
+// NewCreatePRCmd creates the command to create a pull request.
+func NewCreatePRCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create-pr",
 		Short: "Create a pull request for the project",
@@ -30,13 +30,13 @@ The orchestrator should write a summary of the changes and provide it as the bod
 
 Examples:
   # Provide body via flag
-  sow project create-pr --body "## Summary\n\nImplemented authentication system..."
+  sow agent create-pr --body "## Summary\n\nImplemented authentication system..."
 
   # Provide body via stdin
-  echo "## Summary\n\nImplemented authentication..." | sow project create-pr
+  echo "## Summary\n\nImplemented authentication..." | sow agent create-pr
 
   # Provide body from file
-  cat pr-description.md | sow project create-pr
+  cat pr-description.md | sow agent create-pr
 
 Prerequisites:
   - GitHub CLI (gh) installed and authenticated

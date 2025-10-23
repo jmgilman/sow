@@ -21,9 +21,9 @@ stderr 'No active project'
 # =====================================
 # Project Initialization
 # =====================================
-exec sow agent project init logging-project --description 'Test logging'
-exec sow agent project phase skip discovery
-exec sow agent project phase skip design
+exec sow agent init logging-project --description 'Test logging'
+exec sow agent skip discovery
+exec sow agent skip design
 
 # =====================================
 # Session Info - With Project
@@ -106,14 +106,16 @@ stderr '010'
 # Complete Workflow
 # =====================================
 cd $WORK
-exec sow agent project phase approve implementation
+exec sow agent task approve
 exec sow agent task update 010 --status in_progress
 exec sow agent task update 010 --status completed
-exec sow agent project review add-report reports/001.md --assessment pass
-exec sow agent project review approve 001
-exec sow agent project finalize complete documentation
-exec sow agent project finalize complete checks
-exec sow agent project delete --force
+exec mkdir -p .sow/project/phases/review/reports
+exec sh -c 'echo "# Review" > .sow/project/phases/review/reports/001.md'
+exec sow agent review add reports/001.md --assessment pass
+exec sow agent review approve 001
+exec sow agent finalize complete documentation
+exec sow agent finalize complete checks
+exec sow agent delete --force
 
 # =====================================
 # Final Verification

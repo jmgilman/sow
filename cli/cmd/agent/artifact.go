@@ -21,11 +21,15 @@ such as research documents, architecture diagrams, and design notes.
 All artifact commands operate on the currently active phase - no need to specify --phase.
 
 Available subcommands:
-  add    Add an artifact to the active phase`,
+  add       Add an artifact to the active phase
+  approve   Approve an artifact
+  list      List all artifacts`,
 	}
 
 	// Add subcommands
 	cmd.AddCommand(NewArtifactAddCmd())
+	cmd.AddCommand(NewArtifactApproveCmd())
+	cmd.AddCommand(NewArtifactListCmd())
 
 	return cmd
 }

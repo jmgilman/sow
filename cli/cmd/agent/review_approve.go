@@ -1,4 +1,4 @@
-package project
+package agent
 
 import (
 	"fmt"
@@ -8,14 +8,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newReviewApproveCmd creates the command to approve a review report.
+// NewReviewApproveCmd creates the command to approve a review report.
 //
 // Usage:
-//   sow project review approve <report-id>
+//   sow agent review approve <report-id>
 //
 // Approves the orchestrator's review assessment and triggers the state transition
 // based on the assessment (pass → finalize, fail → back to implementation).
-func newReviewApproveCmd() *cobra.Command {
+func NewReviewApproveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "approve <report-id>",
 		Short: "Approve a review report",
@@ -30,10 +30,10 @@ Transitions based on assessment:
 
 Example:
   # Approve the latest review report
-  sow project review approve 001
+  sow agent review approve 001
 
   # Approve a specific review report
-  sow project review approve 002`,
+  sow agent review approve 002`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reportID := args[0]
@@ -44,7 +44,7 @@ Example:
 			// Get project
 			project, err := projectpkg.Load(ctx)
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow project init' first")
+				return fmt.Errorf("no active project - run 'sow agent init' first")
 			}
 
 			// Approve review (handles validation, state machine transitions)

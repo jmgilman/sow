@@ -1,4 +1,4 @@
-package project
+package agent
 
 import (
 	"bufio"
@@ -28,8 +28,8 @@ Warning: This action cannot be undone. The project state will be permanently
 deleted from the working directory (though it remains in git history).
 
 Example:
-  sow project delete
-  sow project delete --force`,
+  sow agent delete
+  sow agent delete --force`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDelete(cmd, args)
 		},
