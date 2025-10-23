@@ -1,10 +1,12 @@
 package task
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/spf13/cobra"
 )
 
@@ -36,15 +38,28 @@ Example:
 			// Get Sow from context
 			ctx := cmdutil.GetContext(cmd.Context())
 
-			// Get project
-			project, err := projectpkg.Load(ctx)
+			// Load project via loader to get interface
+			proj, err := loader.Load(ctx)
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow agent init' first")
+				if errors.Is(err, project.ErrNoProject) {
+					return fmt.Errorf("no active project - run 'sow agent init' first")
+				}
+				return fmt.Errorf("failed to load project: %w", err)
 			}
 
-			// Approve tasks (handles validation, state machine transitions)
-			if err := project.ApproveTasks(); err != nil {
-				return err
+			// Get current phase
+			phase := proj.CurrentPhase()
+			if phase == nil {
+				return fmt.Errorf("no active phase found")
+			}
+
+			// Approve tasks via Phase interface
+			err = phase.ApproveTasks()
+			if errors.Is(err, project.ErrNotSupported) {
+				return fmt.Errorf("phase %s does not support task approval", phase.Name())
+			}
+			if err != nil {
+				return fmt.Errorf("failed to approve tasks: %w", err)
 			}
 
 			cmd.Printf("\n✓ Approved task plan\n")

@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	sowexec "github.com/jmgilman/sow/cli/internal/exec"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/jmgilman/sow/cli/internal/prompts"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
@@ -125,20 +125,20 @@ func detectGreetContext(sowCtx *sow.Context) *prompts.GreetContext {
 		}
 	}
 
-	if !projectpkg.Exists(sowCtx) {
+	if !loader.Exists(sowCtx) {
 		return ctx
 	}
 
 	ctx.HasProject = true
 
 	// Load project
-	project, err := projectpkg.Load(sowCtx)
+	project, err := loader.Load(sowCtx)
 	if err != nil {
 		// Log error but continue with hasProject=false
 		return &prompts.GreetContext{SowInitialized: true}
 	}
 
-	state := project.State()
+	state := project.Machine().ProjectState()
 
 	// Build project context
 	projCtx := &prompts.ProjectGreetContext{

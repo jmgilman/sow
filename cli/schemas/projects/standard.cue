@@ -42,19 +42,19 @@ import (
 	// 5-phase structure (composing reusable phase definitions)
 	phases: {
 		// Phase 1: Discovery (optional, human-led)
-		discovery: p.#DiscoveryPhase
+		discovery: p.#Phase
 
 		// Phase 2: Design (optional, human-led)
-		design: p.#DesignPhase
+		design: p.#Phase
 
 		// Phase 3: Implementation (required, AI-autonomous)
-		implementation: p.#ImplementationPhase
+		implementation: p.#Phase
 
 		// Phase 4: Review (required, AI-autonomous)
-		review: p.#ReviewPhase
+		review: p.#Phase
 
 		// Phase 5: Finalize (required, AI-autonomous)
-		finalize: p.#FinalizePhase
+		finalize: p.#Phase
 	}
 }
 

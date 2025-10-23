@@ -1,10 +1,12 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/spf13/cobra"
 )
 
@@ -38,32 +40,27 @@ Example:
 			// Get context
 			ctx := cmdutil.GetContext(cmd.Context())
 
-			// Load project
-			project, err := projectpkg.Load(ctx)
+			// Load project via loader to get interface
+			proj, err := loader.Load(ctx)
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow agent project init' first")
+				if errors.Is(err, project.ErrNoProject) {
+					return fmt.Errorf("no active project - run 'sow agent init' first")
+				}
+				return fmt.Errorf("failed to load project: %w", err)
 			}
 
-			// Determine active phase
-			state := project.State()
-			activePhase, phaseStatus := projectpkg.DetermineActivePhase(state)
-
-			if activePhase == "unknown" {
+			// Get current phase
+			phase := proj.CurrentPhase()
+			if phase == nil {
 				return fmt.Errorf("no active phase found - project may be complete")
 			}
 
-			// Validate we're in an active state (not a decision state)
-			// Only optional phases (discovery, design) have decision states
-			if phaseStatus == "pending" && (activePhase == "discovery" || activePhase == "design") {
-				return fmt.Errorf("phase %s is in decision state - enable or skip it first", activePhase)
+			// Complete the phase via Phase interface
+			if err := phase.Complete(); err != nil {
+				return fmt.Errorf("failed to complete phase: %w", err)
 			}
 
-			// Complete the phase
-			if err := project.CompletePhase(activePhase); err != nil {
-				return fmt.Errorf("failed to complete %s phase: %w", activePhase, err)
-			}
-
-			cmd.Printf("\n✓ Completed %s phase\n", activePhase)
+			cmd.Printf("\n✓ Completed %s phase\n", phase.Name())
 			return nil
 		},
 	}

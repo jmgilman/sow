@@ -28,20 +28,14 @@ Project lifecycle:
   - create-pr: Create a pull request
 
 Phase management (work on implicit active phase):
-  - enable: Enable an optional phase
-  - skip: Skip an optional phase
   - complete: Complete the active phase
+  - skip: Skip the active phase
+  - enable: Enable a specific phase
   - status: Show current project status
   - info: Show phase information
 
 Artifact management:
   - artifact: Manage artifacts (add, approve, list)
-
-Review management:
-  - review: Manage review phase (add, approve, increment)
-
-Finalize management:
-  - finalize: Manage finalize phase (complete, doc, move)
 
 Utilities:
   - set: Set custom fields on active phase`,
@@ -57,20 +51,14 @@ Utilities:
 	cmd.AddCommand(NewCreatePRCmd())
 
 	// Phase management (implicit active phase)
-	cmd.AddCommand(NewEnableCmd())
-	cmd.AddCommand(NewSkipCmd())
 	cmd.AddCommand(NewCompleteCmd())
+	cmd.AddCommand(NewSkipCmd())
+	cmd.AddCommand(NewEnableCmd())
 	cmd.AddCommand(NewStatusCmd())
 	cmd.AddCommand(NewInfoCmd())
 
 	// Artifact management
 	cmd.AddCommand(NewArtifactCmd())
-
-	// Review management
-	cmd.AddCommand(NewReviewCmd())
-
-	// Finalize management
-	cmd.AddCommand(NewFinalizeCmd())
 
 	// Task management
 	cmd.AddCommand(task.NewTaskCmd())

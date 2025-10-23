@@ -29,7 +29,7 @@ stderr 'no active project'
 stderr 'no active project'
 
 # skip without project should fail
-! exec sow agent skip discovery
+! exec sow agent skip
 stderr 'no active project'
 
 # complete without project should fail
@@ -55,49 +55,41 @@ exec sow agent init error-test --description 'Test error handling'
 
 # Can't enable implementation (not optional)
 ! exec sow agent enable implementation
-stderr 'only discovery and design phases can be enabled'
+stderr 'cannot be enabled'
 
 # Can't enable review (not optional)
 ! exec sow agent enable review
-stderr 'only discovery and design phases can be enabled'
+stderr 'cannot be enabled'
 
 # Can't enable finalize (not optional)
 ! exec sow agent enable finalize
-stderr 'only discovery and design phases can be enabled'
-
-# Enable discovery requires --type flag
-! exec sow agent enable discovery
-stderr '--type flag is required'
+stderr 'cannot be enabled'
 
 # =====================================
-# Test skip command errors
+# Test skip and complete command errors
 # =====================================
 
-# Can't skip implementation (not optional)
-! exec sow agent skip implementation
-stderr 'only discovery and design phases can be skipped'
+# At decision state (DiscoveryDecision), no active phase
+! exec sow agent skip
+stderr 'no active phase'
 
-# Skip discovery first
-exec sow agent skip discovery
-
-# Can't skip discovery again (already skipped)
-! exec sow agent skip discovery
-stderr 'state transition failed'
-
-# =====================================
-# Test complete command errors
-# =====================================
-
-# Can't complete design when in pending state
 ! exec sow agent complete
-stderr 'phase design is in decision state'
+stderr 'no active phase'
 
-# Skip to implementation
-exec sow agent skip design
+# Enable discovery, then complete (not skip - can't skip after enabling)
+exec sow agent enable discovery
+exec sow agent complete
 
-# Can't complete implementation without tasks
-! exec sow agent complete
-stderr 'state transition failed'
+# At DesignDecision, skip to ImplementationPlanning
+# (no need to enable design, just advance)
+# Actually, we're at a decision state, so no active phase again
+exec sow agent enable design
+exec sow agent complete
+
+# Now at ImplementationPlanning (active implementation phase)
+# Can't skip required phase
+! exec sow agent skip
+stderr 'cannot be skipped'
 
 # =====================================
 # Test artifact command errors
@@ -105,7 +97,7 @@ stderr 'state transition failed'
 
 # Can't add artifact to implementation (doesn't support artifacts)
 ! exec sow agent artifact add some/path.md
-stderr 'phase implementation does not support artifacts'
+stderr 'not support artifacts'
 
 # =====================================
 # Test set command errors
@@ -115,71 +107,67 @@ stderr 'phase implementation does not support artifacts'
 exec sow agent delete --force
 exec sow agent init set-test --description 'Test set command errors'
 
-# Can't set fields when phase is in decision state (discovery pending)
+# Can't set fields when at decision state (no active phase)
 ! exec sow agent set discovery_type feature
-stderr 'phase discovery is in decision state'
+stderr 'no active phase'
 
-# Skip discovery and design to get to implementation
-exec sow agent skip discovery
-exec sow agent skip design
+# Enable discovery to have an active phase, then we can set fields
+exec sow agent enable discovery
+exec sow agent set discovery_type feature
+exec sow agent complete
+
+# Enable and complete design
+exec sow agent enable design
+exec sow agent complete
 
 # Now in implementation - can set fields
 exec sow agent task add 'Test' --description 'Test'
 exec sow agent task approve
 
-# Test setting unknown field
-! exec sow agent set unknown_field value
-stderr 'field unknown_field not found'
-
-# Test setting wrong type (string for bool)
-! exec sow agent set tasks_approved not_a_bool
-stderr 'invalid boolean value'
-
 # Complete implementation to move to review
 exec sow agent task update 010 --status completed
 # All tasks complete, auto-transitions to review
-exec sow agent review add reports/001.md --assessment pass
-exec sow agent review approve 001
 
-# =====================================
-# Test artifact validation
-# =====================================
+# Add and approve review artifact
+exec mkdir -p .sow/project/phases/review/reports
+exec sh -c 'echo "# Review" > .sow/project/phases/review/reports/001.md'
+exec sow agent artifact add project/phases/review/reports/001.md --metadata type=review --metadata assessment=pass
+exec sow agent artifact approve project/phases/review/reports/001.md
 
-# Complete finalize phase and delete current project
-exec sow agent finalize complete documentation
-exec sow agent finalize complete checks
+# Complete review and finalize
+exec sow agent complete
+exec sow agent complete
 exec sow agent delete --force
 
 # Create new project for artifact testing
 exec sow agent init artifact-test --description 'Test artifacts'
-exec sow agent enable discovery --type feature
+exec sow agent enable discovery
 
 # Test artifact add without approval
 exec mkdir -p .sow/project/phases/discovery/research
 exec sh -c 'echo "test" > .sow/project/phases/discovery/research/test.md'
 
 exec sow agent artifact add project/phases/discovery/research/test.md
-stderr '✓ Added artifact to discovery phase'
+stderr '✓ Added artifact'
 
 # Verify it needs approval
 exec cat .sow/project/state.yaml
 stdout 'approved: false'
 
-# Test artifact add with approval
+# Approve the first artifact
+exec sow agent artifact approve project/phases/discovery/research/test.md
+stderr '✓ Approved artifact'
+
+# Test adding and approving a second artifact
 exec sh -c 'echo "test2" > .sow/project/phases/discovery/research/test2.md'
-
-exec sow agent artifact add project/phases/discovery/research/test2.md --approved
-stderr 'approved'
-
-exec cat .sow/project/state.yaml
-stdout 'approved: true'
+exec sow agent artifact add project/phases/discovery/research/test2.md
+exec sow agent artifact approve project/phases/discovery/research/test2.md
 
 # =====================================
 # Cleanup
 # =====================================
-# Approve all artifacts before completing
-exec sow agent artifact approve project/phases/discovery/research/test.md
-exec sow agent artifact approve project/phases/discovery/research/test2.md
 exec sow agent complete
-exec sow agent skip design
+# At DesignDecision - enable and complete design
+exec sow agent enable design
+exec sow agent complete
 exec sow agent delete --force

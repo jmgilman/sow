@@ -1,81 +1,83 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
-	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/spf13/cobra"
 )
 
-// NewEnableCmd creates the command to enable an optional phase.
+// NewEnableCmd creates the command to enable a specific phase.
 //
 // Usage:
 //
-//	sow agent enable <phase>
+//	sow agent enable <phase-name>
 //
-// Only discovery and design phases can be enabled (they are optional).
-// Implementation, review, and finalize are always required and cannot be manually enabled.
+// Enables an optional phase that would otherwise be skipped.
 func NewEnableCmd() *cobra.Command {
-	var discoveryType string
-
 	cmd := &cobra.Command{
-		Use:   "enable <phase>",
+		Use:   "enable <phase-name>",
 		Short: "Enable an optional phase",
-		Long: `Enable an optional phase (discovery or design).
+		Long: `Enable an optional phase that would otherwise be skipped.
 
-Only discovery and design phases can be enabled as they are optional.
-Implementation, review, and finalize phases are always required and cannot be manually enabled.
+This command enables optional phases in the project workflow:
+  - discovery: Enable discovery phase for research and planning
+  - design: Enable design phase for architecture and design work
 
-When enabling discovery, you must specify the type using --type flag.
+Required phases are always enabled and cannot be explicitly enabled:
+  - implementation: Always enabled
+  - review: Always enabled
+  - finalize: Always enabled
+
+The phase will be activated and its status set to 'in_progress'.
 
 Example:
   # Enable discovery phase
-  sow agent enable discovery --type feature
+  sow agent enable discovery
 
   # Enable design phase
   sow agent enable design`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			phase := args[0]
-
-			// Validate phase
-			if phase != "discovery" && phase != "design" {
-				return fmt.Errorf("only discovery and design phases can be enabled (got: %s)", phase)
-			}
+			phaseName := args[0]
 
 			// Get context
 			ctx := cmdutil.GetContext(cmd.Context())
 
-			// Load project
-			project, err := projectpkg.Load(ctx)
+			// Load project via loader to get interface
+			proj, err := loader.Load(ctx)
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow agent project init' first")
-			}
-
-			// Build options based on phase
-			var opts []sow.PhaseOption
-
-			if phase == "discovery" {
-				if discoveryType == "" {
-					return fmt.Errorf("--type flag is required when enabling discovery phase")
+				if errors.Is(err, project.ErrNoProject) {
+					return fmt.Errorf("no active project - run 'sow agent init' first")
 				}
-				opts = append(opts, sow.WithDiscoveryType(discoveryType))
+				return fmt.Errorf("failed to load project: %w", err)
 			}
 
-			// Enable the phase
-			if err := project.EnablePhase(phase, opts...); err != nil {
-				return fmt.Errorf("failed to enable %s phase: %w", phase, err)
+			// Get the phase by name
+			phase, err := proj.Phase(phaseName)
+			if err != nil {
+				if errors.Is(err, project.ErrPhaseNotFound) {
+					return fmt.Errorf("phase %s not found - available phases depend on project type", phaseName)
+				}
+				return fmt.Errorf("failed to get phase: %w", err)
 			}
 
-			cmd.Printf("\n✓ Enabled %s phase\n", phase)
+			// Enable the phase via Phase interface
+			err = phase.Enable()
+			if errors.Is(err, project.ErrNotSupported) {
+				return fmt.Errorf("phase %s cannot be enabled (always enabled or not applicable)", phaseName)
+			}
+			if err != nil {
+				return fmt.Errorf("failed to enable phase: %w", err)
+			}
+
+			cmd.Printf("\n✓ Enabled %s phase\n", phaseName)
 			return nil
 		},
 	}
-
-	// Add flags
-	cmd.Flags().StringVar(&discoveryType, "type", "", "Discovery type (bug, feature, docs, refactor, general) - required for discovery phase")
 
 	return cmd
 }

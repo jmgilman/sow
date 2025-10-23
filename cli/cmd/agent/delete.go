@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/spf13/cobra"
 )
 
@@ -48,7 +48,7 @@ func runDelete(cmd *cobra.Command, _ []string) error {
 	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Load project to retrieve name for confirmation
-	proj, err := projectpkg.Load(ctx)
+	proj, err := loader.Load(ctx)
 	if err != nil {
 		return fmt.Errorf("no active project found - nothing to delete")
 	}
@@ -75,7 +75,7 @@ func runDelete(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Delete project (handles state machine transition and cleanup)
-	if err := projectpkg.Delete(ctx); err != nil {
+	if err := loader.Delete(ctx); err != nil {
 		return fmt.Errorf("failed to delete project: %w", err)
 	}
 

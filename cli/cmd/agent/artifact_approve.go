@@ -1,10 +1,12 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +23,7 @@ func NewArtifactApproveCmd() *cobra.Command {
 		Short: "Approve an artifact on the active phase",
 		Long: `Approve an artifact on the currently active phase.
 
-The active phase must support artifacts (discovery and design phases do).
+The active phase must support artifacts (discovery, design, and review phases do).
 The artifact must already exist in the phase.
 
 Example:
@@ -33,37 +35,27 @@ Example:
 			// Get context
 			ctx := cmdutil.GetContext(cmd.Context())
 
-			// Load project
-			project, err := projectpkg.Load(ctx)
+			// Load project via loader to get interface
+			proj, err := loader.Load(ctx)
 			if err != nil {
-				return fmt.Errorf("no active project - run 'sow agent init' first")
+				if errors.Is(err, project.ErrNoProject) {
+					return fmt.Errorf("no active project - run 'sow agent init' first")
+				}
+				return fmt.Errorf("failed to load project: %w", err)
 			}
 
-			// Determine active phase
-			state := project.State()
-			activePhase, phaseStatus := projectpkg.DetermineActivePhase(state)
-
-			if activePhase == "unknown" {
+			// Get current phase
+			phase := proj.CurrentPhase()
+			if phase == nil {
 				return fmt.Errorf("no active phase found")
 			}
 
-			// Get phase metadata to validate artifacts are supported
-			metadata, err := projectpkg.GetPhaseMetadata(activePhase)
+			// Approve artifact via Phase interface
+			err = phase.ApproveArtifact(path)
+			if errors.Is(err, project.ErrNotSupported) {
+				return fmt.Errorf("phase %s does not support artifacts", phase.Name())
+			}
 			if err != nil {
-				return fmt.Errorf("failed to get phase metadata: %w", err)
-			}
-
-			if !metadata.SupportsArtifacts {
-				return fmt.Errorf("phase %s does not support artifacts", activePhase)
-			}
-
-			// Validate we're in an active state (not a decision state)
-			if phaseStatus == "pending" {
-				return fmt.Errorf("phase %s is in decision state - enable it first", activePhase)
-			}
-
-			// Approve artifact
-			if err := project.ApproveArtifact(activePhase, path); err != nil {
 				return fmt.Errorf("failed to approve artifact: %w", err)
 			}
 

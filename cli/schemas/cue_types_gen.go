@@ -170,25 +170,12 @@ type RefsLocalIndex struct {
 
 type StandardProjectState projects.StandardProjectState
 
-// Re-export phase types for backward compatibility
-type DiscoveryPhase phases.DiscoveryPhase
-
-type DesignPhase phases.DesignPhase
-
-type ImplementationPhase phases.ImplementationPhase
-
-type ReviewPhase phases.ReviewPhase
-
-type FinalizePhase phases.FinalizePhase
-
 // Re-export common types
 type Phase phases.Phase
 
 type Artifact phases.Artifact
 
 type Task phases.Task
-
-type ReviewReport phases.ReviewReport
 
 // TaskState defines the schema for task state files at:
 // .sow/project/phases/implementation/tasks/<id>/state.yaml

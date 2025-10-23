@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/spf13/cobra"
 )
 
@@ -60,7 +60,7 @@ func runCreatePR(cmd *cobra.Command, _ []string) error {
 	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Get project
-	project, err := projectpkg.Load(ctx)
+	project, err := loader.Load(ctx)
 	if err != nil {
 		return fmt.Errorf("no active project found")
 	}

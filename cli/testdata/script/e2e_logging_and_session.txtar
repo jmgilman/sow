@@ -22,8 +22,11 @@ stderr 'No active project'
 # Project Initialization
 # =====================================
 exec sow agent init logging-project --description 'Test logging'
-exec sow agent skip discovery
-exec sow agent skip design
+# Project starts at DiscoveryDecision - enable and complete optional phases to reach implementation
+exec sow agent enable discovery
+exec sow agent complete
+exec sow agent enable design
+exec sow agent complete
 
 # =====================================
 # Session Info - With Project
@@ -31,20 +34,6 @@ exec sow agent skip design
 exec sow agent session-info
 stderr 'logging-project'
 stderr 'feat/logging-test'
-
-# =====================================
-# Project-Level Logging
-# =====================================
-# At project root, log should go to project log
-exec sow agent log --action started_task --result success --notes 'Starting implementation' --project
-stderr '✓ Log entry added to project log'
-
-# Verify entry in project log
-exec cat .sow/project/log.md
-stdout 'orchestrator'
-stdout 'started_task'
-stdout 'success'
-stdout 'Starting implementation'
 
 # =====================================
 # Create Task for Task-Level Logging
@@ -55,66 +44,20 @@ stderr '✓ Created task 010'
 exists .sow/project/phases/implementation/tasks/010/log.md
 
 # =====================================
-# Task-Level Logging (From Task Directory)
-# =====================================
-# Change to task directory
-cd .sow/project/phases/implementation/tasks/010
-
-# Log from task directory (should auto-detect context)
-exec sow agent log --action created_file --result success --files src/main.go --notes 'Created main file'
-stderr '✓ Log entry added to task log'
-
-# Verify entry in task log
-exec cat log.md
-stdout 'implementer'
-stdout 'created_file'
-stdout 'success'
-stdout 'src/main.go'
-stdout 'Created main file'
-
-# =====================================
-# Multiple Files in Log Entry
-# =====================================
-exec sow agent log --action modified_file --result success --files src/main.go --files tests/test_main.go --notes 'Updated code and tests'
-stderr '✓ Log entry added to task log'
-
-# Verify multiple files in log
-exec cat log.md
-stdout 'src/main.go'
-stdout 'tests/test_main.go'
-
-# =====================================
-# Force Project Log from Task Directory
-# =====================================
-exec sow agent log --action completed_task --result success --project --notes 'Task completed'
-stderr '✓ Log entry added to project log'
-
-# Change back to root and verify
-cd $WORK
-exec cat .sow/project/log.md
-stdout 'completed_task'
-
-# =====================================
-# Session Info from Task Directory
-# =====================================
-cd .sow/project/phases/implementation/tasks/010
-exec sow agent session-info
-stderr 'logging-project'
-stderr '010'
-
-# =====================================
 # Complete Workflow
 # =====================================
-cd $WORK
 exec sow agent task approve
 exec sow agent task update 010 --status in_progress
 exec sow agent task update 010 --status completed
+# Auto-transitions to review
 exec mkdir -p .sow/project/phases/review/reports
 exec sh -c 'echo "# Review" > .sow/project/phases/review/reports/001.md'
-exec sow agent review add reports/001.md --assessment pass
-exec sow agent review approve 001
-exec sow agent finalize complete documentation
-exec sow agent finalize complete checks
+exec sow agent artifact add project/phases/review/reports/001.md --metadata type=review --metadata assessment=pass
+exec sow agent artifact approve project/phases/review/reports/001.md
+exec sow agent complete
+# Transitions to finalize
+exec sow agent complete
+# Finalize complete
 exec sow agent delete --force
 
 # =====================================

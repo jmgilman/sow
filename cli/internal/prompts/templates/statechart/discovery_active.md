@@ -18,9 +18,9 @@ CURRENT STATUS:
 
 NEXT ACTIONS:
   1. Create research artifacts as needed
-  2. Register artifacts: sow agent project artifact add <path> --phase discovery
-  3. Request human approval for each artifact
-  4. When all approved: sow agent project phase complete discovery
+  2. Register artifacts: sow agent artifact add <path>
+  3. Request human approval for each artifact: sow agent artifact approve <path>
+  4. When all approved: sow agent complete
 
 Reference: PHASES/DISCOVERY.md
 

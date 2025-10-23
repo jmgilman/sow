@@ -44,11 +44,12 @@ RECOMMENDED PHRASING:
 
 NEXT ACTION:
   If discovery needed:
-    sow agent project phase enable discovery --type <bug|feature|docs|refactor|general>
+    - Enable discovery phase and set discovery type via metadata
+    - Use: sow agent set discovery_type <bug|feature|docs|refactor|general>
 
   If discovery not needed:
-    sow agent project phase skip discovery
-    (Will auto-transition to design decision)
+    - Skip discovery phase (orchestrator handles state transition)
+    - Will auto-transition to design decision
 
 Reference: PROJECT_LIFECYCLE.md (Discovery Rubric)
 

@@ -2,14 +2,14 @@
 package task
 
 import (
-	projectpkg "github.com/jmgilman/sow/cli/internal/project"
+	"github.com/jmgilman/sow/cli/internal/project/domain"
 	"github.com/spf13/cobra"
 )
 
 // resolveTaskID resolves the task ID from args or infers it.
 // If args contains a task ID, it's returned.
 // Otherwise, the task ID is inferred from the project.
-func resolveTaskID(proj *projectpkg.Project, args []string) (string, error) {
+func resolveTaskID(proj domain.Project, args []string) (string, error) {
 	if len(args) > 0 {
 		return args[0], nil
 	}

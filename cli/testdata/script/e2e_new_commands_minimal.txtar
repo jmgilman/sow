@@ -20,35 +20,52 @@ exec sow agent init new-cmd-test --description 'Test new simplified commands'
 stderr '✓ Initialized project'
 
 # =====================================
-# Test: sow agent status (initial state)
+# Test: sow agent status (initial state - DiscoveryDecision)
 # =====================================
 exec sow agent status
+stderr 'Status: All phases complete'
+
+# =====================================
+# Enable discovery phase
+# =====================================
+exec sow agent enable discovery
+stderr '✓ Enabled discovery phase'
+
+# Verify status shows discovery is active
+exec sow agent status
 stderr 'Active Phase: discovery'
-stderr 'pending'
 
 # =====================================
 # Test: sow agent info (discovery phase)
 # =====================================
 exec sow agent info
 stderr 'Phase: discovery'
-stderr '✓ Artifacts'
 
 # =====================================
-# Test: sow agent skip discovery
+# Test: sow agent complete (discovery)
 # =====================================
-exec sow agent skip discovery
-stderr '✓ Skipped discovery phase'
+exec sow agent complete
+stderr '✓ Completed discovery phase'
+
+# Verify moved to design decision
+exec sow agent status
+stderr 'Status: All phases complete'
+
+# =====================================
+# Enable design phase
+# =====================================
+exec sow agent enable design
+stderr '✓ Enabled design phase'
 
 # Verify status updated
 exec sow agent status
 stderr 'Active Phase: design'
-stderr 'pending'
 
 # =====================================
-# Test: sow agent skip design
+# Test: sow agent complete (design)
 # =====================================
-exec sow agent skip design
-stderr '✓ Skipped design phase'
+exec sow agent complete
+stderr '✓ Completed design phase'
 
 # Verify status updated to implementation
 exec sow agent status
@@ -80,7 +97,7 @@ stderr '○ 1 pending'
 exec sow agent task update 010 --status completed
 stderr '✓ Updated task 010'
 
-# Verify transitioned to review automatically
+# Verify auto-transitioned to review
 exec sow agent status
 stderr 'Active Phase: review'
 
@@ -93,16 +110,14 @@ stderr 'Active Phase: review'
 # =====================================
 exec sow agent info
 stderr 'Phase: review'
-stderr '✗ Artifacts'
-stderr '✗ Tasks'
 
 # =====================================
-# Review Phase (legacy commands for adding reports)
+# Review Phase (use generic artifact commands)
 # =====================================
-exec sow agent review add reports/001-review.md --assessment pass
-stderr '✓ Added review report 001'
-exec sow agent review approve 001
-stderr '✓ Approved review report 001'
+exec sow agent artifact add reports/001-review.md --metadata type=review --metadata assessment=pass
+stderr '✓ Added artifact'
+exec sow agent artifact approve reports/001-review.md
+stderr '✓ Approved artifact'
 
 # =====================================
 # Test: sow agent complete (review)
@@ -115,12 +130,10 @@ exec sow agent status
 stderr 'Active Phase: finalize'
 
 # =====================================
-# Finalize Phase (legacy commands)
+# Finalize Phase (use generic complete command)
 # =====================================
-exec sow agent finalize complete documentation
-stderr '✓ Completed documentation subphase'
-exec sow agent finalize complete checks
-stderr '✓ Completed checks subphase'
+exec sow agent complete
+stderr '✓ Completed finalize phase'
 
 # =====================================
 # Project Deletion (legacy command)

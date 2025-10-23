@@ -28,10 +28,11 @@ NEXT ACTIONS:
   1. Review changes from implementation phase
   2. Identify documentation requiring updates
   3. Update documentation files
-  4. Register updates: sow agent project finalize add-document <path>
+  4. Record updates in phase metadata: sow agent set documentation_updates "<summary>"
   5. Move design artifacts if applicable
+  6. Complete when done: sow agent complete
 
-  When done (or no updates needed):
+  When complete:
     (Will auto-transition to checks)
 
 Reference: PHASES/FINALIZE.md

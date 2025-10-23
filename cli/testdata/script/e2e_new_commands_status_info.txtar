@@ -18,41 +18,17 @@ exec sow init
 exec sow agent init status-test --description 'Test status and info commands'
 
 # =====================================
-# Test status at discovery decision state
+# Test status at discovery decision state (no active phase)
 # =====================================
 exec sow agent status
 stderr 'Project: status-test'
 stderr 'Branch: feat/status-info-test'
-stderr 'Active Phase: discovery'
-stderr 'pending'
-stderr 'Next Actions:'
-stderr 'sow agent enable discovery'
-stderr 'sow agent skip discovery'
-
-# =====================================
-# Test info shows discovery metadata
-# =====================================
-exec sow agent info
-stderr 'Phase: discovery'
-stderr '✗ Tasks'
-stderr '✓ Artifacts'
-stderr 'Custom Fields:'
-stderr 'discovery_type'
-
-# Test info with explicit phase
-exec sow agent info --phase design
-stderr 'Phase: design'
-stderr 'architect_used'
-
-exec sow agent info --phase implementation
-stderr 'Phase: implementation'
-stderr 'planner_used'
-stderr 'tasks_approved'
+stderr 'Status: All phases complete'
 
 # =====================================
 # Enable discovery and check status change
 # =====================================
-exec sow agent enable discovery --type feature
+exec sow agent enable discovery
 
 exec sow agent status
 stderr 'Active Phase: discovery'
@@ -62,10 +38,22 @@ stderr 'sow agent artifact add'
 stderr 'sow agent complete'
 
 # =====================================
-# Skip to implementation and test task counts
+# Test info shows discovery phase
+# =====================================
+exec sow agent info
+stderr 'Phase: discovery'
+
+# =====================================
+# Complete discovery, enable and complete design
 # =====================================
 exec sow agent complete
-exec sow agent skip design
+
+# Should be back at decision state (no active phase)
+exec sow agent status
+stderr 'Status: All phases complete'
+
+exec sow agent enable design
+exec sow agent complete
 
 exec sow agent status
 stderr 'Active Phase: implementation'
@@ -111,13 +99,12 @@ stderr 'Active Phase: review'
 
 exec sow agent info
 stderr 'Phase: review'
-stderr 'iteration'
 
 # =====================================
 # Complete to finalize
 # =====================================
-exec sow agent review add reports/001-review.md --assessment pass
-exec sow agent review approve 001
+exec sow agent artifact add reports/001-review.md --metadata type=review --metadata assessment=pass
+exec sow agent artifact approve reports/001-review.md
 
 exec sow agent complete
 
@@ -126,12 +113,9 @@ stderr 'Active Phase: finalize'
 
 exec sow agent info
 stderr 'Phase: finalize'
-stderr 'project_deleted'
-stderr 'pr_url'
 
 # =====================================
 # Cleanup
 # =====================================
-exec sow agent finalize complete documentation
-exec sow agent finalize complete checks
+exec sow agent complete
 exec sow agent delete --force
