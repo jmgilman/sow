@@ -8,7 +8,7 @@ package phases
 	enabled: true
 
 	// Documentation files updated
-	documentation_updates?: [...string] @go(,optional=nillable)
+	documentation_updates?: null | [...string] @go(,optional=nillable)
 
 	// Design artifacts moved to knowledge (from→to pairs)
 	artifacts_moved?: [...{
@@ -20,5 +20,5 @@ package phases
 	project_deleted: bool
 
 	// Pull request URL (created during finalize)
-	pr_url?: string @go(,optional=nillable)
+	pr_url?: null | string @go(,optional=nillable)
 }

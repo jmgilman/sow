@@ -32,7 +32,7 @@ import (
 		description: string
 
 		// Optional GitHub issue number this project is linked to
-		github_issue?: int & >0 @go(,optional=nillable)
+		github_issue?: null | (int & >0) @go(,optional=nillable)
 
 		// ISO 8601 timestamps
 		created_at: time.Time

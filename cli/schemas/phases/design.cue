@@ -8,7 +8,7 @@ package phases
 	enabled: bool
 
 	// Whether architect agent was used
-	architect_used?: bool @go(,optional=nillable)
+	architect_used?: null | bool @go(,optional=nillable)
 
 	// Design artifacts requiring approval (ADRs, design docs)
 	artifacts: [...#Artifact]

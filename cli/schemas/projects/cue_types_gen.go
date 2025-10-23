@@ -15,49 +15,49 @@ type StandardProjectState struct {
 	// Statechart metadata (tracks state machine position)
 	Statechart struct {
 		// Current state in the lifecycle state machine
-		Current_state string `json:"current_state" yaml:"current_state"`
-	} `json:"statechart" yaml:"statechart"`
+		Current_state string `json:"current_state"`
+	} `json:"statechart"`
 
 	// Project metadata
 	Project struct {
 		// Project type identifier
-		Type string `json:"type" yaml:"type"`
+		Type string `json:"type"`
 
 		// Kebab-case project identifier
-		Name string `json:"name" yaml:"name"`
+		Name string `json:"name"`
 
 		// Git branch name this project belongs to
-		Branch string `json:"branch" yaml:"branch"`
+		Branch string `json:"branch"`
 
 		// Human-readable project description
-		Description string `json:"description" yaml:"description"`
+		Description string `json:"description"`
 
 		// Optional GitHub issue number this project is linked to
-		Github_issue *int64 `json:"github_issue,omitempty" yaml:"github_issue,omitempty"`
+		Github_issue *int64 `json:"github_issue,omitempty"`
 
 		// ISO 8601 timestamps
-		Created_at time.Time `json:"created_at" yaml:"created_at"`
+		Created_at time.Time `json:"created_at"`
 
-		Updated_at time.Time `json:"updated_at" yaml:"updated_at"`
-	} `json:"project" yaml:"project"`
+		Updated_at time.Time `json:"updated_at"`
+	} `json:"project"`
 
 	// 5-phase structure (composing reusable phase definitions)
 	Phases struct {
 		// Phase 1: Discovery (optional, human-led)
-		Discovery phases.DiscoveryPhase `json:"discovery" yaml:"discovery"`
+		Discovery phases.DiscoveryPhase `json:"discovery"`
 
 		// Phase 2: Design (optional, human-led)
-		Design phases.DesignPhase `json:"design" yaml:"design"`
+		Design phases.DesignPhase `json:"design"`
 
 		// Phase 3: Implementation (required, AI-autonomous)
-		Implementation phases.ImplementationPhase `json:"implementation" yaml:"implementation"`
+		Implementation phases.ImplementationPhase `json:"implementation"`
 
 		// Phase 4: Review (required, AI-autonomous)
-		Review phases.ReviewPhase `json:"review" yaml:"review"`
+		Review phases.ReviewPhase `json:"review"`
 
 		// Phase 5: Finalize (required, AI-autonomous)
-		Finalize phases.FinalizePhase `json:"finalize" yaml:"finalize"`
-	} `json:"phases" yaml:"phases"`
+		Finalize phases.FinalizePhase `json:"finalize"`
+	} `json:"phases"`
 }
 
 // ProjectState is the root discriminated union for all project types.

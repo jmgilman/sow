@@ -3,6 +3,7 @@
 package schemas
 
 import (
+	"github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/jmgilman/sow/cli/schemas/projects"
 	"time"
 )
@@ -17,70 +18,70 @@ type ProjectState projects.ProjectState
 // references. Stored per-machine, not committed to git.
 type RefsCacheIndex struct {
 	// Schema version (semantic versioning)
-	Version string `json:"version" yaml:"version"`
+	Version string `json:"version"`
 
 	// Cached reference metadata
-	Refs []CachedRef `json:"refs" yaml:"refs"`
+	Refs []CachedRef `json:"refs"`
 }
 
 // CachedRef represents a cached reference
 type CachedRef struct {
 	// Reference ID (matches ID from committed or local index)
-	Id string `json:"id" yaml:"id"`
+	Id string `json:"id"`
 
 	// Type inferred from source URL (stored for quick lookup)
-	Type string `json:"type" yaml:"type"`
+	Type string `json:"type"`
 
 	// Absolute cache path (e.g., /Users/josh/.cache/sow/refs/git/abc123/)
-	Cache_path string `json:"cache_path" yaml:"cache_path"`
+	Cache_path string `json:"cache_path"`
 
 	// Last updated timestamp
-	Last_updated time.Time `json:"last_updated" yaml:"last_updated"`
+	Last_updated time.Time `json:"last_updated"`
 
 	// Repositories using this cached ref
-	Used_by []CacheUsage `json:"used_by" yaml:"used_by"`
+	Used_by []CacheUsage `json:"used_by"`
 
 	// Type-specific metadata
-	Metadata CacheMetadata `json:"metadata" yaml:"metadata"`
+	Metadata CacheMetadata `json:"metadata"`
 }
 
 // CacheUsage represents a repository using this cached ref
 type CacheUsage struct {
 	// Absolute path to consuming repository
-	Repo_path string `json:"repo_path" yaml:"repo_path"`
+	Repo_path string `json:"repo_path"`
 
 	// How the cache is linked (symlink on Unix, copy on Windows)
-	Link_type string `json:"link_type" yaml:"link_type"`
+	Link_type string `json:"link_type"`
 
 	// Link name in the consuming repo's .sow/refs/ directory
-	Link_name string `json:"link_name" yaml:"link_name"`
+	Link_name string `json:"link_name"`
 }
 
 // CacheMetadata is polymorphic based on type
 type CacheMetadata struct {
 	// Git type metadata
-	Git GitMetadata `json:"git,omitempty" yaml:"git,omitempty"`
+	Git GitMetadata `json:"git,omitempty"`
 
 	// File type metadata
-	File FileMetadata `json:"file,omitempty" yaml:"file,omitempty"`
+	File FileMetadata `json:"file,omitempty"`
 }
 
 // GitMetadata contains git-specific cache data
 type GitMetadata struct {
 	// Current local commit SHA
-	Commit_sha string `json:"commit_sha" yaml:"commit_sha"`
+	Commit_sha string `json:"commit_sha"`
 
 	// Latest remote commit SHA (updated on status check)
-	Remote_sha string `json:"remote_sha,omitempty" yaml:"remote_sha,omitempty"`
+	Remote_sha string `json:"remote_sha,omitempty"`
 
 	// Last time remote was checked
-	Last_checked time.Time `json:"last_checked,omitempty" yaml:"last_checked,omitempty"`
+	Last_checked time.Time `json:"last_checked,omitempty"`
 
 	// Staleness status
-	Status string `json:"status" yaml:"status"`
+	Status string `json:"status"`
 
 	// Number of commits behind remote (0 if current)
-	Commits_behind int64 `json:"commits_behind" yaml:"commits_behind"`
+	Commits_behind int64 `json:"commits_behind"`
 }
 
 // FileMetadata contains file-specific cache data
@@ -94,16 +95,16 @@ type FileMetadata struct {
 // but not transient data like SHAs or timestamps.
 type RefsCommittedIndex struct {
 	// Schema version (semantic versioning)
-	Version string `json:"version" yaml:"version"`
+	Version string `json:"version"`
 
 	// Reference definitions
-	Refs []Ref `json:"refs" yaml:"refs"`
+	Refs []Ref `json:"refs"`
 }
 
 // Ref represents a reference to external content
 type Ref struct {
 	// Unique identifier (auto-generated)
-	Id string `json:"id" yaml:"id"`
+	Id string `json:"id"`
 
 	// Source URL with scheme that determines type
 	// Examples:
@@ -111,26 +112,26 @@ type Ref struct {
 	//   - git+ssh://git@github.com/org/repo
 	//   - git@github.com:org/repo (auto-converted to git+ssh://)
 	//   - file:///absolute/path
-	Source string `json:"source" yaml:"source"`
+	Source string `json:"source"`
 
 	// Semantic type (what the content represents)
-	Semantic string `json:"semantic" yaml:"semantic"`
+	Semantic string `json:"semantic"`
 
 	// Symlink name in .sow/refs/
-	Link string `json:"link" yaml:"link"`
+	Link string `json:"link"`
 
 	// Topic keywords for categorization
-	Tags []string `json:"tags" yaml:"tags"`
+	Tags []string `json:"tags"`
 
 	// One-sentence description
-	Description string `json:"description" yaml:"description"`
+	Description string `json:"description"`
 
 	// 2-3 sentence summary (optional)
-	Summary string `json:"summary" yaml:"summary"`
+	Summary string `json:"summary"`
 
 	// Type-specific configuration
 	// Structure depends on URL scheme
-	Config RefConfig `json:"config" yaml:"config"`
+	Config RefConfig `json:"config"`
 }
 
 // RefConfig is a polymorphic config structure
@@ -138,7 +139,7 @@ type Ref struct {
 type RefConfig struct {
 	// Git type config (for git+https://, git+ssh://, git@ URLs)
 	// Branch name (optional, defaults to repo default)
-	Branch string `json:"branch,omitempty" yaml:"branch,omitempty"`
+	Branch string `json:"branch,omitempty"`
 
 	// Subpath within repository (optional, defaults to root)
 	// Use "" or omit for root
@@ -147,7 +148,7 @@ type RefConfig struct {
 	// For example, web type:
 	// scrape_depth?: int & >=1
 	// follow_links?: bool
-	Path string `json:"path,omitempty" yaml:"path,omitempty"`
+	Path string `json:"path,omitempty"`
 }
 
 // RefsLocalIndex defines the schema for .sow/refs/index.local.json
@@ -160,12 +161,34 @@ type RefConfig struct {
 // reference paths on the local machine.
 type RefsLocalIndex struct {
 	// Schema version (semantic versioning)
-	Version string `json:"version" yaml:"version"`
+	Version string `json:"version"`
 
 	// Local reference definitions
 	// Uses same structure as committed refs
-	Refs []Ref `json:"refs" yaml:"refs"`
+	Refs []Ref `json:"refs"`
 }
+
+type StandardProjectState projects.StandardProjectState
+
+// Re-export phase types for backward compatibility
+type DiscoveryPhase phases.DiscoveryPhase
+
+type DesignPhase phases.DesignPhase
+
+type ImplementationPhase phases.ImplementationPhase
+
+type ReviewPhase phases.ReviewPhase
+
+type FinalizePhase phases.FinalizePhase
+
+// Re-export common types
+type Phase phases.Phase
+
+type Artifact phases.Artifact
+
+type Task phases.Task
+
+type ReviewReport phases.ReviewReport
 
 // TaskState defines the schema for task state files at:
 // .sow/project/phases/implementation/tasks/<id>/state.yaml
@@ -174,55 +197,55 @@ type RefsLocalIndex struct {
 type TaskState struct {
 	Task struct {
 		// Task ID (matches directory name, gap-numbered)
-		Id string `json:"id" yaml:"id"`
+		Id string `json:"id"`
 
 		// Task name
-		Name string `json:"name" yaml:"name"`
+		Name string `json:"name"`
 
 		// Always "implementation" in the 5-phase model
-		Phase string `json:"phase" yaml:"phase"`
+		Phase string `json:"phase"`
 
 		// Task execution status
-		Status string `json:"status" yaml:"status"`
+		Status string `json:"status"`
 
 		// Timestamps
-		Created_at time.Time `json:"created_at" yaml:"created_at"`
+		Created_at time.Time `json:"created_at"`
 
-		Started_at *time.Time `json:"started_at,omitempty" yaml:"started_at,omitempty"`
+		Started_at *time.Time `json:"started_at,omitempty"`
 
-		Updated_at time.Time `json:"updated_at" yaml:"updated_at"`
+		Updated_at time.Time `json:"updated_at"`
 
-		Completed_at *time.Time `json:"completed_at,omitempty" yaml:"completed_at,omitempty"`
+		Completed_at *time.Time `json:"completed_at,omitempty"`
 
 		// Iteration counter (managed by orchestrator)
 		// Used to construct agent ID: {assigned_agent}-{iteration}
-		Iteration int64 `json:"iteration" yaml:"iteration"`
+		Iteration int64 `json:"iteration"`
 
 		// Agent assigned to this task (e.g., "implementer", "architect")
 		// Used to construct agent ID: {assigned_agent}-{iteration}
-		Assigned_agent string `json:"assigned_agent" yaml:"assigned_agent"`
+		Assigned_agent string `json:"assigned_agent"`
 
 		// Context file paths (relative to .sow/)
 		// Compiled by orchestrator during context preparation
-		References []string `json:"references" yaml:"references"`
+		References []string `json:"references"`
 
 		// Human feedback/corrections
-		Feedback []Feedback `json:"feedback" yaml:"feedback"`
+		Feedback []Feedback `json:"feedback"`
 
 		// Files modified during task execution
 		// Auto-populated by worker via 'sow log' command
-		Files_modified []string `json:"files_modified" yaml:"files_modified"`
-	} `json:"task" yaml:"task"`
+		Files_modified []string `json:"files_modified"`
+	} `json:"task"`
 }
 
 // Feedback represents human corrections/guidance
 type Feedback struct {
 	// Feedback ID (001, 002, 003...)
-	Id string `json:"id" yaml:"id"`
+	Id string `json:"id"`
 
 	// When feedback was provided
-	Created_at time.Time `json:"created_at" yaml:"created_at"`
+	Created_at time.Time `json:"created_at"`
 
 	// Feedback status
-	Status string `json:"status" yaml:"status"`
+	Status string `json:"status"`
 }

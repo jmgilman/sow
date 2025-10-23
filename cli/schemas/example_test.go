@@ -15,13 +15,13 @@ func TestGeneratedTypes(t *testing.T) {
 	// Create a ProjectState instance using generated types
 	state := projects.ProjectState{
 		Project: struct {
-			Type         string    `json:"type" yaml:"type"`
-			Name         string    `json:"name" yaml:"name"`
-			Branch       string    `json:"branch" yaml:"branch"`
-			Description  string    `json:"description" yaml:"description"`
-			Github_issue *int64    `json:"github_issue,omitempty" yaml:"github_issue,omitempty"`
-			Created_at   time.Time `json:"created_at" yaml:"created_at"`
-			Updated_at   time.Time `json:"updated_at" yaml:"updated_at"`
+			Type         string    `json:"type"`
+			Name         string    `json:"name"`
+			Branch       string    `json:"branch"`
+			Description  string    `json:"description"`
+			Github_issue *int64    `json:"github_issue,omitempty"`
+			Created_at   time.Time `json:"created_at"`
+			Updated_at   time.Time `json:"updated_at"`
 		}{
 			Type:         "standard",
 			Name:         "my-feature",
@@ -32,11 +32,11 @@ func TestGeneratedTypes(t *testing.T) {
 			Updated_at:   time.Now(),
 		},
 		Phases: struct {
-			Discovery      phases.DiscoveryPhase      `json:"discovery" yaml:"discovery"`
-			Design         phases.DesignPhase         `json:"design" yaml:"design"`
-			Implementation phases.ImplementationPhase `json:"implementation" yaml:"implementation"`
-			Review         phases.ReviewPhase         `json:"review" yaml:"review"`
-			Finalize       phases.FinalizePhase       `json:"finalize" yaml:"finalize"`
+			Discovery      phases.DiscoveryPhase      `json:"discovery"`
+			Design         phases.DesignPhase         `json:"design"`
+			Implementation phases.ImplementationPhase `json:"implementation"`
+			Review         phases.ReviewPhase         `json:"review"`
+			Finalize       phases.FinalizePhase       `json:"finalize"`
 		}{
 			Implementation: phases.ImplementationPhase{
 				Status:     "in_progress",
@@ -72,19 +72,19 @@ func TestGeneratedTypes(t *testing.T) {
 	// Test TaskState
 	taskState := schemas.TaskState{
 		Task: struct {
-			Id             string              `json:"id" yaml:"id"`
-			Name           string              `json:"name" yaml:"name"`
-			Phase          string              `json:"phase" yaml:"phase"`
-			Status         string              `json:"status" yaml:"status"`
-			Created_at     time.Time           `json:"created_at" yaml:"created_at"`
-			Started_at     *time.Time          `json:"started_at,omitempty" yaml:"started_at,omitempty"`
-			Updated_at     time.Time           `json:"updated_at" yaml:"updated_at"`
-			Completed_at   *time.Time          `json:"completed_at,omitempty" yaml:"completed_at,omitempty"`
-			Iteration      int64               `json:"iteration" yaml:"iteration"`
-			Assigned_agent string              `json:"assigned_agent" yaml:"assigned_agent"`
-			References     []string            `json:"references" yaml:"references"`
-			Feedback       []schemas.Feedback  `json:"feedback" yaml:"feedback"`
-			Files_modified []string            `json:"files_modified" yaml:"files_modified"`
+			Id             string              `json:"id"`
+			Name           string              `json:"name"`
+			Phase          string              `json:"phase"`
+			Status         string              `json:"status"`
+			Created_at     time.Time           `json:"created_at"`
+			Started_at     *time.Time          `json:"started_at,omitempty"`
+			Updated_at     time.Time           `json:"updated_at"`
+			Completed_at   *time.Time          `json:"completed_at,omitempty"`
+			Iteration      int64               `json:"iteration"`
+			Assigned_agent string              `json:"assigned_agent"`
+			References     []string            `json:"references"`
+			Feedback       []schemas.Feedback  `json:"feedback"`
+			Files_modified []string            `json:"files_modified"`
 		}{
 			Id:             "010",
 			Name:           "Test task",

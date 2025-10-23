@@ -124,8 +124,8 @@ func TestPrepareTemplateData_NoUpdates(t *testing.T) {
 	data := &phasesSchema.FinalizePhase{
 		Documentation_updates: []string{},
 		Artifacts_moved:       []struct {
-			From string `json:"from" yaml:"from"`
-			To   string `json:"to" yaml:"to"`
+			From string `json:"from"`
+			To   string `json:"to"`
 		}{},
 		Project_deleted: false,
 	}
@@ -157,8 +157,8 @@ func TestPrepareTemplateData_WithUpdates(t *testing.T) {
 	data := &phasesSchema.FinalizePhase{
 		Documentation_updates: []string{"README.md", "CHANGELOG.md"},
 		Artifacts_moved: []struct {
-			From string `json:"from" yaml:"from"`
-			To   string `json:"to" yaml:"to"`
+			From string `json:"from"`
+			To   string `json:"to"`
 		}{
 			{From: "phases/design/adr-001.md", To: ".sow/knowledge/adrs/adr-001.md"},
 		},

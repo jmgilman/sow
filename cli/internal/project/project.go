@@ -563,8 +563,8 @@ func (p *Project) AddDocumentation(path string) error {
 func (p *Project) MoveArtifact(from, to string) error {
 	state := p.State()
 	move := struct {
-		From string `json:"from" yaml:"from"`
-		To   string `json:"to" yaml:"to"`
+		From string `json:"from"`
+		To   string `json:"to"`
 	}{From: from, To: to}
 	state.Phases.Finalize.Artifacts_moved = append(state.Phases.Finalize.Artifacts_moved, move)
 	return p.save()
