@@ -3,6 +3,7 @@ package types
 import (
 	"github.com/jmgilman/sow/cli/internal/phases"
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
+	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/jmgilman/sow/cli/schemas/projects"
 )
 
@@ -48,18 +49,30 @@ type ProjectType interface {
 //	state := loadStateFromDisk()
 //	projectType := types.DetectProjectType(state)
 //	machine := projectType.BuildStateMachine()
-func DetectProjectType(state *projects.ProjectState) (ProjectType, error) {
+func DetectProjectType(state *schemas.ProjectState) (ProjectType, error) {
+	// Convert from schemas.ProjectState -> projects.ProjectState -> projects.StandardProjectState
+	// These are distinct types (not aliases) due to how the CUE code generator works
+	projectsState := (*projects.ProjectState)(state)
+	standardState := (*projects.StandardProjectState)(projectsState)
+
+	// State migration: default empty type to "standard" for backward compatibility
+	// Existing projects created before the composable phases architecture won't have
+	// a type field set, so we default them to "standard"
+	if standardState.Project.Type == "" {
+		standardState.Project.Type = "standard"
+	}
+
 	// For MVP, we only have StandardProject
 	// Future: switch on state.Project.Type to support multiple types
-
-	// Type assertion to get StandardProjectState
-	// In the future, we'll handle multiple types here
-	standardState, ok := interface{}(state).(*projects.StandardProjectState)
-	if !ok {
-		// Try to convert if it's a ProjectState (which is currently aliased to StandardProjectState)
-		// This handles the case where ProjectState == StandardProjectState in the schema
-		standardState = (*projects.StandardProjectState)(state)
-	}
+	// Example:
+	//   switch standardState.Project.Type {
+	//   case "standard":
+	//       return NewStandardProject(standardState), nil
+	//   case "design":
+	//       return NewDesignProject(designState), nil
+	//   default:
+	//       return nil, fmt.Errorf("unknown project type: %s", standardState.Project.Type)
+	//   }
 
 	return NewStandardProject(standardState), nil
 }

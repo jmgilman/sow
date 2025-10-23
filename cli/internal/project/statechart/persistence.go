@@ -1,14 +1,12 @@
 package statechart
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/go-git/go-billy/v5"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/jmgilman/sow/cli/schemas/phases"
 	"gopkg.in/yaml.v3"
@@ -21,16 +19,39 @@ const (
 	stateFilePathChrooted = "project/state.yaml"
 )
 
+// LoadProjectState reads the project state from disk and returns the state and current state.
+// This is used by the new composable phases architecture to load state before building the machine.
+func LoadProjectState(fs sow.FS) (*schemas.ProjectState, State, error) {
+	data, err := fs.ReadFile(stateFilePathChrooted)
+	if err != nil {
+		if os.IsNotExist(err) || err.Error() == "file does not exist" {
+			return nil, NoProject, fmt.Errorf("no project state file found")
+		}
+		return nil, NoProject, fmt.Errorf("failed to read state file: %w", err)
+	}
+
+	var state schemas.ProjectState
+	if err := yaml.Unmarshal(data, &state); err != nil {
+		return nil, NoProject, fmt.Errorf("failed to unmarshal state: %w", err)
+	}
+
+	currentState := State(state.Statechart.Current_state)
+	return &state, currentState, nil
+}
+
 // LoadFS reads the state from disk using the provided filesystem.
-// If fs is nil, uses os.ReadFile for backwards compatibility.
 // If no project exists, returns a machine in NoProject state.
-func LoadFS(fs billy.Filesystem) (*Machine, error) {
+// If fs is nil, falls back to using os.ReadFile directly.
+//
+// Deprecated: Use LoadProjectState() with types.DetectProjectType() and BuildStateMachine() instead.
+// This function is kept for backward compatibility.
+func LoadFS(fs sow.FS) (*Machine, error) {
 	var data []byte
 	var err error
 
+	// Use filesystem if available, otherwise use os
 	if fs != nil {
-		// Use chrooted path when fs is provided (assumes fs is already chrooted to .sow/)
-		data, err = readFile(fs, stateFilePathChrooted)
+		data, err = fs.ReadFile(stateFilePathChrooted)
 	} else {
 		data, err = os.ReadFile(stateFilePath)
 	}
@@ -39,9 +60,7 @@ func LoadFS(fs billy.Filesystem) (*Machine, error) {
 		if os.IsNotExist(err) || err.Error() == "file does not exist" {
 			// No project yet - start with NoProject state
 			m := NewMachine(nil)
-			if fs != nil {
-				m.fs = fs
-			}
+			m.fs = fs
 			return m, nil
 		}
 		return nil, fmt.Errorf("failed to read state file: %w", err)
@@ -55,15 +74,13 @@ func LoadFS(fs billy.Filesystem) (*Machine, error) {
 	// Create machine starting from the stored state
 	currentState := State(state.Statechart.Current_state)
 	m := NewMachineAt(currentState, &state)
-	if fs != nil {
-		m.fs = fs
-	}
+	m.fs = fs
 	return m, nil
 }
 
-// NewWithProject creates a new project state machine with initial project metadata.
-// This is used when creating a new project.
-func NewWithProject(name, description, branch string, fs billy.Filesystem) (*Machine, error) {
+// NewProjectState creates an initialized project state with default values.
+// This is a helper function for creating new projects.
+func NewProjectState(name, description, branch string) *schemas.ProjectState {
 	now := time.Now()
 
 	state := &schemas.ProjectState{}
@@ -72,6 +89,7 @@ func NewWithProject(name, description, branch string, fs billy.Filesystem) (*Mac
 	state.Statechart.Current_state = string(NoProject)
 
 	// Project metadata
+	state.Project.Type = "standard"
 	state.Project.Name = name
 	state.Project.Branch = branch
 	state.Project.Description = description
@@ -110,10 +128,19 @@ func NewWithProject(name, description, branch string, fs billy.Filesystem) (*Mac
 	state.Phases.Finalize.Created_at = now
 	state.Phases.Finalize.Project_deleted = false
 
+	return state
+}
+
+// NewWithProject creates a new project state machine with initial project metadata.
+// This is used when creating a new project.
+//
+// Deprecated: Use types.DetectProjectType() and BuildStateMachine() instead.
+// This function is kept for backward compatibility.
+func NewWithProject(name, description, branch string, fs sow.FS) (*Machine, error) {
+	state := NewProjectState(name, description, branch)
+
 	m := NewMachine(state)
-	if fs != nil {
-		m.fs = fs
-	}
+	m.fs = fs
 	return m, nil
 }
 
@@ -142,7 +169,7 @@ func (m *Machine) Save() error {
 	return m.saveOS(data)
 }
 
-// saveFS saves using billy filesystem (assumes fs is already chrooted to .sow/).
+// saveFS saves using sow.FS filesystem (assumes fs is already chrooted to .sow/).
 func (m *Machine) saveFS(data []byte) error {
 	// Use chrooted path
 	path := stateFilePathChrooted
@@ -155,7 +182,7 @@ func (m *Machine) saveFS(data []byte) error {
 
 	// Atomic write: write to temp file, then rename
 	tmpFile := path + ".tmp"
-	if err := writeFile(m.fs, tmpFile, data); err != nil {
+	if err := m.fs.WriteFile(tmpFile, data, 0644); err != nil {
 		return fmt.Errorf("failed to write state file: %w", err)
 	}
 
@@ -185,44 +212,5 @@ func (m *Machine) saveOS(data []byte) error {
 		return fmt.Errorf("failed to rename state file: %w", err)
 	}
 
-	return nil
-}
-
-// readFile reads a file from billy filesystem.
-func readFile(fs billy.Filesystem, path string) ([]byte, error) {
-	f, err := fs.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
-	}
-	defer func() { _ = f.Close() }()
-
-	var data []byte
-	buf := make([]byte, 4096)
-	for {
-		n, err := f.Read(buf)
-		if n > 0 {
-			data = append(data, buf[:n]...)
-		}
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return nil, fmt.Errorf("failed to read file: %w", err)
-		}
-	}
-	return data, nil
-}
-
-// writeFile writes data to a file in billy filesystem.
-func writeFile(fs billy.Filesystem, path string, data []byte) error {
-	f, err := fs.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to open file for writing: %w", err)
-	}
-	defer func() { _ = f.Close() }()
-
-	if _, err = f.Write(data); err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
-	}
 	return nil
 }
