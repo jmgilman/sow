@@ -281,9 +281,14 @@ func TestFullTransitionFlow_TaskCreated(t *testing.T) {
 	phase.AddToMachine(sm, statechart.ReviewActive)
 
 	// Transition via task created
-	sm.Fire(statechart.EventTaskCreated)
+	if err := sm.Fire(statechart.EventTaskCreated); err != nil {
+		t.Fatalf("Failed to fire EventTaskCreated: %v", err)
+	}
 
-	currentState := sm.MustState().(statechart.State)
+	currentState, ok := sm.MustState().(statechart.State)
+	if !ok {
+		t.Fatal("Failed to cast state to statechart.State")
+	}
 	if currentState != statechart.ImplementationExecuting {
 		t.Errorf("Expected state to be ImplementationExecuting, got %s", currentState)
 	}
@@ -303,9 +308,14 @@ func TestFullTransitionFlow_TasksApproved(t *testing.T) {
 	phase.AddToMachine(sm, statechart.ReviewActive)
 
 	// Transition via tasks approved
-	sm.Fire(statechart.EventTasksApproved)
+	if err := sm.Fire(statechart.EventTasksApproved); err != nil {
+		t.Fatalf("Failed to fire EventTasksApproved: %v", err)
+	}
 
-	currentState := sm.MustState().(statechart.State)
+	currentState, ok := sm.MustState().(statechart.State)
+	if !ok {
+		t.Fatal("Failed to cast state to statechart.State")
+	}
 	if currentState != statechart.ImplementationExecuting {
 		t.Errorf("Expected state to be ImplementationExecuting, got %s", currentState)
 	}
@@ -325,9 +335,14 @@ func TestFullTransitionFlow_AllTasksComplete(t *testing.T) {
 	phase.AddToMachine(sm, statechart.ReviewActive)
 
 	// Transition to next phase
-	sm.Fire(statechart.EventAllTasksComplete)
+	if err := sm.Fire(statechart.EventAllTasksComplete); err != nil {
+		t.Fatalf("Failed to fire EventAllTasksComplete: %v", err)
+	}
 
-	currentState := sm.MustState().(statechart.State)
+	currentState, ok := sm.MustState().(statechart.State)
+	if !ok {
+		t.Fatal("Failed to cast state to statechart.State")
+	}
 	if currentState != statechart.ReviewActive {
 		t.Errorf("Expected state to be ReviewActive, got %s", currentState)
 	}

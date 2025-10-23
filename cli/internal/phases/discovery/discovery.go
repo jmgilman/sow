@@ -22,6 +22,8 @@ import (
 var templates embed.FS
 
 // DiscoveryPhase implements the Phase interface for the discovery phase.
+//
+//nolint:revive // DiscoveryPhase naming is intentional for clarity in phase package
 type DiscoveryPhase struct {
 	optional bool                         // Whether this phase can be skipped
 	data     *phasesSchema.DiscoveryPhase // Phase data from project state
@@ -55,8 +57,8 @@ func (p *DiscoveryPhase) EntryState() statechart.State {
 //
 // Transitions:
 // - DiscoveryDecision → DiscoveryActive (EventEnableDiscovery)
-// - DiscoveryDecision → nextPhaseEntry (EventSkipDiscovery, if optional)
-// - DiscoveryActive → nextPhaseEntry (EventCompleteDiscovery, guard: artifacts approved)
+// - DiscoveryDecision → nextPhaseEntry (EventSkipDiscovery, if optional).
+// - DiscoveryActive → nextPhaseEntry (EventCompleteDiscovery, guard: artifacts approved).
 func (p *DiscoveryPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry statechart.State) {
 	// Configure decision state
 	decisionConfig := sm.Configure(statechart.DiscoveryDecision).

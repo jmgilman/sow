@@ -235,7 +235,7 @@ func Delete(ctx *sow.Context) error {
 	}
 
 	// Load the machine to update state before deletion
-	machine, err := statechart.LoadFS(fs)
+	machine, err := statechart.LoadFS(fs) //nolint:staticcheck // Deprecated but needed for backward compatibility
 	if err != nil {
 		return fmt.Errorf("failed to load project state: %w", err)
 	}

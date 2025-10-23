@@ -23,6 +23,8 @@ import (
 var templates embed.FS
 
 // FinalizePhase implements the Phase interface for the finalize phase.
+//
+//nolint:revive // FinalizePhase naming is intentional for clarity in phase package
 type FinalizePhase struct {
 	data    *phasesSchema.FinalizePhase // Phase data from project state
 	project phases.ProjectInfo          // Minimal project info for templates
@@ -54,8 +56,8 @@ func (p *FinalizePhase) EntryState() statechart.State {
 //
 // Transitions:
 // - FinalizeDocumentation → FinalizeChecks (EventDocumentationDone, guard: always true)
-// - FinalizeChecks → FinalizeDelete (EventChecksDone, guard: always true)
-// - FinalizeDelete → nextPhaseEntry (EventProjectDelete, guard: project_deleted flag)
+// - FinalizeChecks → FinalizeDelete (EventChecksDone, guard: always true).
+// - FinalizeDelete → nextPhaseEntry (EventProjectDelete, guard: project_deleted flag).
 func (p *FinalizePhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry statechart.State) {
 	// Configure documentation state
 	sm.Configure(statechart.FinalizeDocumentation).
@@ -184,7 +186,7 @@ func (p *FinalizePhase) prepareTemplateData() map[string]interface{} {
 	data["ProjectBranch"] = p.project.Branch
 
 	// Phase data (if available)
-	if p.data != nil {
+	if p.data != nil { //nolint:nestif // Nested logic required for comprehensive data preparation
 		// Documentation updates
 		if len(p.data.Documentation_updates) > 0 {
 			data["HasDocumentationUpdates"] = true

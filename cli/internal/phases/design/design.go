@@ -22,6 +22,8 @@ import (
 var templates embed.FS
 
 // DesignPhase implements the Phase interface for the design phase.
+//
+//nolint:revive // DesignPhase naming is intentional for clarity in phase package
 type DesignPhase struct {
 	optional bool                      // Whether this phase can be skipped
 	data     *phasesSchema.DesignPhase // Phase data from project state
@@ -55,8 +57,8 @@ func (p *DesignPhase) EntryState() statechart.State {
 //
 // Transitions:
 // - DesignDecision → DesignActive (EventEnableDesign)
-// - DesignDecision → nextPhaseEntry (EventSkipDesign, if optional)
-// - DesignActive → nextPhaseEntry (EventCompleteDesign, guard: artifacts approved)
+// - DesignDecision → nextPhaseEntry (EventSkipDesign, if optional).
+// - DesignActive → nextPhaseEntry (EventCompleteDesign, guard: artifacts approved).
 func (p *DesignPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry statechart.State) {
 	// Configure decision state
 	decisionConfig := sm.Configure(statechart.DesignDecision).

@@ -31,7 +31,7 @@ Displays:
 Example:
   sow agent status`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Get context
 			ctx := cmdutil.GetContext(cmd.Context())
 
@@ -54,7 +54,7 @@ Example:
 			output.WriteString(fmt.Sprintf("Description: %s\n\n", state.Project.Description))
 
 			// Active phase
-			if activePhase == "unknown" {
+			if activePhase == "unknown" { //nolint:nestif // Complex logic required for comprehensive status output
 				output.WriteString("Status: All phases complete\n")
 			} else {
 				output.WriteString(fmt.Sprintf("Active Phase: %s (%s)\n", activePhase, phaseStatus))

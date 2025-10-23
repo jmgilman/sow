@@ -26,7 +26,7 @@ The active phase must support artifacts (discovery and design phases do).
 Example:
   sow agent artifact list`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Get context
 			ctx := cmdutil.GetContext(cmd.Context())
 

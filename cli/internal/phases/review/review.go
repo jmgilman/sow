@@ -21,6 +21,8 @@ import (
 var templates embed.FS
 
 // ReviewPhase implements the Phase interface for the review phase.
+//
+//nolint:revive // ReviewPhase naming is intentional for clarity in phase package
 type ReviewPhase struct {
 	data    *phasesSchema.ReviewPhase // Phase data from project state
 	project phases.ProjectInfo        // Minimal project info for templates

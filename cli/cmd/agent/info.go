@@ -39,7 +39,7 @@ Example:
   # Show specific phase info
   sow agent info --phase discovery`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Get context
 			ctx := cmdutil.GetContext(cmd.Context())
 

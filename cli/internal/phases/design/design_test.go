@@ -201,17 +201,27 @@ func TestFullTransitionFlow(t *testing.T) {
 	phase.AddToMachine(sm, statechart.ImplementationPlanning)
 
 	// Enable design
-	sm.Fire(statechart.EventEnableDesign)
+	if err := sm.Fire(statechart.EventEnableDesign); err != nil {
+		t.Fatalf("Failed to fire EventEnableDesign: %v", err)
+	}
 
-	currentState := sm.MustState().(statechart.State)
+	currentState, ok := sm.MustState().(statechart.State)
+	if !ok {
+		t.Fatal("Failed to cast state to statechart.State")
+	}
 	if currentState != statechart.DesignActive {
 		t.Errorf("Expected state to be DesignActive, got %s", currentState)
 	}
 
 	// Complete design
-	sm.Fire(statechart.EventCompleteDesign)
+	if err := sm.Fire(statechart.EventCompleteDesign); err != nil {
+		t.Fatalf("Failed to fire EventCompleteDesign: %v", err)
+	}
 
-	currentState = sm.MustState().(statechart.State)
+	currentState, ok = sm.MustState().(statechart.State)
+	if !ok {
+		t.Fatal("Failed to cast state to statechart.State")
+	}
 	if currentState != statechart.ImplementationPlanning {
 		t.Errorf("Expected state to be ImplementationPlanning, got %s", currentState)
 	}

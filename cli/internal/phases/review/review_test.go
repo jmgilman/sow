@@ -255,9 +255,14 @@ func TestFullTransitionFlow_Pass(t *testing.T) {
 	phase.AddToMachine(sm, statechart.FinalizeDocumentation)
 
 	// Transition to finalize
-	sm.Fire(statechart.EventReviewPass)
+	if err := sm.Fire(statechart.EventReviewPass); err != nil {
+		t.Fatalf("Failed to fire EventReviewPass: %v", err)
+	}
 
-	currentState := sm.MustState().(statechart.State)
+	currentState, ok := sm.MustState().(statechart.State)
+	if !ok {
+		t.Fatal("Failed to cast state to statechart.State")
+	}
 	if currentState != statechart.FinalizeDocumentation {
 		t.Errorf("Expected state to be FinalizeDocumentation, got %s", currentState)
 	}

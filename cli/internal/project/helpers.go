@@ -21,22 +21,16 @@ func DetermineActivePhase(state *schemas.ProjectState) (phaseName string, phaseS
 	// Check phases in order
 
 	// Discovery (optional)
-	if state.Phases.Discovery.Status == "skipped" {
-		// Explicitly skipped, continue to next phase
-	} else if state.Phases.Discovery.Status == "completed" {
-		// Completed, continue to next phase
-	} else {
-		// Either in pending decision state or active (enabled)
+	// If skipped or completed, continue to next phase.
+	// Otherwise, either in pending decision state or active (enabled).
+	if state.Phases.Discovery.Status != "skipped" && state.Phases.Discovery.Status != "completed" {
 		return "discovery", state.Phases.Discovery.Status
 	}
 
 	// Design (optional)
-	if state.Phases.Design.Status == "skipped" {
-		// Explicitly skipped, continue to next phase
-	} else if state.Phases.Design.Status == "completed" {
-		// Completed, continue to next phase
-	} else {
-		// Either in pending decision state or active (enabled)
+	// If skipped or completed, continue to next phase.
+	// Otherwise, either in pending decision state or active (enabled).
+	if state.Phases.Design.Status != "skipped" && state.Phases.Design.Status != "completed" {
 		return "design", state.Phases.Design.Status
 	}
 

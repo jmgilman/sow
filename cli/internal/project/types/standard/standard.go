@@ -1,3 +1,4 @@
+// Package standard provides the standard project type implementation.
 package standard
 
 import (
@@ -31,6 +32,8 @@ func init() {
 //  5. Finalize (required) - Documentation, checks, and cleanup
 //
 // Special transition: Review can fail and loop back to Implementation.
+//
+//nolint:revive // StandardProject naming is intentional for clarity in standard package
 type StandardProject struct {
 	state *projects.StandardProjectState
 }
@@ -81,7 +84,10 @@ func (p *StandardProject) BuildStateMachine() *statechart.Machine {
 	// Add exceptional backward transition: Review fail → Implementation
 	// This allows iterating on implementation based on review feedback
 	implPhase := phaseMap["implementation"]
-	reviewPhase := phaseMap["review"].(*review.ReviewPhase)
+	reviewPhase, ok := phaseMap["review"].(*review.ReviewPhase)
+	if !ok {
+		panic("review phase not found or wrong type")
+	}
 
 	sm.Configure(statechart.ReviewActive).
 		Permit(statechart.EventReviewFail, implPhase.EntryState(), reviewPhase.LatestReviewFailedGuard)

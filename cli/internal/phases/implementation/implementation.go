@@ -22,6 +22,8 @@ import (
 var templates embed.FS
 
 // ImplementationPhase implements the Phase interface for the implementation phase.
+//
+//nolint:revive // ImplementationPhase naming is intentional for clarity in phase package
 type ImplementationPhase struct {
 	data    *phasesSchema.ImplementationPhase // Phase data from project state
 	project phases.ProjectInfo                // Minimal project info for templates
@@ -52,8 +54,8 @@ func (p *ImplementationPhase) EntryState() statechart.State {
 //
 // Transitions:
 // - ImplementationPlanning → ImplementationExecuting (EventTaskCreated, guard: has at least one task)
-// - ImplementationPlanning → ImplementationExecuting (EventTasksApproved, guard: tasks approved)
-// - ImplementationExecuting → nextPhaseEntry (EventAllTasksComplete, guard: all tasks complete)
+// - ImplementationPlanning → ImplementationExecuting (EventTasksApproved, guard: tasks approved).
+// - ImplementationExecuting → nextPhaseEntry (EventAllTasksComplete, guard: all tasks complete).
 func (p *ImplementationPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry statechart.State) {
 	// Configure planning state
 	sm.Configure(statechart.ImplementationPlanning).

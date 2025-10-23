@@ -34,7 +34,7 @@ Example:
   # Complete whichever phase is currently active
   sow agent complete`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Get context
 			ctx := cmdutil.GetContext(cmd.Context())
 

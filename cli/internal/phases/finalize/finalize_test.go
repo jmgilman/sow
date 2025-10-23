@@ -153,7 +153,7 @@ func TestPrepareTemplateData_NoUpdates(t *testing.T) {
 }
 
 func TestPrepareTemplateData_WithUpdates(t *testing.T) {
-	prUrl := "https://github.com/user/repo/pull/123"
+	prURL := "https://github.com/user/repo/pull/123"
 	data := &phasesSchema.FinalizePhase{
 		Documentation_updates: []string{"README.md", "CHANGELOG.md"},
 		Artifacts_moved: []struct {
@@ -162,7 +162,7 @@ func TestPrepareTemplateData_WithUpdates(t *testing.T) {
 		}{
 			{From: "phases/design/adr-001.md", To: ".sow/knowledge/adrs/adr-001.md"},
 		},
-		Pr_url:          &prUrl,
+		Pr_url:          &prURL,
 		Project_deleted: true,
 	}
 
@@ -187,8 +187,8 @@ func TestPrepareTemplateData_WithUpdates(t *testing.T) {
 		t.Errorf("Expected HasPRUrl to be true, got %v", templateData["HasPRUrl"])
 	}
 
-	if templateData["PRUrl"] != prUrl {
-		t.Errorf("Expected PRUrl to be %s, got %v", prUrl, templateData["PRUrl"])
+	if templateData["PRUrl"] != prURL {
+		t.Errorf("Expected PRUrl to be %s, got %v", prURL, templateData["PRUrl"])
 	}
 
 	if templateData["ProjectDeleted"] != true {
@@ -262,15 +262,25 @@ func TestFullTransitionFlow_ThreeStages(t *testing.T) {
 	phase.AddToMachine(sm, statechart.NoProject)
 
 	// Stage 1: Documentation → Checks
-	sm.Fire(statechart.EventDocumentationDone)
-	currentState := sm.MustState().(statechart.State)
+	if err := sm.Fire(statechart.EventDocumentationDone); err != nil {
+		t.Fatalf("Failed to fire EventDocumentationDone: %v", err)
+	}
+	currentState, ok := sm.MustState().(statechart.State)
+	if !ok {
+		t.Fatal("Failed to cast state to statechart.State")
+	}
 	if currentState != statechart.FinalizeChecks {
 		t.Errorf("Expected state to be FinalizeChecks, got %s", currentState)
 	}
 
 	// Stage 2: Checks → Delete
-	sm.Fire(statechart.EventChecksDone)
-	currentState = sm.MustState().(statechart.State)
+	if err := sm.Fire(statechart.EventChecksDone); err != nil {
+		t.Fatalf("Failed to fire EventChecksDone: %v", err)
+	}
+	currentState, ok = sm.MustState().(statechart.State)
+	if !ok {
+		t.Fatal("Failed to cast state to statechart.State")
+	}
 	if currentState != statechart.FinalizeDelete {
 		t.Errorf("Expected state to be FinalizeDelete, got %s", currentState)
 	}
@@ -285,8 +295,13 @@ func TestFullTransitionFlow_ThreeStages(t *testing.T) {
 	data.Project_deleted = true
 
 	// Now transition should work
-	sm.Fire(statechart.EventProjectDelete)
-	currentState = sm.MustState().(statechart.State)
+	if err := sm.Fire(statechart.EventProjectDelete); err != nil {
+		t.Fatalf("Failed to fire EventProjectDelete: %v", err)
+	}
+	currentState, ok = sm.MustState().(statechart.State)
+	if !ok {
+		t.Fatal("Failed to cast state to statechart.State")
+	}
 	if currentState != statechart.NoProject {
 		t.Errorf("Expected state to be NoProject, got %s", currentState)
 	}

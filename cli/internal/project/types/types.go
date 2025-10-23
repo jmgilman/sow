@@ -1,3 +1,6 @@
+// Package types defines project type abstractions and registry.
+//
+//nolint:revive // "types" package name is intentional and follows Go conventions
 package types
 
 import (

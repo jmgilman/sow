@@ -1,3 +1,4 @@
+// Package phases provides the phase system for organizing project work.
 package phases
 
 import (

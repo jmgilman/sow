@@ -8,7 +8,7 @@ import (
 	"github.com/qmuntal/stateless"
 )
 
-// MockPhase is a test implementation of the Phase interface
+// MockPhase is a test implementation of the Phase interface.
 type MockPhase struct {
 	name           string
 	entryState     statechart.State
@@ -38,13 +38,14 @@ func (m *MockPhase) AddToMachine(sm *stateless.StateMachine, nextPhaseEntry stat
 	for _, state := range m.states {
 		// Configure a forward transition to next phase entry
 		// Use appropriate events based on which state this is
-		if state == statechart.DiscoveryDecision {
+		switch state {
+		case statechart.DiscoveryDecision:
 			sm.Configure(state).
 				Permit(statechart.EventSkipDiscovery, nextPhaseEntry)
-		} else if state == statechart.DesignDecision {
+		case statechart.DesignDecision:
 			sm.Configure(state).
 				Permit(statechart.EventSkipDesign, nextPhaseEntry)
-		} else {
+		default:
 			// Generic state - just configure it
 			sm.Configure(state)
 		}

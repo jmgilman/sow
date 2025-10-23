@@ -32,7 +32,7 @@ Example:
   # Approve the task plan
   sow agent task approve`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Get Sow from context
 			ctx := cmdutil.GetContext(cmd.Context())
 

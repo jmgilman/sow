@@ -346,7 +346,10 @@ func TestFullTransitionFlow_Optional(t *testing.T) {
 		t.Fatalf("Error firing EventSkipDiscovery: %v", err)
 	}
 
-	currentState := sm.MustState().(statechart.State)
+	currentState, ok := sm.MustState().(statechart.State)
+	if !ok {
+		t.Fatal("Failed to cast state to statechart.State")
+	}
 	if currentState != statechart.DesignDecision {
 		t.Errorf("Expected state to be DesignDecision after skip, got %s", currentState)
 	}
@@ -370,7 +373,10 @@ func TestFullTransitionFlow_EnableAndComplete(t *testing.T) {
 		t.Fatalf("Error firing EventEnableDiscovery: %v", err)
 	}
 
-	currentState := sm.MustState().(statechart.State)
+	currentState, ok := sm.MustState().(statechart.State)
+	if !ok {
+		t.Fatal("Failed to cast state to statechart.State")
+	}
 	if currentState != statechart.DiscoveryActive {
 		t.Errorf("Expected state to be DiscoveryActive after enable, got %s", currentState)
 	}
@@ -381,7 +387,10 @@ func TestFullTransitionFlow_EnableAndComplete(t *testing.T) {
 		t.Fatalf("Error firing EventCompleteDiscovery: %v", err)
 	}
 
-	currentState = sm.MustState().(statechart.State)
+	currentState, ok = sm.MustState().(statechart.State)
+	if !ok {
+		t.Fatal("Failed to cast state to statechart.State")
+	}
 	if currentState != statechart.DesignDecision {
 		t.Errorf("Expected state to be DesignDecision after complete, got %s", currentState)
 	}
@@ -407,7 +416,10 @@ func TestFullTransitionFlow_CompleteWithApprovedArtifacts(t *testing.T) {
 		t.Fatalf("Error firing EventCompleteDiscovery: %v", err)
 	}
 
-	currentState := sm.MustState().(statechart.State)
+	currentState, ok := sm.MustState().(statechart.State)
+	if !ok {
+		t.Fatal("Failed to cast state to statechart.State")
+	}
 	if currentState != statechart.DesignDecision {
 		t.Errorf("Expected state to be DesignDecision after complete, got %s", currentState)
 	}

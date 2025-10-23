@@ -153,7 +153,10 @@ func setField(state *schemas.ProjectState, phaseName, fieldName, valueStr string
 func setDiscoveryField(state *schemas.ProjectState, fieldName string, value interface{}) error {
 	switch fieldName {
 	case "discovery_type":
-		strVal := value.(string)
+		strVal, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("discovery_type must be a string")
+		}
 		state.Phases.Discovery.Discovery_type = &strVal
 	default:
 		return fmt.Errorf("unknown field: %s", fieldName)
@@ -164,7 +167,10 @@ func setDiscoveryField(state *schemas.ProjectState, fieldName string, value inte
 func setDesignField(state *schemas.ProjectState, fieldName string, value interface{}) error {
 	switch fieldName {
 	case "architect_used":
-		boolVal := value.(bool)
+		boolVal, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("architect_used must be a boolean")
+		}
 		state.Phases.Design.Architect_used = &boolVal
 	default:
 		return fmt.Errorf("unknown field: %s", fieldName)
@@ -175,10 +181,17 @@ func setDesignField(state *schemas.ProjectState, fieldName string, value interfa
 func setImplementationField(state *schemas.ProjectState, fieldName string, value interface{}) error {
 	switch fieldName {
 	case "planner_used":
-		boolVal := value.(bool)
+		boolVal, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("planner_used must be a boolean")
+		}
 		state.Phases.Implementation.Planner_used = &boolVal
 	case "tasks_approved":
-		state.Phases.Implementation.Tasks_approved = value.(bool)
+		boolVal, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("tasks_approved must be a boolean")
+		}
+		state.Phases.Implementation.Tasks_approved = boolVal
 	default:
 		return fmt.Errorf("unknown field: %s", fieldName)
 	}
@@ -188,7 +201,11 @@ func setImplementationField(state *schemas.ProjectState, fieldName string, value
 func setReviewField(state *schemas.ProjectState, fieldName string, value interface{}) error {
 	switch fieldName {
 	case "iteration":
-		state.Phases.Review.Iteration = int64(value.(int))
+		intVal, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("iteration must be an integer")
+		}
+		state.Phases.Review.Iteration = int64(intVal)
 	default:
 		return fmt.Errorf("unknown field: %s", fieldName)
 	}
@@ -198,9 +215,16 @@ func setReviewField(state *schemas.ProjectState, fieldName string, value interfa
 func setFinalizeField(state *schemas.ProjectState, fieldName string, value interface{}) error {
 	switch fieldName {
 	case "project_deleted":
-		state.Phases.Finalize.Project_deleted = value.(bool)
+		boolVal, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("project_deleted must be a boolean")
+		}
+		state.Phases.Finalize.Project_deleted = boolVal
 	case "pr_url":
-		strVal := value.(string)
+		strVal, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("pr_url must be a string")
+		}
 		state.Phases.Finalize.Pr_url = &strVal
 	default:
 		return fmt.Errorf("unknown field: %s", fieldName)

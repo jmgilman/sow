@@ -37,15 +37,15 @@ type FieldDef struct {
 type FieldType string
 
 const (
-	// StringField represents a string field
+	// StringField represents a string field.
 	StringField FieldType = "string"
 
-	// BoolField represents a boolean field
+	// BoolField represents a boolean field.
 	BoolField FieldType = "bool"
 
-	// IntField represents an integer field
+	// IntField represents an integer field.
 	IntField FieldType = "int"
 
-	// ArrayField represents an array/slice field
+	// ArrayField represents an array/slice field.
 	ArrayField FieldType = "array"
 )

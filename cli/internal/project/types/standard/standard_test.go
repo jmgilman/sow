@@ -9,13 +9,13 @@ import (
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 )
 
-// Helper to create a minimal StandardProjectState for testing
+// Helper to create a minimal StandardProjectState for testing.
 func createTestState() *projects.StandardProjectState {
 	now := time.Now()
 
 	return &projects.StandardProjectState{
 		Statechart: struct {
-			Current_state string `json:"current_state" yaml:"current_state"`
+			Current_state string `json:"current_state" yaml:"current_state"` //nolint:revive // Must match generated CUE type
 		}{
 			Current_state: "NoProject",
 		},
@@ -24,9 +24,9 @@ func createTestState() *projects.StandardProjectState {
 			Name          string     `json:"name" yaml:"name"`
 			Branch        string     `json:"branch" yaml:"branch"`
 			Description   string     `json:"description" yaml:"description"`
-			Github_issue  *int64     `json:"github_issue,omitempty" yaml:"github_issue,omitempty"`
-			Created_at    time.Time  `json:"created_at" yaml:"created_at"`
-			Updated_at    time.Time  `json:"updated_at" yaml:"updated_at"`
+			Github_issue  *int64     `json:"github_issue,omitempty" yaml:"github_issue,omitempty"`  //nolint:revive // Must match generated CUE type
+			Created_at    time.Time  `json:"created_at" yaml:"created_at"`  //nolint:revive // Must match generated CUE type
+			Updated_at    time.Time  `json:"updated_at" yaml:"updated_at"`  //nolint:revive // Must match generated CUE type
 		}{
 			Type:        "standard",
 			Name:        "test-project",
@@ -73,7 +73,7 @@ func createTestState() *projects.StandardProjectState {
 	}
 }
 
-// TestNew verifies the constructor creates a StandardProject correctly
+// TestNew verifies the constructor creates a StandardProject correctly.
 func TestNew(t *testing.T) {
 	state := createTestState()
 	project := New(state)
@@ -87,7 +87,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-// TestType verifies the Type() method returns "standard"
+// TestType verifies the Type() method returns "standard".
 func TestType(t *testing.T) {
 	state := createTestState()
 	project := New(state)
@@ -97,7 +97,7 @@ func TestType(t *testing.T) {
 	}
 }
 
-// TestBuildStateMachine_CreatesAllStates verifies all states are configured
+// TestBuildStateMachine_CreatesAllStates verifies all states are configured.
 func TestBuildStateMachine_CreatesAllStates(t *testing.T) {
 	state := createTestState()
 	project := New(state)
@@ -161,7 +161,7 @@ func TestBuildStateMachine_CreatesAllStates(t *testing.T) {
 	}
 }
 
-// TestBuildStateMachine_ForwardTransitions verifies forward phase transitions
+// TestBuildStateMachine_ForwardTransitions verifies forward phase transitions.
 func TestBuildStateMachine_ForwardTransitions(t *testing.T) {
 	state := createTestState()
 	project := New(state)
@@ -194,7 +194,7 @@ func TestBuildStateMachine_ForwardTransitions(t *testing.T) {
 	}
 }
 
-// TestBuildStateMachine_BackwardTransition verifies Review → Implementation loop
+// TestBuildStateMachine_BackwardTransition verifies Review → Implementation loop.
 func TestBuildStateMachine_BackwardTransition(t *testing.T) {
 	state := createTestState()
 
@@ -224,11 +224,21 @@ func TestBuildStateMachine_BackwardTransition(t *testing.T) {
 	machine.SuppressPrompts(true)
 
 	// Progress to ReviewActive
-	machine.Fire(statechart.EventProjectInit)
-	machine.Fire(statechart.EventSkipDiscovery)
-	machine.Fire(statechart.EventSkipDesign)
-	machine.Fire(statechart.EventTasksApproved) // Planning → Executing
-	machine.Fire(statechart.EventAllTasksComplete) // Executing → Review
+	if err := machine.Fire(statechart.EventProjectInit); err != nil {
+		t.Fatalf("Failed to fire EventProjectInit: %v", err)
+	}
+	if err := machine.Fire(statechart.EventSkipDiscovery); err != nil {
+		t.Fatalf("Failed to fire EventSkipDiscovery: %v", err)
+	}
+	if err := machine.Fire(statechart.EventSkipDesign); err != nil {
+		t.Fatalf("Failed to fire EventSkipDesign: %v", err)
+	}
+	if err := machine.Fire(statechart.EventTasksApproved); err != nil {
+		t.Fatalf("Failed to fire EventTasksApproved: %v", err)
+	}
+	if err := machine.Fire(statechart.EventAllTasksComplete); err != nil {
+		t.Fatalf("Failed to fire EventAllTasksComplete: %v", err)
+	}
 
 	currentState := machine.State()
 	if currentState != statechart.ReviewActive {
@@ -247,7 +257,7 @@ func TestBuildStateMachine_BackwardTransition(t *testing.T) {
 	}
 }
 
-// TestBuildStateMachine_Guards verifies guards are attached correctly
+// TestBuildStateMachine_Guards verifies guards are attached correctly.
 func TestBuildStateMachine_Guards(t *testing.T) {
 	state := createTestState()
 	project := New(state)
@@ -256,9 +266,15 @@ func TestBuildStateMachine_Guards(t *testing.T) {
 	machine.SuppressPrompts(true)
 
 	// Progress to ImplementationPlanning
-	machine.Fire(statechart.EventProjectInit)
-	machine.Fire(statechart.EventSkipDiscovery)
-	machine.Fire(statechart.EventSkipDesign)
+	if err := machine.Fire(statechart.EventProjectInit); err != nil {
+		t.Fatalf("Failed to fire EventProjectInit: %v", err)
+	}
+	if err := machine.Fire(statechart.EventSkipDiscovery); err != nil {
+		t.Fatalf("Failed to fire EventSkipDiscovery: %v", err)
+	}
+	if err := machine.Fire(statechart.EventSkipDesign); err != nil {
+		t.Fatalf("Failed to fire EventSkipDesign: %v", err)
+	}
 
 	// Try to complete implementation without tasks - should fail (guard blocks)
 	err := machine.Fire(statechart.EventAllTasksComplete)
@@ -300,7 +316,7 @@ func TestBuildStateMachine_Guards(t *testing.T) {
 	}
 }
 
-// TestPhases verifies the Phases() method returns metadata for all phases
+// TestPhases verifies the Phases() method returns metadata for all phases.
 func TestPhases(t *testing.T) {
 	state := createTestState()
 	project := New(state)
@@ -339,7 +355,7 @@ func TestPhases(t *testing.T) {
 	}
 }
 
-// TestFullLifecycleWalkthrough simulates a complete project lifecycle
+// TestFullLifecycleWalkthrough simulates a complete project lifecycle.
 func TestFullLifecycleWalkthrough(t *testing.T) {
 	state := createTestState()
 
@@ -433,7 +449,7 @@ func TestFullLifecycleWalkthrough(t *testing.T) {
 	}
 }
 
-// TestGuardCallable verifies guards can be called directly
+// TestGuardCallable verifies guards can be called directly.
 func TestGuardCallable(t *testing.T) {
 	state := createTestState()
 
@@ -454,9 +470,15 @@ func TestGuardCallable(t *testing.T) {
 	machine.SuppressPrompts(true)
 
 	// Progress to ReviewActive
-	machine.Fire(statechart.EventProjectInit)
-	machine.Fire(statechart.EventSkipDiscovery)
-	machine.Fire(statechart.EventSkipDesign)
+	if err := machine.Fire(statechart.EventProjectInit); err != nil {
+		t.Fatalf("Failed to fire EventProjectInit: %v", err)
+	}
+	if err := machine.Fire(statechart.EventSkipDiscovery); err != nil {
+		t.Fatalf("Failed to fire EventSkipDiscovery: %v", err)
+	}
+	if err := machine.Fire(statechart.EventSkipDesign); err != nil {
+		t.Fatalf("Failed to fire EventSkipDesign: %v", err)
+	}
 
 	// Add and complete a task to reach review
 	state.Phases.Implementation.Tasks = []phasesSchema.Task{
@@ -464,8 +486,12 @@ func TestGuardCallable(t *testing.T) {
 	}
 	state.Phases.Implementation.Tasks_approved = true
 
-	machine.Fire(statechart.EventTasksApproved)
-	machine.Fire(statechart.EventAllTasksComplete)
+	if err := machine.Fire(statechart.EventTasksApproved); err != nil {
+		t.Fatalf("Failed to fire EventTasksApproved: %v", err)
+	}
+	if err := machine.Fire(statechart.EventAllTasksComplete); err != nil {
+		t.Fatalf("Failed to fire EventAllTasksComplete: %v", err)
+	}
 
 	// Now test the backward transition guard
 	err := machine.Fire(statechart.EventReviewFail)
