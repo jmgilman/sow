@@ -421,3 +421,68 @@ type GuidanceContext struct {
 func (c *GuidanceContext) ToMap() map[string]interface{} {
 	return make(map[string]interface{})
 }
+
+// DesignContext holds the context for rendering design mode prompts.
+type DesignContext struct {
+	Topic         string
+	Branch        string
+	Status        string
+	Inputs        []DesignInput
+	Outputs       []DesignOutput
+	InitialPrompt string
+}
+
+// DesignInput represents an input for template rendering.
+type DesignInput struct {
+	Type        string
+	Path        string
+	Description string
+	Tags        []string
+}
+
+// DesignOutput represents an output for template rendering.
+type DesignOutput struct {
+	Path           string
+	Description    string
+	TargetLocation string
+	Type           string
+	Tags           []string
+}
+
+// ToMap converts DesignContext to a map for template rendering.
+func (c *DesignContext) ToMap() map[string]interface{} {
+	data := make(map[string]interface{})
+	data["Topic"] = c.Topic
+	data["Branch"] = c.Branch
+	data["Status"] = c.Status
+	data["InitialPrompt"] = c.InitialPrompt
+
+	if len(c.Inputs) > 0 {
+		inputs := make([]map[string]interface{}, len(c.Inputs))
+		for i, input := range c.Inputs {
+			inputs[i] = map[string]interface{}{
+				"Type":        input.Type,
+				"Path":        input.Path,
+				"Description": input.Description,
+				"Tags":        input.Tags,
+			}
+		}
+		data["Inputs"] = inputs
+	}
+
+	if len(c.Outputs) > 0 {
+		outputs := make([]map[string]interface{}, len(c.Outputs))
+		for i, output := range c.Outputs {
+			outputs[i] = map[string]interface{}{
+				"Path":           output.Path,
+				"Description":    output.Description,
+				"TargetLocation": output.TargetLocation,
+				"Type":           output.Type,
+				"Tags":           output.Tags,
+			}
+		}
+		data["Outputs"] = outputs
+	}
+
+	return data
+}
