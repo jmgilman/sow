@@ -50,15 +50,36 @@ Directory Structure:
 The exploration index tracks all files with descriptions and tags for
 context-aware loading and discoverability.
 
+Claude Code Flags:
+  Use -- to pass additional flags to the Claude Code CLI:
+    sow explore "topic" -- --model opus --verbose
+
 Examples:
   sow explore                                    # Continue or start in current branch
   sow explore "Research JWT vs OAuth"            # Start with context
-  sow explore --branch explore/auth-research     # Work on specific branch`,
-		Args: cobra.MaximumNArgs(1),
+  sow explore --branch explore/auth-research     # Work on specific branch
+  sow explore "topic" -- --model opus            # Start with specific Claude model`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			// Only validate args before -- separator
+			argsBeforeDash := args
+			if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
+				argsBeforeDash = args[:dashIndex]
+			}
+			if len(argsBeforeDash) > 1 {
+				return fmt.Errorf("accepts at most 1 arg(s), received %d", len(argsBeforeDash))
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Extract prompt from args before -- separator
+			argsBeforeDash := args
+			if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
+				argsBeforeDash = args[:dashIndex]
+			}
+
 			initialPrompt := ""
-			if len(args) > 0 {
-				initialPrompt = args[0]
+			if len(argsBeforeDash) > 0 {
+				initialPrompt = argsBeforeDash[0]
 			}
 			return runExplore(cmd, branchName, initialPrompt)
 		},
@@ -77,6 +98,12 @@ func runExplore(cmd *cobra.Command, branchName, initialPrompt string) error {
 		fmt.Fprintln(os.Stderr, "Error: sow not initialized in this repository")
 		fmt.Fprintln(os.Stderr, "Run: sow init")
 		return fmt.Errorf("not initialized")
+	}
+
+	// Extract Claude Code flags (everything after --)
+	var claudeFlags []string
+	if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
+		claudeFlags = cmd.Flags().Args()[dashIndex:]
 	}
 
 	// Create mode runner
@@ -109,7 +136,7 @@ func runExplore(cmd *cobra.Command, branchName, initialPrompt string) error {
 	}
 
 	// Launch Claude Code
-	return launchClaudeCode(cmd, ctx, result.Prompt)
+	return launchClaudeCode(cmd, ctx, result.Prompt, claudeFlags)
 }
 
 // explorationMode implements the modes.Mode interface for exploration mode.

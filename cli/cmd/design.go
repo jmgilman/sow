@@ -53,15 +53,36 @@ The design index tracks:
 - Input sources (explorations, files, references) that inform the design
 - Planned outputs (documents) with their target locations
 
+Claude Code Flags:
+  Use -- to pass additional flags to the Claude Code CLI:
+    sow design "topic" -- --model opus --verbose
+
 Examples:
   sow design                                      # Continue or start in current branch
   sow design "Create auth system architecture"   # Start with context
-  sow design --branch design/auth-system          # Work on specific branch`,
-		Args: cobra.MaximumNArgs(1),
+  sow design --branch design/auth-system          # Work on specific branch
+  sow design "topic" -- --model opus              # Start with specific Claude model`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			// Only validate args before -- separator
+			argsBeforeDash := args
+			if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
+				argsBeforeDash = args[:dashIndex]
+			}
+			if len(argsBeforeDash) > 1 {
+				return fmt.Errorf("accepts at most 1 arg(s), received %d", len(argsBeforeDash))
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Extract prompt from args before -- separator
+			argsBeforeDash := args
+			if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
+				argsBeforeDash = args[:dashIndex]
+			}
+
 			initialPrompt := ""
-			if len(args) > 0 {
-				initialPrompt = args[0]
+			if len(argsBeforeDash) > 0 {
+				initialPrompt = argsBeforeDash[0]
 			}
 			return runDesign(cmd, branchName, initialPrompt)
 		},
@@ -89,6 +110,12 @@ func runDesign(cmd *cobra.Command, branchName, initialPrompt string) error {
 		fmt.Fprintln(os.Stderr, "Error: sow not initialized in this repository")
 		fmt.Fprintln(os.Stderr, "Run: sow init")
 		return fmt.Errorf("not initialized")
+	}
+
+	// Extract Claude Code flags (everything after --)
+	var claudeFlags []string
+	if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
+		claudeFlags = cmd.Flags().Args()[dashIndex:]
 	}
 
 	// Create mode runner
@@ -122,7 +149,7 @@ func runDesign(cmd *cobra.Command, branchName, initialPrompt string) error {
 	}
 
 	// Launch Claude Code
-	return launchClaudeCode(cmd, ctx, result.Prompt)
+	return launchClaudeCode(cmd, ctx, result.Prompt, claudeFlags)
 }
 
 // designMode implements the modes.Mode interface for design mode.

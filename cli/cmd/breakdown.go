@@ -52,15 +52,36 @@ Directory Structure:
 The breakdown index tracks input sources, proposed work units with dependencies,
 and published GitHub issues for zero-context resumability.
 
+Claude Code Flags:
+  Use -- to pass additional flags to the Claude Code CLI:
+    sow breakdown "topic" -- --model opus --verbose
+
 Examples:
   sow breakdown                                          # Continue or start in current branch
   sow breakdown "Break down auth system design"         # Start with context
-  sow breakdown --branch breakdown/auth-implementation   # Work on specific branch`,
-		Args: cobra.MaximumNArgs(1),
+  sow breakdown --branch breakdown/auth-implementation   # Work on specific branch
+  sow breakdown "topic" -- --model opus                  # Start with specific Claude model`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			// Only validate args before -- separator
+			argsBeforeDash := args
+			if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
+				argsBeforeDash = args[:dashIndex]
+			}
+			if len(argsBeforeDash) > 1 {
+				return fmt.Errorf("accepts at most 1 arg(s), received %d", len(argsBeforeDash))
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Extract prompt from args before -- separator
+			argsBeforeDash := args
+			if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
+				argsBeforeDash = args[:dashIndex]
+			}
+
 			initialPrompt := ""
-			if len(args) > 0 {
-				initialPrompt = args[0]
+			if len(argsBeforeDash) > 0 {
+				initialPrompt = argsBeforeDash[0]
 			}
 			return runBreakdown(cmd, branchName, initialPrompt)
 		},
@@ -91,6 +112,12 @@ func runBreakdown(cmd *cobra.Command, branchName, initialPrompt string) error {
 		fmt.Fprintln(os.Stderr, "Error: sow not initialized in this repository")
 		fmt.Fprintln(os.Stderr, "Run: sow init")
 		return fmt.Errorf("not initialized")
+	}
+
+	// Extract Claude Code flags (everything after --)
+	var claudeFlags []string
+	if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
+		claudeFlags = cmd.Flags().Args()[dashIndex:]
 	}
 
 	// Create mode runner
@@ -124,7 +151,7 @@ func runBreakdown(cmd *cobra.Command, branchName, initialPrompt string) error {
 	}
 
 	// Launch Claude Code
-	return launchClaudeCode(cmd, ctx, result.Prompt)
+	return launchClaudeCode(cmd, ctx, result.Prompt, claudeFlags)
 }
 
 // breakdownMode implements the modes.Mode interface for breakdown mode.

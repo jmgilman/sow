@@ -34,8 +34,13 @@ Claude Code with it. The greeting automatically detects:
 Claude will greet you with context-aware information and let you
 choose what to do next.
 
+Claude Code Flags:
+  Use -- to pass additional flags to the Claude Code CLI:
+    sow start -- --model opus --verbose
+
 Examples:
-  sow start    Launch orchestrator with greeting`,
+  sow start                    # Launch orchestrator with greeting
+  sow start -- --model opus    # Launch with specific Claude model`,
 		RunE: runStart,
 	}
 
@@ -47,6 +52,12 @@ func runStart(cmd *cobra.Command, _ []string) error {
 
 	// Note: We don't require sow to be initialized - the greeting handles uninitialized state
 	// and provides guidance to the user
+
+	// Extract Claude Code flags (everything after --)
+	var claudeFlags []string
+	if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
+		claudeFlags = cmd.Flags().Args()[dashIndex:]
+	}
 
 	// Check claude CLI available
 	claude := sowexec.NewLocal("claude")
@@ -62,8 +73,12 @@ func runStart(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to generate greeting: %w", err)
 	}
 
+	// Build command args: prompt first, then any additional flags
+	args := []string{greetingPrompt}
+	args = append(args, claudeFlags...)
+
 	// Launch Claude Code with the greeting prompt
-	claudeCmd := exec.CommandContext(cmd.Context(), claude.Command(), greetingPrompt)
+	claudeCmd := exec.CommandContext(cmd.Context(), claude.Command(), args...)
 	claudeCmd.Stdin = os.Stdin
 	claudeCmd.Stdout = os.Stdout
 	claudeCmd.Stderr = os.Stderr
