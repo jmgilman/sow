@@ -65,6 +65,22 @@ func Init(repoRoot string) error {
 		return fmt.Errorf("failed to create adrs directory: %w", err)
 	}
 
+	// Create knowledge/explorations directory
+	explorationsPath := filepath.Join(knowledgePath, "explorations")
+	if err := os.MkdirAll(explorationsPath, 0755); err != nil {
+		return fmt.Errorf("failed to create explorations directory: %w", err)
+	}
+
+	// Create knowledge index
+	knowledgeIndexPath := filepath.Join(knowledgePath, "index.yaml")
+	knowledgeIndexContent := []byte(`# Knowledge Index
+# Tracks summaries and artifacts for discoverability
+explorations: []
+`)
+	if err := os.WriteFile(knowledgeIndexPath, knowledgeIndexContent, 0644); err != nil {
+		return fmt.Errorf("failed to create knowledge index: %w", err)
+	}
+
 	// Create refs directory
 	refsPath := filepath.Join(sowPath, "refs")
 	if err := os.MkdirAll(refsPath, 0755); err != nil {
@@ -83,6 +99,25 @@ func Init(repoRoot string) error {
 	versionContent := []byte(StructureVersion + "\n")
 	if err := os.WriteFile(versionPath, versionContent, 0644); err != nil {
 		return fmt.Errorf("failed to create version file: %w", err)
+	}
+
+	// Create config file with commented examples
+	configPath := filepath.Join(sowPath, "config.yaml")
+	configContent := []byte(`# sow Configuration
+# Customize artifact locations and team conventions
+
+# Uncomment and modify these paths to match your team's conventions:
+# artifacts:
+#   adrs: .sow/knowledge/adrs
+#   design_docs: .sow/knowledge/design
+
+# Default locations (if not specified):
+# - ADRs: .sow/knowledge/adrs/
+# - Design docs: .sow/knowledge/design/
+# - Exploration summaries: .sow/knowledge/explorations/
+`)
+	if err := os.WriteFile(configPath, configContent, 0644); err != nil {
+		return fmt.Errorf("failed to create config file: %w", err)
 	}
 
 	// Create refs index with version

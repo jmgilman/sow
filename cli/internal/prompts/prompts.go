@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"strings"
 	"text/template"
 )
 
@@ -39,6 +40,16 @@ const (
 	PromptCommandContinue PromptID = "command.continue"
 )
 
+// Mode prompt IDs - Entry points for different modes.
+const (
+	PromptModeExplore PromptID = "mode.explore"
+)
+
+// Guidance prompt IDs - On-demand guidance for specific tasks.
+const (
+	PromptGuidanceResearch PromptID = "guidance.research"
+)
+
 // Context represents data needed to render a prompt.
 // Implementations must provide a ToMap method that converts
 // the context into template-compatible data.
@@ -65,7 +76,12 @@ func (r *Registry) Register(id PromptID, path string) error {
 		return fmt.Errorf("failed to read template %s: %w", path, err)
 	}
 
-	tmpl, err := template.New(string(id)).Parse(string(content))
+	// Create template with custom functions
+	tmpl, err := template.New(string(id)).Funcs(template.FuncMap{
+		"join": func(sep string, elems []string) string {
+			return strings.Join(elems, sep)
+		},
+	}).Parse(string(content))
 	if err != nil {
 		return fmt.Errorf("failed to parse template %s: %w", path, err)
 	}
@@ -91,7 +107,7 @@ func (r *Registry) Render(id PromptID, ctx Context) (string, error) {
 
 // Embed all prompt templates from the templates/ directory
 //
-//go:embed templates/**/*.md templates/greet/*.md templates/greet/states/*.md templates/commands/*.md
+//go:embed templates/**/*.md templates/greet/*.md templates/greet/states/*.md templates/commands/*.md templates/modes/*.md templates/guidance/*.md
 var templatesFS embed.FS
 
 // Default registry, initialized at startup.
@@ -124,6 +140,12 @@ func init() {
 		// Entry point command prompts
 		PromptCommandNew:      "templates/commands/new.md",
 		PromptCommandContinue: "templates/commands/continue.md",
+
+		// Mode prompts
+		PromptModeExplore: "templates/modes/explore.md",
+
+		// Guidance prompts
+		PromptGuidanceResearch: "templates/guidance/research.md",
 	}
 
 	// Load and parse all templates

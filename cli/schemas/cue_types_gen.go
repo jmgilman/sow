@@ -8,6 +8,111 @@ import (
 	"time"
 )
 
+// Config defines the schema for the sow configuration file at:
+// .sow/config.yaml
+//
+// This allows teams to customize where formal artifacts are stored.
+type Config struct {
+	// Artifact storage locations
+	// All paths are relative to repository root
+	Artifacts *struct {
+		// Where to store Architecture Decision Records
+		// Default: ".sow/knowledge/adrs"
+		Adrs *string `json:"adrs,omitempty"`
+
+		// Where to store design documents
+		// Default: ".sow/knowledge/design"
+		Design_docs *string `json:"design_docs,omitempty"`
+	} `json:"artifacts,omitempty"`
+}
+
+// ExplorationIndex defines the schema for exploration index files at:
+// .sow/exploration/index.yaml
+//
+// This tracks files and metadata for active exploration work.
+type ExplorationIndex struct {
+	// Exploration metadata
+	Exploration struct {
+		// Topic being explored (human-readable)
+		Topic string `json:"topic"`
+
+		// Git branch name for this exploration
+		Branch string `json:"branch"`
+
+		// When this exploration was created
+		Created_at time.Time `json:"created_at"`
+
+		// Exploration status
+		Status string `json:"status"`
+	} `json:"exploration"`
+
+	// Files in this exploration
+	Files []ExplorationFile `json:"files"`
+}
+
+// ExplorationFile represents a file in the exploration workspace
+type ExplorationFile struct {
+	// Path relative to .sow/exploration/
+	Path string `json:"path"`
+
+	// Brief description of file contents
+	Description string `json:"description"`
+
+	// Keywords for discoverability
+	Tags []string `json:"tags"`
+
+	// When this file was created
+	Created_at time.Time `json:"created_at"`
+}
+
+// KnowledgeIndex defines the schema for the knowledge index at:
+// .sow/knowledge/index.yaml
+//
+// This tracks permanent artifacts and their metadata.
+type KnowledgeIndex struct {
+	// Exploration summaries
+	Explorations []ExplorationSummary `json:"explorations"`
+
+	// ADR references (if stored in .sow/knowledge/adrs/)
+	Adrs []ArtifactReference `json:"adrs,omitempty"`
+
+	// Design document references (if stored in .sow/knowledge/design/)
+	Design_docs []ArtifactReference `json:"design_docs,omitempty"`
+}
+
+// ExplorationSummary represents a completed exploration
+type ExplorationSummary struct {
+	// Exploration topic
+	Topic string `json:"topic"`
+
+	// Path to summary document (relative to .sow/knowledge/explorations/)
+	Summary_path string `json:"summary_path"`
+
+	// Original exploration branch
+	Branch string `json:"branch"`
+
+	// When exploration was completed
+	Completed_at time.Time `json:"completed_at"`
+
+	// Tags for discoverability
+	Tags []string `json:"tags"`
+}
+
+// ArtifactReference represents a reference to a permanent artifact
+type ArtifactReference struct {
+	// Path to artifact (relative to .sow/knowledge/)
+	Path string `json:"path"`
+
+	// Brief description
+	Description string `json:"description"`
+
+	// When artifact was created
+	Created_at time.Time `json:"created_at"`
+
+	// Tags for discoverability
+	Tags []string `json:"tags"`
+}
+
 // Re-export project types for backward compatibility
 // This ensures existing code importing schemas.ProjectState continues to work
 type ProjectState projects.ProjectState
