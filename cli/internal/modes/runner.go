@@ -1,0 +1,96 @@
+package modes
+
+import (
+	"fmt"
+
+	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/spf13/cobra"
+)
+
+// PromptGenerator generates a mode-specific prompt.
+type PromptGenerator func(ctx *sow.Context, topic, branch, initialPrompt string) (string, error)
+
+// InitFunc initializes a new mode session.
+type InitFunc func(ctx *sow.Context, topic, branch string) error
+
+// ModeRunner encapsulates the common logic for running a mode.
+type ModeRunner struct {
+	mode            Mode
+	existsFunc      ExistsFunc
+	initFunc        InitFunc
+	promptGenerator PromptGenerator
+}
+
+// NewModeRunner creates a new mode runner.
+func NewModeRunner(mode Mode, existsFunc ExistsFunc, initFunc InitFunc, promptGenerator PromptGenerator) *ModeRunner {
+	return &ModeRunner{
+		mode:            mode,
+		existsFunc:      existsFunc,
+		initFunc:        initFunc,
+		promptGenerator: promptGenerator,
+	}
+}
+
+// Run executes the mode with the given parameters.
+func (r *ModeRunner) Run(ctx *sow.Context, branchName, initialPrompt string) (*RunResult, error) {
+	var modeInfo ModeInfo
+
+	if branchName != "" {
+		// Scenario: --branch flag provided
+		branch, topicStr, create, branchErr := HandleBranchScenario(ctx, r.mode, branchName, r.existsFunc)
+		if branchErr != nil {
+			return nil, branchErr
+		}
+		modeInfo.Branch = branch
+		modeInfo.Topic = topicStr
+		modeInfo.ShouldCreateNew = create
+	} else {
+		// Scenario: No flags (current branch)
+		branch, topicStr, create, branchErr := HandleCurrentBranchScenario(ctx, r.mode, r.existsFunc)
+		if branchErr != nil {
+			return nil, branchErr
+		}
+		modeInfo.Branch = branch
+		modeInfo.Topic = topicStr
+		modeInfo.ShouldCreateNew = create
+	}
+
+	if modeInfo.ShouldCreateNew {
+		// Create new mode session
+		if err := r.initFunc(ctx, modeInfo.Topic, modeInfo.Branch); err != nil {
+			return nil, fmt.Errorf("failed to initialize %s: %w", r.mode.Name(), err)
+		}
+	}
+
+	// Generate mode-specific prompt
+	prompt, err := r.promptGenerator(ctx, modeInfo.Topic, modeInfo.Branch, initialPrompt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate prompt: %w", err)
+	}
+
+	return &RunResult{
+		SelectedBranch:  modeInfo.Branch,
+		Topic:           modeInfo.Topic,
+		Prompt:          prompt,
+		ShouldCreateNew: modeInfo.ShouldCreateNew,
+	}, nil
+}
+
+// FormatCreationMessage formats a message for when a new mode session is created.
+func FormatCreationMessage(cmd *cobra.Command, mode Mode, topic, branch string) {
+	cmd.Printf("\n✓ Created new %s: %s\n", mode.Name(), topic)
+	cmd.Printf("  Branch: %s\n", branch)
+}
+
+// FormatResumptionMessage formats a message for when a mode session is resumed.
+// The stats map can contain mode-specific statistics (e.g., file count, input/output counts).
+func FormatResumptionMessage(cmd *cobra.Command, mode Mode, topic, branch, status string, stats map[string]int) {
+	cmd.Printf("\n✓ Resuming %s: %s\n", mode.Name(), topic)
+	cmd.Printf("  Branch: %s\n", branch)
+	cmd.Printf("  Status: %s\n", status)
+
+	// Print mode-specific statistics
+	for key, value := range stats {
+		cmd.Printf("  %s: %d\n", key, value)
+	}
+}

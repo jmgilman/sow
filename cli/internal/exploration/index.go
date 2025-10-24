@@ -3,12 +3,11 @@ package exploration
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
+	"github.com/jmgilman/sow/cli/internal/modes"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -16,62 +15,27 @@ const (
 	IndexPath = "exploration/index.yaml"
 )
 
+var (
+	// indexManager is the generic index manager for exploration mode.
+	indexManager = modes.NewIndexManager[schemas.ExplorationIndex]("exploration", IndexPath)
+)
+
 // LoadIndex loads the exploration index from disk.
 // Returns ErrNoExploration if exploration directory doesn't exist.
 func LoadIndex(ctx *sow.Context) (*schemas.ExplorationIndex, error) {
-	fs := ctx.FS()
-	if fs == nil {
-		return nil, sow.ErrNotInitialized
-	}
-
-	// Check if exploration directory exists
-	exists, err := fs.Exists("exploration")
+	index, err := indexManager.Load(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check exploration directory: %w", err)
-	}
-	if !exists {
+		// Map generic error to exploration-specific error
 		return nil, ErrNoExploration
 	}
-
-	// Read index file
-	data, err := fs.ReadFile(IndexPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read exploration index: %w", err)
-	}
-
-	// Parse YAML
-	var index schemas.ExplorationIndex
-	if err := yaml.Unmarshal(data, &index); err != nil {
-		return nil, fmt.Errorf("failed to parse exploration index: %w", err)
-	}
-
-	return &index, nil
+	return index, nil
 }
 
 // SaveIndex saves the exploration index to disk.
 func SaveIndex(ctx *sow.Context, index *schemas.ExplorationIndex) error {
-	fs := ctx.FS()
-	if fs == nil {
-		return sow.ErrNotInitialized
+	if err := indexManager.Save(ctx, index); err != nil {
+		return fmt.Errorf("failed to save exploration index: %w", err)
 	}
-
-	// Marshal to YAML
-	data, err := yaml.Marshal(index)
-	if err != nil {
-		return fmt.Errorf("failed to marshal exploration index: %w", err)
-	}
-
-	// Write atomically (write to temp file, then rename)
-	tmpPath := IndexPath + ".tmp"
-	if err := fs.WriteFile(tmpPath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write temp index: %w", err)
-	}
-
-	if err := fs.Rename(tmpPath, IndexPath); err != nil {
-		_ = fs.Remove(tmpPath) // Clean up temp file
-		return fmt.Errorf("failed to rename temp index: %w", err)
-	}
-
 	return nil
 }
 
@@ -120,34 +84,18 @@ func InitExploration(ctx *sow.Context, topic, branch string) error {
 
 // Exists checks if an exploration directory exists.
 func Exists(ctx *sow.Context) bool {
-	fs := ctx.FS()
-	if fs == nil {
-		return false
-	}
-	exists, _ := fs.Exists("exploration")
-	return exists
+	return indexManager.Exists(ctx)
 }
 
 // Delete removes the exploration directory and all its contents.
 func Delete(ctx *sow.Context) error {
-	fs := ctx.FS()
-	if fs == nil {
-		return sow.ErrNotInitialized
-	}
-
-	exists, _ := fs.Exists("exploration")
-	if !exists {
+	if err := indexManager.Delete(ctx); err != nil {
 		return ErrNoExploration
 	}
-
-	if err := fs.RemoveAll("exploration"); err != nil {
-		return fmt.Errorf("failed to remove exploration directory: %w", err)
-	}
-
 	return nil
 }
 
 // GetFilePath returns the absolute path to a file in the exploration directory.
 func GetFilePath(ctx *sow.Context, relativePath string) string {
-	return filepath.Join(ctx.RepoRoot(), ".sow", "exploration", relativePath)
+	return indexManager.GetFilePath(ctx, relativePath)
 }

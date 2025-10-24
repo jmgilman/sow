@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	sowexec "github.com/jmgilman/sow/cli/internal/exec"
+	"github.com/jmgilman/sow/cli/internal/modes"
 	"github.com/jmgilman/sow/cli/internal/project/domain"
 	"github.com/jmgilman/sow/cli/internal/project/loader"
 	"github.com/jmgilman/sow/cli/internal/prompts"
@@ -219,7 +220,7 @@ func handleBranchScenario(ctx *sow.Context, branchName string) (string, bool, er
 		}
 
 		// Create and checkout new branch
-		if err := createBranch(git, branchName); err != nil {
+		if err := modes.CreateBranch(git, branchName); err != nil {
 			return "", false, fmt.Errorf("failed to create branch %s: %w", branchName, err)
 		}
 	}
