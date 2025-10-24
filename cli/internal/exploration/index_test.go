@@ -1,6 +1,7 @@
 package exploration
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,27 +26,27 @@ func setupTestContext(t *testing.T) (*sow.Context, func()) {
 	// Initialize git repo with go-git
 	gogitRepo, err := gogit.PlainInit(tmpDir, false)
 	if err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("Failed to init git repo: %v", err)
 	}
 
 	// Create initial commit so we have a proper git repository
 	wt, err := gogitRepo.Worktree()
 	if err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("Failed to get worktree: %v", err)
 	}
 
 	// Create README
 	readmePath := filepath.Join(tmpDir, "README.md")
 	if err := os.WriteFile(readmePath, []byte("# Test\n"), 0644); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("Failed to create README: %v", err)
 	}
 
 	// Stage and commit
 	if _, err := wt.Add("README.md"); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("Failed to add README: %v", err)
 	}
 
@@ -56,25 +57,25 @@ func setupTestContext(t *testing.T) (*sow.Context, func()) {
 			When:  time.Now(),
 		},
 	}); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("Failed to commit: %v", err)
 	}
 
 	// Initialize sow structure
 	if err := sow.Init(tmpDir); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("Failed to initialize sow: %v", err)
 	}
 
 	// Create context
 	ctx, err := sow.NewContext(tmpDir)
 	if err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("Failed to create context: %v", err)
 	}
 
 	cleanup := func() {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 	}
 
 	return ctx, cleanup
@@ -141,7 +142,7 @@ func TestInitExploration(t *testing.T) {
 	}
 
 	// Test that re-initializing fails
-	if err := InitExploration(ctx, topic, branch); err != ErrExplorationExists {
+	if err := InitExploration(ctx, topic, branch); !errors.Is(err, ErrExplorationExists) {
 		t.Errorf("InitExploration() second time = %v, want ErrExplorationExists", err)
 	}
 }
@@ -152,7 +153,7 @@ func TestLoadIndex(t *testing.T) {
 
 	// Should fail when no exploration exists
 	_, err := LoadIndex(ctx)
-	if err != ErrNoExploration {
+	if !errors.Is(err, ErrNoExploration) {
 		t.Errorf("LoadIndex() with no exploration = %v, want ErrNoExploration", err)
 	}
 
@@ -245,7 +246,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	// Delete again should fail
-	if err := Delete(ctx); err != ErrNoExploration {
+	if err := Delete(ctx); !errors.Is(err, ErrNoExploration) {
 		t.Errorf("Delete() when not exists = %v, want ErrNoExploration", err)
 	}
 }

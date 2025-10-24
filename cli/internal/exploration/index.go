@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	// IndexPath is the path to the exploration index relative to .sow/
+	// IndexPath is the path to the exploration index relative to .sow/.
 	IndexPath = "exploration/index.yaml"
 )
 

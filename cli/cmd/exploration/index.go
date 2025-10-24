@@ -34,7 +34,7 @@ Example:
 	return cmd
 }
 
-func runIndex(cmd *cobra.Command, args []string) error {
+func runIndex(cmd *cobra.Command, _ []string) error {
 	// Get context
 	ctx := cmdutil.GetContext(cmd.Context())
 

@@ -10,17 +10,17 @@ func NewExplorationCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "exploration",
 		Short: "Manage exploration index",
-		Long: `Manage the exploration index for the current exploration.
+		Long: `Manage the exploration file registry for the current session.
 
-The exploration index tracks all files in the exploration workspace with
+The file registry tracks all files in the exploration workspace with
 their descriptions and tags. This enables context-aware file loading and
 discoverability.
 
 Subcommands:
-  add-file     Register a new file in the index
+  add-file     Register a new file
   update-file  Update file metadata
-  remove-file  Remove a file from the index
-  index        Display the current index
+  remove-file  Remove a file
+  index        Display the current registry
 
 Example workflow:
   1. Start exploration:

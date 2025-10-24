@@ -137,7 +137,7 @@ func runExplore(cmd *cobra.Command, branchName, initialPrompt string) error {
 }
 
 // handleExploreBranchScenario handles the --branch flag scenario.
-// Returns: (branchName, topic, shouldCreateNew, error)
+// Returns: (branchName, topic, shouldCreateNew, error).
 func handleExploreBranchScenario(ctx *sow.Context, branchName string) (string, string, bool, error) {
 	git := ctx.Git()
 
@@ -192,7 +192,7 @@ func handleExploreBranchScenario(ctx *sow.Context, branchName string) (string, s
 }
 
 // handleExploreCurrentBranchScenario handles the no-flags scenario (current branch).
-// Returns: (branchName, topic, shouldCreateNew, error)
+// Returns: (branchName, topic, shouldCreateNew, error).
 func handleExploreCurrentBranchScenario(ctx *sow.Context) (string, string, bool, error) {
 	git := ctx.Git()
 
@@ -257,7 +257,7 @@ func createBranch(git *sow.Git, branchName string) error {
 func generateExplorationPrompt(sowCtx *sow.Context, topic, branch, initialPrompt string) (string, error) {
 	// Load exploration index if it exists
 	var files []prompts.ExplorationFile
-	var status string = "active"
+	status := "active"
 
 	if exploration.Exists(sowCtx) {
 		index, err := exploration.LoadIndex(sowCtx)

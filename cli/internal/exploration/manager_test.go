@@ -1,6 +1,7 @@
 package exploration
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -46,7 +47,7 @@ func TestAddFile(t *testing.T) {
 	}
 
 	// Test adding duplicate file
-	if err := AddFile(ctx, path, "Different description", tags); err != ErrFileExists {
+	if err := AddFile(ctx, path, "Different description", tags); !errors.Is(err, ErrFileExists) {
 		t.Errorf("AddFile() duplicate = %v, want ErrFileExists", err)
 	}
 }
@@ -93,7 +94,7 @@ func TestUpdateFile(t *testing.T) {
 	}
 
 	// Test updating non-existent file
-	if err := UpdateFile(ctx, "nonexistent.md", "desc", []string{"tag"}); err != ErrFileNotFound {
+	if err := UpdateFile(ctx, "nonexistent.md", "desc", []string{"tag"}); !errors.Is(err, ErrFileNotFound) {
 		t.Errorf("UpdateFile() non-existent = %v, want ErrFileNotFound", err)
 	}
 }
@@ -135,7 +136,7 @@ func TestRemoveFile(t *testing.T) {
 	}
 
 	// Test removing non-existent file
-	if err := RemoveFile(ctx, "nonexistent.md"); err != ErrFileNotFound {
+	if err := RemoveFile(ctx, "nonexistent.md"); !errors.Is(err, ErrFileNotFound) {
 		t.Errorf("RemoveFile() non-existent = %v, want ErrFileNotFound", err)
 	}
 }
@@ -173,7 +174,7 @@ func TestGetFile(t *testing.T) {
 
 	// Test getting non-existent file
 	_, err = GetFile(ctx, "nonexistent.md")
-	if err != ErrFileNotFound {
+	if !errors.Is(err, ErrFileNotFound) {
 		t.Errorf("GetFile() non-existent = %v, want ErrFileNotFound", err)
 	}
 }

@@ -129,7 +129,7 @@ func runProject(cmd *cobra.Command, branchName string, issueNumber int) error {
 }
 
 // handleIssueScenario handles the --issue flag scenario.
-// Returns: (branchName, issue, shouldCreateNew, error)
+// Returns: (branchName, issue, shouldCreateNew, error).
 func handleIssueScenario(ctx *sow.Context, issueNumber int) (string, *sow.Issue, bool, error) {
 	ghExec := sowexec.NewLocal("gh")
 	gh := sow.NewGitHub(ghExec)
@@ -183,7 +183,7 @@ func handleIssueScenario(ctx *sow.Context, issueNumber int) (string, *sow.Issue,
 }
 
 // handleBranchScenario handles the --branch flag scenario.
-// Returns: (branchName, shouldCreateNew, error)
+// Returns: (branchName, shouldCreateNew, error).
 func handleBranchScenario(ctx *sow.Context, branchName string) (string, bool, error) {
 	git := ctx.Git()
 
@@ -231,7 +231,7 @@ func handleBranchScenario(ctx *sow.Context, branchName string) (string, bool, er
 }
 
 // handleCurrentBranchScenario handles the no-flags scenario (current branch).
-// Returns: (branchName, shouldCreateNew, error)
+// Returns: (branchName, shouldCreateNew, error).
 func handleCurrentBranchScenario(ctx *sow.Context) (string, bool, error) {
 	git := ctx.Git()
 

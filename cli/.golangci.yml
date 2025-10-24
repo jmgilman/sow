@@ -55,6 +55,21 @@ linters:
       - path: ^internal/sow/project\.go$
         linters:
           - nestif
+      # Command handlers have inherent branching complexity
+      - path: ^cmd/explore\.go$
+        linters:
+          - nestif
+      - path: ^cmd/project\.go$
+        linters:
+          - nestif
+      # CUE-generated types use underscores to match JSON schema
+      - path: schemas/cue_types_gen\.go$
+        linters:
+          - revive
+      # Structs matching CUE schema types need underscores for JSON compatibility
+      - text: "var-naming: don't use underscores in Go names"
+        linters:
+          - revive
   enable:
     # errors
     - errcheck # no unchecked errors
