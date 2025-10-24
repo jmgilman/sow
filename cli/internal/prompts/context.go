@@ -486,3 +486,74 @@ func (c *DesignContext) ToMap() map[string]interface{} {
 
 	return data
 }
+
+// BreakdownContext holds the context for rendering breakdown mode prompts.
+type BreakdownContext struct {
+	Topic         string
+	Branch        string
+	Status        string
+	Inputs        []BreakdownInput
+	WorkUnits     []BreakdownWorkUnit
+	InitialPrompt string
+}
+
+// BreakdownInput represents an input for template rendering.
+type BreakdownInput struct {
+	Type        string
+	Path        string
+	Description string
+	Tags        []string
+}
+
+// BreakdownWorkUnit represents a work unit for template rendering.
+type BreakdownWorkUnit struct {
+	ID                string
+	Title             string
+	Description       string
+	DocumentPath      string
+	Status            string
+	DependsOn         []string
+	GithubIssueURL    string
+	GithubIssueNumber int
+}
+
+// ToMap converts BreakdownContext to a map for template rendering.
+func (c *BreakdownContext) ToMap() map[string]interface{} {
+	data := make(map[string]interface{})
+	data["Topic"] = c.Topic
+	data["Branch"] = c.Branch
+	data["Status"] = c.Status
+	data["InitialPrompt"] = c.InitialPrompt
+
+	if len(c.Inputs) > 0 {
+		inputs := make([]map[string]interface{}, len(c.Inputs))
+		for i, input := range c.Inputs {
+			inputs[i] = map[string]interface{}{
+				"Type":        input.Type,
+				"Path":        input.Path,
+				"Description": input.Description,
+				"Tags":        input.Tags,
+			}
+		}
+		data["Inputs"] = inputs
+	}
+
+	if len(c.WorkUnits) > 0 {
+		workUnits := make([]map[string]interface{}, len(c.WorkUnits))
+		for i, unit := range c.WorkUnits {
+			workUnits[i] = map[string]interface{}{
+				"ID":                unit.ID,
+				"Title":             unit.Title,
+				"Description":       unit.Description,
+				"DocumentPath":      unit.DocumentPath,
+				"Status":            unit.Status,
+				"DependsOn":         unit.DependsOn,
+				"GithubIssueURL":    unit.GithubIssueURL,
+				"GithubIssueNumber": unit.GithubIssueNumber,
+			}
+		}
+		data["WorkUnits"] = workUnits
+	}
+
+	return data
+}

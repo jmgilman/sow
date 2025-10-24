@@ -39,8 +39,9 @@ const (
 
 // Mode prompt IDs - Entry points for different modes.
 const (
-	PromptModeExplore PromptID = "mode.explore"
-	PromptModeDesign  PromptID = "mode.design"
+	PromptModeExplore   PromptID = "mode.explore"
+	PromptModeDesign    PromptID = "mode.design"
+	PromptModeBreakdown PromptID = "mode.breakdown"
 )
 
 // Guidance prompt IDs - On-demand guidance for specific tasks.
@@ -137,8 +138,9 @@ func init() {
 		PromptCommandContinue: "templates/commands/continue.md",
 
 		// Mode prompts
-		PromptModeExplore: "templates/modes/explore.md",
-		PromptModeDesign:  "templates/modes/design.md",
+		PromptModeExplore:   "templates/modes/explore.md",
+		PromptModeDesign:    "templates/modes/design.md",
+		PromptModeBreakdown: "templates/modes/breakdown.md",
 
 		// Guidance prompts
 		PromptGuidanceResearch: "templates/guidance/research.md",

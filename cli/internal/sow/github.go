@@ -324,6 +324,72 @@ func (g *GitHub) CreateLinkedBranch(issueNumber int, branchName string, checkout
 
 // Pull request operations
 
+// CreateIssue creates a GitHub issue using gh CLI.
+//
+// Parameters:
+//   - title: Issue title
+//   - body: Issue body/description (supports markdown)
+//   - labels: List of labels to add to the issue
+//
+// Returns the created Issue on success.
+func (g *GitHub) CreateIssue(title, body string, labels []string) (*Issue, error) {
+	if err := g.Ensure(); err != nil {
+		return nil, err
+	}
+
+	// Build command arguments
+	args := []string{"issue", "create", "--title", title, "--body", body}
+
+	// Add labels if provided
+	for _, label := range labels {
+		args = append(args, "--label", label)
+	}
+
+	stdout, stderr, err := g.gh.Run(args...)
+	if err != nil {
+		return nil, ErrGHCommand{
+			Command: "issue create",
+			Stderr:  stderr,
+			Err:     err,
+		}
+	}
+
+	// gh issue create outputs the issue URL on the last line
+	output := strings.TrimSpace(stdout)
+	lines := strings.Split(output, "\n")
+	if len(lines) == 0 {
+		return nil, fmt.Errorf("unexpected empty output from gh issue create")
+	}
+
+	// The URL is typically the last line
+	issueURL := strings.TrimSpace(lines[len(lines)-1])
+
+	// Validate it looks like a URL
+	if !strings.HasPrefix(issueURL, "http") {
+		return nil, fmt.Errorf("unexpected issue create output (no URL found): %s", output)
+	}
+
+	// Parse issue number from URL (format: https://github.com/owner/repo/issues/NUMBER)
+	parts := strings.Split(issueURL, "/")
+	if len(parts) < 1 {
+		return nil, fmt.Errorf("could not parse issue number from URL: %s", issueURL)
+	}
+	issueNumberStr := parts[len(parts)-1]
+	issueNumber := 0
+	_, err = fmt.Sscanf(issueNumberStr, "%d", &issueNumber)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse issue number from URL: %s", issueURL)
+	}
+
+	return &Issue{
+		Number: issueNumber,
+		Title:  title,
+		Body:   body,
+		URL:    issueURL,
+		State:  "open",
+	}, nil
+}
+
 // CreatePullRequest creates a pull request using gh CLI.
 //
 // Parameters:

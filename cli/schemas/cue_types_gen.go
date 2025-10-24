@@ -8,6 +8,84 @@ import (
 	"time"
 )
 
+// BreakdownIndex defines the schema for breakdown mode index files at:
+// .sow/breakdown/index.yaml
+//
+// This tracks input sources and work units for breaking down designs into GitHub issues.
+type BreakdownIndex struct {
+	// Breakdown session metadata
+	Breakdown struct {
+		// Topic being broken down (human-readable)
+		Topic string `json:"topic"`
+
+		// Git branch name for this breakdown session
+		Branch string `json:"branch"`
+
+		// When this breakdown session was created
+		Created_at time.Time `json:"created_at"`
+
+		// Breakdown session status
+		Status string `json:"status"`
+	} `json:"breakdown"`
+
+	// Input sources for this breakdown session
+	Inputs []BreakdownInput `json:"inputs"`
+
+	// Work units to be created as GitHub issues
+	Work_units []BreakdownWorkUnit `json:"work_units"`
+}
+
+// BreakdownInput represents an input source for the breakdown process
+type BreakdownInput struct {
+	// Input type
+	Type string `json:"type"`
+
+	// Path, glob pattern, directory, or identifier
+	Path string `json:"path"`
+
+	// Brief description of what this input provides
+	Description string `json:"description"`
+
+	// Optional tags for organization
+	Tags []string `json:"tags,omitempty"`
+
+	// When this input was added
+	Added_at time.Time `json:"added_at"`
+}
+
+// BreakdownWorkUnit represents a unit of work to be created as a GitHub issue
+type BreakdownWorkUnit struct {
+	// Unique identifier for this work unit (e.g., "unit-001")
+	Id string `json:"id"`
+
+	// Title of the work unit (will be GitHub issue title)
+	Title string `json:"title"`
+
+	// Brief description of the work unit
+	Description string `json:"description"`
+
+	// Path to the detailed markdown document (relative to .sow/breakdown/)
+	Document_path string `json:"document_path,omitempty"`
+
+	// Work unit status
+	Status string `json:"status"`
+
+	// IDs of work units this depends on
+	Depends_on []string `json:"depends_on,omitempty"`
+
+	// GitHub issue URL (set after publishing)
+	Github_issue_url string `json:"github_issue_url,omitempty"`
+
+	// GitHub issue number (set after publishing)
+	Github_issue_number int64 `json:"github_issue_number,omitempty"`
+
+	// When this work unit was created
+	Created_at time.Time `json:"created_at"`
+
+	// When this work unit was last updated
+	Updated_at time.Time `json:"updated_at"`
+}
+
 // Config defines the schema for the sow configuration file at:
 // .sow/config.yaml
 //
