@@ -43,10 +43,15 @@ With --issue:
   - If branch found: checks out branch and continues project
   - If not found: creates new branch from issue and new project
 
+Claude Code Flags:
+  Use -- to pass additional flags to the Claude Code CLI:
+    sow project -- --model opus --verbose
+
 Examples:
   sow project                    # Continue or start in current branch
   sow project --branch feat/auth # Work on feat/auth branch
-  sow project --issue 123        # Work on issue #123`,
+  sow project --issue 123        # Work on issue #123
+  sow project -- --model opus    # Continue with specific Claude model`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runProject(cmd, branchName, issueNumber)
 		},
@@ -67,6 +72,12 @@ func runProject(cmd *cobra.Command, branchName string, issueNumber int) error {
 		fmt.Fprintln(os.Stderr, "Error: sow not initialized in this repository")
 		fmt.Fprintln(os.Stderr, "Run: sow init")
 		return fmt.Errorf("not initialized")
+	}
+
+	// Extract Claude Code flags (everything after --)
+	var claudeFlags []string
+	if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
+		claudeFlags = cmd.Flags().Args()[dashIndex:]
 	}
 
 	var selectedBranch string
@@ -111,7 +122,7 @@ func runProject(cmd *cobra.Command, branchName string, issueNumber int) error {
 			return fmt.Errorf("failed to generate new project prompt: %w", err)
 		}
 
-		return launchClaudeCode(cmd, ctx, prompt)
+		return launchClaudeCode(cmd, ctx, prompt, claudeFlags)
 	}
 
 	// Continue existing project
@@ -126,7 +137,7 @@ func runProject(cmd *cobra.Command, branchName string, issueNumber int) error {
 		return fmt.Errorf("failed to generate continue prompt: %w", err)
 	}
 
-	return launchClaudeCode(cmd, ctx, prompt)
+	return launchClaudeCode(cmd, ctx, prompt, claudeFlags)
 }
 
 // handleIssueScenario handles the --issue flag scenario.
@@ -408,8 +419,9 @@ func generateContinuePrompt(ctx *sow.Context, project domain.Project) (string, e
 	return base + "\n\n" + continueSection, nil
 }
 
-// launchClaudeCode launches Claude Code with the given prompt.
-func launchClaudeCode(cmd *cobra.Command, ctx *sow.Context, prompt string) error {
+// launchClaudeCode launches Claude Code with the given prompt and optional additional flags.
+// Additional flags after the prompt are passed directly to the claude CLI.
+func launchClaudeCode(cmd *cobra.Command, ctx *sow.Context, prompt string, claudeFlags []string) error {
 	claude := sowexec.NewLocal("claude")
 	if !claude.Exists() {
 		fmt.Fprintln(os.Stderr, "Error: Claude Code CLI not found")
@@ -417,7 +429,11 @@ func launchClaudeCode(cmd *cobra.Command, ctx *sow.Context, prompt string) error
 		return fmt.Errorf("claude not found")
 	}
 
-	claudeCmd := exec.CommandContext(cmd.Context(), claude.Command(), prompt)
+	// Build command args: prompt first, then any additional flags
+	args := []string{prompt}
+	args = append(args, claudeFlags...)
+
+	claudeCmd := exec.CommandContext(cmd.Context(), claude.Command(), args...)
 	claudeCmd.Stdin = os.Stdin
 	claudeCmd.Stdout = os.Stdout
 	claudeCmd.Stderr = os.Stderr
