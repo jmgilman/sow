@@ -414,10 +414,11 @@ func (c *ContinueProjectContext) ToMap() map[string]interface{} {
 
 // ExplorationContext holds the context for rendering exploration mode prompts.
 type ExplorationContext struct {
-	Topic  string
-	Branch string
-	Status string
-	Files  []ExplorationFile
+	Topic         string
+	Branch        string
+	Status        string
+	Files         []ExplorationFile
+	InitialPrompt string
 }
 
 // ExplorationFile represents a file in the exploration index for templates.
@@ -433,6 +434,7 @@ func (c *ExplorationContext) ToMap() map[string]interface{} {
 	data["Topic"] = c.Topic
 	data["Branch"] = c.Branch
 	data["Status"] = c.Status
+	data["InitialPrompt"] = c.InitialPrompt
 
 	if len(c.Files) > 0 {
 		files := make([]map[string]interface{}, len(c.Files))
