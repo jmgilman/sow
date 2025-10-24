@@ -3,12 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 
-	gogit "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/exploration"
+	"github.com/jmgilman/sow/cli/internal/modes"
 	"github.com/jmgilman/sow/cli/internal/prompts"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
@@ -81,177 +79,48 @@ func runExplore(cmd *cobra.Command, branchName, initialPrompt string) error {
 		return fmt.Errorf("not initialized")
 	}
 
-	var selectedBranch string
-	var topic string
-	var shouldCreateNew bool
-	var err error
+	// Create mode runner
+	mode := &explorationMode{}
+	runner := modes.NewModeRunner(
+		mode,
+		exploration.Exists,
+		exploration.InitExploration,
+		generateExplorationPrompt,
+	)
 
-	if branchName != "" {
-		// Scenario: --branch flag provided
-		selectedBranch, topic, shouldCreateNew, err = handleExploreBranchScenario(ctx, branchName)
-		if err != nil {
-			return err
-		}
-	} else {
-		// Scenario: No flags (current branch)
-		selectedBranch, topic, shouldCreateNew, err = handleExploreCurrentBranchScenario(ctx)
-		if err != nil {
-			return err
-		}
+	// Run the mode
+	result, err := runner.Run(ctx, branchName, initialPrompt)
+	if err != nil {
+		return err
 	}
 
-	// At this point we know:
-	// - selectedBranch: which branch we're on
-	// - topic: the exploration topic
-	// - shouldCreateNew: whether to create new or continue
-
-	if shouldCreateNew {
-		// Create new exploration
-		if err := exploration.InitExploration(ctx, topic, selectedBranch); err != nil {
-			return fmt.Errorf("failed to initialize exploration: %w", err)
-		}
-		cmd.Printf("\n✓ Created new exploration: %s\n", topic)
-		cmd.Printf("  Branch: %s\n", selectedBranch)
+	// Display appropriate message
+	if result.ShouldCreateNew {
+		modes.FormatCreationMessage(cmd, mode, result.Topic, result.SelectedBranch)
 	} else {
-		// Continue existing exploration
+		// Load index for resumption message
 		index, err := exploration.LoadIndex(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to load exploration: %w", err)
 		}
-		cmd.Printf("\n✓ Resuming exploration: %s\n", index.Exploration.Topic)
-		cmd.Printf("  Branch: %s\n", index.Exploration.Branch)
-		cmd.Printf("  Status: %s\n", index.Exploration.Status)
-		cmd.Printf("  Files:  %d\n", len(index.Files))
-
-		// Use the topic from the existing exploration
-		topic = index.Exploration.Topic
+		modes.FormatResumptionMessage(cmd, mode, index.Exploration.Topic, index.Exploration.Branch, index.Exploration.Status, map[string]int{
+			"Files": len(index.Files),
+		})
 	}
 
-	// Generate exploration mode prompt
-	explorationPrompt, err := generateExplorationPrompt(ctx, topic, selectedBranch, initialPrompt)
-	if err != nil {
-		return fmt.Errorf("failed to generate exploration prompt: %w", err)
-	}
-
-	return launchClaudeCode(cmd, ctx, explorationPrompt)
+	// Launch Claude Code
+	return launchClaudeCode(cmd, ctx, result.Prompt)
 }
 
-// handleExploreBranchScenario handles the --branch flag scenario.
-// Returns: (branchName, topic, shouldCreateNew, error).
-func handleExploreBranchScenario(ctx *sow.Context, branchName string) (string, string, bool, error) {
-	git := ctx.Git()
+// explorationMode implements the modes.Mode interface for exploration mode.
+type explorationMode struct{}
 
-	// Check if branch exists locally
-	branches, err := git.Branches()
-	if err != nil {
-		return "", "", false, fmt.Errorf("failed to list branches: %w", err)
-	}
-
-	branchExists := false
-	for _, b := range branches {
-		if b == branchName {
-			branchExists = true
-			break
-		}
-	}
-
-	if branchExists {
-		// Checkout existing branch
-		if err := git.CheckoutBranch(branchName); err != nil {
-			return "", "", false, fmt.Errorf("failed to checkout branch %s: %w", branchName, err)
-		}
-	} else {
-		// Create new branch
-		// First check we're on a safe branch to create from
-		currentBranch, err := git.CurrentBranch()
-		if err != nil {
-			return "", "", false, fmt.Errorf("failed to get current branch: %w", err)
-		}
-
-		if !git.IsProtectedBranch(currentBranch) {
-			return "", "", false, fmt.Errorf("cannot create branch %s from %s - please checkout main/master first", branchName, currentBranch)
-		}
-
-		// Create and checkout new branch
-		if err := createBranch(git, branchName); err != nil {
-			return "", "", false, fmt.Errorf("failed to create branch %s: %w", branchName, err)
-		}
-	}
-
-	// Extract topic from branch name
-	// If it starts with explore/, strip that prefix, otherwise use the whole name
-	topic := branchName
-	if strings.HasPrefix(branchName, "explore/") {
-		topic = strings.TrimPrefix(branchName, "explore/")
-	}
-
-	// Check if exploration exists in this branch
-	explorationExists := exploration.Exists(ctx)
-
-	return branchName, topic, !explorationExists, nil
-}
-
-// handleExploreCurrentBranchScenario handles the no-flags scenario (current branch).
-// Returns: (branchName, topic, shouldCreateNew, error).
-func handleExploreCurrentBranchScenario(ctx *sow.Context) (string, string, bool, error) {
-	git := ctx.Git()
-
-	currentBranch, err := git.CurrentBranch()
-	if err != nil {
-		return "", "", false, fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	// Check if exploration exists
-	explorationExists := exploration.Exists(ctx)
-
-	if !explorationExists {
-		// Validate we're not on a protected branch before creating new
-		if git.IsProtectedBranch(currentBranch) {
-			return "", "", false, fmt.Errorf("cannot create exploration on protected branch '%s' - create a branch first", currentBranch)
-		}
-	}
-
-	// Extract topic from branch name
-	topic := currentBranch
-	if strings.HasPrefix(currentBranch, "explore/") {
-		topic = strings.TrimPrefix(currentBranch, "explore/")
-	}
-
-	return currentBranch, topic, !explorationExists, nil
-}
-
-
-// createBranch creates a new branch and checks it out.
-func createBranch(git *sow.Git, branchName string) error {
-	// Use underlying go-git to create branch
-	wt, err := git.Repository().Underlying().Worktree()
-	if err != nil {
-		return fmt.Errorf("failed to get worktree: %w", err)
-	}
-
-	// Get current HEAD
-	head, err := git.Repository().Underlying().Head()
-	if err != nil {
-		return fmt.Errorf("failed to get HEAD: %w", err)
-	}
-
-	// Create branch reference
-	branchRef := "refs/heads/" + branchName
-	if err := git.Repository().Underlying().Storer.SetReference(
-		plumbing.NewHashReference(plumbing.ReferenceName(branchRef), head.Hash()),
-	); err != nil {
-		return fmt.Errorf("failed to create branch reference: %w", err)
-	}
-
-	// Checkout the new branch
-	if err := wt.Checkout(&gogit.CheckoutOptions{
-		Branch: plumbing.ReferenceName(branchRef),
-	}); err != nil {
-		return fmt.Errorf("failed to checkout new branch: %w", err)
-	}
-
-	return nil
-}
+func (m *explorationMode) Name() string                    { return "exploration" }
+func (m *explorationMode) BranchPrefix() string            { return "explore/" }
+func (m *explorationMode) DirectoryName() string           { return "exploration" }
+func (m *explorationMode) IndexPath() string               { return "exploration/index.yaml" }
+func (m *explorationMode) PromptID() prompts.PromptID      { return prompts.PromptModeExplore }
+func (m *explorationMode) ValidStatuses() []string         { return []string{"active", "completed", "abandoned"} }
 
 // generateExplorationPrompt creates the exploration mode prompt with context.
 func generateExplorationPrompt(sowCtx *sow.Context, topic, branch, initialPrompt string) (string, error) {

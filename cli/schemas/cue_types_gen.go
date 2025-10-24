@@ -26,6 +26,72 @@ type Config struct {
 	} `json:"artifacts,omitempty"`
 }
 
+// DesignIndex defines the schema for design mode index files at:
+// .sow/design/index.yaml
+//
+// This tracks input sources and planned outputs for active design work.
+type DesignIndex struct {
+	// Design session metadata
+	Design struct {
+		// Topic being designed (human-readable)
+		Topic string `json:"topic"`
+
+		// Git branch name for this design session
+		Branch string `json:"branch"`
+
+		// When this design session was created
+		Created_at time.Time `json:"created_at"`
+
+		// Design session status
+		Status string `json:"status"`
+	} `json:"design"`
+
+	// Input sources for this design session
+	Inputs []DesignInput `json:"inputs"`
+
+	// Output documents produced by this design session
+	Outputs []DesignOutput `json:"outputs"`
+}
+
+// DesignInput represents an input source for the design process
+type DesignInput struct {
+	// Input type
+	Type string `json:"type"`
+
+	// Path, glob pattern, directory, or identifier
+	Path string `json:"path"`
+
+	// Brief description of what this input provides
+	Description string `json:"description"`
+
+	// Optional tags for organization
+	Tags []string `json:"tags,omitempty"`
+
+	// When this input was added
+	Added_at time.Time `json:"added_at"`
+}
+
+// DesignOutput represents a design document to be produced
+type DesignOutput struct {
+	// Path relative to .sow/design/
+	Path string `json:"path"`
+
+	// Brief description of the document
+	Description string `json:"description"`
+
+	// Target location for this specific document when finalized
+	Target_location string `json:"target_location"`
+
+	// Document type (for organization)
+	Type string `json:"type,omitempty"`
+
+	// Optional tags
+	Tags []string `json:"tags,omitempty"`
+
+	// When this output was added to the index
+	Added_at time.Time `json:"added_at"`
+}
+
 // ExplorationIndex defines the schema for exploration index files at:
 // .sow/exploration/index.yaml
 //
