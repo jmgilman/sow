@@ -411,3 +411,53 @@ func (c *ContinueProjectContext) ToMap() map[string]interface{} {
 
 	return data
 }
+
+// ExplorationContext holds the context for rendering exploration mode prompts.
+type ExplorationContext struct {
+	Topic         string
+	Branch        string
+	Status        string
+	Files         []ExplorationFile
+	InitialPrompt string
+}
+
+// ExplorationFile represents a file in the exploration index for templates.
+type ExplorationFile struct {
+	Path        string
+	Description string
+	Tags        []string
+}
+
+// ToMap converts ExplorationContext to a map for template rendering.
+func (c *ExplorationContext) ToMap() map[string]interface{} {
+	data := make(map[string]interface{})
+	data["Topic"] = c.Topic
+	data["Branch"] = c.Branch
+	data["Status"] = c.Status
+	data["InitialPrompt"] = c.InitialPrompt
+
+	if len(c.Files) > 0 {
+		files := make([]map[string]interface{}, len(c.Files))
+		for i, f := range c.Files {
+			files[i] = map[string]interface{}{
+				"Path":        f.Path,
+				"Description": f.Description,
+				"Tags":        f.Tags,
+			}
+		}
+		data["Files"] = files
+	}
+
+	return data
+}
+
+// GuidanceContext holds the context for rendering guidance prompts.
+// Currently guidance prompts don't need context, but this allows for future expansion.
+type GuidanceContext struct {
+	// Future: Could include current exploration info, recent files, etc.
+}
+
+// ToMap converts GuidanceContext to a map for template rendering.
+func (c *GuidanceContext) ToMap() map[string]interface{} {
+	return make(map[string]interface{})
+}
