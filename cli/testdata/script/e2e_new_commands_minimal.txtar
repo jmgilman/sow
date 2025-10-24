@@ -1,5 +1,5 @@
 # Test: E2E New Commands - Minimal Path
-# Purpose: Test new simplified commands (enable, skip, complete, status, info) with minimal workflow
+# Purpose: Test new simplified commands (complete, status, info) with minimal workflow
 # Exercises: New commands that work with implicit active phase detection
 
 # =====================================
@@ -20,52 +20,34 @@ exec sow agent init new-cmd-test --description 'Test new simplified commands'
 stderr '✓ Initialized project'
 
 # =====================================
-# Test: sow agent status (initial state - DiscoveryDecision)
+# Test: sow agent status (initial state - PlanningActive)
 # =====================================
 exec sow agent status
-stderr 'Status: All phases complete'
+stderr 'Active Phase: planning'
 
 # =====================================
-# Enable discovery phase
-# =====================================
-exec sow agent enable discovery
-stderr '✓ Enabled discovery phase'
-
-# Verify status shows discovery is active
-exec sow agent status
-stderr 'Active Phase: discovery'
-
-# =====================================
-# Test: sow agent info (discovery phase)
+# Test: sow agent info (planning phase)
 # =====================================
 exec sow agent info
-stderr 'Phase: discovery'
+stderr 'Phase: planning'
 
 # =====================================
-# Test: sow agent complete (discovery)
+# Planning Phase - Add task list artifact
+# =====================================
+exec mkdir -p .sow/project/artifacts
+exec sh -c 'echo "# Task List" > .sow/project/artifacts/task-list.md'
+exec sow agent artifact add project/artifacts/task-list.md --metadata type=task_list
+stderr '✓ Added artifact'
+
+# Approve task list
+exec sow agent artifact approve project/artifacts/task-list.md
+stderr '✓ Approved artifact'
+
+# =====================================
+# Test: sow agent complete (planning)
 # =====================================
 exec sow agent complete
-stderr '✓ Completed discovery phase'
-
-# Verify moved to design decision
-exec sow agent status
-stderr 'Status: All phases complete'
-
-# =====================================
-# Enable design phase
-# =====================================
-exec sow agent enable design
-stderr '✓ Enabled design phase'
-
-# Verify status updated
-exec sow agent status
-stderr 'Active Phase: design'
-
-# =====================================
-# Test: sow agent complete (design)
-# =====================================
-exec sow agent complete
-stderr '✓ Completed design phase'
+stderr '✓ Completed planning phase'
 
 # Verify status updated to implementation
 exec sow agent status
@@ -100,10 +82,6 @@ stderr '✓ Updated task 010'
 # Verify auto-transitioned to review
 exec sow agent status
 stderr 'Active Phase: review'
-
-# =====================================
-# Test: sow agent complete (review phase)
-# =====================================
 
 # =====================================
 # Test: sow agent info (review phase)

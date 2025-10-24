@@ -221,13 +221,12 @@ func cliVersion() string {
 
 // determineCurrentPhaseAndStatus analyzes project state to determine current phase and status.
 func determineCurrentPhaseAndStatus(state *schemas.ProjectState) (string, string) {
-	// Check phases in order: discovery, design, implementation, review, finalize
+	// Check phases in order: planning, implementation, review, finalize
 	phases := []struct {
 		name   string
 		status string
 	}{
-		{"discovery", state.Phases.Discovery.Status},
-		{"design", state.Phases.Design.Status},
+		{"planning", state.Phases.Planning.Status},
 		{"implementation", state.Phases.Implementation.Status},
 		{"review", state.Phases.Review.Status},
 		{"finalize", state.Phases.Finalize.Status},

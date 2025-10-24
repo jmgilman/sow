@@ -19,14 +19,18 @@ func testMachine(state *schemas.ProjectState) *Machine {
 func setupProjectState() *schemas.ProjectState {
 	return &schemas.ProjectState{
 		Phases: struct {
-			Discovery      phases.Phase `json:"discovery"`
-			Design         phases.Phase `json:"design"`
+			Planning       phases.Phase `json:"planning"`
 			Implementation phases.Phase `json:"implementation"`
 			Review         phases.Phase `json:"review"`
 			Finalize       phases.Phase `json:"finalize"`
 		}{
-			Discovery:      phases.Phase{Enabled: false, Status: "skipped"},
-			Design:         phases.Phase{Enabled: false, Status: "skipped"},
+			Planning: phases.Phase{
+				Enabled: true,
+				Status:  "completed",
+				Artifacts: []phases.Artifact{
+					{Path: "task-list.md", Approved: true, Metadata: map[string]interface{}{"type": "task_list"}},
+				},
+			},
 			Implementation: phases.Phase{Enabled: true, Status: "pending"},
 			Review:         phases.Phase{Enabled: true, Status: "pending", Metadata: map[string]interface{}{"iteration": 1}},
 			Finalize:       phases.Phase{Enabled: true, Status: "pending", Metadata: map[string]interface{}{"project_deleted": false}},
@@ -34,17 +38,21 @@ func setupProjectState() *schemas.ProjectState {
 	}
 }
 
-// skipToImplementation advances machine through initial phases to implementation planning.
-func skipToImplementation(t *testing.T, machine *Machine) {
+// advanceToImplementation advances machine through planning to implementation planning.
+func advanceToImplementation(t *testing.T, machine *Machine) {
 	t.Helper()
 	if err := machine.Fire(EventProjectInit); err != nil {
 		t.Fatalf("Failed to initialize project: %v", err)
 	}
-	if err := machine.Fire(EventSkipDiscovery); err != nil {
-		t.Fatalf("Failed to skip discovery: %v", err)
+	// Add task list artifact
+	if machine.projectState == nil {
+		machine.projectState = setupProjectState()
 	}
-	if err := machine.Fire(EventSkipDesign); err != nil {
-		t.Fatalf("Failed to skip design: %v", err)
+	machine.projectState.Phases.Planning.Artifacts = []phases.Artifact{
+		{Path: "task-list.md", Approved: true, Metadata: map[string]interface{}{"type": "task_list"}},
+	}
+	if err := machine.Fire(EventCompletePlanning); err != nil {
+		t.Fatalf("Failed to complete planning: %v", err)
 	}
 }
 
@@ -74,8 +82,8 @@ func TestProjectLifecycle(t *testing.T) {
 		t.Errorf("Expected initial state NoProject, got %s", machine.State())
 	}
 
-	// Skip through discovery and design to implementation
-	skipToImplementation(t, machine)
+	// Advance through planning to implementation
+	advanceToImplementation(t, machine)
 	if machine.State() != ImplementationPlanning {
 		t.Errorf("Expected ImplementationPlanning, got %s", machine.State())
 	}
@@ -128,42 +136,41 @@ func TestProjectLifecycle(t *testing.T) {
 	}
 }
 
-// TestDiscoveryPhase tests the discovery phase workflow.
-func TestDiscoveryPhase(t *testing.T) {
+// TestPlanningPhase tests the planning phase workflow.
+func TestPlanningPhase(t *testing.T) {
 	state := &schemas.ProjectState{}
-	state.Phases.Discovery = phases.Phase{
+	state.Phases.Planning = phases.Phase{
 		Enabled: true,
-		Status:  "pending",
+		Status:  "in_progress",
 		Artifacts: []phases.Artifact{
-			{Path: "phases/discovery/notes.md", Approved: false},
+			{Path: "task-list.md", Approved: false, Metadata: map[string]interface{}{"type": "task_list"}},
 		},
 	}
 
 	machine := testMachine(state)
 
-	// Initialize and enter discovery
+	// Initialize - goes to PlanningActive
 	_ = machine.Fire(EventProjectInit)
-	_ = machine.Fire(EventEnableDiscovery)
 
-	if machine.State() != DiscoveryActive {
-		t.Errorf("Expected DiscoveryActive, got %s", machine.State())
+	if machine.State() != PlanningActive {
+		t.Errorf("Expected PlanningActive, got %s", machine.State())
 	}
 
-	// Try to complete discovery without approvals - should fail
-	if err := machine.Fire(EventCompleteDiscovery); err == nil {
-		t.Error("Expected error completing discovery with unapproved artifacts")
+	// Try to complete planning without task list approval - should fail
+	if err := machine.Fire(EventCompletePlanning); err == nil {
+		t.Error("Expected error completing planning with unapproved task list")
 	}
 
-	// Approve artifact
-	state.Phases.Discovery.Artifacts[0].Approved = true
+	// Approve task list artifact
+	state.Phases.Planning.Artifacts[0].Approved = true
 
 	// Now should succeed
-	if err := machine.Fire(EventCompleteDiscovery); err != nil {
-		t.Fatalf("Failed to complete discovery with approved artifacts: %v", err)
+	if err := machine.Fire(EventCompletePlanning); err != nil {
+		t.Fatalf("Failed to complete planning with approved task list: %v", err)
 	}
 
-	if machine.State() != DesignDecision {
-		t.Errorf("Expected DesignDecision after discovery complete, got %s", machine.State())
+	if machine.State() != ImplementationPlanning {
+		t.Errorf("Expected ImplementationPlanning after planning complete, got %s", machine.State())
 	}
 }
 
@@ -187,8 +194,14 @@ func TestReviewLoop(t *testing.T) {
 
 	// Fast-forward to review state (simulate getting there)
 	_ = machine.Fire(EventProjectInit)
-	_ = machine.Fire(EventSkipDiscovery)
-	_ = machine.Fire(EventSkipDesign)
+	// Complete planning
+	machine.projectState = state
+	machine.projectState.Phases.Planning = phases.Phase{
+		Status:    "completed",
+		Enabled:   true,
+		Artifacts: []phases.Artifact{{Path: "task-list.md", Approved: true, Metadata: map[string]interface{}{"type": "task_list"}}},
+	}
+	_ = machine.Fire(EventCompletePlanning)
 	machine.projectState = state
 	if state.Phases.Implementation.Metadata == nil {
 		state.Phases.Implementation.Metadata = make(map[string]interface{})
@@ -258,8 +271,14 @@ func TestGuardPreventsInvalidTransition(t *testing.T) {
 
 	// Fast-forward to implementation planning
 	_ = machine.Fire(EventProjectInit)
-	_ = machine.Fire(EventSkipDiscovery)
-	_ = machine.Fire(EventSkipDesign)
+	// Complete planning
+	machine.projectState = state
+	machine.projectState.Phases.Planning = phases.Phase{
+		Status:    "completed",
+		Enabled:   true,
+		Artifacts: []phases.Artifact{{Path: "task-list.md", Approved: true, Metadata: map[string]interface{}{"type": "task_list"}}},
+	}
+	_ = machine.Fire(EventCompletePlanning)
 
 	if machine.State() != ImplementationPlanning {
 		t.Fatalf("Expected ImplementationPlanning, got %s", machine.State())
@@ -290,26 +309,32 @@ func TestPermittedTriggers(t *testing.T) {
 		t.Errorf("NoProject should only permit EventProjectInit, got %v", triggers)
 	}
 
-	// Move to DiscoveryDecision
+	// Move to PlanningActive
+	state := setupProjectState()
+	state.Phases.Planning.Status = "in_progress"
+	state.Phases.Planning.Artifacts = []phases.Artifact{
+		{Path: "task-list.md", Approved: true, Metadata: map[string]interface{}{"type": "task_list"}},
+	}
+	machine.projectState = state
 	_ = machine.Fire(EventProjectInit)
 
 	triggers, err = machine.PermittedTriggers()
 	if err != nil {
 		t.Fatalf("Failed to get permitted triggers: %v", err)
 	}
-	hasEnableDiscovery := false
-	hasSkipDiscovery := false
+	hasCompletePlanning := false
+	hasProjectDelete := false
 	for _, trigger := range triggers {
-		if trigger == EventEnableDiscovery {
-			hasEnableDiscovery = true
+		if trigger == EventCompletePlanning {
+			hasCompletePlanning = true
 		}
-		if trigger == EventSkipDiscovery {
-			hasSkipDiscovery = true
+		if trigger == EventProjectDelete {
+			hasProjectDelete = true
 		}
 	}
 
-	if !hasEnableDiscovery || !hasSkipDiscovery {
-		t.Errorf("DiscoveryDecision should permit both enable and skip, got %v", triggers)
+	if !hasCompletePlanning || !hasProjectDelete {
+		t.Errorf("PlanningActive should permit complete and delete, got %v", triggers)
 	}
 }
 
@@ -335,8 +360,13 @@ func TestPersistence(t *testing.T) {
 
 	// Advance to ImplementationExecuting
 	_ = machine.Fire(EventProjectInit)
-	_ = machine.Fire(EventSkipDiscovery)
-	_ = machine.Fire(EventSkipDesign)
+	// Complete planning
+	state.Phases.Planning = phases.Phase{
+		Status:    "completed",
+		Enabled:   true,
+		Artifacts: []phases.Artifact{{Path: "task-list.md", Approved: true, Metadata: map[string]interface{}{"type": "task_list"}}},
+	}
+	_ = machine.Fire(EventCompletePlanning)
 	_ = machine.Fire(EventTaskCreated)
 
 	if machine.State() != ImplementationExecuting {

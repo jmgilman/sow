@@ -33,13 +33,19 @@ func TestGeneratedTypes(t *testing.T) {
 			Updated_at:   now,
 		},
 		Phases: struct {
-			Discovery      phases.Phase `json:"discovery"`
-			Design         phases.Phase `json:"design"`
+			Planning       phases.Phase `json:"planning"`
 			Implementation phases.Phase `json:"implementation"`
 			Review         phases.Phase `json:"review"`
 			Finalize       phases.Phase `json:"finalize"`
 		}{
 			// All phases now use the same generic Phase schema
+			Planning: phases.Phase{
+				Status:     "completed",
+				Created_at: now,
+				Enabled:    true,
+				Artifacts:  []phases.Artifact{}, // Generic artifacts field
+				Tasks:      []phases.Task{},
+			},
 			Implementation: phases.Phase{
 				Status:     "in_progress",
 				Created_at: now,

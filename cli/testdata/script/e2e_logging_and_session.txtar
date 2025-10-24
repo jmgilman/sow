@@ -22,10 +22,11 @@ stderr 'No active project'
 # Project Initialization
 # =====================================
 exec sow agent init logging-project --description 'Test logging'
-# Project starts at DiscoveryDecision - enable and complete optional phases to reach implementation
-exec sow agent enable discovery
-exec sow agent complete
-exec sow agent enable design
+# Project starts at PlanningActive - complete planning to reach implementation
+exec mkdir -p .sow/project/artifacts
+exec sh -c 'echo "# Task List" > .sow/project/artifacts/task-list.md'
+exec sow agent artifact add project/artifacts/task-list.md --metadata type=task_list
+exec sow agent artifact approve project/artifacts/task-list.md
 exec sow agent complete
 
 # =====================================

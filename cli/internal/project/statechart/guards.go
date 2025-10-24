@@ -7,30 +7,19 @@ import (
 
 // Guards for conditional transitions
 
-// ArtifactsApproved checks if all artifacts for a phase are approved (or no artifacts exist).
-func ArtifactsApproved(phase phases.Phase) bool {
-	if len(phase.Artifacts) == 0 {
-		return true
-	}
+// PlanningComplete checks if the planning phase is complete.
+// Specifically, it requires that the task list artifact has been approved.
+func PlanningComplete(phase phases.Phase) bool {
+	// Check if task list artifact is approved
 	for _, a := range phase.Artifacts {
-		if !a.Approved {
-			return false
+		if a.Metadata != nil {
+			if artifactType, ok := a.Metadata["type"].(string); ok && artifactType == "task_list" {
+				return a.Approved
+			}
 		}
 	}
-	return true
-}
-
-// ArtifactsApprovedDesign checks if all design artifacts are approved (or no artifacts exist).
-func ArtifactsApprovedDesign(phase phases.Phase) bool {
-	if len(phase.Artifacts) == 0 {
-		return true
-	}
-	for _, a := range phase.Artifacts {
-		if !a.Approved {
-			return false
-		}
-	}
-	return true
+	// If no task list artifact exists, planning is not complete
+	return false
 }
 
 // HasAtLeastOneTask checks if at least one task has been created.

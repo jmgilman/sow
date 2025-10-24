@@ -35,11 +35,12 @@ stderr 'description'
 # Create Valid Project
 # =====================================
 exec sow agent init valid-project --description 'Valid description'
-# Project starts at DiscoveryDecision
-# Enable and complete optional phases to reach implementation
-exec sow agent enable discovery
-exec sow agent complete
-exec sow agent enable design
+# Project starts at PlanningActive
+# Complete planning with task list artifact
+exec mkdir -p .sow/project/artifacts
+exec sh -c 'echo "# Task List" > .sow/project/artifacts/task-list.md'
+exec sow agent artifact add project/artifacts/task-list.md --metadata type=task_list
+exec sow agent artifact approve project/artifacts/task-list.md
 exec sow agent complete
 
 # Verify valid state
