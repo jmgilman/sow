@@ -10,10 +10,7 @@ import (
 // statePrompts maps state machine states to their corresponding prompt IDs.
 var statePrompts = map[State]prompts.PromptID{
 	NoProject:               prompts.PromptNoProject,
-	DiscoveryDecision:       prompts.PromptDiscoveryDecision,
-	DiscoveryActive:         prompts.PromptDiscoveryActive,
-	DesignDecision:          prompts.PromptDesignDecision,
-	DesignActive:            prompts.PromptDesignActive,
+	PlanningActive:          prompts.PromptPlanningActive,
 	ImplementationPlanning:  prompts.PromptImplementationPlanning,
 	ImplementationExecuting: prompts.PromptImplementationExecuting,
 	ReviewActive:            prompts.PromptReviewActive,

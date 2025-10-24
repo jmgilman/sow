@@ -13,14 +13,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// StandardProject implements the standard 5-phase project lifecycle.
+// StandardProject implements the standard 4-phase project lifecycle.
 //
 // Phase sequence:
-//  1. Discovery (optional) - Problem understanding and context gathering
-//  2. Design (optional) - Architecture and approach design
-//  3. Implementation (required) - Code implementation with tasks
-//  4. Review (required) - Code review with possible iteration
-//  5. Finalize (required) - Documentation, checks, and cleanup
+//  1. Planning (required) - Gather context, confirm requirements, create task list
+//  2. Implementation (required) - Code implementation with tasks
+//  3. Review (required) - Code review with possible iteration
+//  4. Finalize (required) - Documentation, checks, and cleanup
 //
 //nolint:revive // name is intentional to distinguish from custom project types
 type StandardProject struct {
@@ -39,8 +38,7 @@ func New(state *projects.StandardProjectState, ctx *sow.Context) *StandardProjec
 	}
 
 	// Create phase instances (they need parent project for Save())
-	p.phases["discovery"] = NewDiscoveryPhase(&state.Phases.Discovery, p, ctx)
-	p.phases["design"] = NewDesignPhase(&state.Phases.Design, p, ctx)
+	p.phases["planning"] = NewPlanningPhase(&state.Phases.Planning, p, ctx)
 	p.phases["implementation"] = NewImplementationPhase(&state.Phases.Implementation, p, ctx)
 	p.phases["review"] = NewReviewPhase(&state.Phases.Review, p, ctx)
 	p.phases["finalize"] = NewFinalizePhase(&state.Phases.Finalize, p, ctx)
@@ -78,10 +76,8 @@ func (p *StandardProject) CurrentPhase() domain.Phase {
 	currentState := p.machine.State()
 
 	switch currentState {
-	case statechart.DiscoveryActive:
-		return p.phases["discovery"]
-	case statechart.DesignActive:
-		return p.phases["design"]
+	case statechart.PlanningActive:
+		return p.phases["planning"]
 	case statechart.ImplementationPlanning, statechart.ImplementationExecuting:
 		return p.phases["implementation"]
 	case statechart.ReviewActive:
@@ -109,7 +105,7 @@ func (p *StandardProject) Machine() *statechart.Machine {
 
 // InitialState returns the initial state for the project's state machine.
 func (p *StandardProject) InitialState() statechart.State {
-	return statechart.DiscoveryDecision
+	return statechart.PlanningActive
 }
 
 // Save persists the project state to disk.

@@ -9,8 +9,8 @@ import (
 
 // StandardProjectState defines the schema for a standard project type.
 //
-// This project type follows the 5-phase model:
-// Discovery → Design → Implementation → Review → Finalize
+// This project type follows the 4-phase model:
+// Planning → Implementation → Review → Finalize
 type StandardProjectState struct {
 	// Statechart metadata (tracks state machine position)
 	Statechart struct {
@@ -41,21 +41,18 @@ type StandardProjectState struct {
 		Updated_at time.Time `json:"updated_at"`
 	} `json:"project"`
 
-	// 5-phase structure (composing reusable phase definitions)
+	// 4-phase structure (composing reusable phase definitions)
 	Phases struct {
-		// Phase 1: Discovery (optional, human-led)
-		Discovery phases.Phase `json:"discovery"`
+		// Phase 1: Planning (required, human-led)
+		Planning phases.Phase `json:"planning"`
 
-		// Phase 2: Design (optional, human-led)
-		Design phases.Phase `json:"design"`
-
-		// Phase 3: Implementation (required, AI-autonomous)
+		// Phase 2: Implementation (required, AI-autonomous)
 		Implementation phases.Phase `json:"implementation"`
 
-		// Phase 4: Review (required, AI-autonomous)
+		// Phase 3: Review (required, AI-autonomous)
 		Review phases.Phase `json:"review"`
 
-		// Phase 5: Finalize (required, AI-autonomous)
+		// Phase 4: Finalize (required, AI-autonomous)
 		Finalize phases.Phase `json:"finalize"`
 	} `json:"phases"`
 }

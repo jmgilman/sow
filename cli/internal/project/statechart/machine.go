@@ -61,35 +61,15 @@ func (m *Machine) SuppressPrompts(suppress bool) {
 func (m *Machine) configure() {
 	// NoProject state
 	m.sm.Configure(NoProject).
-		Permit(EventProjectInit, DiscoveryDecision).
+		Permit(EventProjectInit, PlanningActive).
 		OnEntry(m.onEntry(NoProject))
 
-	// DiscoveryDecision state
+	// PlanningActive state
 	// Allow deletion from any state to support abandoning projects
-	m.sm.Configure(DiscoveryDecision).
-		Permit(EventEnableDiscovery, DiscoveryActive).
-		Permit(EventSkipDiscovery, DesignDecision).
+	m.sm.Configure(PlanningActive).
+		Permit(EventCompletePlanning, ImplementationPlanning, m.planningComplete).
 		Permit(EventProjectDelete, NoProject).
-		OnEntry(m.onEntry(DiscoveryDecision))
-
-	// DiscoveryActive state
-	m.sm.Configure(DiscoveryActive).
-		Permit(EventCompleteDiscovery, DesignDecision, m.discoveryComplete).
-		Permit(EventProjectDelete, NoProject).
-		OnEntry(m.onEntry(DiscoveryActive))
-
-	// DesignDecision state
-	m.sm.Configure(DesignDecision).
-		Permit(EventEnableDesign, DesignActive).
-		Permit(EventSkipDesign, ImplementationPlanning).
-		Permit(EventProjectDelete, NoProject).
-		OnEntry(m.onEntry(DesignDecision))
-
-	// DesignActive state
-	m.sm.Configure(DesignActive).
-		Permit(EventCompleteDesign, ImplementationPlanning, m.designComplete).
-		Permit(EventProjectDelete, NoProject).
-		OnEntry(m.onEntry(DesignActive))
+		OnEntry(m.onEntry(PlanningActive))
 
 	// ImplementationPlanning state
 	m.sm.Configure(ImplementationPlanning).
@@ -148,18 +128,11 @@ func (m *Machine) onEntry(state State) func(context.Context, ...any) error {
 
 // Guard wrapper functions
 
-func (m *Machine) discoveryComplete(_ context.Context, _ ...any) bool {
+func (m *Machine) planningComplete(_ context.Context, _ ...any) bool {
 	if m.projectState == nil {
 		return false
 	}
-	return ArtifactsApproved(m.projectState.Phases.Discovery)
-}
-
-func (m *Machine) designComplete(_ context.Context, _ ...any) bool {
-	if m.projectState == nil {
-		return false
-	}
-	return ArtifactsApprovedDesign(m.projectState.Phases.Design)
+	return PlanningComplete(m.projectState.Phases.Planning)
 }
 
 func (m *Machine) hasAtLeastOneTask(_ context.Context, _ ...any) bool {

@@ -13,10 +13,7 @@ import (
 // State constants (matching statechart.State values).
 const (
 	StateNoProject               = "NoProject"
-	StateDiscoveryDecision       = "DiscoveryDecision"
-	StateDiscoveryActive         = "DiscoveryActive"
-	StateDesignDecision          = "DesignDecision"
-	StateDesignActive            = "DesignActive"
+	StatePlanningActive          = "PlanningActive"
 	StateImplementationPlanning  = "ImplementationPlanning"
 	StateImplementationExecuting = "ImplementationExecuting"
 	StateReviewActive            = "ReviewActive"
@@ -110,8 +107,7 @@ func (c *StatechartContext) ToMap() map[string]interface{} {
 	data["ProjectBranch"] = c.ProjectState.Project.Branch
 
 	// Add phase-specific data
-	c.addDiscoveryData(data)
-	c.addDesignData(data)
+	c.addPlanningData(data)
 	c.addImplementationData(data)
 	c.addReviewData(data)
 	c.addFinalizeData(data)
@@ -119,54 +115,30 @@ func (c *StatechartContext) ToMap() map[string]interface{} {
 	return data
 }
 
-// addDiscoveryData adds discovery phase data to the template data.
-func (c *StatechartContext) addDiscoveryData(data map[string]interface{}) {
-	if c.State != StateDiscoveryActive && c.State != StateDiscoveryDecision {
+// addPlanningData adds planning phase data to the template data.
+func (c *StatechartContext) addPlanningData(data map[string]interface{}) {
+	if c.State != StatePlanningActive {
 		return
 	}
 
-	// Get discovery_type from metadata
-	if c.ProjectState.Phases.Discovery.Metadata != nil {
-		if discoveryType, ok := c.ProjectState.Phases.Discovery.Metadata["discovery_type"].(string); ok && discoveryType != "" {
-			data["DiscoveryType"] = discoveryType
-		}
-	}
-
-	artifacts := c.ProjectState.Phases.Discovery.Artifacts
+	artifacts := c.ProjectState.Phases.Planning.Artifacts
 	data["ArtifactCount"] = len(artifacts)
 
 	approvedCount := 0
+	taskListApproved := false
 	for _, a := range artifacts {
 		if a.Approved {
 			approvedCount++
+			// Check if this is the task list artifact
+			if a.Metadata != nil {
+				if artifactType, ok := a.Metadata["type"].(string); ok && artifactType == "task_list" {
+					taskListApproved = true
+				}
+			}
 		}
 	}
 	data["ApprovedCount"] = approvedCount
-}
-
-// addDesignData adds design phase data to the template data.
-func (c *StatechartContext) addDesignData(data map[string]interface{}) {
-	if c.State != StateDesignActive && c.State != StateDesignDecision {
-		return
-	}
-
-	artifacts := c.ProjectState.Phases.Design.Artifacts
-	data["ArtifactCount"] = len(artifacts)
-
-	approvedCount := 0
-	for _, a := range artifacts {
-		if a.Approved {
-			approvedCount++
-		}
-	}
-	data["ApprovedCount"] = approvedCount
-
-	// Check if discovery phase was completed
-	hasDiscovery := c.ProjectState.Phases.Discovery.Status == "completed"
-	data["HasDiscovery"] = hasDiscovery
-	if hasDiscovery {
-		data["DiscoveryArtifactCount"] = len(c.ProjectState.Phases.Discovery.Artifacts)
-	}
+	data["TaskListApproved"] = taskListApproved
 }
 
 // addImplementationData adds implementation phase data to the template data.
@@ -178,17 +150,11 @@ func (c *StatechartContext) addImplementationData(data map[string]interface{}) {
 	tasks := c.ProjectState.Phases.Implementation.Tasks
 	data["TaskTotal"] = len(tasks)
 
-	// Check available inputs
-	hasDiscovery := c.ProjectState.Phases.Discovery.Status == "completed"
-	hasDesign := c.ProjectState.Phases.Design.Status == "completed"
-	data["HasDiscovery"] = hasDiscovery
-	data["HasDesign"] = hasDesign
-
-	if hasDiscovery {
-		data["DiscoveryArtifactCount"] = len(c.ProjectState.Phases.Discovery.Artifacts)
-	}
-	if hasDesign {
-		data["DesignArtifactCount"] = len(c.ProjectState.Phases.Design.Artifacts)
+	// Check if planning phase was completed
+	hasPlanning := c.ProjectState.Phases.Planning.Status == "completed"
+	data["HasPlanning"] = hasPlanning
+	if hasPlanning {
+		data["PlanningArtifactCount"] = len(c.ProjectState.Phases.Planning.Artifacts)
 	}
 
 	// Task status breakdown (for executing state)
@@ -342,13 +308,10 @@ type ContinueProjectContext struct {
 	StatechartState string
 
 	// Phase status
-	DiscoveryEnabled      bool
-	DiscoveryStatus       string
-	DesignEnabled         bool
-	DesignStatus          string
-	ImplementationStatus  string
-	ReviewStatus          string
-	FinalizeStatus        string
+	PlanningStatus       string
+	ImplementationStatus string
+	ReviewStatus         string
+	FinalizeStatus       string
 
 	// Task information
 	TasksTotal       int
@@ -385,10 +348,7 @@ func (c *ContinueProjectContext) ToMap() map[string]interface{} {
 	data["StatechartState"] = c.StatechartState
 
 	// Phase status
-	data["DiscoveryEnabled"] = c.DiscoveryEnabled
-	data["DiscoveryStatus"] = c.DiscoveryStatus
-	data["DesignEnabled"] = c.DesignEnabled
-	data["DesignStatus"] = c.DesignStatus
+	data["PlanningStatus"] = c.PlanningStatus
 	data["ImplementationStatus"] = c.ImplementationStatus
 	data["ReviewStatus"] = c.ReviewStatus
 	data["FinalizeStatus"] = c.FinalizeStatus

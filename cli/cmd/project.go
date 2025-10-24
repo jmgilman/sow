@@ -364,10 +364,7 @@ func generateContinuePrompt(ctx *sow.Context, project domain.Project) (string, e
 	}
 
 	// Add phase status
-	promptCtx.DiscoveryEnabled = state.Phases.Discovery.Enabled
-	promptCtx.DiscoveryStatus = state.Phases.Discovery.Status
-	promptCtx.DesignEnabled = state.Phases.Design.Enabled
-	promptCtx.DesignStatus = state.Phases.Design.Status
+	promptCtx.PlanningStatus = state.Phases.Planning.Status
 	promptCtx.ImplementationStatus = state.Phases.Implementation.Status
 	promptCtx.ReviewStatus = state.Phases.Review.Status
 	promptCtx.FinalizeStatus = state.Phases.Finalize.Status

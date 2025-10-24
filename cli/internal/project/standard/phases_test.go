@@ -100,14 +100,12 @@ func TestPhaseImplementsInterface(t *testing.T) {
 			Updated_at:  now,
 		},
 		Phases: struct {
-			Discovery      phasesSchema.Phase `json:"discovery"`
-			Design         phasesSchema.Phase `json:"design"`
+			Planning       phasesSchema.Phase `json:"planning"`
 			Implementation phasesSchema.Phase `json:"implementation"`
 			Review         phasesSchema.Phase `json:"review"`
 			Finalize       phasesSchema.Phase `json:"finalize"`
 		}{
-			Discovery:      phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: false},
-			Design:         phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: false},
+			Planning:       phasesSchema.Phase{Status: "completed", Created_at: now, Enabled: true},
 			Implementation: phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: true},
 			Review:         phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: true},
 			Finalize:       phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: true},
@@ -117,8 +115,7 @@ func TestPhaseImplementsInterface(t *testing.T) {
 	proj := New(state, ctx)
 
 	phases := []domain.Phase{
-		NewDiscoveryPhase(&state.Phases.Discovery, proj, ctx),
-		NewDesignPhase(&state.Phases.Design, proj, ctx),
+		NewPlanningPhase(&state.Phases.Planning, proj, ctx),
 		NewImplementationPhase(&state.Phases.Implementation, proj, ctx),
 		NewReviewPhase(&state.Phases.Review, proj, ctx),
 		NewFinalizePhase(&state.Phases.Finalize, proj, ctx),
@@ -147,8 +144,8 @@ func TestPhaseImplementsInterface(t *testing.T) {
 	}
 }
 
-// TestDiscoveryPhaseArtifacts verifies discovery phase properly supports artifacts.
-func TestDiscoveryPhaseArtifacts(t *testing.T) {
+// TestPlanningPhaseArtifacts verifies planning phase properly supports artifacts.
+func TestPlanningPhaseArtifacts(t *testing.T) {
 	ctx := setupTestRepo(t)
 	now := time.Now()
 	var err error
@@ -164,18 +161,18 @@ func TestDiscoveryPhaseArtifacts(t *testing.T) {
 	state := &projects.StandardProjectState{}
 	proj := New(state, ctx)
 
-	phase := NewDiscoveryPhase(phaseState, proj, ctx)
+	phase := NewPlanningPhase(phaseState, proj, ctx)
 
 	// Should support artifacts
-	err = phase.AddArtifact("test.md", domain.WithMetadata(map[string]interface{}{"type": "research"}))
+	err = phase.AddArtifact("task-list.md", domain.WithMetadata(map[string]interface{}{"type": "task_list"}))
 	if err != nil {
-		t.Fatalf("Discovery phase should support artifacts, got error: %v", err)
+		t.Fatalf("Planning phase should support artifacts, got error: %v", err)
 	}
 
 	// Should NOT support tasks
 	_, err = phase.AddTask("test task", domain.WithDescription("test"))
 	if !errors.Is(err, project.ErrNotSupported) {
-		t.Errorf("Discovery phase should not support tasks, expected ErrNotSupported, got: %v", err)
+		t.Errorf("Planning phase should not support tasks, expected ErrNotSupported, got: %v", err)
 	}
 }
 
@@ -313,7 +310,7 @@ func TestStandardProjectInitialState(t *testing.T) {
 		Statechart: struct {
 			Current_state string `json:"current_state"` //nolint:revive // matches JSON schema
 		}{
-			Current_state: "DiscoveryDecision", // StandardProject's initial state
+			Current_state: "PlanningActive", // StandardProject's initial state
 		},
 		Project: struct {
 			Type         string    `json:"type"`
@@ -332,14 +329,12 @@ func TestStandardProjectInitialState(t *testing.T) {
 			Updated_at:  now,
 		},
 		Phases: struct {
-			Discovery      phasesSchema.Phase `json:"discovery"`
-			Design         phasesSchema.Phase `json:"design"`
+			Planning       phasesSchema.Phase `json:"planning"`
 			Implementation phasesSchema.Phase `json:"implementation"`
 			Review         phasesSchema.Phase `json:"review"`
 			Finalize       phasesSchema.Phase `json:"finalize"`
 		}{
-			Discovery:      phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: false},
-			Design:         phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: false},
+			Planning:       phasesSchema.Phase{Status: "in_progress", Created_at: now, Enabled: true},
 			Implementation: phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: true},
 			Review:         phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: true},
 			Finalize:       phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: true},
@@ -358,8 +353,8 @@ func TestStandardProjectInitialState(t *testing.T) {
 			declaredInitial, actualState)
 	}
 
-	// Verify it's specifically DiscoveryDecision for StandardProject
-	if declaredInitial != "DiscoveryDecision" {
-		t.Errorf("StandardProject should declare DiscoveryDecision as initial state, got %s", declaredInitial)
+	// Verify it's specifically PlanningActive for StandardProject
+	if declaredInitial != "PlanningActive" {
+		t.Errorf("StandardProject should declare PlanningActive as initial state, got %s", declaredInitial)
 	}
 }

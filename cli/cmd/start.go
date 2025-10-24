@@ -183,11 +183,8 @@ func detectGreetContext(sowCtx *sow.Context) *prompts.GreetContext {
 // determineCurrentPhase finds the active phase in the project.
 func determineCurrentPhase(state *schemas.ProjectState) (string, string) {
 	// Check phases in order
-	if state.Phases.Discovery.Enabled && state.Phases.Discovery.Status != "completed" && state.Phases.Discovery.Status != "skipped" {
-		return "discovery", state.Phases.Discovery.Status
-	}
-	if state.Phases.Design.Enabled && state.Phases.Design.Status != "completed" && state.Phases.Design.Status != "skipped" {
-		return "design", state.Phases.Design.Status
+	if state.Phases.Planning.Status != "completed" && state.Phases.Planning.Status != "skipped" {
+		return "planning", state.Phases.Planning.Status
 	}
 	if state.Phases.Implementation.Status != "completed" && state.Phases.Implementation.Status != "skipped" {
 		return "implementation", state.Phases.Implementation.Status

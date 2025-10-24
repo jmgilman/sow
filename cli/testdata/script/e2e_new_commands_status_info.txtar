@@ -18,43 +18,30 @@ exec sow init
 exec sow agent init status-test --description 'Test status and info commands'
 
 # =====================================
-# Test status at discovery decision state (no active phase)
+# Test status at planning active state
 # =====================================
 exec sow agent status
 stderr 'Project: status-test'
 stderr 'Branch: feat/status-info-test'
-stderr 'Status: All phases complete'
+stderr 'Active Phase: planning'
 
 # =====================================
-# Enable discovery and check status change
-# =====================================
-exec sow agent enable discovery
-
-exec sow agent status
-stderr 'Active Phase: discovery'
-stderr 'in_progress'
-stderr 'Next Actions:'
-stderr 'sow agent artifact add'
-stderr 'sow agent complete'
-
-# =====================================
-# Test info shows discovery phase
+# Test info shows planning phase
 # =====================================
 exec sow agent info
-stderr 'Phase: discovery'
+stderr 'Phase: planning'
 
 # =====================================
-# Complete discovery, enable and complete design
+# Add and approve task list to complete planning
 # =====================================
+exec mkdir -p .sow/project/artifacts
+exec sh -c 'echo "# Task List" > .sow/project/artifacts/task-list.md'
+exec sow agent artifact add project/artifacts/task-list.md --metadata type=task_list
+exec sow agent artifact approve project/artifacts/task-list.md
+
 exec sow agent complete
 
-# Should be back at decision state (no active phase)
-exec sow agent status
-stderr 'Status: All phases complete'
-
-exec sow agent enable design
-exec sow agent complete
-
+# Should have transitioned to implementation
 exec sow agent status
 stderr 'Active Phase: implementation'
 

@@ -8,13 +8,13 @@ import (
 
 // StandardProjectState defines the schema for a standard project type.
 //
-// This project type follows the 5-phase model:
-// Discovery → Design → Implementation → Review → Finalize
+// This project type follows the 4-phase model:
+// Planning → Implementation → Review → Finalize
 #StandardProjectState: {
 	// Statechart metadata (tracks state machine position)
 	statechart: {
 		// Current state in the lifecycle state machine
-		current_state: "NoProject" | "DiscoveryDecision" | "DiscoveryActive" | "DesignDecision" | "DesignActive" | "ImplementationPlanning" | "ImplementationExecuting" | "ReviewActive" | "FinalizeDocumentation" | "FinalizeChecks" | "FinalizeDelete"
+		current_state: "NoProject" | "PlanningActive" | "ImplementationPlanning" | "ImplementationExecuting" | "ReviewActive" | "FinalizeDocumentation" | "FinalizeChecks" | "FinalizeDelete"
 	}
 
 	// Project metadata
@@ -39,21 +39,18 @@ import (
 		updated_at: time.Time
 	}
 
-	// 5-phase structure (composing reusable phase definitions)
+	// 4-phase structure (composing reusable phase definitions)
 	phases: {
-		// Phase 1: Discovery (optional, human-led)
-		discovery: p.#Phase
+		// Phase 1: Planning (required, human-led)
+		planning: p.#Phase
 
-		// Phase 2: Design (optional, human-led)
-		design: p.#Phase
-
-		// Phase 3: Implementation (required, AI-autonomous)
+		// Phase 2: Implementation (required, AI-autonomous)
 		implementation: p.#Phase
 
-		// Phase 4: Review (required, AI-autonomous)
+		// Phase 3: Review (required, AI-autonomous)
 		review: p.#Phase
 
-		// Phase 5: Finalize (required, AI-autonomous)
+		// Phase 4: Finalize (required, AI-autonomous)
 		finalize: p.#Phase
 	}
 }

@@ -14,10 +14,7 @@ type PromptID string
 // Statechart prompt IDs - map to state machine states.
 const (
 	PromptNoProject               PromptID = "statechart.no_project"
-	PromptDiscoveryDecision       PromptID = "statechart.discovery_decision"
-	PromptDiscoveryActive         PromptID = "statechart.discovery_active"
-	PromptDesignDecision          PromptID = "statechart.design_decision"
-	PromptDesignActive            PromptID = "statechart.design_active"
+	PromptPlanningActive          PromptID = "statechart.planning_active"
 	PromptImplementationPlanning  PromptID = "statechart.implementation_planning"
 	PromptImplementationExecuting PromptID = "statechart.implementation_executing"
 	PromptReviewActive            PromptID = "statechart.review_active"
@@ -120,10 +117,7 @@ func init() {
 	promptFiles := map[PromptID]string{
 		// Statechart prompts
 		PromptNoProject:               "templates/statechart/no_project.md",
-		PromptDiscoveryDecision:       "templates/statechart/discovery_decision.md",
-		PromptDiscoveryActive:         "templates/statechart/discovery_active.md",
-		PromptDesignDecision:          "templates/statechart/design_decision.md",
-		PromptDesignActive:            "templates/statechart/design_active.md",
+		PromptPlanningActive:          "templates/statechart/planning_active.md",
 		PromptImplementationPlanning:  "templates/statechart/implementation_planning.md",
 		PromptImplementationExecuting: "templates/statechart/implementation_executing.md",
 		PromptReviewActive:            "templates/statechart/review_active.md",

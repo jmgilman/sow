@@ -6,34 +6,13 @@ type Event string
 
 const (
 	// EventProjectInit is triggered when `sow project init` is called.
-	// Transitions: NoProject → DiscoveryDecision.
+	// Transitions: NoProject → PlanningActive.
 	EventProjectInit Event = "project_init"
 
-	// EventEnableDiscovery is triggered when `sow project phase enable discovery` is called.
-	// Transitions: DiscoveryDecision → DiscoveryActive.
-	EventEnableDiscovery Event = "enable_discovery"
-
-	// EventSkipDiscovery is an internal auto-transition when discovery is not needed.
-	// Transitions: DiscoveryDecision → DesignDecision.
-	EventSkipDiscovery Event = "skip_discovery"
-
-	// EventCompleteDiscovery is triggered when `sow project phase complete discovery` is called.
-	// Requires guard: all artifacts approved or no artifacts exist.
-	// Transitions: DiscoveryActive → DesignDecision.
-	EventCompleteDiscovery Event = "complete_discovery"
-
-	// EventEnableDesign is triggered when `sow project phase enable design` is called.
-	// Transitions: DesignDecision → DesignActive.
-	EventEnableDesign Event = "enable_design"
-
-	// EventSkipDesign is an internal auto-transition when design is not needed.
-	// Transitions: DesignDecision → ImplementationPlanning.
-	EventSkipDesign Event = "skip_design"
-
-	// EventCompleteDesign is triggered when `sow project phase complete design` is called.
-	// Requires guard: all artifacts approved or no artifacts exist.
-	// Transitions: DesignActive → ImplementationPlanning.
-	EventCompleteDesign Event = "complete_design"
+	// EventCompletePlanning is triggered when planning phase is completed.
+	// Requires guard: task list artifact is approved.
+	// Transitions: PlanningActive → ImplementationPlanning.
+	EventCompletePlanning Event = "complete_planning"
 
 	// EventTaskCreated is triggered when `sow task init` creates at least one task.
 	// Requires guard: at least 1 task exists.

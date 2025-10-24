@@ -1,3 +1,7 @@
+// Package standard implements the standard project type for sow.
+//
+// The standard project follows a 4-phase lifecycle:
+// Planning → Implementation → Review → Finalize
 package standard
 
 import (

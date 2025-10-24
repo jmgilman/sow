@@ -149,30 +149,30 @@ func TestRender_StatechartContext_NoProject(t *testing.T) {
 	}
 }
 
-func TestRender_StatechartContext_DesignActive(t *testing.T) {
+func TestRender_StatechartContext_PlanningActive(t *testing.T) {
 	state := &schemas.ProjectState{}
 	state.Project.Name = "test-project"
 	state.Project.Description = "Test description"
 	state.Project.Branch = "main"
-	state.Phases.Design.Status = "in_progress"
-	state.Phases.Design.Artifacts = []phases.Artifact{
-		{Path: "docs/design.md", Approved: true},
-		{Path: "docs/adr-001.md", Approved: false},
+	state.Phases.Planning.Status = "in_progress"
+	state.Phases.Planning.Artifacts = []phases.Artifact{
+		{Path: "task-list.md", Approved: true, Metadata: map[string]interface{}{"type": "task_list"}},
+		{Path: "context.md", Approved: false},
 	}
 
 	ctx := &prompts.StatechartContext{
-		State:        prompts.StateDesignActive,
+		State:        prompts.StatePlanningActive,
 		ProjectState: state,
 	}
 
-	output, err := prompts.Render(prompts.PromptDesignActive, ctx)
+	output, err := prompts.Render(prompts.PromptPlanningActive, ctx)
 	if err != nil {
 		t.Fatalf("Render failed: %v", err)
 	}
 
-	// Verify design phase content
-	if !strings.Contains(output, "DESIGN PHASE") {
-		t.Error("Expected output to mention 'DESIGN PHASE'")
+	// Verify planning phase content
+	if !strings.Contains(output, "PLANNING PHASE") {
+		t.Error("Expected output to mention 'PLANNING PHASE'")
 	}
 
 	if !strings.Contains(output, "test-project") {
@@ -296,7 +296,7 @@ func TestStatechartContext_ToMap(t *testing.T) {
 	state.Project.Branch = "main"
 
 	ctx := &prompts.StatechartContext{
-		State:        prompts.StateDesignActive,
+		State:        prompts.StatePlanningActive,
 		ProjectState: state,
 	}
 

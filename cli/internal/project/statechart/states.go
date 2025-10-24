@@ -7,21 +7,9 @@ const (
 	// NoProject indicates no active project exists in the repository.
 	NoProject State = "NoProject"
 
-	// DiscoveryDecision is the decision gate for whether discovery phase is needed.
-	// The orchestrator applies rubrics or asks the user to determine if discovery is warranted.
-	DiscoveryDecision State = "DiscoveryDecision"
-
-	// DiscoveryActive indicates the discovery phase is in progress (subservient mode).
-	// The orchestrator facilitates research, creates artifacts, and gets human approval.
-	DiscoveryActive State = "DiscoveryActive"
-
-	// DesignDecision is the decision gate for whether design phase is needed.
-	// The orchestrator applies rubrics or asks the user to determine if design is warranted.
-	DesignDecision State = "DesignDecision"
-
-	// DesignActive indicates the design phase is in progress (subservient mode).
-	// The orchestrator facilitates design alignment, creates artifacts, and gets human approval.
-	DesignActive State = "DesignActive"
+	// PlanningActive indicates the planning phase is in progress (subservient mode).
+	// The orchestrator gathers context, confirms requirements, creates task list, and gets approval.
+	PlanningActive State = "PlanningActive"
 
 	// ImplementationPlanning indicates the implementation phase planning step.
 	// The orchestrator (or planner agent) creates the task breakdown.
@@ -56,7 +44,7 @@ func (s State) String() string {
 // IsSubservientMode returns true if the state requires subservient mode (human-led).
 func (s State) IsSubservientMode() bool {
 	switch s {
-	case DiscoveryDecision, DiscoveryActive, DesignDecision, DesignActive:
+	case PlanningActive:
 		return true
 	default:
 		return false
