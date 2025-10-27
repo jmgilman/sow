@@ -6,9 +6,9 @@ require (
 	cuelang.org/go v0.14.2
 	github.com/go-git/go-git/v5 v5.16.3
 	github.com/jmgilman/go/cue v0.1.1
-	github.com/jmgilman/go/fs/billy v0.1.0
-	github.com/jmgilman/go/fs/core v0.1.0
-	github.com/jmgilman/go/git v0.3.1
+	github.com/jmgilman/go/fs/billy v0.1.1
+	github.com/jmgilman/go/fs/core v0.2.0
+	github.com/jmgilman/go/git v0.4.0
 	github.com/qmuntal/stateless v1.7.2
 	github.com/rogpeppe/go-internal v1.14.1
 	github.com/spf13/cobra v1.9.1
@@ -32,6 +32,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jmgilman/go/errors v0.1.0 // indirect
+	github.com/jmgilman/go/exec v0.1.0 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect

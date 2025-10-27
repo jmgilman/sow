@@ -70,7 +70,9 @@ func InitExploration(ctx *sow.Context, topic, branch string) error {
 			Created_at: time.Now(),
 			Status:     "active",
 		},
-		Files: []schemas.ExplorationFile{},
+		Topics:  []schemas.ExplorationTopic{},
+		Journal: []schemas.JournalEntry{},
+		Files:   []schemas.ExplorationFile{},
 	}
 
 	if err := SaveIndex(ctx, index); err != nil {
