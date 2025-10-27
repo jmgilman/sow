@@ -190,8 +190,47 @@ type ExplorationIndex struct {
 		Status string `json:"status"`
 	} `json:"exploration"`
 
+	// Topics "parking lot" - research areas agreed upon but not yet explored
+	Topics []ExplorationTopic `json:"topics"`
+
+	// Session journal - chronological log for zero-context recovery
+	Journal []JournalEntry `json:"journal"`
+
 	// Files in this exploration
 	Files []ExplorationFile `json:"files"`
+}
+
+// ExplorationTopic represents a research topic in the parking lot
+type ExplorationTopic struct {
+	// Topic description
+	Topic string `json:"topic"`
+
+	// Topic status
+	Status string `json:"status"`
+
+	// When this topic was added
+	Added_at time.Time `json:"added_at"`
+
+	// When this topic was completed (optional)
+	Completed_at time.Time `json:"completed_at,omitempty"`
+
+	// Files created for this topic (optional)
+	Related_files []string `json:"related_files,omitempty"`
+
+	// Optional brief notes
+	Notes string `json:"notes,omitempty"`
+}
+
+// JournalEntry represents a chronological log entry for session memory
+type JournalEntry struct {
+	// When this entry was created
+	Timestamp time.Time `json:"timestamp"`
+
+	// Entry type for categorization
+	Type string `json:"type"`
+
+	// Entry content
+	Content string `json:"content"`
 }
 
 // ExplorationFile represents a file in the exploration workspace

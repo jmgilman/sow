@@ -53,10 +53,50 @@ func runIndex(cmd *cobra.Command, _ []string) error {
 	cmd.Printf("Status:      %s\n", index.Exploration.Status)
 	cmd.Printf("Created:     %s\n\n", index.Exploration.Created_at.Format("2006-01-02 15:04:05"))
 
+	// Display topics
+	if len(index.Topics) > 0 {
+		cmd.Printf("Topics (%d):\n\n", len(index.Topics))
+		for _, topic := range index.Topics {
+			var statusIcon string
+			switch topic.Status {
+			case "in_progress":
+				statusIcon = "◐"
+			case "completed":
+				statusIcon = "●"
+			default:
+				statusIcon = "○"
+			}
+			cmd.Printf("  %s %s [%s]\n", statusIcon, topic.Topic, topic.Status)
+			if len(topic.Related_files) > 0 {
+				cmd.Printf("      Files: %s\n", strings.Join(topic.Related_files, ", "))
+			}
+		}
+		cmd.Printf("\n")
+	}
+
+	// Display recent journal entries (last 5)
+	if len(index.Journal) > 0 {
+		displayCount := len(index.Journal)
+		if displayCount > 5 {
+			displayCount = 5
+		}
+		start := len(index.Journal) - displayCount
+
+		cmd.Printf("Recent Journal (%d of %d):\n\n", displayCount, len(index.Journal))
+		for _, entry := range index.Journal[start:] {
+			cmd.Printf("  [%s] %s: %s\n",
+				entry.Timestamp.Format("2006-01-02 15:04"),
+				entry.Type,
+				entry.Content)
+		}
+		cmd.Printf("\n")
+	}
+
 	// Display files
 	if len(index.Files) == 0 {
-		cmd.Printf("No files registered yet.\n\n")
-		cmd.Printf("Add files with: sow exploration add-file <path> --description \"...\" --tags \"...\"\n")
+		cmd.Printf("Files (0):\n\n")
+		cmd.Printf("  No files registered yet.\n")
+		cmd.Printf("  Add files with: sow exploration add-file <path> --description \"...\" --tags \"...\"\n\n")
 		return nil
 	}
 
