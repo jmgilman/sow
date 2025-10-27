@@ -57,11 +57,14 @@ func runIndex(cmd *cobra.Command, _ []string) error {
 	if len(index.Topics) > 0 {
 		cmd.Printf("Topics (%d):\n\n", len(index.Topics))
 		for _, topic := range index.Topics {
-			statusIcon := "○"
-			if topic.Status == "in_progress" {
+			var statusIcon string
+			switch topic.Status {
+			case "in_progress":
 				statusIcon = "◐"
-			} else if topic.Status == "completed" {
+			case "completed":
 				statusIcon = "●"
+			default:
+				statusIcon = "○"
 			}
 			cmd.Printf("  %s %s [%s]\n", statusIcon, topic.Topic, topic.Status)
 			if len(topic.Related_files) > 0 {
