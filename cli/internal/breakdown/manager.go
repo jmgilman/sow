@@ -38,6 +38,9 @@ func AddInput(ctx *sow.Context, inputType, path, description string, tags []stri
 		return err
 	}
 
+	// Log the action
+	LogInputAdded(ctx, inputType, path, description, tags)
+
 	return nil
 }
 
@@ -70,6 +73,9 @@ func RemoveInput(ctx *sow.Context, path string) error {
 	if err := SaveIndex(ctx, index); err != nil {
 		return err
 	}
+
+	// Log the action
+	LogInputRemoved(ctx, path)
 
 	return nil
 }
@@ -118,6 +124,9 @@ func AddWorkUnit(ctx *sow.Context, id, title, description string, dependsOn []st
 		return err
 	}
 
+	// Log the action
+	LogWorkUnitAdded(ctx, id, title, description, dependsOn)
+
 	return nil
 }
 
@@ -157,6 +166,9 @@ func UpdateWorkUnit(ctx *sow.Context, id string, title, description *string, dep
 		return err
 	}
 
+	// Log the action
+	LogWorkUnitUpdated(ctx, id, title, description, dependsOn)
+
 	return nil
 }
 
@@ -189,6 +201,9 @@ func RemoveWorkUnit(ctx *sow.Context, id string) error {
 	if err := SaveIndex(ctx, index); err != nil {
 		return err
 	}
+
+	// Log the action
+	LogWorkUnitRemoved(ctx, id)
 
 	return nil
 }
@@ -253,6 +268,9 @@ func SetWorkUnitDocumentPath(ctx *sow.Context, id, documentPath string) error {
 		return err
 	}
 
+	// Log the action
+	LogWorkUnitDocumentSet(ctx, id, documentPath)
+
 	return nil
 }
 
@@ -286,6 +304,9 @@ func ApproveWorkUnit(ctx *sow.Context, id string) error {
 	if err := SaveIndex(ctx, index); err != nil {
 		return err
 	}
+
+	// Log the action
+	LogWorkUnitApproved(ctx, id)
 
 	return nil
 }
@@ -326,6 +347,9 @@ func PublishWorkUnit(ctx *sow.Context, id string, issueURL string, issueNumber i
 		return err
 	}
 
+	// Log the action
+	LogWorkUnitPublished(ctx, id, issueURL, issueNumber)
+
 	return nil
 }
 
@@ -365,6 +389,9 @@ func UpdateStatus(ctx *sow.Context, status string) error {
 		return err
 	}
 
+	// Store old status for logging
+	oldStatus := index.Breakdown.Status
+
 	// Update status
 	index.Breakdown.Status = status
 
@@ -372,6 +399,9 @@ func UpdateStatus(ctx *sow.Context, status string) error {
 	if err := SaveIndex(ctx, index); err != nil {
 		return err
 	}
+
+	// Log the action
+	LogStatusChanged(ctx, oldStatus, status)
 
 	return nil
 }

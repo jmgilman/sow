@@ -269,6 +269,10 @@ Update session status as you progress:
 sow breakdown set-status <status>
 ```
 
+**Note on Logging**: The CLI commands you use (add-input, add-unit, create-document, approve-unit, publish, set-status) automatically create entries in `.sow/breakdown/log.md` for zero-context resumability. This provides a complete audit trail of your breakdown session activities.
+
+---
+
 ## Best Practices
 
 ### Scoping a Breakdown Session

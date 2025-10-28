@@ -2,8 +2,7 @@
 package domain
 
 import (
-	"time"
-
+	"github.com/jmgilman/sow/cli/internal/logging"
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/schemas/phases"
 )
@@ -29,7 +28,7 @@ type Project interface {
 	Save() error
 
 	// Logging
-	Log(action, result string, opts ...LogOption) error
+	Log(action, result string, opts ...logging.LogOption) error
 
 	// Task management
 	InferTaskID() (string, error)
@@ -154,29 +153,16 @@ func WithPhaseMetadata(metadata map[string]interface{}) PhaseOption {
 	}
 }
 
-// LogOption configures logging.
-type LogOption func(*LogEntry)
+// LogOption is an alias for logging.LogOption for backward compatibility.
+type LogOption = logging.LogOption
 
-// LogEntry represents a structured log entry.
-type LogEntry struct {
-	Timestamp time.Time
-	AgentID   string
-	Action    string
-	Result    string
-	Files     []string
-	Notes     string
-}
+// LogEntry is an alias for logging.LogEntry for backward compatibility.
+type LogEntry = logging.LogEntry
 
-// WithFiles adds files to the log entry.
-func WithFiles(files ...string) LogOption {
-	return func(e *LogEntry) {
-		e.Files = append(e.Files, files...)
-	}
-}
-
-// WithNotes adds notes to the log entry.
-func WithNotes(notes string) LogOption {
-	return func(e *LogEntry) {
-		e.Notes = notes
-	}
-}
+// Re-exported logging helper functions for backward compatibility.
+var (
+	// WithFiles adds files to the log entry.
+	WithFiles = logging.WithFiles
+	// WithNotes adds notes to the log entry.
+	WithNotes = logging.WithNotes
+)

@@ -72,6 +72,9 @@ func UpdateFile(ctx *sow.Context, path, description string, tags []string) error
 		return err
 	}
 
+	// Log the action
+	LogFileUpdated(ctx, path, description, tags)
+
 	return nil
 }
 
@@ -104,6 +107,9 @@ func RemoveFile(ctx *sow.Context, path string) error {
 	if err := SaveIndex(ctx, index); err != nil {
 		return err
 	}
+
+	// Log the action
+	LogFileRemoved(ctx, path)
 
 	return nil
 }
@@ -155,6 +161,9 @@ func UpdateStatus(ctx *sow.Context, status string) error {
 		return err
 	}
 
+	// Store old status for logging
+	oldStatus := index.Exploration.Status
+
 	// Update status
 	index.Exploration.Status = status
 
@@ -162,6 +171,9 @@ func UpdateStatus(ctx *sow.Context, status string) error {
 	if err := SaveIndex(ctx, index); err != nil {
 		return err
 	}
+
+	// Log the action
+	LogStatusChanged(ctx, oldStatus, status)
 
 	return nil
 }
@@ -193,6 +205,9 @@ func AddTopic(ctx *sow.Context, topic string) error {
 	if err := SaveIndex(ctx, index); err != nil {
 		return err
 	}
+
+	// Log the action
+	LogTopicAdded(ctx, topic)
 
 	return nil
 }
@@ -239,6 +254,13 @@ func UpdateTopicStatus(ctx *sow.Context, topic, status string, relatedFiles []st
 	// Save index
 	if err := SaveIndex(ctx, index); err != nil {
 		return err
+	}
+
+	// Log the action
+	if status == "completed" {
+		LogTopicCompleted(ctx, topic, relatedFiles)
+	} else {
+		LogTopicUpdated(ctx, topic, status, relatedFiles)
 	}
 
 	return nil
@@ -305,6 +327,9 @@ func AddJournalEntry(ctx *sow.Context, entryType, content string) error {
 	if err := SaveIndex(ctx, index); err != nil {
 		return err
 	}
+
+	// Log the action
+	LogJournalEntry(ctx, entryType, content)
 
 	return nil
 }
