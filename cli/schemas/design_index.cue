@@ -58,8 +58,11 @@ import "time"
 	// Target location for this specific document when finalized
 	target_location: string & !=""
 
-	// Document type (for organization)
-	type?: "adr" | "architecture" | "diagram" | "spec" | "other"
+	// Document type
+	type?: "prd" | "arc42" | "arc42-update" | "design" | "adr" | "c4-context" | "c4-container" | "c4-component" | "other"
+
+	// For arc42-update: which section is being updated (e.g., "05-building-blocks")
+	arc42_section?: string
 
 	// Optional tags
 	tags?: [...string]

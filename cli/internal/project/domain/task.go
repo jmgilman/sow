@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/jmgilman/sow/cli/internal/logging"
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/schemas"
 )
@@ -292,7 +293,7 @@ func (t *Task) Log(action, result string, opts ...LogOption) error {
 	// Build agent ID from state
 	agentID := buildAgentID(state.Task.Assigned_agent, int(state.Task.Iteration))
 
-	entry := &LogEntry{
+	entry := &logging.LogEntry{
 		Timestamp: time.Now(),
 		AgentID:   agentID,
 		Action:    action,
@@ -304,34 +305,11 @@ func (t *Task) Log(action, result string, opts ...LogOption) error {
 		opt(entry)
 	}
 
-	// Validate
-	if err := entry.Validate(); err != nil {
-		return fmt.Errorf("invalid log entry: %w", err)
-	}
-
-	// Format and append
-	formatted := entry.Format()
-	return t.appendLog(formatted)
-}
-
-// appendLog appends a raw log entry to the task log file.
-func (t *Task) appendLog(entry string) error {
+	// Use logging package to append
 	logPath := filepath.Join("project/phases/implementation/tasks", t.ID, "log.md")
-
-	// Read existing content
-	existing, err := t.Project.ReadFile(logPath)
-	if err != nil {
-		return fmt.Errorf("failed to read task log: %w", err)
+	if err := logging.AppendLog(t.Project, logPath, entry); err != nil {
+		return fmt.Errorf("failed to append log: %w", err)
 	}
-
-	// Append new entry
-	updated := append(existing, []byte(entry)...)
-
-	// Write back
-	if err := t.Project.WriteFile(logPath, updated); err != nil {
-		return fmt.Errorf("failed to write task log: %w", err)
-	}
-
 	return nil
 }
 
@@ -341,49 +319,4 @@ func buildAgentID(role string, iteration int) string {
 		return role
 	}
 	return fmt.Sprintf("%s-%d", role, iteration)
-}
-
-// Validate checks if the log entry has valid values.
-func (e *LogEntry) Validate() error {
-	if e.AgentID == "" {
-		return fmt.Errorf("agent ID is required")
-	}
-	if e.Action == "" {
-		return fmt.Errorf("action is required")
-	}
-	if e.Result == "" {
-		return fmt.Errorf("result is required")
-	}
-	return nil
-}
-
-// Format renders the log entry as structured markdown.
-func (e *LogEntry) Format() string {
-	var b []byte
-
-	// Front matter
-	b = append(b, "---\n"...)
-	b = append(b, fmt.Sprintf("timestamp: %s\n", e.Timestamp.Format("2006-01-02 15:04:05"))...)
-	b = append(b, fmt.Sprintf("agent: %s\n", e.AgentID)...)
-	b = append(b, fmt.Sprintf("action: %s\n", e.Action)...)
-	b = append(b, fmt.Sprintf("result: %s\n", e.Result)...)
-
-	// Optional files list
-	if len(e.Files) > 0 {
-		b = append(b, "files:\n"...)
-		for _, file := range e.Files {
-			b = append(b, fmt.Sprintf("  - %s\n", file)...)
-		}
-	}
-
-	b = append(b, "---\n"...)
-
-	// Optional notes section
-	if e.Notes != "" {
-		b = append(b, "\n"...)
-		b = append(b, e.Notes...)
-		b = append(b, "\n"...)
-	}
-
-	return string(b)
 }

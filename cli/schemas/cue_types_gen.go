@@ -160,8 +160,11 @@ type DesignOutput struct {
 	// Target location for this specific document when finalized
 	Target_location string `json:"target_location"`
 
-	// Document type (for organization)
+	// Document type
 	Type string `json:"type,omitempty"`
+
+	// For arc42-update: which section is being updated (e.g., "05-building-blocks")
+	Arc42_section string `json:"arc42_section,omitempty"`
 
 	// Optional tags
 	Tags []string `json:"tags,omitempty"`

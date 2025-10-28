@@ -19,13 +19,20 @@ AI agents can invoke this during exploration or other modes to get
 detailed best practices and methodology guidance.
 
 Available prompt types:
-  research    Deep research methodology and best practices
+  research              Deep research methodology and best practices
+  design/prd            Product Requirements Document template
+  design/arc42          Arc42 architecture documentation structure
+  design/design-doc     Design document templates (mini/standard/comprehensive)
+  design/adr            Architecture Decision Record template
+  design/c4-diagrams    C4 model diagrams with Mermaid examples
 
 The output is designed to be consumed by AI agents, providing focused
 guidance without overwhelming the initial context window.
 
-Example:
-  sow prompt research    # Output research methodology guidance`,
+Examples:
+  sow prompt research        # Output research methodology guidance
+  sow prompt design/adr      # Output ADR template and best practices
+  sow prompt design/arc42    # Output Arc42 structure guidance`,
 		Args: cobra.ExactArgs(1),
 		RunE: runPrompt,
 	}
@@ -41,8 +48,21 @@ func runPrompt(cmd *cobra.Command, args []string) error {
 	switch promptType {
 	case "research":
 		promptID = prompts.PromptGuidanceResearch
+
+	// Design guidance prompts
+	case "design/prd":
+		promptID = prompts.PromptGuidanceDesignPRD
+	case "design/arc42":
+		promptID = prompts.PromptGuidanceDesignArc42
+	case "design/design-doc":
+		promptID = prompts.PromptGuidanceDesignDoc
+	case "design/adr":
+		promptID = prompts.PromptGuidanceDesignADR
+	case "design/c4-diagrams":
+		promptID = prompts.PromptGuidanceDesignC4Diagrams
+
 	default:
-		return fmt.Errorf("unknown prompt type: %s\nAvailable types: research", promptType)
+		return fmt.Errorf("unknown prompt type: %s\n\nAvailable types:\n  research\n  design/prd\n  design/arc42\n  design/design-doc\n  design/adr\n  design/c4-diagrams", promptType)
 	}
 
 	// Create context (guidance prompts currently don't need context)

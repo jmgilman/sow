@@ -47,6 +47,13 @@ const (
 // Guidance prompt IDs - On-demand guidance for specific tasks.
 const (
 	PromptGuidanceResearch PromptID = "guidance.research"
+
+	// Design guidance prompts.
+	PromptGuidanceDesignPRD        PromptID = "guidance.design.prd"
+	PromptGuidanceDesignArc42      PromptID = "guidance.design.arc42"
+	PromptGuidanceDesignDoc        PromptID = "guidance.design.design-doc"
+	PromptGuidanceDesignADR        PromptID = "guidance.design.adr"
+	PromptGuidanceDesignC4Diagrams PromptID = "guidance.design.c4-diagrams"
 )
 
 // Context represents data needed to render a prompt.
@@ -106,7 +113,7 @@ func (r *Registry) Render(id PromptID, ctx Context) (string, error) {
 
 // Embed all prompt templates from the templates/ directory
 //
-//go:embed templates/**/*.md templates/greet/*.md templates/greet/states/*.md templates/commands/*.md templates/modes/*.md templates/guidance/*.md
+//go:embed templates/**/*.md templates/greet/*.md templates/greet/states/*.md templates/commands/*.md templates/modes/*.md templates/guidance/*.md templates/guidance/design/*.md
 var templatesFS embed.FS
 
 // Default registry, initialized at startup.
@@ -144,6 +151,13 @@ func init() {
 
 		// Guidance prompts
 		PromptGuidanceResearch: "templates/guidance/research.md",
+
+		// Design guidance prompts
+		PromptGuidanceDesignPRD:        "templates/guidance/design/prd.md",
+		PromptGuidanceDesignArc42:      "templates/guidance/design/arc42.md",
+		PromptGuidanceDesignDoc:        "templates/guidance/design/design-doc.md",
+		PromptGuidanceDesignADR:        "templates/guidance/design/adr.md",
+		PromptGuidanceDesignC4Diagrams: "templates/guidance/design/c4-diagrams.md",
 	}
 
 	// Load and parse all templates

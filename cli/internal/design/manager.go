@@ -38,6 +38,9 @@ func AddInput(ctx *sow.Context, inputType, path, description string, tags []stri
 		return err
 	}
 
+	// Log the action
+	LogInputAdded(ctx, inputType, path, description, tags)
+
 	return nil
 }
 
@@ -70,6 +73,9 @@ func RemoveInput(ctx *sow.Context, path string) error {
 	if err := SaveIndex(ctx, index); err != nil {
 		return err
 	}
+
+	// Log the action
+	LogInputRemoved(ctx, path)
 
 	return nil
 }
@@ -134,6 +140,9 @@ func AddOutput(ctx *sow.Context, path, description, targetLocation, docType stri
 		return err
 	}
 
+	// Log the action
+	LogOutputAdded(ctx, path, description, targetLocation, docType, tags)
+
 	return nil
 }
 
@@ -167,6 +176,9 @@ func RemoveOutput(ctx *sow.Context, path string) error {
 		return err
 	}
 
+	// Log the action
+	LogOutputRemoved(ctx, path)
+
 	return nil
 }
 
@@ -196,6 +208,9 @@ func UpdateOutputTarget(ctx *sow.Context, path, targetLocation string) error {
 	if err := SaveIndex(ctx, index); err != nil {
 		return err
 	}
+
+	// Log the action
+	LogOutputTargetSet(ctx, path, targetLocation)
 
 	return nil
 }
@@ -247,6 +262,9 @@ func UpdateStatus(ctx *sow.Context, status string) error {
 		return err
 	}
 
+	// Store old status for logging
+	oldStatus := index.Design.Status
+
 	// Update status
 	index.Design.Status = status
 
@@ -254,6 +272,9 @@ func UpdateStatus(ctx *sow.Context, status string) error {
 	if err := SaveIndex(ctx, index); err != nil {
 		return err
 	}
+
+	// Log the action
+	LogStatusChanged(ctx, oldStatus, status)
 
 	return nil
 }

@@ -3,7 +3,9 @@ package standard
 import (
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/jmgilman/sow/cli/internal/logging"
 	"github.com/jmgilman/sow/cli/internal/project"
 	"github.com/jmgilman/sow/cli/internal/project/domain"
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
@@ -117,8 +119,23 @@ func (p *StandardProject) Save() error {
 }
 
 // Log records an action in the project log.
-func (p *StandardProject) Log(_, _ string, _ ...domain.LogOption) error {
-	// TODO: Implement project-level logging
+func (p *StandardProject) Log(action, result string, opts ...domain.LogOption) error {
+	entry := &logging.LogEntry{
+		Timestamp: time.Now(),
+		AgentID:   "orchestrator",
+		Action:    action,
+		Result:    result,
+	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(entry)
+	}
+
+	// Use logging package to append to project log
+	if err := logging.AppendLog(p.ctx.FS(), "project/log.md", entry); err != nil {
+		return fmt.Errorf("failed to append log: %w", err)
+	}
 	return nil
 }
 
