@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	"github.com/jmgilman/sow/cli/internal/prompts"
-	"github.com/jmgilman/sow/cli/schemas"
-	"github.com/jmgilman/sow/cli/schemas/phases"
 )
 
 func TestRender_GreetContext_Uninitialized(t *testing.T) {
@@ -132,111 +130,8 @@ func TestRender_GreetContext_Orchestrator(t *testing.T) {
 	}
 }
 
-func TestRender_StatechartContext_NoProject(t *testing.T) {
-	ctx := &prompts.StatechartContext{
-		State:        prompts.StateNoProject,
-		ProjectState: nil,
-	}
-
-	output, err := prompts.Render(prompts.PromptNoProject, ctx)
-	if err != nil {
-		t.Fatalf("Render failed: %v", err)
-	}
-
-	// Verify no project message
-	if !strings.Contains(output, "NO ACTIVE PROJECT") {
-		t.Error("Expected output to indicate no active project")
-	}
-}
-
-func TestRender_StatechartContext_PlanningActive(t *testing.T) {
-	state := &schemas.ProjectState{}
-	state.Project.Name = "test-project"
-	state.Project.Description = "Test description"
-	state.Project.Branch = "main"
-	state.Phases.Planning.Status = "in_progress"
-	state.Phases.Planning.Artifacts = []phases.Artifact{
-		{Path: "task-list.md", Approved: true, Metadata: map[string]interface{}{"type": "task_list"}},
-		{Path: "context.md", Approved: false},
-	}
-
-	ctx := &prompts.StatechartContext{
-		State:        prompts.StatePlanningActive,
-		ProjectState: state,
-	}
-
-	output, err := prompts.Render(prompts.PromptPlanningActive, ctx)
-	if err != nil {
-		t.Fatalf("Render failed: %v", err)
-	}
-
-	// Verify planning phase content
-	if !strings.Contains(output, "PLANNING PHASE") {
-		t.Error("Expected output to mention 'PLANNING PHASE'")
-	}
-
-	if !strings.Contains(output, "test-project") {
-		t.Error("Expected output to mention project name")
-	}
-
-	// Should show artifact counts
-	if !strings.Contains(output, "2 total") {
-		t.Error("Expected output to show 2 total artifacts")
-	}
-
-	if !strings.Contains(output, "1 approved") {
-		t.Error("Expected output to show 1 approved artifact")
-	}
-}
-
-func TestRender_StatechartContext_ImplementationExecuting(t *testing.T) {
-	state := &schemas.ProjectState{}
-	state.Project.Name = "impl-project"
-	state.Project.Description = "Implementation test"
-	state.Project.Branch = "feat/impl"
-	state.Phases.Implementation.Status = "in_progress"
-	state.Phases.Implementation.Tasks = []phases.Task{
-		{Id: "010", Name: "Task 1", Status: "completed"},
-		{Id: "020", Name: "Task 2", Status: "in_progress"},
-		{Id: "030", Name: "Task 3", Status: "pending"},
-	}
-
-	ctx := &prompts.StatechartContext{
-		State:        prompts.StateImplementationExecuting,
-		ProjectState: state,
-	}
-
-	output, err := prompts.Render(prompts.PromptImplementationExecuting, ctx)
-	if err != nil {
-		t.Fatalf("Render failed: %v", err)
-	}
-
-	// Verify implementation content
-	if !strings.Contains(output, "IMPLEMENTATION EXECUTING") {
-		t.Error("Expected output to mention 'IMPLEMENTATION EXECUTING'")
-	}
-
-	if !strings.Contains(output, "impl-project") {
-		t.Error("Expected output to mention project name")
-	}
-
-	// Should show task breakdown
-	if !strings.Contains(output, "Total: 3") {
-		t.Error("Expected output to show 3 total tasks")
-	}
-
-	if !strings.Contains(output, "Completed: 1") {
-		t.Error("Expected output to show 1 completed task")
-	}
-
-	if !strings.Contains(output, "In Progress: 1") {
-		t.Error("Expected output to show 1 in-progress task")
-	}
-
-	if !strings.Contains(output, "Pending: 1") {
-		t.Error("Expected output to show 1 pending task")
-	}
-}
+// Note: Statechart-specific prompt tests have been moved to cli/internal/project/standard/prompts_test.go
+// as they now use the standard project's own registry.
 
 func TestRender_UnknownPromptID(t *testing.T) {
 	ctx := &prompts.GreetContext{
@@ -289,28 +184,5 @@ func TestGreetContext_ToMap(t *testing.T) {
 	}
 }
 
-func TestStatechartContext_ToMap(t *testing.T) {
-	state := &schemas.ProjectState{}
-	state.Project.Name = "test-project"
-	state.Project.Description = "Description"
-	state.Project.Branch = "main"
-
-	ctx := &prompts.StatechartContext{
-		State:        prompts.StatePlanningActive,
-		ProjectState: state,
-	}
-
-	data := ctx.ToMap()
-
-	if data["ProjectName"] != "test-project" {
-		t.Error("Expected ProjectName to be 'test-project'")
-	}
-
-	if data["ProjectDescription"] != "Description" {
-		t.Error("Expected ProjectDescription to be 'Description'")
-	}
-
-	if data["ProjectBranch"] != "main" {
-		t.Error("Expected ProjectBranch to be 'main'")
-	}
-}
+// Note: TestStatechartContext_ToMap has been moved to cli/internal/project/standard/prompts_test.go
+// as StatechartContext is now used only by project-specific prompt generators.

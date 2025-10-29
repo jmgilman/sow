@@ -1,6 +1,7 @@
 package standard
 
 import (
+	"embed"
 	"fmt"
 	"strings"
 
@@ -10,6 +11,77 @@ import (
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/jmgilman/sow/cli/schemas/phases"
 )
+
+// StatePromptID uniquely identifies a prompt template for standard project states.
+type StatePromptID string
+
+// State prompt IDs - one for each state in the standard project state machine.
+const (
+	PromptNoProject               StatePromptID = "no_project"
+	PromptPlanningActive          StatePromptID = "planning_active"
+	PromptImplementationPlanning  StatePromptID = "implementation_planning"
+	PromptImplementationExecuting StatePromptID = "implementation_executing"
+	PromptReviewActive            StatePromptID = "review_active"
+	PromptFinalizeDocumentation   StatePromptID = "finalize_documentation"
+	PromptFinalizeChecks          StatePromptID = "finalize_checks"
+	PromptFinalizeDelete          StatePromptID = "finalize_delete"
+)
+
+// Embed standard project templates
+//
+//go:embed templates/*.md
+var templatesFS embed.FS
+
+// standardRegistry is the prompt registry for standard project state templates.
+var standardRegistry *prompts.Registry[StatePromptID]
+
+func init() {
+	standardRegistry = prompts.NewRegistry[StatePromptID]()
+
+	// Map state prompt IDs to template files
+	statePrompts := map[StatePromptID]string{
+		PromptNoProject:               "templates/no_project.md",
+		PromptPlanningActive:          "templates/planning_active.md",
+		PromptImplementationPlanning:  "templates/implementation_planning.md",
+		PromptImplementationExecuting: "templates/implementation_executing.md",
+		PromptReviewActive:            "templates/review_active.md",
+		PromptFinalizeDocumentation:   "templates/finalize_documentation.md",
+		PromptFinalizeChecks:          "templates/finalize_checks.md",
+		PromptFinalizeDelete:          "templates/finalize_delete.md",
+	}
+
+	// Load and parse all templates from the embedded filesystem
+	for id, path := range statePrompts {
+		if err := standardRegistry.RegisterFromFS(templatesFS, id, path); err != nil {
+			panic(fmt.Sprintf("failed to register standard project prompt %s: %v", id, err))
+		}
+	}
+}
+
+// stateToPromptID maps standard project states to their corresponding prompt template IDs.
+func stateToPromptID(state statechart.State) StatePromptID {
+	switch state {
+	case statechart.NoProject:
+		return PromptNoProject
+	case PlanningActive:
+		return PromptPlanningActive
+	case ImplementationPlanning:
+		return PromptImplementationPlanning
+	case ImplementationExecuting:
+		return PromptImplementationExecuting
+	case ReviewActive:
+		return PromptReviewActive
+	case FinalizeDocumentation:
+		return PromptFinalizeDocumentation
+	case FinalizeChecks:
+		return PromptFinalizeChecks
+	case FinalizeDelete:
+		return PromptFinalizeDelete
+	default:
+		// Return empty, caller will handle unknown state
+		return ""
+	}
+}
 
 // StandardPromptGenerator implements the PromptGenerator interface for standard projects.
 // It generates contextual prompts for each state in the standard project state machine,
@@ -77,12 +149,12 @@ func (g *StandardPromptGenerator) generatePlanningPrompt(
 		buf.WriteString("\n")
 	}
 
-	// Render static guidance template
+	// Render static guidance template using local registry
 	templateCtx := &prompts.StatechartContext{
 		State:        string(PlanningActive),
 		ProjectState: projectState,
 	}
-	guidance, err := g.components.RenderTemplate(prompts.PromptPlanningActive, templateCtx)
+	guidance, err := standardRegistry.Render(PromptPlanningActive, templateCtx)
 	if err != nil {
 		return "", fmt.Errorf("failed to render planning template: %w", err)
 	}
@@ -125,12 +197,12 @@ func (g *StandardPromptGenerator) generateImplementationPlanningPrompt(
 		buf.WriteString("\n")
 	}
 
-	// Render implementation planning guidance template
+	// Render implementation planning guidance template using local registry
 	templateCtx := &prompts.StatechartContext{
 		State:        string(ImplementationPlanning),
 		ProjectState: projectState,
 	}
-	guidance, err := g.components.RenderTemplate(prompts.PromptImplementationPlanning, templateCtx)
+	guidance, err := standardRegistry.Render(PromptImplementationPlanning, templateCtx)
 	if err != nil {
 		return "", fmt.Errorf("failed to render implementation planning template: %w", err)
 	}
@@ -174,12 +246,12 @@ func (g *StandardPromptGenerator) generateImplementationExecutingPrompt(
 		}
 	}
 
-	// Render execution guidance template
+	// Render execution guidance template using local registry
 	templateCtx := &prompts.StatechartContext{
 		State:        string(ImplementationExecuting),
 		ProjectState: projectState,
 	}
-	guidance, err := g.components.RenderTemplate(prompts.PromptImplementationExecuting, templateCtx)
+	guidance, err := standardRegistry.Render(PromptImplementationExecuting, templateCtx)
 	if err != nil {
 		return "", fmt.Errorf("failed to render implementation executing template: %w", err)
 	}
@@ -222,12 +294,12 @@ func (g *StandardPromptGenerator) generateReviewPrompt(
 	buf.WriteString(g.components.TaskSummary(projectState.Phases.Implementation.Tasks))
 	buf.WriteString("\n")
 
-	// Render review guidance template
+	// Render review guidance template using local registry
 	templateCtx := &prompts.StatechartContext{
 		State:        string(ReviewActive),
 		ProjectState: projectState,
 	}
-	guidance, err := g.components.RenderTemplate(prompts.PromptReviewActive, templateCtx)
+	guidance, err := standardRegistry.Render(PromptReviewActive, templateCtx)
 	if err != nil {
 		return "", fmt.Errorf("failed to render review template: %w", err)
 	}
@@ -247,12 +319,12 @@ func (g *StandardPromptGenerator) generateFinalizeDocumentationPrompt(
 	buf.WriteString(g.components.ProjectHeader(projectState))
 	buf.WriteString("\n")
 
-	// Render finalize documentation guidance template
+	// Render finalize documentation guidance template using local registry
 	templateCtx := &prompts.StatechartContext{
 		State:        string(FinalizeDocumentation),
 		ProjectState: projectState,
 	}
-	guidance, err := g.components.RenderTemplate(prompts.PromptFinalizeDocumentation, templateCtx)
+	guidance, err := standardRegistry.Render(PromptFinalizeDocumentation, templateCtx)
 	if err != nil {
 		return "", fmt.Errorf("failed to render finalize documentation template: %w", err)
 	}
@@ -272,12 +344,12 @@ func (g *StandardPromptGenerator) generateFinalizeChecksPrompt(
 	buf.WriteString(g.components.ProjectHeader(projectState))
 	buf.WriteString("\n")
 
-	// Render finalize checks guidance template
+	// Render finalize checks guidance template using local registry
 	templateCtx := &prompts.StatechartContext{
 		State:        string(FinalizeChecks),
 		ProjectState: projectState,
 	}
-	guidance, err := g.components.RenderTemplate(prompts.PromptFinalizeChecks, templateCtx)
+	guidance, err := standardRegistry.Render(PromptFinalizeChecks, templateCtx)
 	if err != nil {
 		return "", fmt.Errorf("failed to render finalize checks template: %w", err)
 	}
@@ -304,12 +376,12 @@ func (g *StandardPromptGenerator) generateFinalizeDeletePrompt(
 		}
 	}
 
-	// Render finalize delete guidance template
+	// Render finalize delete guidance template using local registry
 	templateCtx := &prompts.StatechartContext{
 		State:        string(FinalizeDelete),
 		ProjectState: projectState,
 	}
-	guidance, err := g.components.RenderTemplate(prompts.PromptFinalizeDelete, templateCtx)
+	guidance, err := standardRegistry.Render(PromptFinalizeDelete, templateCtx)
 	if err != nil {
 		return "", fmt.Errorf("failed to render finalize delete template: %w", err)
 	}
