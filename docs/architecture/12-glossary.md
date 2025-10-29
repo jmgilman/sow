@@ -18,6 +18,7 @@
 | **Mode** | Operating context outside structured projects (exploration, design, breakdown). |
 | **Orchestrator** | Primary user-facing agent that coordinates project lifecycle and delegates to workers. |
 | **Phase** | Stage in the 5-phase project lifecycle (planning, implementation, review, finalize). |
+| **PhaseOperationResult** | Return type for phase operations that may trigger state machine events, enables declarative event firing. |
 | **Project** | Structured implementation workflow with 5 phases, one per git branch. |
 | **Reference (Ref)** | External git repository providing knowledge (style guides) or code (examples). |
 | **Resumability** | Ability to pause and continue work without losing context, enabled by filesystem-based state. |
@@ -46,7 +47,10 @@
 | **GoReleaser** | Tool for building and releasing Go binaries across multiple platforms, used in CI/CD. |
 | **Guard** | Boolean function that must return true for state machine transition to proceed. |
 | **Heredoc** | Multi-line string literal (Here Document), used in shell for passing complex strings. |
+| **MachineBuilder** | SDK component providing fluent API for constructing state machines with options pattern. |
 | **POSIX** | Portable Operating System Interface, standard defining Unix-like OS behavior. |
+| **PromptComponents** | SDK-provided reusable prompt building blocks (git status, headers, task summaries, template rendering). |
+| **PromptGenerator** | Interface that project types implement to generate state-specific prompts with access to external systems. |
 | **Sentinel Error** | Named error value used for identity comparison via `errors.Is()`. |
 | **Snake Case** | Naming convention with lowercase words separated by underscores (e.g., `created_at`). |
 | **Stateless** | Go state machine library used for project lifecycle management. |

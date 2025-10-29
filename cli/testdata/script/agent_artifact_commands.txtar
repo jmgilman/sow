@@ -1,0 +1,131 @@
+# Test: Agent Artifact Commands
+# Purpose: Test all artifact management commands across phases
+# Coverage: artifact add, artifact approve, artifact list, phase compatibility
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/artifact-test
+exec sow init
+exec sow agent init artifact-test --description 'Test artifact commands'
+
+# =====================================
+# Artifact Commands in Planning Phase
+# =====================================
+
+# Create artifacts
+exec mkdir -p .sow/project/artifacts
+exec sh -c 'echo "# Context" > .sow/project/artifacts/context.md'
+exec sh -c 'echo "# Research" > .sow/project/artifacts/research.md'
+exec sh -c 'echo "# Task List" > .sow/project/artifacts/tasks.md'
+
+# Add artifact with metadata
+exec sow agent artifact add project/artifacts/context.md --metadata type=context --metadata status=draft
+stderr '✓ Added artifact'
+
+# Verify artifact in state with metadata
+exec cat .sow/project/state.yaml
+stdout 'context.md'
+stdout 'type: context'
+stdout 'status: draft'
+stdout 'approved: false'
+
+# Add multiple artifacts
+exec sow agent artifact add project/artifacts/research.md --metadata type=research
+exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
+
+# List artifacts (should show all 3)
+exec sow agent artifact list
+stderr 'context.md'
+stderr 'research.md'
+stderr 'tasks.md'
+
+# Approve first artifact
+exec sow agent artifact approve project/artifacts/context.md
+stderr '✓ Approved artifact'
+
+# Verify approval in state
+exec cat .sow/project/state.yaml
+stdout 'path: project/artifacts/context.md'
+stdout 'approved: true'
+
+# Verify other artifacts still not approved
+exec cat .sow/project/state.yaml
+stdout 'path: project/artifacts/research.md'
+stdout 'approved: false'
+
+# Approve task list to allow transition
+exec sow agent artifact approve project/artifacts/tasks.md
+
+# =====================================
+# Artifact Commands in Implementation Phase
+# =====================================
+
+# Transition to implementation
+exec sow agent complete
+exec sow agent task add 'Test task' --description 'Test'
+exec sow agent task approve
+
+# Test that artifact operations fail on implementation phase
+! exec sow agent artifact add project/some-artifact.md
+stderr 'does not support artifacts'
+
+! exec sow agent artifact approve project/some-artifact.md
+stderr 'does not support artifacts'
+
+# Verify artifact list returns empty for implementation
+exec sow agent artifact list
+! stderr 'some-artifact.md'
+
+# =====================================
+# Artifact Commands in Review Phase
+# =====================================
+
+# Transition to review
+exec sow agent task update 010 --status completed
+
+# Create review artifacts
+exec mkdir -p .sow/project/phases/review/reports
+exec sh -c 'echo "# Review 1" > .sow/project/phases/review/reports/review-001.md'
+exec sh -c 'echo "# Review 2" > .sow/project/phases/review/reports/review-002.md'
+
+# Add review artifacts with assessment metadata
+exec sow agent artifact add project/phases/review/reports/review-001.md --metadata type=review --metadata assessment=fail --metadata iteration=1
+stderr '✓ Added artifact'
+
+exec sow agent artifact add project/phases/review/reports/review-002.md --metadata type=review --metadata assessment=pass --metadata iteration=2
+stderr '✓ Added artifact'
+
+# List review artifacts
+exec sow agent artifact list
+stderr 'review-001.md'
+stderr 'review-002.md'
+
+# Verify metadata in state
+exec cat .sow/project/state.yaml
+stdout 'type: review'
+stdout 'assessment: fail'
+stdout 'assessment: pass'
+
+# Approve latest review
+exec sow agent artifact approve project/phases/review/reports/review-002.md
+stderr '✓ Approved artifact'
+
+# Verify only approved review shows as approved
+exec cat .sow/project/state.yaml
+stdout 'review-001.md'
+stdout 'approved: false'
+stdout 'review-002.md'
+stdout 'approved: true'
+
+# =====================================
+# Cleanup
+# =====================================
+exec sow agent complete
+exec sow agent complete
+exec sow agent delete --force
+! exists .sow/project

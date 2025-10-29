@@ -78,13 +78,13 @@ func (p *StandardProject) CurrentPhase() domain.Phase {
 	currentState := p.machine.State()
 
 	switch currentState {
-	case statechart.PlanningActive:
+	case PlanningActive:
 		return p.phases["planning"]
-	case statechart.ImplementationPlanning, statechart.ImplementationExecuting:
+	case ImplementationPlanning, ImplementationExecuting:
 		return p.phases["implementation"]
-	case statechart.ReviewActive:
+	case ReviewActive:
 		return p.phases["review"]
-	case statechart.FinalizeDocumentation, statechart.FinalizeChecks, statechart.FinalizeDelete:
+	case FinalizeDocumentation, FinalizeChecks, FinalizeDelete:
 		return p.phases["finalize"]
 	default:
 		return nil
@@ -107,7 +107,7 @@ func (p *StandardProject) Machine() *statechart.Machine {
 
 // InitialState returns the initial state for the project's state machine.
 func (p *StandardProject) InitialState() statechart.State {
-	return statechart.PlanningActive
+	return PlanningActive
 }
 
 // Save persists the project state to disk.
@@ -139,8 +139,7 @@ func (p *StandardProject) Log(action, result string, opts ...domain.LogOption) e
 	return nil
 }
 
-// buildStateMachine constructs the state machine for this project.
-// This is a simplified version - full implementation will come in later phases.
+// buildStateMachine constructs the state machine for this project using the builder pattern.
 func (p *StandardProject) buildStateMachine() *statechart.Machine {
 	// Get current state from the project
 	currentState := statechart.State(p.state.Statechart.Current_state)
@@ -148,12 +147,141 @@ func (p *StandardProject) buildStateMachine() *statechart.Machine {
 	// Convert to ProjectState for machine (schemas.ProjectState is an alias for projects.StandardProjectState)
 	projectState := (*schemas.ProjectState)(p.state)
 
-	// Create machine
-	machine := statechart.NewMachineAt(currentState, projectState)
-	machine.SetFilesystem(p.ctx.FS())
+	// Create prompt generator with full context access
+	promptGen := NewStandardPromptGenerator(p.ctx)
 
-	// TODO: Configure state machine transitions, guards, etc.
-	// This will be filled in after phase wrappers are complete
+	// Create builder
+	builder := statechart.NewBuilder(currentState, projectState, promptGen)
+
+	// Configure all state transitions with the builder
+	builder.
+		// NoProject → PlanningActive (unconditional)
+		AddTransition(
+			statechart.NoProject,
+			PlanningActive,
+			EventProjectInit,
+		).
+		// PlanningActive → ImplementationPlanning (requires task list approved)
+		AddTransition(
+			PlanningActive,
+			ImplementationPlanning,
+			EventCompletePlanning,
+			statechart.WithGuard(func() bool {
+				return PlanningComplete(p.state.Phases.Planning)
+			}),
+		).
+		// Allow project deletion from planning
+		AddTransition(
+			PlanningActive,
+			statechart.NoProject,
+			EventProjectDelete,
+		).
+		// ImplementationPlanning → ImplementationExecuting (task created)
+		AddTransition(
+			ImplementationPlanning,
+			ImplementationExecuting,
+			EventTaskCreated,
+			statechart.WithGuard(func() bool {
+				return HasAtLeastOneTask(projectState)
+			}),
+		).
+		// ImplementationPlanning → ImplementationExecuting (tasks approved)
+		AddTransition(
+			ImplementationPlanning,
+			ImplementationExecuting,
+			EventTasksApproved,
+			statechart.WithGuard(func() bool {
+				return TasksApproved(projectState)
+			}),
+		).
+		// Allow project deletion from implementation planning
+		AddTransition(
+			ImplementationPlanning,
+			statechart.NoProject,
+			EventProjectDelete,
+		).
+		// ImplementationExecuting → ReviewActive (all tasks done)
+		AddTransition(
+			ImplementationExecuting,
+			ReviewActive,
+			EventAllTasksComplete,
+			statechart.WithGuard(func() bool {
+				return AllTasksComplete(projectState)
+			}),
+		).
+		// Allow project deletion from implementation executing
+		AddTransition(
+			ImplementationExecuting,
+			statechart.NoProject,
+			EventProjectDelete,
+		).
+		// ReviewActive → ImplementationPlanning (review failed - loop back)
+		AddTransition(
+			ReviewActive,
+			ImplementationPlanning,
+			EventReviewFail,
+			statechart.WithGuard(func() bool {
+				return LatestReviewApproved(projectState)
+			}),
+		).
+		// ReviewActive → FinalizeDocumentation (review passed)
+		AddTransition(
+			ReviewActive,
+			FinalizeDocumentation,
+			EventReviewPass,
+			statechart.WithGuard(func() bool {
+				return LatestReviewApproved(projectState)
+			}),
+		).
+		// Allow project deletion from review
+		AddTransition(
+			ReviewActive,
+			statechart.NoProject,
+			EventProjectDelete,
+		).
+		// FinalizeDocumentation → FinalizeChecks (documentation handled)
+		AddTransition(
+			FinalizeDocumentation,
+			FinalizeChecks,
+			EventDocumentationDone,
+			statechart.WithGuard(func() bool {
+				return DocumentationAssessed(projectState)
+			}),
+		).
+		// Allow project deletion from finalize documentation
+		AddTransition(
+			FinalizeDocumentation,
+			statechart.NoProject,
+			EventProjectDelete,
+		).
+		// FinalizeChecks → FinalizeDelete (checks handled)
+		AddTransition(
+			FinalizeChecks,
+			FinalizeDelete,
+			EventChecksDone,
+			statechart.WithGuard(func() bool {
+				return ChecksAssessed(projectState)
+			}),
+		).
+		// Allow project deletion from finalize checks
+		AddTransition(
+			FinalizeChecks,
+			statechart.NoProject,
+			EventProjectDelete,
+		).
+		// FinalizeDelete → NoProject (project deleted)
+		AddTransition(
+			FinalizeDelete,
+			statechart.NoProject,
+			EventProjectDelete,
+			statechart.WithGuard(func() bool {
+				return ProjectDeleted(projectState)
+			}),
+		)
+
+	// Build and configure the machine
+	machine := builder.Build()
+	machine.SetFilesystem(p.ctx.FS())
 
 	return machine
 }

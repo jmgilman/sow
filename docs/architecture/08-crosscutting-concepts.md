@@ -29,6 +29,14 @@ classDiagram
         +tasks Task[]
         +started_at timestamp
         +completed_at timestamp
+        +ApproveArtifact(path) PhaseOperationResult
+        +ApproveTasks() PhaseOperationResult
+        +Complete() PhaseOperationResult
+        +Set(field, value) PhaseOperationResult
+    }
+
+    class PhaseOperationResult {
+        +Event Event
     }
 
     class Task {
@@ -75,6 +83,7 @@ classDiagram
     Project --> Statechart
     Phases --> Phase
     Phase --> Task
+    Phase ..> PhaseOperationResult : returns
     Mode <|-- ExplorationMode
     Mode <|-- DesignMode
     Mode <|-- BreakdownMode
@@ -172,6 +181,61 @@ data, _ := yaml.Marshal(&node)
 - State files are YAML (git-mergeable)
 - Conflicts surface as merge conflicts
 - Developers resolve manually (rare in practice)
+
+---
+
+### State Machine Construction
+
+**Builder Pattern**: Projects construct state machines using the SDK builder:
+
+```go
+// Project type creates builder with initial state and prompt generator
+builder := statechart.NewBuilder(currentState, projectState, promptGen)
+
+// Add transitions with optional guards
+builder.
+    AddTransition(State1, State2, Event1).  // Unconditional
+    AddTransition(State2, State3, Event2,    // Conditional
+        statechart.WithGuard(func() bool {
+            return guardCondition(projectState)
+        }),
+    )
+
+// Build final machine
+machine := builder.Build()
+```
+
+**Components**:
+- **MachineBuilder**: Fluent API for transition configuration
+- **PromptGenerator**: Interface for state-specific prompt generation
+- **Guards**: Closures that capture project state and determine if transitions are permitted
+- **PromptComponents**: Reusable prompt sections (git status, headers, etc.)
+
+**PhaseOperationResult Pattern**: Enables CLI-driven event firing:
+
+```go
+// Phase operation returns event declaratively
+func (p *Phase) Complete() (*domain.PhaseOperationResult, error) {
+    p.state.Status = "completed"
+    if err := p.project.Save(); err != nil {
+        return nil, err
+    }
+    // Return event to fire after operation
+    return domain.WithEvent(EventPhaseComplete), nil
+}
+
+// CLI fires the event
+result, err := phase.Complete()
+if result.Event != "" {
+    machine.Fire(result.Event)
+}
+```
+
+**Benefits**:
+- **Project types own their workflows**: Each project type defines its own states, events, guards
+- **CLI stays generic**: No project-type conditionals in CLI layer
+- **Declarative events**: Phases specify when transitions occur without directly manipulating state machine
+- **Reusable infrastructure**: SDK provides builder, prompt components, common guards
 
 ---
 

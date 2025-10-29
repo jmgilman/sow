@@ -276,7 +276,7 @@ func TestPhaseMetadataOperations(t *testing.T) {
 	phase := NewReviewPhase(phaseState, proj, ctx)
 
 	// Set metadata
-	err = phase.Set("iteration", 2)
+	_, err = phase.Set("iteration", 2)
 	if err != nil {
 		t.Fatalf("Failed to set metadata: %v", err)
 	}

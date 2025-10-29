@@ -121,16 +121,18 @@ func Create(ctx *sow.Context, name, description string) (domain.Project, error) 
 	// Create initial project state using statechart helper
 	state := statechart.NewProjectState(name, description, branch)
 
-	// Create machine at the proper initial state (from state.Statechart.Current_state)
-	initialState := statechart.State(state.Statechart.Current_state)
-	machine := statechart.NewMachineAt(initialState, state)
-	machine.SetFilesystem(fs)
-	if err := machine.Save(); err != nil {
+	// Convert to StandardProjectState (they're type aliases)
+	standardState := (*projects.StandardProjectState)(state)
+
+	// Create standard project - this builds the machine with the builder pattern
+	proj := standard.New(standardState, ctx)
+
+	// Save initial state
+	if err := proj.Save(); err != nil {
 		return nil, fmt.Errorf("failed to save initial state: %w", err)
 	}
 
-	// Load and return the project
-	return Load(ctx)
+	return proj, nil
 }
 
 // CreateFromIssue creates a project linked to a GitHub issue.
@@ -205,26 +207,27 @@ func Delete(ctx *sow.Context) error {
 		return sow.ErrNoProject
 	}
 
-	// Load the machine to update state before deletion
-	machine, err := statechart.LoadFS(fs) //nolint:staticcheck // Deprecated but needed for backward compatibility
+	// Load the project using the proper loader
+	proj, err := Load(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to load project state: %w", err)
+		return fmt.Errorf("failed to load project: %w", err)
 	}
 
 	// Set project_deleted flag to true (required by state machine guard)
-	state := machine.ProjectState()
+	state := proj.Machine().ProjectState()
 	if state.Phases.Finalize.Metadata == nil {
 		state.Phases.Finalize.Metadata = make(map[string]interface{})
 	}
 	state.Phases.Finalize.Metadata["project_deleted"] = true
 
 	// Save state with flag set
-	if err := machine.Save(); err != nil {
+	if err := proj.Save(); err != nil {
 		return fmt.Errorf("failed to save state: %w", err)
 	}
 
-	// Fire transition
-	if err := machine.Fire(statechart.EventProjectDelete); err != nil {
+	// Fire transition using standard project event
+	// Import standard package at top to access EventProjectDelete
+	if err := proj.Machine().Fire(standard.EventProjectDelete); err != nil {
 		return fmt.Errorf("failed to transition state: %w", err)
 	}
 

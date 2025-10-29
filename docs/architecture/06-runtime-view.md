@@ -21,10 +21,11 @@ sequenceDiagram
     CLI->>FS: Get current branch
     FS-->>CLI: feat/auth-system
     CLI->>FS: Create project/ directory
-    CLI->>SM: Initialize at PlanningActive
+    CLI->>SM: Build machine at PlanningActive using MachineBuilder
     SM->>FS: Write state.yaml
-    CLI->>Claude: Generate planning prompt
-    CLI->>Claude: Launch with prompt
+    SM->>SM: Fire EventProjectInit
+    SM->>SM: Generate planning prompt via PromptGenerator
+    CLI->>Claude: Launch with planning prompt
     Claude->>Orch: Spawn orchestrator agent
     Orch->>Dev: "I'll help you plan this project. What are you building?"
 ```
@@ -56,20 +57,37 @@ sequenceDiagram
 sequenceDiagram
     participant Orch as Orchestrator
     participant CLI as sow CLI
+    participant Phase as Phase
     participant FS as Filesystem
     participant SM as State Machine
+    participant PromptGen as PromptGenerator
     participant Claude as Claude Code
     participant Worker as Worker Agent
 
     Orch->>CLI: sow project add-task "Implement JWT middleware"
     CLI->>FS: Read state.yaml
-    CLI->>FS: Create task directory
-    CLI->>FS: Write task state.yaml
-    CLI->>FS: Write task description.md
-    CLI->>SM: Fire EventTaskCreated
-    SM->>SM: Transition to ImplementationExecuting
-    SM->>FS: Update state.yaml
+    CLI->>Phase: AddTask("Implement JWT middleware")
+    Phase->>FS: Create task directory
+    Phase->>FS: Write task state.yaml
+    Phase->>FS: Write task description.md
+    Phase->>FS: Save project state
+    Phase-->>CLI: Task created (task-001)
     CLI-->>Orch: Task created (task-001)
+
+    Note over Orch: Phase operation may trigger event
+    Orch->>CLI: sow project phase complete planning
+    CLI->>Phase: Complete()
+    Phase->>Phase: Update phase state
+    Phase->>FS: Save state
+    Phase-->>CLI: WithEvent(EventCompletePlanning)
+    CLI->>SM: Fire(EventCompletePlanning)
+    SM->>SM: Evaluate guard: PlanningComplete()
+    SM->>SM: Transition to ImplementationPlanning
+    SM->>PromptGen: GeneratePrompt(ImplementationPlanning, state)
+    PromptGen->>PromptGen: Compose prompt sections
+    PromptGen-->>SM: prompt text
+    SM->>SM: Print prompt to user
+    CLI->>FS: Update state.yaml
 
     Orch->>FS: Read task state, description
     Orch->>FS: Read referenced files (refs, knowledge)
@@ -84,31 +102,53 @@ sequenceDiagram
     Worker->>CLI: sow log "action" "result" --files "src/auth/jwt.ts"
     CLI->>FS: Append to task log.md
     Worker->>CLI: sow task set-status completed
-    CLI->>SM: Check if all tasks complete
+    CLI->>Phase: SetStatus(completed)
+    Phase->>Phase: Check if all tasks complete
+    Phase->>FS: Save state
+    Phase-->>CLI: WithEvent(EventAllTasksComplete)
+    CLI->>SM: Fire(EventAllTasksComplete)
+    SM->>SM: Evaluate guard: AllTasksComplete()
     SM->>SM: Transition to ReviewActive
+    SM->>PromptGen: GeneratePrompt(ReviewActive, state)
+    PromptGen-->>SM: prompt text
+    SM->>SM: Print prompt to user
+    CLI->>FS: Update state.yaml
     Worker-->>Orch: "Task completed"
 ```
 
 **Steps**:
 1. Orchestrator invokes CLI to create task
-2. CLI creates task directory: `.sow/project/phases/implementation/tasks/task-001/`
-3. CLI writes task `state.yaml` with metadata (iteration=1, status=pending)
-4. CLI writes task `description.md` with requirements
-5. CLI fires state machine event `EventTaskCreated`
-6. State machine transitions to `ImplementationExecuting` (if first task)
-7. CLI updates project `state.yaml` with new state
-8. Orchestrator reads task state and description
-9. Orchestrator reads referenced files (refs, knowledge, planning artifacts)
-10. Orchestrator compiles bounded context for worker
-11. Orchestrator spawns worker via Claude Code Task tool
-12. Worker receives compiled prompt with task context
-13. Worker reads task files from filesystem
-14. Worker executes implementation (writes code)
-15. Worker logs actions via CLI commands (`sow log`)
-16. Worker updates task status via CLI (`sow task set-status completed`)
-17. CLI checks if all tasks complete, fires state machine event if so
-18. State machine transitions to `ReviewActive`
-19. Worker reports completion back to orchestrator
+2. CLI delegates to phase: `AddTask("Implement JWT middleware")`
+3. Phase creates task directory: `.sow/project/phases/implementation/tasks/task-001/`
+4. Phase writes task `state.yaml` with metadata (iteration=1, status=pending)
+5. Phase writes task `description.md` with requirements
+6. Phase saves project state to disk
+7. Phase returns task to CLI (no event triggered for add operations)
+8. Later, orchestrator completes planning phase via CLI
+9. CLI calls `phase.Complete()` which updates phase state and saves
+10. Phase returns `WithEvent(EventCompletePlanning)` to CLI
+11. CLI fires event: `machine.Fire(EventCompletePlanning)`
+12. State machine evaluates guard: `PlanningComplete()` returns true
+13. State machine transitions to `ImplementationPlanning` state
+14. State machine calls `PromptGenerator.GeneratePrompt()` on entry
+15. Prompt generator composes sections and returns complete prompt
+16. State machine prints prompt to user
+17. CLI saves updated state to `state.yaml`
+18. Orchestrator reads task state and description
+19. Orchestrator reads referenced files (refs, knowledge, planning artifacts)
+20. Orchestrator compiles bounded context for worker
+21. Orchestrator spawns worker via Claude Code Task tool
+22. Worker receives compiled prompt with task context
+23. Worker reads task files from filesystem
+24. Worker executes implementation (writes code)
+25. Worker logs actions via CLI commands (`sow log`)
+26. Worker updates task status via CLI (`sow task set-status completed`)
+27. Phase checks if all tasks complete, returns `WithEvent(EventAllTasksComplete)`
+28. CLI fires event, state machine evaluates guard
+29. State machine transitions to `ReviewActive`
+30. Prompt generator creates review prompt
+31. State machine prints prompt to user
+32. Worker reports completion back to orchestrator
 
 **Data Written**:
 - `.sow/project/phases/implementation/tasks/task-001/state.yaml`: Task metadata
@@ -273,10 +313,12 @@ sequenceDiagram
     FS-->>CLI: Yes, project/state.yaml found
     CLI->>FS: Load project state.yaml
     FS-->>CLI: State data (current_state=ImplementationExecuting)
-    CLI->>SM: Reconstruct state machine at ImplementationExecuting
+    CLI->>SM: Reconstruct state machine at ImplementationExecuting using MachineBuilder
+    SM->>SM: Wire all transitions, guards, prompt generator
     CLI->>FS: Read project log.md
     CLI->>FS: Read task states (find in_progress task)
-    CLI->>Claude: Generate continuation prompt
+    CLI->>SM: Generate continuation prompt via PromptGenerator
+    SM-->>CLI: Context-aware prompt for ImplementationExecuting
     CLI->>Claude: Launch with project context
     Claude->>Orch: Spawn orchestrator
     Orch->>FS: Read project state

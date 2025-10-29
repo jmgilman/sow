@@ -180,21 +180,27 @@ graph TB
         ProjectIF[Project Interface]
         PhaseIF[Phase Interface]
         TaskIF[Task]
+        ResultIF[PhaseOperationResult]
+    end
+
+    subgraph "SDK Layer (statechart)"
+        Builder[MachineBuilder]
+        PromptGenIF[PromptGenerator Interface]
+        Components[PromptComponents]
+        CommonGuards[Common Guards]
+        Machine[Machine]
     end
 
     subgraph "Standard Project Implementation"
         StdProj[StandardProject]
+        StdStates[States]
+        StdEvents[Events]
+        StdGuards[Guards]
+        StdPrompts[StandardPromptGenerator]
         Planning[PlanningPhase]
         Impl[ImplementationPhase]
         Review[ReviewPhase]
         Finalize[FinalizePhase]
-    end
-
-    subgraph "State Machine"
-        Machine[Machine]
-        States[States & Events]
-        Guards[Guard Functions]
-        Persistence[Persistence]
     end
 
     subgraph "Loaders"
@@ -207,19 +213,27 @@ graph TB
     PhaseIF --> Impl
     PhaseIF --> Review
     PhaseIF --> Finalize
+    PhaseIF -.returns.-> ResultIF
 
-    StdProj --> Machine
+    StdProj --> Builder
     StdProj --> Planning
     StdProj --> Impl
     StdProj --> Review
     StdProj --> Finalize
 
-    Machine --> States
-    Machine --> Guards
-    Machine --> Persistence
+    StdPrompts --> PromptGenIF
+    StdPrompts --> Components
+    StdGuards --> CommonGuards
+
+    Builder --> Machine
+    Builder --> PromptGenIF
 
     Loader --> StateFile
     Loader --> StdProj
+
+    style Builder fill:#13aa52,color:#fff
+    style Components fill:#13aa52,color:#fff
+    style CommonGuards fill:#13aa52,color:#fff
 ```
 
 ### Sub-components
@@ -228,28 +242,41 @@ graph TB
 - `Project` interface: Core aggregate root
 - `Phase` interface: Generic phase operations (artifacts, tasks, lifecycle)
 - `Task` concrete type: Implementation tasks with status, iteration, feedback
+- `PhaseOperationResult`: Return type for operations that may trigger state machine events
 - Option patterns for configuration (ArtifactOption, TaskOption, PhaseOption)
 
+**SDK Layer** (`internal/project/statechart/`)
+
+The SDK provides reusable infrastructure that all project types share:
+
+- `MachineBuilder`: Fluent API for constructing state machines with options pattern
+- `PromptGenerator` (interface): Contract for project-owned prompt generation
+- `PromptComponents`: Reusable prompt building blocks (git status, headers, task summaries, template rendering)
+- Common Guards: Shared predicates (`TasksComplete`, `ArtifactsApproved`, `MinTaskCount`, `HasArtifactWithType`)
+- `Machine`: State machine wrapper with filesystem persistence
+- `PhaseOperationResult` support: Enables declarative event triggering from CLI operations
+
 **Standard Project** (`internal/project/standard/`)
-- Implements 5-phase lifecycle: Planning → Implementation → Review → Finalize
-- Owns state machine instance
-- Phase factory (creates phase implementations)
+
+Implements 5-phase lifecycle using SDK components:
+
+- **Project struct**: Owns state machine instance, implements `Project` interface
+- **States** (`states.go`): `PlanningActive`, `ImplementationPlanning`, `ImplementationExecuting`, `ReviewActive`, `FinalizeDocumentation`, `FinalizeChecks`, `FinalizeDelete`
+- **Events** (`events.go`): `EventProjectInit`, `EventCompletePlanning`, `EventTasksApproved`, `EventAllTasksComplete`, etc.
+- **Guards** (`guards.go`): Standard-specific guard functions (`PlanningComplete`, `TasksApproved`, etc.)
+- **Prompt Generator** (`prompts.go`): Implements `PromptGenerator` interface, generates state-specific prompts
+- **Phase implementations**: PlanningPhase, ImplementationPhase, ReviewPhase, FinalizePhase
+- **State machine construction**: Uses `MachineBuilder` to wire states, events, guards, and transitions
 - YAML marshaling (with null value removal)
 - Pull request creation
 
-**Statechart System** (`internal/project/statechart/`)
-- `Machine`: Wraps stateless state machine with project state
-- States: `PlanningActive`, `ImplementationPlanning`, `ImplementationExecuting`, `ReviewActive`, `FinalizeDocumentation`, `FinalizeChecks`, `FinalizeDelete`
-- Events: `EventProjectInit`, `EventCompletePlanning`, `EventTasksApproved`, `EventAllTasksComplete`, etc.
-- Guards: Functions that must return true for transitions (e.g., `planningComplete`, `allTasksComplete`)
-- Entry actions: Generate contextual prompts on state entry
-- Persistence: Save state machine state to `state.yaml`
-
 **Loader** (`internal/project/loader/`)
-- Deserializes `state.yaml` into `StandardProject`
+- Deserializes `state.yaml` into project type (e.g., `StandardProject`)
+- Type detection based on `project.type` field
 - Validates schema via CUE types
-- Reconstructs state machine at correct state
+- Reconstructs state machine at correct state using builder
 - Handles missing files gracefully
+- Extensible for multiple project types
 
 ---
 

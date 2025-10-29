@@ -15,10 +15,10 @@ The exploration research (January 2025) validated this approach through comprehe
 
 **Goals**:
 - Consolidate three mode implementations into unified project type system
-- Implement six schema improvements enabling clean mode-to-project translation
+- Implement seven schema and interface improvements enabling clean mode-to-project translation
 - Remove all mode-specific code, directories, and CLI commands
 - Support automatic project type detection via branch prefix
-- Enable state machine workflows through phase-specific states
+- Enable state machine workflows through SDK builder pattern with PhaseOperationResult
 
 **Non-Goals** (explicitly out of scope):
 - Migration tooling for existing mode sessions (breaking change, users restart)
@@ -38,7 +38,7 @@ Replace standalone mode systems with project type discrimination. Each mode beco
 
 #### 1. Schema Extensions
 
-Extend base schemas (`schemas/phases/common.cue`) with six improvements:
+Extend base schemas (`schemas/phases/common.cue`) and Phase interface with seven improvements:
 
 **Change 1: Artifact approval field**
 ```cue
@@ -104,6 +104,34 @@ Remove `status: "pending" | "in_progress" | "completed" | "skipped"` constraint.
     status: string  // Project type schemas constrain valid values
 }
 ```
+
+**Change 7: Phase interface signatures (PhaseOperationResult pattern)**
+
+Update Phase interface methods to return `PhaseOperationResult` for operations that may trigger state machine events:
+
+```go
+// In cli/internal/project/domain/interfaces.go
+type Phase interface {
+    // Metadata
+    Name() string
+    Status() string
+    Enabled() bool
+
+    // Operations that may trigger events return PhaseOperationResult
+    ApproveArtifact(path string) (*PhaseOperationResult, error)
+    ApproveTasks() (*PhaseOperationResult, error)
+    Complete() (*PhaseOperationResult, error)
+    Set(field string, value interface{}) (*PhaseOperationResult, error)
+
+    // Simple operations return just error
+    AddArtifact(path string, opts ...ArtifactOption) error
+    AddTask(name string, opts ...TaskOption) (*Task, error)
+    Get(field string) (interface{}, error)
+    // ... other existing methods
+}
+```
+
+This enables phases to declaratively trigger state transitions while keeping CLI generic. See "PhaseOperationResult Pattern for Event Triggering" section below for details.
 
 #### 2. Project Type Schemas
 
@@ -248,31 +276,165 @@ func DetectProjectType(branchName string) string {
 
 #### 4. State Machine Implementation
 
-Project type schemas define valid state transitions declaratively. CLI validates transitions when updating state.
+Each project type constructs its state machine using the SDK builder pattern. State machines are built at runtime when projects are loaded.
 
-**State transition guards** (example for exploration):
-```yaml
-# .sow/project/state.yaml
-statechart:
-  current_state: Gathering
+**Builder Pattern Usage**:
 
-# Valid transitions with guards:
-# Gathering → Researching: min_topics_added && user_approved
-# Researching → Summarizing: all_topics_completed
-# Summarizing → Finalizing: summary_artifact_created && user_approved
-# Finalizing → Completed: all_finalization_tasks_completed
+Project types use `MachineBuilder` to construct state machines with transitions, guards, and prompt generation:
 
-# CLI checks guard before allowing transition:
-sow project transition researching
-# Error: Cannot transition to 'researching': minimum 3 topics required
+```go
+// In cli/internal/project/exploration/project.go
+func (p *ExplorationProject) buildStateMachine() *statechart.Machine {
+    // Get current state from project
+    currentState := statechart.State(p.state.Statechart.Current_state)
+    projectState := (*schemas.ProjectState)(p.state)
+
+    // Create prompt generator (implements PromptGenerator interface)
+    promptGen := NewExplorationPromptGenerator(p.ctx)
+
+    // Create builder with initial state, project state, and prompt generator
+    builder := statechart.NewBuilder(currentState, projectState, promptGen)
+
+    // Configure all state transitions with guards using options pattern
+    builder.
+        // Gathering → Researching (with guard)
+        AddTransition(
+            ExplorationGathering,
+            ExplorationResearching,
+            EventCompleteGathering,
+            statechart.WithGuard(func() bool {
+                return GatheringComplete(projectState)
+            }),
+        ).
+        // Researching → Summarizing (with guard)
+        AddTransition(
+            ExplorationResearching,
+            ExplorationSummarizing,
+            EventCompleteResearching,
+            statechart.WithGuard(func() bool {
+                return statechart.AllTasksComplete(projectState.Phases.Exploration.Tasks)
+            }),
+        ).
+        // Summarizing → Finalizing (with guard)
+        AddTransition(
+            ExplorationSummarizing,
+            ExplorationFinalizing,
+            EventBeginFinalizing,
+            statechart.WithGuard(func() bool {
+                return SummaryApproved(projectState)
+            }),
+        ).
+        // Finalizing → Completed (unconditional, no guard)
+        AddTransition(
+            ExplorationFinalizing,
+            ExplorationCompleted,
+            EventProjectComplete,
+        )
+
+    // Build and return final machine
+    machine := builder.Build()
+    machine.SetFilesystem(p.ctx.FS())
+
+    return machine
+}
 ```
 
-**Orchestrator prompt loading**:
-```bash
-sow prompt project/exploration/researching  # Load state-specific prompt
+**Guard Function Examples** (exploration):
+
+```go
+// In cli/internal/project/exploration/guards.go
+
+// Minimum topics required to begin research
+func GatheringComplete(state *schemas.ProjectState) bool {
+    return len(state.Phases.Exploration.Tasks) >= 3
+}
+
+// Summary artifact exists and is approved
+func SummaryApproved(state *schemas.ProjectState) bool {
+    for _, a := range state.Phases.Exploration.Artifacts {
+        if strings.Contains(a.Path, "summary") && a.Approved {
+            return true
+        }
+    }
+    return false
+}
 ```
 
-Prompts stored in `.claude/prompts/project/<type>/<state>.md`. Orchestrator loads appropriate prompt when entering state.
+**Prompt Generation on State Entry**:
+
+When the state machine transitions to a new state, it automatically calls `PromptGenerator.GeneratePrompt()`:
+
+```go
+// In cli/internal/project/exploration/prompts.go
+type ExplorationPromptGenerator struct {
+    components *statechart.PromptComponents
+}
+
+func (g *ExplorationPromptGenerator) GeneratePrompt(
+    state statechart.State,
+    projectState *schemas.ProjectState,
+) (string, error) {
+    // Route to state-specific generator
+    switch state {
+    case ExplorationGathering:
+        return g.generateGatheringPrompt(projectState)
+    case ExplorationResearching:
+        return g.generateResearchingPrompt(projectState)
+    case ExplorationSummarizing:
+        return g.generateSummarizingPrompt(projectState)
+    default:
+        return "", fmt.Errorf("unknown state: %s", state)
+    }
+}
+
+func (g *ExplorationPromptGenerator) generateGatheringPrompt(
+    projectState *schemas.ProjectState,
+) (string, error) {
+    var buf strings.Builder
+
+    // Use reusable SDK components
+    buf.WriteString(g.components.ProjectHeader(projectState))
+    gitStatus, _ := g.components.GitStatus()
+    buf.WriteString(gitStatus)
+
+    // Add exploration-specific sections
+    buf.WriteString("\n## Current Research Topics\n\n")
+    for _, task := range projectState.Phases.Exploration.Tasks {
+        buf.WriteString(fmt.Sprintf("- %s (%s)\n", task.Name, task.Status))
+    }
+
+    // Include static guidance via template
+    guidance, _ := g.components.RenderTemplate(
+        prompts.PromptExplorationGathering,
+        ctx,
+    )
+    buf.WriteString(guidance)
+
+    return buf.String(), nil
+}
+```
+
+**State Transition Flow**:
+
+1. Phase calls `Complete()` → returns `WithEvent(EventCompleteGathering)`
+2. CLI fires event: `machine.Fire(EventCompleteGathering)`
+3. State machine evaluates guard: `GatheringComplete(projectState)`
+4. If guard passes:
+   - Transition to `ExplorationResearching` state
+   - Call `PromptGenerator.GeneratePrompt(ExplorationResearching, projectState)`
+   - Print generated prompt to user
+   - Update `state.yaml` with new state
+5. If guard fails:
+   - Reject transition
+   - Return error to CLI
+   - State unchanged
+
+**Benefits**:
+- **Type-safe**: Compile-time checking of states and events
+- **Flexible**: Guards can inspect any part of project state
+- **Reusable**: Common guards provided by SDK
+- **Dynamic prompts**: Access to git, GitHub, filesystem during generation
+- **Testable**: Each component tested independently
 
 #### 5. Code Removal
 
@@ -295,64 +457,430 @@ Delete mode-specific implementations:
 - `sow project` - add type detection and wizard for project creation/resumption
 - CLI internally handles type-specific state and task metadata (no user-facing changes)
 
+### PhaseOperationResult Pattern for Event Triggering
+
+**Purpose**: Enable phases to declaratively trigger state machine events while keeping the CLI generic across all project types.
+
+**Pattern**: Phase operations that may trigger state transitions return `PhaseOperationResult` containing an optional event. The CLI fires the event if present.
+
+**Type Definition** (`cli/internal/project/domain/phase_operation_result.go`):
+
+```go
+// PhaseOperationResult represents the outcome of a phase operation.
+type PhaseOperationResult struct {
+    Event statechart.Event  // Optional event to fire (empty string = no event)
+}
+
+// NoEvent returns a result with no event to fire.
+func NoEvent() *PhaseOperationResult {
+    return &PhaseOperationResult{}
+}
+
+// WithEvent returns a result that will fire the given event.
+func WithEvent(event statechart.Event) *PhaseOperationResult {
+    return &PhaseOperationResult{Event: event}
+}
+```
+
+**Updated Phase Interface** (`cli/internal/project/domain/interfaces.go`):
+
+```go
+type Phase interface {
+    // Metadata
+    Name() string
+    Status() string
+    Enabled() bool
+
+    // Operations that may trigger events return PhaseOperationResult
+    ApproveArtifact(path string) (*PhaseOperationResult, error)
+    ApproveTasks() (*PhaseOperationResult, error)
+    Complete() (*PhaseOperationResult, error)
+    Set(field string, value interface{}) (*PhaseOperationResult, error)
+
+    // Simple operations return just error
+    AddArtifact(path string, opts ...ArtifactOption) error
+    AddTask(name string, opts ...TaskOption) (*Task, error)
+    Get(field string) (interface{}, error)
+    // ... other methods
+}
+```
+
+**Usage Examples**:
+
+```go
+// Exploration: Completing gathering phase triggers transition
+func (p *GatheringPhase) Complete() (*domain.PhaseOperationResult, error) {
+    p.state.Status = "completed"
+    if err := p.project.Save(); err != nil {
+        return nil, err
+    }
+    return domain.WithEvent(EventCompleteGathering), nil
+}
+
+// Design: Approving individual artifact may trigger transition
+func (p *DraftingPhase) ApproveArtifact(path string) (*domain.PhaseOperationResult, error) {
+    if err := p.artifacts.Approve(path); err != nil {
+        return nil, err
+    }
+
+    // Check if ALL artifacts now approved
+    allApproved := true
+    for _, a := range p.state.Artifacts {
+        if !a.Approved {
+            allApproved = false
+            break
+        }
+    }
+
+    if allApproved {
+        // Trigger transition to reviewing
+        return domain.WithEvent(EventBeginReviewing), nil
+    }
+
+    return domain.NoEvent(), nil
+}
+
+// Breakdown: Set operation may trigger event based on metadata
+func (p *BreakdownPhase) Set(field string, value interface{}) (*domain.PhaseOperationResult, error) {
+    if p.state.Metadata == nil {
+        p.state.Metadata = make(map[string]interface{})
+    }
+    p.state.Metadata[field] = value
+
+    if err := p.project.Save(); err != nil {
+        return nil, err
+    }
+
+    // Project-specific: decomposition_complete flag triggers transition
+    if field == "decomposition_complete" && value == true {
+        return domain.WithEvent(EventBeginDocumenting), nil
+    }
+
+    return domain.NoEvent(), nil
+}
+```
+
+**Benefits**:
+- **CLI stays generic**: No project-type conditionals, works for all types
+- **Declarative events**: Phases specify when transitions occur without directly manipulating state machine
+- **Flexible**: Complex logic can be in phase methods, guards validate pre-conditions
+- **Testable**: Phase implementations can be unit tested independently
+- **Consistent**: All phase operations follow same pattern
+
 ### Guard Validation Architecture
 
-**Responsibility**: Guards are validated by the state machine when phase completion events are fired.
+**Responsibility**: Guards are validated by the state machine when phase operations return events via the PhaseOperationResult pattern.
 
 **Flow**:
 1. Orchestrator calls `sow agent complete` (existing command)
 2. CLI loads Phase interface implementation (e.g., `ExplorationPhase`, `DesignPhase`)
 3. Phase's `Complete()` method:
-   - Performs phase-specific validation (optional pre-checks)
-   - Fires event on state machine: `phase.project.Machine().Fire(EventCompleteGathering)`
-4. State machine checks guard function before transition
-5. If guard passes: transition succeeds, state updated, phase marked completed
-6. If guard fails: event rejected, state unchanged, error returned to orchestrator
+   - Performs phase-specific validation
+   - Updates phase state and saves
+   - Returns `PhaseOperationResult` with event to fire
+4. CLI checks if result contains an event
+5. If event present: CLI fires event via `machine.Fire(result.Event)`
+6. State machine checks guard function before transition
+7. If guard passes: transition succeeds, state machine updates state
+8. If guard fails: event rejected, state unchanged, error returned to CLI and orchestrator
 
-**Implementation pattern** (follows existing standard project pattern):
+**Implementation pattern** (follows State Machine SDK architecture):
 
 ```go
+// In cli/internal/project/exploration/guards.go
+// Guards are pure functions owned by the project type
+func GatheringComplete(state *schemas.ProjectState) bool {
+    // Guard inspects project state
+    tasks := state.Phases.Exploration.Tasks
+    return len(tasks) >= 3 // Minimum topic count requirement
+}
+
 // In cli/internal/project/exploration/gathering.go
-func (p *GatheringPhase) Complete() error {
-    // Optional: phase-specific pre-validation
+func (p *GatheringPhase) Complete() (*domain.PhaseOperationResult, error) {
+    // Phase-specific validation
     if len(p.state.Tasks) < 3 {
-        return fmt.Errorf("minimum 3 topics required, found %d", len(p.state.Tasks))
+        return nil, fmt.Errorf("minimum 3 topics required, found %d", len(p.state.Tasks))
     }
 
-    // Fire event - state machine validates guard
-    if err := p.project.Machine().Fire(statechart.EventCompleteGathering); err != nil {
-        return fmt.Errorf("failed to complete gathering: %w", err)
-    }
-
-    // Update phase status on success
+    // Update phase status
     p.state.Status = "completed"
     now := time.Now()
     p.state.Completed_at = &now
 
-    return p.project.Save()
+    // Save state before returning event
+    if err := p.project.Save(); err != nil {
+        return nil, err
+    }
+
+    // Return event declaratively (CLI will fire it)
+    return domain.WithEvent(EventCompleteGathering), nil
 }
 
-// In cli/internal/project/statechart/guards.go (new guards for exploration)
-func (m *Machine) gatheringComplete() bool {
-    // Guard inspects project state
-    tasks := m.projectState.Phases.Exploration.Tasks
-    return len(tasks) >= 3 // Minimum topic count requirement
+// In cli/internal/project/exploration/project.go
+// Project type constructs state machine using builder pattern
+func (p *ExplorationProject) buildStateMachine() *statechart.Machine {
+    // Get current state from project
+    currentState := statechart.State(p.state.Statechart.Current_state)
+    projectState := (*schemas.ProjectState)(p.state)
+
+    // Create prompt generator with full context access
+    promptGen := NewExplorationPromptGenerator(p.ctx)
+
+    // Create builder
+    builder := statechart.NewBuilder(currentState, projectState, promptGen)
+
+    // Configure all state transitions with guards
+    builder.
+        AddTransition(
+            ExplorationGathering,
+            ExplorationResearching,
+            EventCompleteGathering,
+            statechart.WithGuard(func() bool {
+                return GatheringComplete(projectState)
+            }),
+        ).
+        AddTransition(
+            ExplorationResearching,
+            ExplorationSummarizing,
+            EventCompleteResearching,
+            statechart.WithGuard(func() bool {
+                return AllTasksComplete(projectState.Phases.Exploration.Tasks)
+            }),
+        )
+        // ... more transitions
+
+    // Build final machine
+    machine := builder.Build()
+    machine.SetFilesystem(p.ctx.FS())
+
+    return machine
 }
 
-// In cli/internal/project/statechart/machine.go (state machine configuration)
-m.sm.Configure(ExplorationGathering).
-    Permit(EventCompleteGathering, ExplorationResearching, m.gatheringComplete).
-    OnEntry(m.onEntry(ExplorationGathering))
+// In cli/cmd/agent/complete.go (CLI handles event firing)
+result, err := phase.Complete()
+if err != nil {
+    return fmt.Errorf("failed to complete phase: %w", err)
+}
+
+// Fire event if phase returned one
+if result.Event != "" {
+    machine := proj.Machine()
+    if err := machine.Fire(result.Event); err != nil {
+        return fmt.Errorf("failed to fire event %s: %w", result.Event, err)
+    }
+    // Prompt generation happens automatically on state entry
+}
 ```
 
 **Key architectural points**:
-- Each project type defines custom events (e.g., `EventCompleteGathering`, `EventCompleteDrafting`)
-- Guards are methods on `Machine` that inspect `m.projectState`
-- State machine configuration in `configure()` links: events → guards → transitions
-- Existing `sow agent complete` command works unchanged - it calls `Phase.Complete()`
-- Guards enforce workflow invariants (minimum tasks, artifacts approved, etc.)
+- **Project types own their workflows**: Each type defines its own states, events, guards in separate package
+- **Guards are pure functions**: Accept `*schemas.ProjectState`, return bool, no side effects
+- **Builder pattern with closures**: Guards passed as closures capturing project state
+- **PhaseOperationResult pattern**: Phases return events declaratively, CLI fires them
+- **CLI stays generic**: No project-type conditionals, works for all types
+- **SDK provides infrastructure**: MachineBuilder, PromptGenerator interface, PromptComponents, common guards
+- **Automatic prompt generation**: PromptGenerator.GeneratePrompt() called on state entry
 
-**Consistency with existing architecture**: This approach matches the current standard project implementation. See `cli/internal/project/standard/planning.go:109-136` and `cli/internal/project/statechart/guards.go` for reference patterns.
+**Consistency with existing architecture**: This approach follows the State Machine SDK refactoring (January 2025). Reference implementation: `cli/internal/project/standard/` (states.go, events.go, guards.go, prompts.go, project.go). See `cli/DESIGN.md` for complete SDK architecture documentation.
+
+### Project Type Implementation Structure
+
+Each project type follows a consistent file organization pattern, with all project-specific code in a dedicated package.
+
+**File Structure** (example: exploration project type):
+
+```
+cli/internal/project/exploration/
+├── project.go          # Main struct, implements Project interface
+│                      # Contains buildStateMachine() using builder pattern
+│
+├── states.go          # State constants specific to exploration workflow
+│                      # Example: ExplorationGathering, ExplorationResearching
+│
+├── events.go          # Event constants that trigger transitions
+│                      # Example: EventCompleteGathering, EventBeginResearching
+│
+├── guards.go          # Pure functions checking transition conditions
+│                      # Example: GatheringComplete(state), AllTopicsResearched(state)
+│
+├── prompts.go         # PromptGenerator implementation
+│                      # Generates state-specific prompts with external data access
+│
+├── gathering.go       # GatheringPhase implementation (Phase interface)
+├── researching.go     # ResearchingPhase implementation
+├── summarizing.go     # SummarizingPhase implementation
+└── finalization.go    # FinalizationPhase implementation
+```
+
+**Component Responsibilities**:
+
+**1. project.go** - Main project struct:
+```go
+type ExplorationProject struct {
+    state   *projects.ExplorationProjectState
+    ctx     *sow.Context
+    machine *statechart.Machine
+    phases  map[string]domain.Phase
+}
+
+// Implements Project interface
+func (p *ExplorationProject) Name() string { ... }
+func (p *ExplorationProject) CurrentPhase() domain.Phase { ... }
+func (p *ExplorationProject) Machine() *statechart.Machine { ... }
+
+// Constructs state machine using builder
+func (p *ExplorationProject) buildStateMachine() *statechart.Machine {
+    promptGen := NewExplorationPromptGenerator(p.ctx)
+    builder := statechart.NewBuilder(currentState, projectState, promptGen)
+    // Configure all transitions...
+    return builder.Build()
+}
+```
+
+**2. states.go** - State constants:
+```go
+const (
+    ExplorationGathering    = statechart.State("Gathering")
+    ExplorationResearching  = statechart.State("Researching")
+    ExplorationSummarizing  = statechart.State("Summarizing")
+    ExplorationFinalizing   = statechart.State("Finalizing")
+    ExplorationCompleted    = statechart.State("Completed")
+)
+```
+
+**3. events.go** - Event constants:
+```go
+const (
+    EventCompleteGathering   = statechart.Event("complete_gathering")
+    EventBeginResearching    = statechart.Event("begin_researching")
+    EventCompleteSummarizing = statechart.Event("complete_summarizing")
+    EventBeginFinalizing     = statechart.Event("begin_finalizing")
+)
+```
+
+**4. guards.go** - Guard functions:
+```go
+// Pure functions, no side effects
+func GatheringComplete(state *schemas.ProjectState) bool {
+    return len(state.Phases.Exploration.Tasks) >= 3
+}
+
+func AllTopicsResearched(state *schemas.ProjectState) bool {
+    return statechart.TasksComplete(state.Phases.Exploration.Tasks)
+}
+
+func SummaryApproved(state *schemas.ProjectState) bool {
+    for _, a := range state.Phases.Exploration.Artifacts {
+        if a.Path == "summary.md" && a.Approved {
+            return true
+        }
+    }
+    return false
+}
+```
+
+**5. prompts.go** - Prompt generator:
+```go
+type ExplorationPromptGenerator struct {
+    components *statechart.PromptComponents
+}
+
+func (g *ExplorationPromptGenerator) GeneratePrompt(
+    state statechart.State,
+    projectState *schemas.ProjectState,
+) (string, error) {
+    switch state {
+    case ExplorationGathering:
+        return g.generateGatheringPrompt(projectState)
+    case ExplorationResearching:
+        return g.generateResearchingPrompt(projectState)
+    // ... other states
+    }
+}
+
+func (g *ExplorationPromptGenerator) generateGatheringPrompt(
+    projectState *schemas.ProjectState,
+) (string, error) {
+    var buf strings.Builder
+
+    // Use reusable components
+    buf.WriteString(g.components.ProjectHeader(projectState))
+    buf.WriteString(g.components.GitStatus())
+
+    // Add exploration-specific context
+    buf.WriteString("## Research Topics\n\n")
+    for _, task := range projectState.Phases.Exploration.Tasks {
+        buf.WriteString(fmt.Sprintf("- %s (%s)\n", task.Name, task.Status))
+    }
+
+    // Render template for guidance
+    guidance, _ := g.components.RenderTemplate(
+        prompts.PromptExplorationGathering,
+        ctx,
+    )
+    buf.WriteString(guidance)
+
+    return buf.String(), nil
+}
+```
+
+**6. gathering.go (and other phase files)** - Phase implementations:
+```go
+type GatheringPhase struct {
+    state     *phasesSchema.Phase
+    artifacts *project.ArtifactCollection
+    tasks     *project.TaskCollection
+    project   *ExplorationProject
+    ctx       *sow.Context
+}
+
+// Implements Phase interface
+func (p *GatheringPhase) Complete() (*domain.PhaseOperationResult, error) {
+    // Validation
+    if len(p.state.Tasks) < 3 {
+        return nil, fmt.Errorf("minimum 3 topics required")
+    }
+
+    // Update state
+    p.state.Status = "completed"
+    if err := p.project.Save(); err != nil {
+        return nil, err
+    }
+
+    // Return event declaratively
+    return domain.WithEvent(EventCompleteGathering), nil
+}
+
+// ... other Phase interface methods
+```
+
+**Benefits of this structure**:
+- **Clear separation**: Each file has single responsibility
+- **Easy navigation**: Find states, events, guards quickly
+- **Testable**: Each component can be tested independently
+- **Consistent**: All project types follow same pattern
+- **Self-documenting**: File names indicate contents
+
+**Loader Integration** (`cli/internal/project/loader/loader.go`):
+```go
+func Load(ctx *sow.Context) (domain.Project, error) {
+    state, _, err := statechart.LoadProjectState(ctx.FS())
+    projectType := state.Project.Type
+
+    switch projectType {
+    case "standard":
+        return standard.New((*projects.StandardProjectState)(state), ctx), nil
+    case "exploration":
+        return exploration.New((*projects.ExplorationProjectState)(state), ctx), nil
+    case "design":
+        return design.New((*projects.DesignProjectState)(state), ctx), nil
+    case "breakdown":
+        return breakdown.New((*projects.BreakdownProjectState)(state), ctx), nil
+    default:
+        return nil, fmt.Errorf("unknown project type: %s", projectType)
+    }
+}
+```
 
 ### State Machine Specifications
 
@@ -685,19 +1213,15 @@ This unified task model provides consistent tracking across all workflows while 
 
 ### Orchestrator Initialization and Handoff
 
-After the wizard creates a project, it launches Claude Code with a state-specific prompt following the same pattern as the existing `sow start` command.
+After the wizard creates a project, it launches Claude Code with a dynamically-generated prompt via the project's PromptGenerator. This follows the State Machine SDK pattern where prompts are generated at runtime with access to external systems.
 
 **Wizard completion flow**:
 1. Wizard creates `.sow/project/state.yaml` with initial state for project type
 2. Wizard creates `.sow/project/log.md` with initialization entry
-3. Wizard determines initial prompt ID based on project type:
-   - `exploration` → `prompts.PromptExplorationGathering`
-   - `design` → `prompts.PromptDesignDrafting`
-   - `breakdown` → `prompts.PromptBreakdownDecomposing`
-   - `standard` → `prompts.PromptPlanningActive`
-4. Wizard loads project to get context for prompt rendering
-5. Wizard renders state-specific prompt with project context
-6. Wizard launches Claude Code: `exec.Command("claude", prompt).Run()`
+3. Wizard loads the newly created project via `loader.Load()`
+4. Project constructs state machine using builder pattern (includes PromptGenerator)
+5. State machine generates initial prompt via `PromptGenerator.GeneratePrompt()`
+6. Wizard launches Claude Code with generated prompt: `exec.Command("claude", prompt).Run()`
 
 **Implementation pattern**:
 
@@ -705,29 +1229,23 @@ After the wizard creates a project, it launches Claude Code with a state-specifi
 // In cli/cmd/project.go (wizard completion)
 func (w *wizard) launchOrchestrator() error {
     // Load the newly created project
+    // This triggers: 1) schema loading, 2) type detection, 3) buildStateMachine()
     project, err := loader.Load(w.ctx)
     if err != nil {
         return fmt.Errorf("failed to load project: %w", err)
     }
 
-    // Get initial state from project
-    state := project.Machine().State()
+    // Get state machine (already built with PromptGenerator)
+    machine := project.Machine()
 
-    // Map state to prompt ID
-    promptID := statechart.StateToPromptID(state)
-
-    // Generate state-specific prompt with context
-    promptCtx := &prompts.StatechartContext{
-        State:        string(state),
-        ProjectState: project.Machine().ProjectState(),
-    }
-
-    prompt, err := prompts.Render(promptID, promptCtx)
+    // Generate state-specific prompt dynamically
+    // This calls project type's PromptGenerator.GeneratePrompt()
+    prompt, err := machine.GeneratePrompt()
     if err != nil {
-        return fmt.Errorf("failed to render prompt: %w", err)
+        return fmt.Errorf("failed to generate prompt: %w", err)
     }
 
-    // Launch Claude Code with prompt
+    // Launch Claude Code with generated prompt
     claudeCmd := exec.Command("claude", prompt)
     claudeCmd.Stdin = os.Stdin
     claudeCmd.Stdout = os.Stdout
@@ -738,92 +1256,119 @@ func (w *wizard) launchOrchestrator() error {
 }
 ```
 
-**Prompt infrastructure required**:
+**PromptGenerator Implementation** (exploration example):
 
-1. **New prompt constants** (`cli/internal/prompts/prompts.go`):
+Each project type implements `PromptGenerator` interface to generate state-specific prompts dynamically:
+
 ```go
-const (
-    // Exploration project prompts
-    PromptExplorationGathering    PromptID = "statechart.exploration.gathering"
-    PromptExplorationResearching  PromptID = "statechart.exploration.researching"
-    PromptExplorationSummarizing  PromptID = "statechart.exploration.summarizing"
-    PromptExplorationFinalizing   PromptID = "statechart.exploration.finalizing"
-
-    // Design project prompts
-    PromptDesignDrafting         PromptID = "statechart.design.drafting"
-    PromptDesignReviewing        PromptID = "statechart.design.reviewing"
-    PromptDesignApproved         PromptID = "statechart.design.approved"
-    PromptDesignFinalizing       PromptID = "statechart.design.finalizing"
-
-    // Breakdown project prompts
-    PromptBreakdownDecomposing   PromptID = "statechart.breakdown.decomposing"
-    PromptBreakdownDocumenting   PromptID = "statechart.breakdown.documenting"
-    PromptBreakdownApproving     PromptID = "statechart.breakdown.approving"
-    PromptBreakdownFinalizing    PromptID = "statechart.breakdown.finalizing"
-)
-```
-
-2. **State → Prompt mapping** (update `statechart/prompts.go`):
-```go
-var statePrompts = map[State]prompts.PromptID{
-    // Existing standard project states
-    NoProject:               prompts.PromptNoProject,
-    PlanningActive:          prompts.PromptPlanningActive,
-
-    // Exploration states
-    ExplorationGathering:    prompts.PromptExplorationGathering,
-    ExplorationResearching:  prompts.PromptExplorationResearching,
-    ExplorationSummarizing:  prompts.PromptExplorationSummarizing,
-    ExplorationFinalizing:   prompts.PromptExplorationFinalizing,
-
-    // Design states
-    DesignDrafting:          prompts.PromptDesignDrafting,
-    DesignReviewing:         prompts.PromptDesignReviewing,
-    DesignApproved:          prompts.PromptDesignApproved,
-    DesignFinalizing:        prompts.PromptDesignFinalizing,
-
-    // Breakdown states
-    BreakdownDecomposing:    prompts.PromptBreakdownDecomposing,
-    BreakdownDocumenting:    prompts.PromptBreakdownDocumenting,
-    BreakdownApproving:      prompts.PromptBreakdownApproving,
-    BreakdownFinalizing:     prompts.PromptBreakdownFinalizing,
+// In cli/internal/project/exploration/prompts.go
+type ExplorationPromptGenerator struct {
+    components *statechart.PromptComponents
+    ctx        *sow.Context
 }
 
-// StateToPromptID helper (new)
-func StateToPromptID(state State) prompts.PromptID {
-    if id, ok := statePrompts[state]; ok {
-        return id
+func NewExplorationPromptGenerator(ctx *sow.Context) *ExplorationPromptGenerator {
+    return &ExplorationPromptGenerator{
+        components: statechart.NewPromptComponents(ctx),
+        ctx:        ctx,
     }
-    return prompts.PromptNoProject // Fallback
+}
+
+func (g *ExplorationPromptGenerator) GeneratePrompt(
+    state statechart.State,
+    projectState *schemas.ProjectState,
+) (string, error) {
+    // Route to state-specific generator
+    switch state {
+    case ExplorationGathering:
+        return g.generateGatheringPrompt(projectState)
+    case ExplorationResearching:
+        return g.generateResearchingPrompt(projectState)
+    case ExplorationSummarizing:
+        return g.generateSummarizingPrompt(projectState)
+    case ExplorationFinalizing:
+        return g.generateFinalizingPrompt(projectState)
+    default:
+        return "", fmt.Errorf("unknown exploration state: %s", state)
+    }
+}
+
+// State-specific prompt generation with external data access
+func (g *ExplorationPromptGenerator) generateGatheringPrompt(
+    projectState *schemas.ProjectState,
+) (string, error) {
+    var buf strings.Builder
+
+    // Reusable SDK components
+    buf.WriteString(g.components.ProjectHeader(projectState))
+
+    // External system access: git status
+    gitStatus, err := g.components.GitStatus()
+    if err == nil {
+        buf.WriteString(gitStatus)
+    }
+
+    // External system access: recent commits
+    commits, err := g.components.RecentCommits(5)
+    if err == nil {
+        buf.WriteString(commits)
+    }
+
+    // Exploration-specific context
+    buf.WriteString("\n## Research Topics\n\n")
+    if len(projectState.Phases.Exploration.Tasks) > 0 {
+        for _, task := range projectState.Phases.Exploration.Tasks {
+            buf.WriteString(fmt.Sprintf("- %s (%s)\n", task.Name, task.Status))
+        }
+    } else {
+        buf.WriteString("No topics identified yet.\n")
+    }
+
+    // Static guidance via optional template
+    guidance, err := g.components.RenderTemplate(
+        prompts.PromptExplorationGathering,
+        &prompts.StatechartContext{
+            State:        string(ExplorationGathering),
+            ProjectState: projectState,
+        },
+    )
+    if err == nil {
+        buf.WriteString("\n" + guidance)
+    }
+
+    return buf.String(), nil
 }
 ```
 
-3. **Prompt template files** (must be created as part of implementation):
+**Prompt Infrastructure Requirements**:
+
+1. **Template files** (optional, for static guidance only):
 ```
 cli/internal/prompts/templates/statechart/
   exploration/
-    gathering.tmpl     - Guide orchestrator in topic discovery
-    researching.tmpl   - Guide orchestrator in investigation
-    summarizing.tmpl   - Guide orchestrator in synthesis
-    finalizing.tmpl    - Guide orchestrator in artifact finalization
+    gathering.tmpl     - Static guidance for topic discovery
+    researching.tmpl   - Static guidance for investigation
   design/
-    drafting.tmpl      - Guide orchestrator in document creation
-    reviewing.tmpl     - Guide orchestrator in approval workflow
-    approved.tmpl      - Guide orchestrator in preparation for finalization
-    finalizing.tmpl    - Guide orchestrator in artifact movement and PR
+    drafting.tmpl      - Static guidance for document creation
   breakdown/
-    decomposing.tmpl   - Guide orchestrator in work unit identification
-    documenting.tmpl   - Guide orchestrator in specification writing
-    approving.tmpl     - Guide orchestrator in approval workflow
-    finalizing.tmpl    - Guide orchestrator in GitHub issue creation
+    decomposing.tmpl   - Static guidance for work unit identification
 ```
 
-**Key points**:
-- Wizard doesn't need special handoff logic - reuses existing prompt generation pattern
-- All state-specific orchestrator behavior is encoded in prompt templates
-- Prompts are **part of this implementation** (not pre-existing) - Phase 4 work
-- Each state gets focused prompt with specific guidance for that workflow stage
-- Pattern matches existing `sow start` command architecture
+2. **Template IDs** (optional, in `cli/internal/prompts/prompts.go`):
+```go
+const (
+    PromptExplorationGathering    PromptID = "statechart.exploration.gathering"
+    PromptExplorationResearching  PromptID = "statechart.exploration.researching"
+    // ... etc for other states
+)
+```
+
+**Key differences from template-only approach**:
+- **No state→prompt mapping**: PromptGenerator.GeneratePrompt() handles routing internally
+- **Dynamic generation**: Prompts composed at runtime, not template-only
+- **External system access**: Can include git status, GitHub issues, filesystem data
+- **Templates optional**: Templates only for static guidance, bulk of prompt is dynamic code
+- **Type-specific**: Each project type implements PromptGenerator independently
 
 **Phased rollout**:
 1. **Phase 1: Schema extensions** - Implement six schema changes, update CUE validation

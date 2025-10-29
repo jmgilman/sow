@@ -1,0 +1,177 @@
+# Test: Agent Task Commands
+# Purpose: Test all task management commands
+# Coverage: task add, task update, task approve, task list, task status
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/task-test
+exec sow init
+exec sow agent init task-test --description 'Test task commands'
+
+# Transition to implementation phase
+exec mkdir -p .sow/project/artifacts
+exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
+exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
+exec sow agent artifact approve project/artifacts/tasks.md
+exec sow agent complete
+
+# =====================================
+# Task Add Command
+# =====================================
+
+# Add simple task
+exec sow agent task add 'Basic task' --description 'Simple task description'
+stderr '✓ Created task 010'
+
+# Verify task created with default values
+exec cat .sow/project/state.yaml
+stdout 'id: "010"'
+stdout 'name: Basic task'
+stdout 'status: pending'
+
+# Verify task directory structure
+exists .sow/project/phases/implementation/tasks/010
+exists .sow/project/phases/implementation/tasks/010/state.yaml
+exists .sow/project/phases/implementation/tasks/010/description.md
+exists .sow/project/phases/implementation/tasks/010/log.md
+
+# Verify task state file
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'id: "010"'
+stdout 'status: pending'
+stdout 'iteration: 1'
+
+# Verify task description file
+exec cat .sow/project/phases/implementation/tasks/010/description.md
+stdout 'Simple task description'
+
+# Add task with all options
+exec sow agent task add 'Advanced task' --description 'Complex work' --agent architect --parallel --dependencies 010
+stderr '✓ Created task 020'
+
+# Verify task with options in project state
+exec cat .sow/project/state.yaml
+stdout 'id: "020"'
+stdout 'name: Advanced task'
+stdout 'parallel: true'
+stdout 'dependencies:'
+stdout '- "010"'
+
+# Verify agent in task state file
+exec cat .sow/project/phases/implementation/tasks/020/state.yaml
+stdout 'agent: architect'
+
+# Add third task for testing
+exec sow agent task add 'Final task' --description 'Last task'
+stderr '✓ Created task 030'
+
+# =====================================
+# Task List and Status Commands
+# =====================================
+
+# List tasks
+exec sow agent task list
+stderr '010'
+stderr 'Basic task'
+stderr '020'
+stderr 'Advanced task'
+stderr '030'
+stderr 'Final task'
+
+# Check individual task status
+exec sow agent task status 010
+stderr '010'
+stderr 'pending'
+
+# =====================================
+# Task Update Command
+# =====================================
+
+# Update task to in_progress
+exec sow agent task update 010 --status in_progress
+stderr '✓ Updated task 010'
+stderr 'status: pending → in_progress'
+
+# Verify status updated in both locations
+exec cat .sow/project/state.yaml
+stdout 'id: "010"'
+stdout 'status: in_progress'
+
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'status: in_progress'
+stdout 'started_at:'
+
+# Update to completed
+exec sow agent task update 010 --status completed
+stderr '✓ Updated task 010'
+
+# Verify completed status and timestamps
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'status: completed'
+stdout 'started_at:'
+stdout 'completed_at:'
+
+# Update another task
+exec sow agent task update 020 --status in_progress
+exec sow agent task update 020 --status abandoned
+
+# Verify abandoned status
+exec cat .sow/project/state.yaml
+stdout 'id: "020"'
+stdout 'status: abandoned'
+
+# =====================================
+# Task Approve Command
+# =====================================
+
+# Need to test approve before executing tasks
+# Reset by adding new project
+exec sow agent delete --force
+exec sow agent init approve-test --description 'Test task approve'
+exec mkdir -p .sow/project/artifacts
+exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
+exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
+exec sow agent artifact approve project/artifacts/tasks.md
+exec sow agent complete
+
+# Verify in ImplementationPlanning state
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# Add tasks
+exec sow agent task add 'Task A' --description 'Test A'
+exec sow agent task add 'Task B' --description 'Test B'
+
+# Approve task plan
+exec sow agent task approve
+stderr '✓ Approved task plan'
+stderr 'autonomous execution'
+
+# Verify transition to ImplementationExecuting
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationExecuting'
+stdout 'tasks_approved: true'
+
+# =====================================
+# Task Completion Triggers State Transition
+# =====================================
+
+# Complete all tasks to test auto-transition
+exec sow agent task update 010 --status completed
+exec sow agent task update 020 --status completed
+stderr 'Transitioning to review'
+
+# Verify auto-transition to ReviewActive
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+
+# =====================================
+# Cleanup
+# =====================================
+exec sow agent delete --force
+! exists .sow/project

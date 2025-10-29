@@ -51,8 +51,8 @@ func (p *FinalizePhase) AddArtifact(_ string, _ ...domain.ArtifactOption) error 
 }
 
 // ApproveArtifact is not supported in the finalize phase.
-func (p *FinalizePhase) ApproveArtifact(_ string) error {
-	return project.ErrNotSupported
+func (p *FinalizePhase) ApproveArtifact(_ string) (*domain.PhaseOperationResult, error) {
+	return nil, project.ErrNotSupported
 }
 
 // ListArtifacts returns an empty list as artifacts are not supported in finalize phase.
@@ -76,17 +76,20 @@ func (p *FinalizePhase) ListTasks() []*domain.Task {
 }
 
 // ApproveTasks is not supported in the finalize phase.
-func (p *FinalizePhase) ApproveTasks() error {
-	return project.ErrNotSupported
+func (p *FinalizePhase) ApproveTasks() (*domain.PhaseOperationResult, error) {
+	return nil, project.ErrNotSupported
 }
 
 // Set sets a metadata field in the finalize phase.
-func (p *FinalizePhase) Set(field string, value interface{}) error {
+func (p *FinalizePhase) Set(field string, value interface{}) (*domain.PhaseOperationResult, error) {
 	if p.state.Metadata == nil {
 		p.state.Metadata = make(map[string]interface{})
 	}
 	p.state.Metadata[field] = value
-	return p.project.Save()
+	if err := p.project.Save(); err != nil {
+		return nil, err
+	}
+	return domain.NoEvent(), nil
 }
 
 // Get retrieves a metadata field from the finalize phase.
@@ -102,13 +105,16 @@ func (p *FinalizePhase) Get(field string) (interface{}, error) {
 }
 
 // Complete marks the finalize phase as completed.
-func (p *FinalizePhase) Complete() error {
+func (p *FinalizePhase) Complete() (*domain.PhaseOperationResult, error) {
 	p.state.Status = "completed"
 	now := time.Now()
 	p.state.Completed_at = &now
 
 	// Finalize is the last phase - no state transition needed
-	return p.project.Save()
+	if err := p.project.Save(); err != nil {
+		return nil, err
+	}
+	return domain.NoEvent(), nil
 }
 
 // Skip is not supported as finalize phase is required.

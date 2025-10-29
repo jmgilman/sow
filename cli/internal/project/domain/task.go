@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/logging"
-	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
@@ -116,7 +115,8 @@ func (t *Task) SetStatus(status string) error {
 		projectState.Phases.Implementation.Completed_at = &now
 
 		// Fire state machine event to transition to review
-		if err := t.Project.Machine().Fire(statechart.EventAllTasksComplete); err == nil {
+		// Use string constant to avoid import cycle (domain -> standard -> domain)
+		if err := t.Project.Machine().Fire("all_tasks_complete"); err == nil {
 			// Transition succeeded - set review phase status
 			projectState.Phases.Review.Status = "in_progress"
 			if projectState.Phases.Review.Started_at == nil {

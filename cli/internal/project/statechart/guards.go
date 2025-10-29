@@ -1,47 +1,15 @@
 package statechart
 
 import (
-	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/jmgilman/sow/cli/schemas/phases"
 )
 
-// Guards for conditional transitions
+// Common Guards - Reusable guard predicates for state machine transitions.
+// These guards can be used by any project type and operate on typed domain objects.
 
-// PlanningComplete checks if the planning phase is complete.
-// Specifically, it requires that the task list artifact has been approved.
-func PlanningComplete(phase phases.Phase) bool {
-	// Check if task list artifact is approved
-	for _, a := range phase.Artifacts {
-		if a.Metadata != nil {
-			if artifactType, ok := a.Metadata["type"].(string); ok && artifactType == "task_list" {
-				return a.Approved
-			}
-		}
-	}
-	// If no task list artifact exists, planning is not complete
-	return false
-}
-
-// HasAtLeastOneTask checks if at least one task has been created.
-func HasAtLeastOneTask(state *schemas.ProjectState) bool {
-	return len(state.Phases.Implementation.Tasks) >= 1
-}
-
-// TasksApproved checks if task plan has been approved by human.
-func TasksApproved(state *schemas.ProjectState) bool {
-	// Check metadata for tasks_approved
-	tasksApproved := false
-	if state.Phases.Implementation.Metadata != nil {
-		if approved, ok := state.Phases.Implementation.Metadata["tasks_approved"].(bool); ok {
-			tasksApproved = approved
-		}
-	}
-	return tasksApproved && len(state.Phases.Implementation.Tasks) >= 1
-}
-
-// AllTasksComplete checks if all tasks are completed or abandoned.
-func AllTasksComplete(state *schemas.ProjectState) bool {
-	tasks := state.Phases.Implementation.Tasks
+// TasksComplete checks if all tasks in a task list are completed or abandoned.
+// Returns false if the task list is empty.
+func TasksComplete(tasks []phases.Task) bool {
 	if len(tasks) == 0 {
 		return false
 	}
@@ -53,49 +21,44 @@ func AllTasksComplete(state *schemas.ProjectState) bool {
 	return true
 }
 
-// DocumentationAssessed checks if documentation has been assessed and handled.
-// The guard always returns true because the act of calling `finalize complete documentation`
-// IS the signal that documentation work is done. No additional validation needed.
-func DocumentationAssessed(_ *schemas.ProjectState) bool {
-	// Always allow transition - the command itself is the validation
-	return true
-}
-
-// ChecksAssessed checks if final checks have been assessed and handled.
-// For now, returns true assuming checks are handled before reaching this guard.
-func ChecksAssessed(_ *schemas.ProjectState) bool {
-	// This can be enhanced to check a specific field if needed
-	// For now, checks are considered assessed if documentation is done
-	return true
-}
-
-// LatestReviewApproved checks if the most recent review report is approved by human.
-func LatestReviewApproved(state *schemas.ProjectState) bool {
-	// Find review artifacts (artifacts with type=review metadata)
-	var reviewArtifacts []phases.Artifact
-	for _, artifact := range state.Phases.Review.Artifacts {
-		if artifact.Metadata != nil {
-			if artifactType, ok := artifact.Metadata["type"].(string); ok && artifactType == "review" {
-				reviewArtifacts = append(reviewArtifacts, artifact)
-			}
-		}
-	}
-
-	if len(reviewArtifacts) == 0 {
+// ArtifactsApproved checks if all artifacts in a list are approved.
+// Returns false if the artifact list is empty.
+func ArtifactsApproved(artifacts []phases.Artifact) bool {
+	if len(artifacts) == 0 {
 		return false
 	}
-
-	latest := reviewArtifacts[len(reviewArtifacts)-1]
-	return latest.Approved
+	for _, a := range artifacts {
+		if !a.Approved {
+			return false
+		}
+	}
+	return true
 }
 
-// ProjectDeleted checks if the project folder has been deleted.
-func ProjectDeleted(state *schemas.ProjectState) bool {
-	// Check metadata for project_deleted
-	if state.Phases.Finalize.Metadata != nil {
-		if deleted, ok := state.Phases.Finalize.Metadata["project_deleted"].(bool); ok {
-			return deleted
+// MinTaskCount checks if there are at least 'minCount' tasks in the task list.
+func MinTaskCount(tasks []phases.Task, minCount int) bool {
+	return len(tasks) >= minCount
+}
+
+// HasArtifactWithType checks if any artifact has the specified type in its metadata.
+func HasArtifactWithType(artifacts []phases.Artifact, artifactType string) bool {
+	for _, artifact := range artifacts {
+		if artifact.Metadata != nil {
+			if typ, ok := artifact.Metadata["type"].(string); ok && typ == artifactType {
+				return true
+			}
 		}
 	}
 	return false
 }
+
+// AnyTaskInProgress checks if any task has "in_progress" status.
+func AnyTaskInProgress(tasks []phases.Task) bool {
+	for _, t := range tasks {
+		if t.Status == "in_progress" {
+			return true
+		}
+	}
+	return false
+}
+

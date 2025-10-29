@@ -5,9 +5,8 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/project"
-	"github.com/jmgilman/sow/cli/internal/project/statechart"
-	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/internal/project/domain"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 )
 
@@ -50,8 +49,8 @@ func (p *ImplementationPhase) AddArtifact(_ string, _ ...domain.ArtifactOption) 
 }
 
 // ApproveArtifact is not supported in the implementation phase.
-func (p *ImplementationPhase) ApproveArtifact(_ string) error {
-	return project.ErrNotSupported
+func (p *ImplementationPhase) ApproveArtifact(_ string) (*domain.PhaseOperationResult, error) {
+	return nil, project.ErrNotSupported
 }
 
 // ListArtifacts returns an empty list as artifacts are not supported in implementation phase.
@@ -83,27 +82,30 @@ func (p *ImplementationPhase) ListTasks() []*domain.Task {
 }
 
 // ApproveTasks approves all tasks in the implementation phase for execution.
-func (p *ImplementationPhase) ApproveTasks() error {
+func (p *ImplementationPhase) ApproveTasks() (*domain.PhaseOperationResult, error) {
 	if err := p.tasks.Approve(); err != nil {
-		return fmt.Errorf("failed to approve tasks: %w", err)
+		return nil, fmt.Errorf("failed to approve tasks: %w", err)
 	}
 
-	// Fire state machine event
-	if err := p.project.Machine().Fire(statechart.EventTasksApproved); err != nil {
-		return fmt.Errorf("failed to fire tasks approved event: %w", err)
+	// Save before returning event
+	if err := p.project.Save(); err != nil {
+		return nil, err
 	}
 
-	// Save after firing to persist the machine state transition
-	return p.project.Save()
+	// Return event to be fired by CLI
+	return domain.WithEvent(EventTasksApproved), nil
 }
 
 // Set sets a metadata field in the implementation phase.
-func (p *ImplementationPhase) Set(field string, value interface{}) error {
+func (p *ImplementationPhase) Set(field string, value interface{}) (*domain.PhaseOperationResult, error) {
 	if p.state.Metadata == nil {
 		p.state.Metadata = make(map[string]interface{})
 	}
 	p.state.Metadata[field] = value
-	return p.project.Save()
+	if err := p.project.Save(); err != nil {
+		return nil, err
+	}
+	return domain.NoEvent(), nil
 }
 
 // Get retrieves a metadata field from the implementation phase.
@@ -119,16 +121,17 @@ func (p *ImplementationPhase) Get(field string) (interface{}, error) {
 }
 
 // Complete marks the implementation phase as completed.
-func (p *ImplementationPhase) Complete() error {
+func (p *ImplementationPhase) Complete() (*domain.PhaseOperationResult, error) {
 	p.state.Status = "completed"
 	now := time.Now()
 	p.state.Completed_at = &now
 
-	if err := p.project.Machine().Fire(statechart.EventAllTasksComplete); err != nil {
-		return fmt.Errorf("failed to fire all tasks complete event: %w", err)
+	if err := p.project.Save(); err != nil {
+		return nil, err
 	}
 
-	return p.project.Save()
+	// Return event to be fired by CLI
+	return domain.WithEvent(EventAllTasksComplete), nil
 }
 
 // Skip is not supported as implementation phase is required.

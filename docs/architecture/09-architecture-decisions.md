@@ -230,34 +230,44 @@ Two layers: `.claude/` contains execution (agents, commands, hooks), `.sow/` con
 
 ### ADR-007: State Machine-Driven Phase Transitions
 
-**Decision**: Use explicit state machine (stateless library) to manage project phase transitions with guards and entry actions.
+**Decision**: Use explicit state machine (stateless library) with SDK builder pattern to manage project phase transitions with guards and entry actions.
 
 **Context**:
-Need to enforce valid phase transitions and generate contextual prompts. Options: simple status strings, state machine library, event sourcing.
+Need to enforce valid phase transitions, generate contextual prompts, and support multiple project types. Options: simple status strings, state machine library, event sourcing.
 
 **Decision**:
-Use stateless library to implement state machine. States correspond to phases/sub-phases. Guards ensure prerequisites. Entry actions generate prompts.
+Use stateless library with SDK builder pattern. Each project type defines its own states, events, guards, and prompt generator. SDK provides `MachineBuilder`, `PromptComponents`, common guards, and `PhaseOperationResult` pattern for CLI-driven event triggering.
 
 **Rationale**:
 - **Enforced transitions**: Cannot skip quality gates (review)
 - **Prerequisites**: Guards check conditions before transitions
-- **Automatic prompts**: Entry actions generate contextual prompts
-- **Clear states**: Explicit state names, no ambiguity
-- **History**: State machine tracks transition history
+- **Automatic prompts**: PromptGenerator interface allows project-specific logic with access to external systems
+- **Clear states**: Explicit state names per project type, no ambiguity
+- **Reusable infrastructure**: SDK components avoid duplication across project types
+- **Declarative events**: PhaseOperationResult pattern keeps CLI generic while allowing project-specific event logic
+- **Extensibility**: New project types can define workflows without modifying SDK
 
 **Consequences**:
 - ✅ Valid transitions enforced (quality gates work)
-- ✅ Contextual prompts automatic
-- ✅ Clear state visibility
+- ✅ Contextual prompts with external data (git, GitHub)
+- ✅ Clear state visibility per project type
 - ✅ Prerequisites checked (guards)
+- ✅ Reusable SDK components reduce duplication
+- ✅ CLI stays generic across project types
+- ✅ Extensible for future project types (exploration, design, breakdown)
 - ⚠️ State machine complexity (learning curve)
-- ⚠️ Guard function maintenance
+- ⚠️ Guard function maintenance per project type
 - ⚠️ Less flexible (intentionally rigid)
+- ⚠️ Two-layer architecture (SDK vs project types) adds conceptual overhead
 
 **Alternatives Rejected**:
 - Simple status strings: No transition validation
 - Event sourcing: Overkill for this use case
 - Manual transition checks: Error-prone, scattered logic
+- Hardcoded standard-only state machine: Not extensible for future project types
+
+**Evolution**:
+Originally implemented as hardcoded state machine for standard project. Refactored into SDK builder pattern (2025-01) to enable multiple project types while maintaining zero-context resumability and reusing common infrastructure.
 
 **Impact**: Sections 4 (Strategy), 5 (Building Blocks), 6 (Runtime), 8 (Cross-cutting)
 
