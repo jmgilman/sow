@@ -11,6 +11,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/project"
 	"github.com/jmgilman/sow/cli/internal/project/domain"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/jmgilman/sow/cli/schemas/projects"
@@ -295,6 +296,179 @@ func TestPhaseMetadataOperations(t *testing.T) {
 	_, err = phase.Get("nonexistent")
 	if err == nil {
 		t.Error("Expected error when getting non-existent field")
+	}
+}
+
+// TestReviewPhaseCompleteWithAssessment verifies that the review phase
+// fires the correct event based on the assessment metadata of the latest
+// approved review artifact.
+func TestReviewPhaseCompleteWithAssessment(t *testing.T) {
+	tests := []struct {
+		name           string
+		assessment     string
+		expectedEvent  statechart.Event
+		shouldFail     bool
+		expectedErrMsg string
+	}{
+		{
+			name:          "pass assessment fires EventReviewPass",
+			assessment:    "pass",
+			expectedEvent: EventReviewPass,
+			shouldFail:    false,
+		},
+		{
+			name:          "fail assessment fires EventReviewFail",
+			assessment:    "fail",
+			expectedEvent: EventReviewFail,
+			shouldFail:    false,
+		},
+		{
+			name:           "invalid assessment returns error",
+			assessment:     "maybe",
+			expectedEvent:  "",
+			shouldFail:     true,
+			expectedErrMsg: "invalid assessment value: maybe (must be 'pass' or 'fail')",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := setupTestRepo(t)
+			now := time.Now()
+
+			// Create phase with approved review artifact
+			phaseState := &phasesSchema.Phase{
+				Status:     "in_progress",
+				Created_at: now,
+				Enabled:    true,
+				Artifacts: []phasesSchema.Artifact{
+					{
+						Path:       "review-001.md",
+						Approved:   true,
+						Created_at: now,
+						Metadata: map[string]interface{}{
+							"type":       "review",
+							"assessment": tt.assessment,
+						},
+					},
+				},
+				Tasks: []phasesSchema.Task{},
+			}
+
+			state := &projects.StandardProjectState{}
+			proj := New(state, ctx)
+
+			phase := NewReviewPhase(phaseState, proj, ctx)
+
+			// Call Complete
+			result, err := phase.Complete()
+
+			// Check for expected error
+			if tt.shouldFail {
+				if err == nil {
+					t.Fatalf("Expected error containing '%s', got nil", tt.expectedErrMsg)
+				}
+				if err.Error() != tt.expectedErrMsg {
+					t.Errorf("Expected error '%s', got '%s'", tt.expectedErrMsg, err.Error())
+				}
+				return
+			}
+
+			// No error expected
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			// Verify correct event is returned
+			if result.Event != tt.expectedEvent {
+				t.Errorf("Expected event %s, got %s", tt.expectedEvent, result.Event)
+			}
+
+			// Verify phase status was updated
+			if phase.Status() != "completed" {
+				t.Errorf("Expected phase status 'completed', got '%s'", phase.Status())
+			}
+		})
+	}
+}
+
+// TestReviewPhaseCompleteWithoutApprovedReview verifies that Complete fails
+// when there is no approved review artifact.
+func TestReviewPhaseCompleteWithoutApprovedReview(t *testing.T) {
+	ctx := setupTestRepo(t)
+	now := time.Now()
+
+	tests := []struct {
+		name      string
+		artifacts []phasesSchema.Artifact
+	}{
+		{
+			name:      "no artifacts",
+			artifacts: []phasesSchema.Artifact{},
+		},
+		{
+			name: "unapproved review artifact",
+			artifacts: []phasesSchema.Artifact{
+				{
+					Path:       "review-001.md",
+					Approved:   false,
+					Created_at: now,
+					Metadata: map[string]interface{}{
+						"type":       "review",
+						"assessment": "pass",
+					},
+				},
+			},
+		},
+		{
+			name: "non-review artifact",
+			artifacts: []phasesSchema.Artifact{
+				{
+					Path:       "other.md",
+					Approved:   true,
+					Created_at: now,
+					Metadata: map[string]interface{}{
+						"type": "other",
+					},
+				},
+			},
+		},
+		{
+			name: "review artifact missing assessment metadata",
+			artifacts: []phasesSchema.Artifact{
+				{
+					Path:       "review-001.md",
+					Approved:   true,
+					Created_at: now,
+					Metadata: map[string]interface{}{
+						"type": "review",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			phaseState := &phasesSchema.Phase{
+				Status:     "in_progress",
+				Created_at: now,
+				Enabled:    true,
+				Artifacts:  tt.artifacts,
+				Tasks:      []phasesSchema.Task{},
+			}
+
+			state := &projects.StandardProjectState{}
+			proj := New(state, ctx)
+
+			phase := NewReviewPhase(phaseState, proj, ctx)
+
+			// Call Complete - should fail
+			_, err := phase.Complete()
+			if err == nil {
+				t.Error("Expected error when completing review without approved review artifact")
+			}
+		})
 	}
 }
 

@@ -111,7 +111,32 @@ func (p *ReviewPhase) Get(field string) (interface{}, error) {
 }
 
 // Complete marks the review phase as completed.
+// The event fired depends on the assessment of the latest approved review artifact:
+// - "pass" fires EventReviewPass (transitions to FinalizeDocumentation)
+// - "fail" fires EventReviewFail (transitions back to ImplementationPlanning)
 func (p *ReviewPhase) Complete() (*domain.PhaseOperationResult, error) {
+	// Find the latest approved review artifact
+	var latestReview *phasesSchema.Artifact
+	for i := len(p.state.Artifacts) - 1; i >= 0; i-- {
+		artifact := &p.state.Artifacts[i]
+		if artifactType, ok := artifact.Metadata["type"].(string); ok {
+			if artifactType == "review" && artifact.Approved {
+				latestReview = artifact
+				break
+			}
+		}
+	}
+
+	if latestReview == nil {
+		return nil, fmt.Errorf("cannot complete review: no approved review artifact found")
+	}
+
+	// Extract assessment from metadata
+	assessment, ok := latestReview.Metadata["assessment"].(string)
+	if !ok {
+		return nil, fmt.Errorf("cannot complete review: review artifact missing assessment metadata")
+	}
+
 	// Update status and timestamps
 	p.state.Status = "completed"
 	now := time.Now()
@@ -121,8 +146,15 @@ func (p *ReviewPhase) Complete() (*domain.PhaseOperationResult, error) {
 		return nil, err
 	}
 
-	// Return event to be fired by CLI
-	return domain.WithEvent(EventReviewPass), nil
+	// Return appropriate event based on assessment
+	switch assessment {
+	case "pass":
+		return domain.WithEvent(EventReviewPass), nil
+	case "fail":
+		return domain.WithEvent(EventReviewFail), nil
+	default:
+		return nil, fmt.Errorf("invalid assessment value: %s (must be 'pass' or 'fail')", assessment)
+	}
 }
 
 // Skip is not supported as review phase is required.
