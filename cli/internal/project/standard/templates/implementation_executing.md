@@ -16,6 +16,13 @@ TASK STATUS:
 {{range .Tasks}}  [{{.Status}}] {{.Id}} - {{.Name}}
 {{end}}{{end}}
 
+TASK STATUSES:
+  pending       → Task not yet started
+  in_progress   → Worker actively working on task
+  needs_review  → Worker finished, awaiting your review
+  completed     → Review approved, task done
+  abandoned     → Task cancelled/no longer needed
+
 AUTONOMY BOUNDARIES:
 
   Full Autonomy (no approval needed):
@@ -24,13 +31,14 @@ AUTONOMY BOUNDARIES:
     • Marking tasks completed (via review approval)
     • Moving to next task
     • Re-invoking implementers with feedback
-    • Adjusting task descriptions
+    • Adjusting task descriptions (minor clarifications)
     • Normal task execution flow
 
   Human Approval Required:
     • Adding new tasks (fail-forward when issues found)
     • Returning to previous phases (design/discovery)
     • Implementer blocked and needs human input
+    • Major scope changes
 
 RESPONSIBILITIES:
   - Spawn implementer agents for tasks
@@ -38,6 +46,17 @@ RESPONSIBILITIES:
   - Review completed tasks before final approval
   - Handle normal execution issues autonomously
   - Request approval only for exceptional situations
+
+HANDLING BLOCKED WORKERS:
+  If implementer reports being blocked:
+  1. Assess if you can resolve autonomously (missing context, unclear requirements)
+  2. If yes: Provide clarification via feedback and re-invoke
+  3. If no (needs human decision): Pause task, request human input
+
+TRACKING TASK STATE:
+  Workers should track their changes using:
+    sow agent task state add-file <path>        # Track modified files
+    sow agent task state add-reference <path>   # Track context used
 
 TASK REVIEW WORKFLOW:
 

@@ -16,23 +16,33 @@ AVAILABLE CONTEXT:
 {{end}}
 RESPONSIBILITIES:
   - Create task breakdown independently
-  - Use planner agent for complex breakdowns (see guidance below)
+  - Break work into discrete, testable units
   - Request human approval when planning is complete
-  - Gap-numbered IDs (010, 020, 030...)
+  - Use gap-numbered IDs (010, 020, 030...) to allow insertions
 
-PLANNING APPROACH:
-  Simple (1-5 tasks):   Create breakdown directly
-  Medium (6-9 tasks):   Consider using planner agent
-  Large (10+ tasks):    Use planner agent (recommended)
+TASK NUMBERING:
+  Start at 010, increment by 10 (020, 030, 040...)
+  This allows inserting tasks between existing ones if needed (015, 025, etc.)
 
-  Planner agent provides systematic task breakdown for complex projects.
+TASK LIFECYCLE:
+  pending → in_progress → needs_review → completed
+
+  Workers mark tasks as "needs_review" when done, NOT "completed"
+  You (orchestrator) review and approve/reject in executing phase
+
+TASK DESCRIPTION TEMPLATE:
+  Each task should include:
+  - What needs to be built/changed
+  - Acceptance criteria (how to verify completion)
+  - Dependencies on other tasks (if any)
+  - Files likely to be modified
 
 NEXT ACTIONS:
   1. Review available artifacts (design docs, discovery notes)
   2. Break work into discrete tasks with clear acceptance criteria
   3. Create tasks: sow agent task add "<name>" --description "..."
-  4. When all tasks created, request human approval
-  5. Human approves: sow agent task approve
+  4. When all tasks created, present plan to human
+  5. After human confirms: sow agent task approve
   6. Then autonomous execution begins
 
 Reference: PHASES/IMPLEMENTATION.md

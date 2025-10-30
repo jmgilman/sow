@@ -19,9 +19,10 @@ CURRENT STATUS:
 
 NEXT ACTIONS:
   1. Understand requirements (from user or linked issue)
-  2. Create task list artifact: sow agent artifact add <path> --type task_list
-  3. Request approval: sow agent artifact approve <path>
-  4. When task list approved: sow agent complete
+  2. Create task list artifact: sow agent artifact add <path> --metadata type=task_list
+  3. Present artifact to human for review
+  4. After human approval: sow agent artifact approve <path>
+  5. When task list approved: sow agent complete
 
 Reference: PHASES/PLANNING.md
 
