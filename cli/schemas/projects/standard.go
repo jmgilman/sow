@@ -2,6 +2,13 @@
 // WARNING: This file has a corresponding CUE schema file (standard.cue).
 // When modifying these Go types, you MUST manually update standard.cue
 // to keep the schemas in sync. Do not rely on code generation.
+//
+// WHY HAND-WRITTEN:
+// CUE's gengotypes tool cannot properly handle the type unification patterns
+// used in project schemas (e.g., `p.#Phase & {status: p.#GenericStatus}`).
+// It generates inline anonymous structs instead of preserving type references,
+// which breaks the composition pattern and causes type compatibility issues.
+// Therefore, these types must be manually maintained to match the CUE schema.
 // ============================================================================
 
 // Package projects provides hand-written Go types for project schemas.

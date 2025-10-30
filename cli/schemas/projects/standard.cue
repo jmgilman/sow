@@ -10,6 +10,12 @@ import (
 // WARNING: This file has a corresponding hand-written Go type file.
 // When modifying this schema, you MUST manually update projects/standard.go
 // to keep the Go types in sync. Do not rely on code generation.
+//
+// WHY HAND-WRITTEN:
+// CUE's gengotypes tool cannot properly handle the type unification patterns
+// used below (e.g., `p.#Phase & {status: p.#GenericStatus}`). It generates
+// inline anonymous structs instead of preserving type references, which breaks
+// the composition pattern. Therefore, the Go types are manually maintained.
 // ============================================================================
 
 // StandardProjectState defines the schema for a standard project type.

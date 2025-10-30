@@ -2,12 +2,6 @@ package phases
 
 import "time"
 
-// ============================================================================
-// WARNING: This file has a corresponding hand-written Go type file.
-// When modifying this schema, you MUST manually update phases/common.go
-// to keep the Go types in sync. Do not rely on code generation.
-// ============================================================================
-
 // GenericStatus defines the common phase status values that most project types use.
 // Project types can use this for their phases or define custom status enums per phase.
 #GenericStatus: "pending" | "in_progress" | "completed" | "skipped"
