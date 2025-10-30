@@ -115,7 +115,7 @@ func (p *ReviewPhase) Get(field string) (interface{}, error) {
 // Complete marks the review phase as completed.
 // The event fired depends on the assessment of the latest approved review artifact:
 // - "pass" fires EventReviewPass (transitions to FinalizeDocumentation)
-// - "fail" fires EventReviewFail (transitions back to ImplementationPlanning)
+// - "fail" fires EventReviewFail (transitions back to ImplementationPlanning).
 func (p *ReviewPhase) Complete() (*domain.PhaseOperationResult, error) {
 	// Find the latest approved review artifact
 	var latestReview *phasesSchema.Artifact

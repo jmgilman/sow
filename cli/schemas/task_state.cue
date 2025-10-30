@@ -18,7 +18,7 @@ import "time"
 		phase: "implementation"
 
 		// Task execution status
-		status: "pending" | "in_progress" | "completed" | "abandoned"
+		status: "pending" | "in_progress" | "needs_review" | "completed" | "abandoned"
 
 		// Timestamps
 		created_at:   time.Time

@@ -19,7 +19,9 @@ TASK STATUS:
 AUTONOMY BOUNDARIES:
 
   Full Autonomy (no approval needed):
-    • Marking tasks completed
+    • Reviewing tasks (lightweight sanity check)
+    • Approving or rejecting task reviews
+    • Marking tasks completed (via review approval)
     • Moving to next task
     • Re-invoking implementers with feedback
     • Adjusting task descriptions
@@ -33,13 +35,40 @@ AUTONOMY BOUNDARIES:
 RESPONSIBILITIES:
   - Spawn implementer agents for tasks
   - Monitor task progress and provide feedback
+  - Review completed tasks before final approval
   - Handle normal execution issues autonomously
   - Request approval only for exceptional situations
 
+TASK REVIEW WORKFLOW:
+
+  When a task transitions to "needs_review":
+
+  1. Read task requirements from description.md
+  2. Check task state.yaml for files_modified list
+  3. Review actual changes: git diff for those files
+  4. Write review to: project/phases/implementation/tasks/<id>/review.md
+
+     Include in review.md:
+     - Summary of requirements
+     - What was actually changed
+     - Assessment (approve or request changes)
+     - If requesting changes: specific issues to address
+
+  5. Execute review decision:
+
+     APPROVE:
+     sow agent task review <id> --approve
+     → Task marked completed, review.md preserved
+
+     REQUEST CHANGES:
+     sow agent task review <id> --request-changes
+     → Review becomes feedback, worker re-invoked with iteration + 1
+
 NEXT ACTIONS:
   - For pending tasks: Spawn implementer agent
-  - To update: sow agent task update <id>
-  - To mark complete: sow agent task update <id> --status completed
+  - When task reaches needs_review: Perform review (see workflow above)
+  - To approve: sow agent task review <id> --approve
+  - To reject: sow agent task review <id> --request-changes
   - When all done: Auto-transition to review
 
 Reference: PHASES/IMPLEMENTATION.md, AGENTS.md (implementer)

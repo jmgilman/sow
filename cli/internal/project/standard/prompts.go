@@ -58,30 +58,6 @@ func init() {
 	}
 }
 
-// stateToPromptID maps standard project states to their corresponding prompt template IDs.
-func stateToPromptID(state statechart.State) StatePromptID {
-	switch state {
-	case statechart.NoProject:
-		return PromptNoProject
-	case PlanningActive:
-		return PromptPlanningActive
-	case ImplementationPlanning:
-		return PromptImplementationPlanning
-	case ImplementationExecuting:
-		return PromptImplementationExecuting
-	case ReviewActive:
-		return PromptReviewActive
-	case FinalizeDocumentation:
-		return PromptFinalizeDocumentation
-	case FinalizeChecks:
-		return PromptFinalizeChecks
-	case FinalizeDelete:
-		return PromptFinalizeDelete
-	default:
-		// Return empty, caller will handle unknown state
-		return ""
-	}
-}
 
 // StandardPromptGenerator implements the PromptGenerator interface for standard projects.
 // It generates contextual prompts for each state in the standard project state machine,

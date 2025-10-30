@@ -1,0 +1,206 @@
+# Test: Agent Task Review Workflow
+# Purpose: Test the needs_review status and review command workflow
+# Coverage: task update (needs_review), task review (approve/request-changes), iteration increment
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/review-test
+exec sow init
+exec sow agent init review-test --description 'Test review workflow'
+
+# Transition to implementation phase
+exec mkdir -p .sow/project/artifacts
+exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
+exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
+exec sow agent artifact approve project/artifacts/tasks.md
+exec sow agent complete
+
+# Create two tasks for testing
+exec sow agent task add 'Task for approval' --description 'This task will be approved'
+stderr '✓ Created task 010'
+exec sow agent task add 'Task for rejection' --description 'This task will be rejected'
+stderr '✓ Created task 020'
+
+# =====================================
+# Test 1: Mark task as needs_review
+# =====================================
+
+# Start task 010
+exec sow agent task update 010 --status in_progress
+stderr '✓ Updated task 010'
+
+# Mark task as needs_review
+exec sow agent task update 010 --status needs_review
+stderr '✓ Updated task 010'
+stderr 'status: in_progress → needs_review'
+
+# Verify task status in project state
+exec cat .sow/project/state.yaml
+stdout 'id: "010"'
+stdout 'status: needs_review'
+
+# Verify task state file
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'status: needs_review'
+stdout 'iteration: 1'
+
+# =====================================
+# Test 2: Review command requires review.md
+# =====================================
+
+# Attempt to approve without review.md should fail
+! exec sow agent task review 010 --approve
+stderr 'review.md not found'
+
+# =====================================
+# Test 3: Review command requires needs_review status
+# =====================================
+
+# Task 020 is still pending, review should fail
+! exec sow agent task review 020 --approve
+stderr 'not in .needs_review. status'
+
+# =====================================
+# Test 4: Approve review workflow
+# =====================================
+
+# Create review.md for task 010 (approval case)
+exec mkdir -p .sow/project/phases/implementation/tasks/010
+exec sh -c 'echo "# Review of Task 010\n\n## Summary\nTask requirements met.\n\n## Assessment\nApprove" > .sow/project/phases/implementation/tasks/010/review.md'
+
+# Approve the review
+exec sow agent task review 010 --approve
+stderr '✓ Task 010 approved and marked as completed'
+stderr 'Review preserved at: project/phases/implementation/tasks/010/review.md'
+
+# Verify task is now completed
+exec cat .sow/project/state.yaml
+stdout 'id: "010"'
+stdout 'status: completed'
+
+# Verify review.md is preserved
+exists .sow/project/phases/implementation/tasks/010/review.md
+exec cat .sow/project/phases/implementation/tasks/010/review.md
+stdout 'Review of Task 010'
+stdout 'Approve'
+
+# Verify task state file shows completed
+exec cat .sow/project/phases/implementation/tasks/010/state.yaml
+stdout 'status: completed'
+stdout 'completed_at:'
+
+# =====================================
+# Test 5: Request changes workflow
+# =====================================
+
+# Start task 020 and mark as needs_review
+exec sow agent task update 020 --status in_progress
+exec sow agent task update 020 --status needs_review
+
+# Create review.md for task 020 (rejection case)
+exec mkdir -p .sow/project/phases/implementation/tasks/020
+exec sh -c 'echo "# Review of Task 020\n\n## Summary\nTask has issues.\n\n## Issues\n- Missing tests\n- Poor error handling\n\n## Assessment\nRequest changes" > .sow/project/phases/implementation/tasks/020/review.md'
+
+# Request changes
+exec sow agent task review 020 --request-changes
+stderr '✓ Changes requested for task 020'
+stderr 'Feedback added: project/phases/implementation/tasks/020/feedback/001.md'
+stderr 'Task returned to in_progress'
+stderr 'iteration incremented'
+
+# Verify task is back to in_progress
+exec cat .sow/project/state.yaml
+stdout 'id: "020"'
+stdout 'status: in_progress'
+
+# Verify iteration was incremented
+exec cat .sow/project/phases/implementation/tasks/020/state.yaml
+stdout 'status: in_progress'
+stdout 'iteration: 2'
+
+# Verify review.md was moved to feedback
+! exists .sow/project/phases/implementation/tasks/020/review.md
+exists .sow/project/phases/implementation/tasks/020/feedback/001.md
+exec cat .sow/project/phases/implementation/tasks/020/feedback/001.md
+stdout 'Review of Task 020'
+stdout 'Request changes'
+stdout 'Missing tests'
+
+# Verify feedback entry was added to state
+exec cat .sow/project/phases/implementation/tasks/020/state.yaml
+stdout 'id: "001"'
+stdout 'status: pending'
+
+# Verify completed_at was cleared
+exec cat .sow/project/phases/implementation/tasks/020/state.yaml
+! stdout 'completed_at: [0-9]'
+
+# =====================================
+# Test 6: Second iteration can be reviewed again
+# =====================================
+
+# Mark task 020 as needs_review again (iteration 2)
+exec sow agent task update 020 --status needs_review
+stderr '✓ Updated task 020'
+
+# Create new review.md for iteration 2 (approval this time)
+exec sh -c 'echo "# Review of Task 020 (Iteration 2)\n\n## Summary\nAll issues addressed.\n\n## Assessment\nApprove" > .sow/project/phases/implementation/tasks/020/review.md'
+
+# Approve the second review
+exec sow agent task review 020 --approve
+stderr '✓ Task 020 approved and marked as completed'
+
+# Verify task is now completed
+exec cat .sow/project/state.yaml
+stdout 'id: "020"'
+stdout 'status: completed'
+
+# Verify iteration stayed at 2
+exec cat .sow/project/phases/implementation/tasks/020/state.yaml
+stdout 'status: completed'
+stdout 'iteration: 2'
+
+# Verify both feedback and review.md exist
+exists .sow/project/phases/implementation/tasks/020/feedback/001.md
+exists .sow/project/phases/implementation/tasks/020/review.md
+
+# =====================================
+# Test 7: Verify all tasks complete
+# =====================================
+
+# Both tasks are now completed
+exec cat .sow/project/state.yaml
+stdout 'id: "010"'
+stdout 'status: completed'
+stdout 'id: "020"'
+stdout 'status: completed'
+
+# Verify implementation phase is complete
+exec cat .sow/project/state.yaml
+stdout 'implementation:'
+stdout 'status: completed'
+
+# Note: In this test scenario we're in ImplementationPlanning state,
+# so the review phase won't auto-start. In a real workflow, the orchestrator
+# would handle the transition. The important part is that all tasks are completed.
+
+# =====================================
+# Test 8: Error cases
+# =====================================
+
+# Cannot approve/reject completed task
+! exec sow agent task review 010 --approve
+stderr 'not in .needs_review. status'
+
+# Must specify exactly one flag
+! exec sow agent task review 010
+stderr 'exactly one flag must be specified'
+
+# Cannot specify both flags
+! exec sow agent task review 010 --approve --request-changes
+stderr 'if any flags in the group'

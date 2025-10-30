@@ -70,7 +70,9 @@ sow agent project delete                              # Clean up project
 ```bash
 sow agent task add <name>                   # Add new task
 sow agent task status [<id>]                # Show task details
-sow agent task state set-status <status> [<id>]  # Update task status
+sow agent task update <id> --status <status>     # Update task status
+sow agent task review <id> --approve             # Approve task review
+sow agent task review <id> --request-changes     # Request changes
 ```
 
 **Logging** (critical for audit trail):

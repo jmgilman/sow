@@ -57,7 +57,7 @@ import "time"
 	name: string & !=""
 
 	// Task status
-	status: "pending" | "in_progress" | "completed" | "abandoned"
+	status: "pending" | "in_progress" | "needs_review" | "completed" | "abandoned"
 
 	// Can run in parallel with other tasks
 	parallel: bool
