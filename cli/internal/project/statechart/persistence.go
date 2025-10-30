@@ -70,27 +70,24 @@ func NewProjectState(name, description, branch string) *schemas.ProjectState {
 	state.Phases.Implementation.Status = "pending"
 	state.Phases.Implementation.Created_at = now
 	state.Phases.Implementation.Tasks = []phases.Task{}
-	state.Phases.Implementation.Metadata = map[string]interface{}{
-		"tasks_approved": false,
-	}
+	tasksApproved := false
+	state.Phases.Implementation.Tasks_approved = &tasksApproved
 
 	// Review phase (required, enabled by default)
 	state.Phases.Review.Enabled = true
 	state.Phases.Review.Status = "pending"
 	state.Phases.Review.Created_at = now
 	state.Phases.Review.Artifacts = []phases.Artifact{}
-	state.Phases.Review.Metadata = map[string]interface{}{
-		"iteration": 1,
-	}
+	iteration := 1
+	state.Phases.Review.Iteration = &iteration
 
 	// Finalize phase (required, enabled by default)
 	state.Phases.Finalize.Enabled = true
 	state.Phases.Finalize.Status = "pending"
 	state.Phases.Finalize.Created_at = now
 	state.Phases.Finalize.Artifacts = []phases.Artifact{}
-	state.Phases.Finalize.Metadata = map[string]interface{}{
-		"project_deleted": false,
-	}
+	projectDeleted := false
+	state.Phases.Finalize.Project_deleted = &projectDeleted
 
 	return state
 }

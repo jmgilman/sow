@@ -190,7 +190,7 @@ exec sow agent artifact approve project/phases/review/reports/no-assessment.md
 
 # Complete should fail with error
 ! exec sow agent complete
-stderr 'review artifact missing assessment metadata'
+stderr 'review artifact missing assessment'
 
 # =====================================
 # Test: No Review Artifact

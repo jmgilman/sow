@@ -114,11 +114,9 @@ func (p *PlanningPhase) Complete() (*domain.PhaseOperationResult, error) {
 	// Verify that the task list artifact is approved
 	taskListApproved := false
 	for _, artifact := range p.state.Artifacts {
-		if artifactType, ok := artifact.Metadata["type"].(string); ok {
-			if artifactType == "task_list" && artifact.Approved {
-				taskListApproved = true
-				break
-			}
+		if artifact.Type != nil && *artifact.Type == "task_list" && artifact.Approved {
+			taskListApproved = true
+			break
 		}
 	}
 

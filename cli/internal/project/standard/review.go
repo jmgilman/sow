@@ -3,11 +3,13 @@ package standard
 import (
 	"fmt"
 	"time"
+	"unsafe"
 
 	"github.com/jmgilman/sow/cli/internal/project"
 	"github.com/jmgilman/sow/cli/internal/project/domain"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
+	"github.com/jmgilman/sow/cli/schemas/projects"
 )
 
 // ReviewPhase implements the review phase for standard projects.
@@ -119,11 +121,9 @@ func (p *ReviewPhase) Complete() (*domain.PhaseOperationResult, error) {
 	var latestReview *phasesSchema.Artifact
 	for i := len(p.state.Artifacts) - 1; i >= 0; i-- {
 		artifact := &p.state.Artifacts[i]
-		if artifactType, ok := artifact.Metadata["type"].(string); ok {
-			if artifactType == "review" && artifact.Approved {
-				latestReview = artifact
-				break
-			}
+		if artifact.Type != nil && *artifact.Type == "review" && artifact.Approved {
+			latestReview = artifact
+			break
 		}
 	}
 
@@ -131,11 +131,11 @@ func (p *ReviewPhase) Complete() (*domain.PhaseOperationResult, error) {
 		return nil, fmt.Errorf("cannot complete review: no approved review artifact found")
 	}
 
-	// Extract assessment from metadata
-	assessment, ok := latestReview.Metadata["assessment"].(string)
-	if !ok {
-		return nil, fmt.Errorf("cannot complete review: review artifact missing assessment metadata")
+	// Extract assessment from typed field
+	if latestReview.Assessment == nil {
+		return nil, fmt.Errorf("cannot complete review: review artifact missing assessment")
 	}
+	assessment := *latestReview.Assessment
 
 	// Update status and timestamps
 	p.state.Status = "completed"
@@ -171,22 +171,19 @@ func (p *ReviewPhase) Enable(_ ...domain.PhaseOption) error {
 func (p *ReviewPhase) AllReviewsApproved() bool {
 	// Check for artifacts with type=review that aren't approved
 	for _, artifact := range p.state.Artifacts {
-		if artifactType, ok := artifact.Metadata["type"].(string); ok {
-			if artifactType == "review" && !artifact.Approved {
-				return false
-			}
+		if artifact.Type != nil && *artifact.Type == "review" && !artifact.Approved {
+			return false
 		}
 	}
 	return true
 }
 
-// Iteration returns the current iteration count from metadata.
+// Iteration returns the current iteration count from typed field.
 func (p *ReviewPhase) Iteration() int {
-	if p.state.Metadata == nil {
-		return 1
-	}
-	if iter, ok := p.state.Metadata["iteration"].(int); ok {
-		return iter
+	// Get iteration from typed field in review phase
+	reviewPhase := (*projects.ReviewPhase)(unsafe.Pointer(p.state))
+	if reviewPhase.Iteration != nil {
+		return *reviewPhase.Iteration
 	}
 	return 1
 }

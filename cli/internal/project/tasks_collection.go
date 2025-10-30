@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"path/filepath"
 	"time"
+	"unsafe"
 
 	"github.com/jmgilman/sow/cli/internal/project/domain"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/jmgilman/sow/cli/schemas/phases"
+	"github.com/jmgilman/sow/cli/schemas/projects"
 	"gopkg.in/yaml.v3"
 )
 
@@ -95,11 +97,11 @@ func (tc *TaskCollection) Approve() error {
 		return fmt.Errorf("cannot approve: no tasks exist")
 	}
 
-	// Set approval in metadata
-	if tc.state.Metadata == nil {
-		tc.state.Metadata = make(map[string]interface{})
-	}
-	tc.state.Metadata["tasks_approved"] = true
+	// Set approval in typed field
+	// We know this is called from ImplementationPhase, so cast to ImplementationPhase
+	implPhase := (*projects.ImplementationPhase)(unsafe.Pointer(tc.state))
+	approved := true
+	implPhase.Tasks_approved = &approved
 
 	tc.state.Status = "in_progress"
 	if tc.state.Started_at == nil {

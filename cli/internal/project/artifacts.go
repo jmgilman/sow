@@ -35,6 +35,8 @@ func (ac *ArtifactCollection) Add(path string, opts ...domain.ArtifactOption) er
 		Path:       path,
 		Approved:   false,
 		Created_at: time.Now(),
+		Type:       cfg.Type,
+		Assessment: cfg.Assessment,
 		Metadata:   cfg.Metadata,
 	}
 

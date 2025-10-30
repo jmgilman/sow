@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/jmgilman/sow/cli/internal/logging"
 	"github.com/jmgilman/sow/cli/internal/project"
@@ -11,6 +12,7 @@ import (
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/jmgilman/sow/cli/schemas/projects"
 	"gopkg.in/yaml.v3"
 )
@@ -40,10 +42,12 @@ func New(state *projects.StandardProjectState, ctx *sow.Context) *StandardProjec
 	}
 
 	// Create phase instances (they need parent project for Save())
-	p.phases["planning"] = NewPlanningPhase(&state.Phases.Planning, p, ctx)
-	p.phases["implementation"] = NewImplementationPhase(&state.Phases.Implementation, p, ctx)
-	p.phases["review"] = NewReviewPhase(&state.Phases.Review, p, ctx)
-	p.phases["finalize"] = NewFinalizePhase(&state.Phases.Finalize, p, ctx)
+	// Note: The inline structs from CUE generation are structurally identical to phases.Phase
+	// We use unsafe pointer casting since the memory layout is guaranteed to be identical
+	p.phases["planning"] = NewPlanningPhase((*phases.Phase)(unsafe.Pointer(&state.Phases.Planning)), p, ctx)
+	p.phases["implementation"] = NewImplementationPhase((*phases.Phase)(unsafe.Pointer(&state.Phases.Implementation)), p, ctx)
+	p.phases["review"] = NewReviewPhase((*phases.Phase)(unsafe.Pointer(&state.Phases.Review)), p, ctx)
+	p.phases["finalize"] = NewFinalizePhase((*phases.Phase)(unsafe.Pointer(&state.Phases.Finalize)), p, ctx)
 
 	// Build state machine
 	p.machine = p.buildStateMachine()
@@ -167,7 +171,7 @@ func (p *StandardProject) buildStateMachine() *statechart.Machine {
 			ImplementationPlanning,
 			EventCompletePlanning,
 			statechart.WithGuard(func() bool {
-				return PlanningComplete(p.state.Phases.Planning)
+				return PlanningComplete(*(*phases.Phase)(unsafe.Pointer(&p.state.Phases.Planning)))
 			}),
 		).
 		// Allow project deletion from planning

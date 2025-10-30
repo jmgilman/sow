@@ -1,9 +1,12 @@
 package standard
 
 import (
+	"unsafe"
+
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/jmgilman/sow/cli/schemas/phases"
+	"github.com/jmgilman/sow/cli/schemas/projects"
 )
 
 // Standard Project Guards - Guards specific to the standard project workflow.
@@ -14,10 +17,8 @@ import (
 func PlanningComplete(phase phases.Phase) bool {
 	// Check if task list artifact is approved
 	for _, a := range phase.Artifacts {
-		if a.Metadata != nil {
-			if artifactType, ok := a.Metadata["type"].(string); ok && artifactType == "task_list" {
-				return a.Approved
-			}
+		if a.Type != nil && *a.Type == "task_list" {
+			return a.Approved
 		}
 	}
 	// If no task list artifact exists, planning is not complete
@@ -31,14 +32,12 @@ func HasAtLeastOneTask(state *schemas.ProjectState) bool {
 
 // TasksApproved checks if task plan has been approved by human.
 func TasksApproved(state *schemas.ProjectState) bool {
-	// Check metadata for tasks_approved
-	tasksApproved := false
-	if state.Phases.Implementation.Metadata != nil {
-		if approved, ok := state.Phases.Implementation.Metadata["tasks_approved"].(bool); ok {
-			tasksApproved = approved
-		}
+	// Get tasks_approved from typed field
+	implPhase := (*projects.ImplementationPhase)(unsafe.Pointer(&state.Phases.Implementation))
+	if implPhase.Tasks_approved != nil && *implPhase.Tasks_approved {
+		return len(state.Phases.Implementation.Tasks) >= 1
 	}
-	return tasksApproved && len(state.Phases.Implementation.Tasks) >= 1
+	return false
 }
 
 // AllTasksComplete checks if all tasks are completed or abandoned.
@@ -64,13 +63,11 @@ func ChecksAssessed(_ *schemas.ProjectState) bool {
 
 // LatestReviewApproved checks if the most recent review report is approved by human.
 func LatestReviewApproved(state *schemas.ProjectState) bool {
-	// Find review artifacts (artifacts with type=review metadata)
+	// Find review artifacts (artifacts with type=review from typed field)
 	var reviewArtifacts []phases.Artifact
 	for _, artifact := range state.Phases.Review.Artifacts {
-		if artifact.Metadata != nil {
-			if artifactType, ok := artifact.Metadata["type"].(string); ok && artifactType == "review" {
-				reviewArtifacts = append(reviewArtifacts, artifact)
-			}
+		if artifact.Type != nil && *artifact.Type == "review" {
+			reviewArtifacts = append(reviewArtifacts, artifact)
 		}
 	}
 
@@ -84,11 +81,10 @@ func LatestReviewApproved(state *schemas.ProjectState) bool {
 
 // ProjectDeleted checks if the project folder has been deleted.
 func ProjectDeleted(state *schemas.ProjectState) bool {
-	// Check metadata for project_deleted
-	if state.Phases.Finalize.Metadata != nil {
-		if deleted, ok := state.Phases.Finalize.Metadata["project_deleted"].(bool); ok {
-			return deleted
-		}
+	// Get project_deleted from typed field
+	finalizePhase := (*projects.FinalizePhase)(unsafe.Pointer(&state.Phases.Finalize))
+	if finalizePhase.Project_deleted != nil {
+		return *finalizePhase.Project_deleted
 	}
 	return false
 }

@@ -6,6 +6,12 @@ import (
 	p "github.com/jmgilman/sow/cli/schemas/phases"
 )
 
+// ============================================================================
+// WARNING: This file has a corresponding hand-written Go type file.
+// When modifying this schema, you MUST manually update projects/standard.go
+// to keep the Go types in sync. Do not rely on code generation.
+// ============================================================================
+
 // StandardProjectState defines the schema for a standard project type.
 //
 // This project type follows the 4-phase model:
@@ -40,18 +46,42 @@ import (
 	}
 
 	// 4-phase structure (composing reusable phase definitions)
+	// Status is constrained to GenericStatus via unification
 	phases: {
 		// Phase 1: Planning (required, human-led)
-		planning: p.#Phase
+		planning: p.#Phase & {
+			status: p.#GenericStatus
+		}
 
 		// Phase 2: Implementation (required, AI-autonomous)
-		implementation: p.#Phase
+		implementation: p.#Phase & {
+			status: p.#GenericStatus
+
+			// Whether task list has been approved by human
+			tasks_approved?: bool @go(,optional=nillable)
+		}
 
 		// Phase 3: Review (required, AI-autonomous)
-		review: p.#Phase
+		review: p.#Phase & {
+			status: p.#GenericStatus
+
+			// Current iteration number (increments on fail → reimplementation)
+			iteration?: int @go(,optional=nillable)
+		}
 
 		// Phase 4: Finalize (required, AI-autonomous)
-		finalize: p.#Phase
+		finalize: p.#Phase & {
+			status: p.#GenericStatus
+
+			// Whether project directory has been deleted
+			project_deleted?: bool @go(,optional=nillable)
+
+			// URL of created pull request
+			pr_url?: string @go(,optional=nillable)
+
+			// Documentation updates made
+			documentation_updates?: [...string] @go(,optional=nillable)
+		}
 	}
 }
 

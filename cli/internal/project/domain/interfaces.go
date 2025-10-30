@@ -80,7 +80,23 @@ type ArtifactOption func(*ArtifactConfig)
 
 // ArtifactConfig holds configuration for creating artifacts.
 type ArtifactConfig struct {
-	Metadata map[string]interface{}
+	Type       *string
+	Assessment *string
+	Metadata   map[string]interface{}
+}
+
+// WithType sets the artifact type.
+func WithType(artifactType *string) ArtifactOption {
+	return func(c *ArtifactConfig) {
+		c.Type = artifactType
+	}
+}
+
+// WithAssessment sets the artifact assessment.
+func WithAssessment(assessment *string) ArtifactOption {
+	return func(c *ArtifactConfig) {
+		c.Assessment = assessment
+	}
 }
 
 // WithMetadata adds metadata to an artifact.

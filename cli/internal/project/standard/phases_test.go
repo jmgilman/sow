@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/jmgilman/sow/cli/internal/project"
 	"github.com/jmgilman/sow/cli/internal/project/domain"
@@ -83,43 +84,37 @@ func TestPhaseImplementsInterface(t *testing.T) {
 	ctx := setupTestRepo(t)
 	now := time.Now()
 
-	state := &projects.StandardProjectState{
-		Project: struct {
-			Type         string    `json:"type"`
-			Name         string    `json:"name"`
-			Branch       string    `json:"branch"`
-			Description  string    `json:"description"`
-			Github_issue *int64    `json:"github_issue,omitempty"` //nolint:revive // matches JSON schema
-			Created_at   time.Time `json:"created_at"`              //nolint:revive // matches JSON schema
-			Updated_at   time.Time `json:"updated_at"`              //nolint:revive // matches JSON schema
-		}{
-			Type:        "standard",
-			Name:        "test",
-			Branch:      "test",
-			Description: "test",
-			Created_at:  now,
-			Updated_at:  now,
-		},
-		Phases: struct {
-			Planning       phasesSchema.Phase `json:"planning"`
-			Implementation phasesSchema.Phase `json:"implementation"`
-			Review         phasesSchema.Phase `json:"review"`
-			Finalize       phasesSchema.Phase `json:"finalize"`
-		}{
-			Planning:       phasesSchema.Phase{Status: "completed", Created_at: now, Enabled: true},
-			Implementation: phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: true},
-			Review:         phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: true},
-			Finalize:       phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: true},
-		},
-	}
+	state := &projects.StandardProjectState{}
+	state.Project.Type = "standard"
+	state.Project.Name = "test"
+	state.Project.Branch = "test"
+	state.Project.Description = "test"
+	state.Project.Created_at = now
+	state.Project.Updated_at = now
+
+	state.Phases.Planning.Status = "completed"
+	state.Phases.Planning.Enabled = true
+	state.Phases.Planning.Created_at = now
+
+	state.Phases.Implementation.Status = "pending"
+	state.Phases.Implementation.Enabled = true
+	state.Phases.Implementation.Created_at = now
+
+	state.Phases.Review.Status = "pending"
+	state.Phases.Review.Enabled = true
+	state.Phases.Review.Created_at = now
+
+	state.Phases.Finalize.Status = "pending"
+	state.Phases.Finalize.Enabled = true
+	state.Phases.Finalize.Created_at = now
 
 	proj := New(state, ctx)
 
 	phases := []domain.Phase{
-		NewPlanningPhase(&state.Phases.Planning, proj, ctx),
-		NewImplementationPhase(&state.Phases.Implementation, proj, ctx),
-		NewReviewPhase(&state.Phases.Review, proj, ctx),
-		NewFinalizePhase(&state.Phases.Finalize, proj, ctx),
+		NewPlanningPhase((*phasesSchema.Phase)(unsafe.Pointer(&state.Phases.Planning)), proj, ctx),
+		NewImplementationPhase((*phasesSchema.Phase)(unsafe.Pointer(&state.Phases.Implementation)), proj, ctx),
+		NewReviewPhase((*phasesSchema.Phase)(unsafe.Pointer(&state.Phases.Review)), proj, ctx),
+		NewFinalizePhase((*phasesSchema.Phase)(unsafe.Pointer(&state.Phases.Finalize)), proj, ctx),
 	}
 
 	for _, phase := range phases {
@@ -165,7 +160,8 @@ func TestPlanningPhaseArtifacts(t *testing.T) {
 	phase := NewPlanningPhase(phaseState, proj, ctx)
 
 	// Should support artifacts
-	err = phase.AddArtifact("task-list.md", domain.WithMetadata(map[string]interface{}{"type": "task_list"}))
+	taskListType := "task_list"
+	err = phase.AddArtifact("task-list.md", domain.WithType(&taskListType))
 	if err != nil {
 		t.Fatalf("Planning phase should support artifacts, got error: %v", err)
 	}
@@ -205,7 +201,8 @@ func TestImplementationPhaseTasks(t *testing.T) {
 	}
 
 	// Should NOT support artifacts
-	err = phase.AddArtifact("test.md", domain.WithMetadata(map[string]interface{}{"type": "doc"}))
+	docType := "doc"
+	err = phase.AddArtifact("test.md", domain.WithType(&docType))
 	if !errors.Is(err, project.ErrNotSupported) {
 		t.Errorf("Implementation phase should not support artifacts, expected ErrNotSupported, got: %v", err)
 	}
@@ -217,6 +214,8 @@ func TestReviewPhaseGuards(t *testing.T) {
 	now := time.Now()
 
 	// Create phase with review artifacts
+	reviewType := "review"
+	passAssessment := "pass"
 	phaseState := &phasesSchema.Phase{
 		Status:     "in_progress",
 		Created_at: now,
@@ -226,10 +225,8 @@ func TestReviewPhaseGuards(t *testing.T) {
 				Path:       "review-001.md",
 				Approved:   true,
 				Created_at: now,
-				Metadata: map[string]interface{}{
-					"type":       "review",
-					"assessment": "pass",
-				},
+				Type:       &reviewType,
+				Assessment: &passAssessment,
 			},
 		},
 		Tasks: []phasesSchema.Task{},
@@ -240,16 +237,14 @@ func TestReviewPhaseGuards(t *testing.T) {
 
 	phase := NewReviewPhase(phaseState, proj, ctx)
 
-	// Verify AllReviewsApproved checks metadata correctly
+	// Verify AllReviewsApproved checks typed fields correctly
 	if !phase.AllReviewsApproved() {
 		t.Error("Expected AllReviewsApproved to return true with approved review artifact")
 	}
 
 	// Add unapproved review artifact
-	_ = phase.AddArtifact("review-002.md", domain.WithMetadata(map[string]interface{}{
-		"type":       "review",
-		"assessment": "fail",
-	}))
+	failAssessment := "fail"
+	_ = phase.AddArtifact("review-002.md", domain.WithType(&reviewType), domain.WithAssessment(&failAssessment))
 
 	if phase.AllReviewsApproved() {
 		t.Error("Expected AllReviewsApproved to return false with unapproved review artifact")
@@ -337,6 +332,7 @@ func TestReviewPhaseCompleteWithAssessment(t *testing.T) {
 			now := time.Now()
 
 			// Create phase with approved review artifact
+			reviewType := "review"
 			phaseState := &phasesSchema.Phase{
 				Status:     "in_progress",
 				Created_at: now,
@@ -346,10 +342,8 @@ func TestReviewPhaseCompleteWithAssessment(t *testing.T) {
 						Path:       "review-001.md",
 						Approved:   true,
 						Created_at: now,
-						Metadata: map[string]interface{}{
-							"type":       "review",
-							"assessment": tt.assessment,
-						},
+						Type:       &reviewType,
+						Assessment: &tt.assessment,
 					},
 				},
 				Tasks: []phasesSchema.Task{},
@@ -398,6 +392,10 @@ func TestReviewPhaseCompleteWithoutApprovedReview(t *testing.T) {
 	ctx := setupTestRepo(t)
 	now := time.Now()
 
+	reviewType := "review"
+	passAssessment := "pass"
+	otherType := "other"
+
 	tests := []struct {
 		name      string
 		artifacts []phasesSchema.Artifact
@@ -413,10 +411,8 @@ func TestReviewPhaseCompleteWithoutApprovedReview(t *testing.T) {
 					Path:       "review-001.md",
 					Approved:   false,
 					Created_at: now,
-					Metadata: map[string]interface{}{
-						"type":       "review",
-						"assessment": "pass",
-					},
+					Type:       &reviewType,
+					Assessment: &passAssessment,
 				},
 			},
 		},
@@ -427,22 +423,18 @@ func TestReviewPhaseCompleteWithoutApprovedReview(t *testing.T) {
 					Path:       "other.md",
 					Approved:   true,
 					Created_at: now,
-					Metadata: map[string]interface{}{
-						"type": "other",
-					},
+					Type:       &otherType,
 				},
 			},
 		},
 		{
-			name: "review artifact missing assessment metadata",
+			name: "review artifact missing assessment",
 			artifacts: []phasesSchema.Artifact{
 				{
 					Path:       "review-001.md",
 					Approved:   true,
 					Created_at: now,
-					Metadata: map[string]interface{}{
-						"type": "review",
-					},
+					Type:       &reviewType,
 				},
 			},
 		},
@@ -480,40 +472,30 @@ func TestStandardProjectInitialState(t *testing.T) {
 	now := time.Now()
 
 	// Create a fresh project state as would happen during initialization
-	state := &projects.StandardProjectState{
-		Statechart: struct {
-			Current_state string `json:"current_state"` //nolint:revive // matches JSON schema
-		}{
-			Current_state: "PlanningActive", // StandardProject's initial state
-		},
-		Project: struct {
-			Type         string    `json:"type"`
-			Name         string    `json:"name"`
-			Branch       string    `json:"branch"`
-			Description  string    `json:"description"`
-			Github_issue *int64    `json:"github_issue,omitempty"` //nolint:revive // matches JSON schema
-			Created_at   time.Time `json:"created_at"`              //nolint:revive // matches JSON schema
-			Updated_at   time.Time `json:"updated_at"`              //nolint:revive // matches JSON schema
-		}{
-			Type:        "standard",
-			Name:        "test",
-			Branch:      "test",
-			Description: "test",
-			Created_at:  now,
-			Updated_at:  now,
-		},
-		Phases: struct {
-			Planning       phasesSchema.Phase `json:"planning"`
-			Implementation phasesSchema.Phase `json:"implementation"`
-			Review         phasesSchema.Phase `json:"review"`
-			Finalize       phasesSchema.Phase `json:"finalize"`
-		}{
-			Planning:       phasesSchema.Phase{Status: "in_progress", Created_at: now, Enabled: true},
-			Implementation: phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: true},
-			Review:         phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: true},
-			Finalize:       phasesSchema.Phase{Status: "pending", Created_at: now, Enabled: true},
-		},
-	}
+	state := &projects.StandardProjectState{}
+	state.Statechart.Current_state = "PlanningActive" // StandardProject's initial state
+	state.Project.Type = "standard"
+	state.Project.Name = "test"
+	state.Project.Branch = "test"
+	state.Project.Description = "test"
+	state.Project.Created_at = now
+	state.Project.Updated_at = now
+
+	state.Phases.Planning.Status = "in_progress"
+	state.Phases.Planning.Enabled = true
+	state.Phases.Planning.Created_at = now
+
+	state.Phases.Implementation.Status = "pending"
+	state.Phases.Implementation.Enabled = true
+	state.Phases.Implementation.Created_at = now
+
+	state.Phases.Review.Status = "pending"
+	state.Phases.Review.Enabled = true
+	state.Phases.Review.Created_at = now
+
+	state.Phases.Finalize.Status = "pending"
+	state.Phases.Finalize.Enabled = true
+	state.Phases.Finalize.Created_at = now
 
 	// Create StandardProject
 	proj := New(state, ctx)
