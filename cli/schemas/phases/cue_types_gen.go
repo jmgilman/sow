@@ -6,8 +6,13 @@ import (
 	"time"
 )
 
+// GenericStatus defines the common phase status values that most project types use.
+// Project types can use this for their phases or define custom status enums per phase.
+type GenericStatus string
+
 // Phase is the universal schema for all phases in all project types.
 // What makes a phase unique is its guards, prompts, and which operations it supports.
+// NOTE: Project types will typically define their own phase types with additional fields.
 type Phase struct {
 	// Common metadata
 	Status string `json:"status"`
@@ -26,7 +31,7 @@ type Phase struct {
 
 	Tasks []Task `json:"tasks"`
 
-	// Phase-specific data (discovery_type, iteration, etc.)
+	// Escape hatch for unanticipated fields
 	Metadata map[string]any/* CUE top */ `json:"metadata,omitempty"`
 }
 
@@ -41,7 +46,13 @@ type Artifact struct {
 	// When artifact was created
 	Created_at time.Time `json:"created_at"`
 
-	// Phase-specific metadata (type, assessment, etc.)
+	// Artifact type (e.g., "task_list", "review", "documentation")
+	Type *string `json:"type,omitempty"`
+
+	// Review assessment result ("pass" or "fail")
+	Assessment *string `json:"assessment,omitempty"`
+
+	// Escape hatch for unanticipated fields
 	Metadata map[string]any/* CUE top */ `json:"metadata,omitempty"`
 }
 

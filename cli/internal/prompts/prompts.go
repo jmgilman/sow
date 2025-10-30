@@ -8,20 +8,9 @@ import (
 	"text/template"
 )
 
-// PromptID uniquely identifies a prompt template.
+// PromptID uniquely identifies a shared prompt template.
+// Project-specific prompts are defined in their respective packages.
 type PromptID string
-
-// Statechart prompt IDs - map to state machine states.
-const (
-	PromptNoProject               PromptID = "statechart.no_project"
-	PromptPlanningActive          PromptID = "statechart.planning_active"
-	PromptImplementationPlanning  PromptID = "statechart.implementation_planning"
-	PromptImplementationExecuting PromptID = "statechart.implementation_executing"
-	PromptReviewActive            PromptID = "statechart.review_active"
-	PromptFinalizeDocumentation   PromptID = "statechart.finalize_documentation"
-	PromptFinalizeChecks          PromptID = "statechart.finalize_checks"
-	PromptFinalizeDelete          PromptID = "statechart.finalize_delete"
-)
 
 // Command prompt IDs - Composable greeting system.
 const (
@@ -63,27 +52,29 @@ type Context interface {
 	ToMap() map[string]interface{}
 }
 
-// Registry manages all prompt templates.
-type Registry struct {
-	templates map[PromptID]*template.Template
+// Registry manages prompt templates with generic key type.
+// K must be a comparable type (typically string or a string-based type).
+type Registry[K comparable] struct {
+	templates map[K]*template.Template
 }
 
-// NewRegistry creates a new empty prompt registry.
-func NewRegistry() *Registry {
-	return &Registry{
-		templates: make(map[PromptID]*template.Template),
+// NewRegistry creates a new empty prompt registry with the specified key type.
+func NewRegistry[K comparable]() *Registry[K] {
+	return &Registry[K]{
+		templates: make(map[K]*template.Template),
 	}
 }
 
-// Register loads and parses a template from the embedded filesystem.
-func (r *Registry) Register(id PromptID, path string) error {
-	content, err := templatesFS.ReadFile(path)
+// RegisterFromFS loads and parses a template from the provided embedded filesystem.
+// This allows each registry to use its own embed.FS instance.
+func (r *Registry[K]) RegisterFromFS(fs embed.FS, id K, path string) error {
+	content, err := fs.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("failed to read template %s: %w", path, err)
 	}
 
 	// Create template with custom functions
-	tmpl, err := template.New(string(id)).Funcs(template.FuncMap{
+	tmpl, err := template.New(fmt.Sprint(id)).Funcs(template.FuncMap{
 		"join": func(sep string, elems []string) string {
 			return strings.Join(elems, sep)
 		},
@@ -96,44 +87,44 @@ func (r *Registry) Register(id PromptID, path string) error {
 	return nil
 }
 
+// Register loads and parses a template from the default shared embedded filesystem.
+// This is a convenience method for the shared prompts registry.
+// Project-specific registries should use RegisterFromFS with their own embed.FS.
+func (r *Registry[K]) Register(id K, path string) error {
+	return r.RegisterFromFS(templatesFS, id, path)
+}
+
 // Render renders a prompt template with the given context.
-func (r *Registry) Render(id PromptID, ctx Context) (string, error) {
+func (r *Registry[K]) Render(id K, ctx Context) (string, error) {
 	tmpl, ok := r.templates[id]
 	if !ok {
-		return "", fmt.Errorf("unknown prompt ID: %s", id)
+		return "", fmt.Errorf("unknown prompt ID: %v", id)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, ctx.ToMap()); err != nil {
-		return "", fmt.Errorf("failed to render prompt %s: %w", id, err)
+		return "", fmt.Errorf("failed to render prompt %v: %w", id, err)
 	}
 
 	return buf.String(), nil
 }
 
-// Embed all prompt templates from the templates/ directory
+// Embed shared prompt templates from the templates/ directory.
+// Project-specific templates are embedded in their respective packages.
 //
-//go:embed templates/**/*.md templates/greet/*.md templates/greet/states/*.md templates/commands/*.md templates/modes/*.md templates/guidance/*.md templates/guidance/design/*.md
+//go:embed templates/greet/*.md templates/greet/states/*.md templates/commands/*.md templates/modes/*.md templates/guidance/*.md templates/guidance/design/*.md
 var templatesFS embed.FS
 
 // Default registry, initialized at startup.
-var defaultRegistry *Registry
+// This registry uses PromptID as the key type for shared prompts.
+var defaultRegistry *Registry[PromptID]
 
 func init() {
-	defaultRegistry = NewRegistry()
+	defaultRegistry = NewRegistry[PromptID]()
 
-	// Map prompt IDs to their template files
+	// Map shared prompt IDs to their template files.
+	// Project-specific prompts are registered in their own packages.
 	promptFiles := map[PromptID]string{
-		// Statechart prompts
-		PromptNoProject:               "templates/statechart/no_project.md",
-		PromptPlanningActive:          "templates/statechart/planning_active.md",
-		PromptImplementationPlanning:  "templates/statechart/implementation_planning.md",
-		PromptImplementationExecuting: "templates/statechart/implementation_executing.md",
-		PromptReviewActive:            "templates/statechart/review_active.md",
-		PromptFinalizeDocumentation:   "templates/statechart/finalize_documentation.md",
-		PromptFinalizeChecks:          "templates/statechart/finalize_checks.md",
-		PromptFinalizeDelete:          "templates/statechart/finalize_delete.md",
-
 		// Composable greeting system
 		PromptGreetBase:          "templates/greet/base.md",
 		PromptGreetStateUninit:   "templates/greet/states/uninitialized.md",
@@ -160,15 +151,15 @@ func init() {
 		PromptGuidanceDesignC4Diagrams: "templates/guidance/design/c4-diagrams.md",
 	}
 
-	// Load and parse all templates
+	// Load and parse all shared templates
 	for id, path := range promptFiles {
 		if err := defaultRegistry.Register(id, path); err != nil {
-			panic(fmt.Sprintf("failed to register prompt %s: %v", id, err))
+			panic(fmt.Sprintf("failed to register shared prompt %s: %v", id, err))
 		}
 	}
 }
 
-// Render renders a prompt using the default registry.
+// Render renders a prompt using the default shared prompts registry.
 func Render(id PromptID, ctx Context) (string, error) {
 	return defaultRegistry.Render(id, ctx)
 }

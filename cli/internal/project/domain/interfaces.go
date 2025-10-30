@@ -55,7 +55,7 @@ type Phase interface {
 	// Artifact operations (discovery, design, review)
 	// Returns schema types directly - no wrapper needed
 	AddArtifact(path string, opts ...ArtifactOption) error
-	ApproveArtifact(path string) error
+	ApproveArtifact(path string) (*PhaseOperationResult, error)
 	ListArtifacts() []*phases.Artifact
 
 	// Task operations (implementation only)
@@ -63,14 +63,14 @@ type Phase interface {
 	AddTask(name string, opts ...TaskOption) (*Task, error)
 	GetTask(id string) (*Task, error)
 	ListTasks() []*Task
-	ApproveTasks() error
+	ApproveTasks() (*PhaseOperationResult, error)
 
 	// Generic field access (for metadata)
-	Set(field string, value interface{}) error
+	Set(field string, value interface{}) (*PhaseOperationResult, error)
 	Get(field string) (interface{}, error)
 
 	// Lifecycle
-	Complete() error
+	Complete() (*PhaseOperationResult, error)
 	Skip() error
 	Enable(opts ...PhaseOption) error
 }
@@ -80,7 +80,23 @@ type ArtifactOption func(*ArtifactConfig)
 
 // ArtifactConfig holds configuration for creating artifacts.
 type ArtifactConfig struct {
-	Metadata map[string]interface{}
+	Type       *string
+	Assessment *string
+	Metadata   map[string]interface{}
+}
+
+// WithType sets the artifact type.
+func WithType(artifactType *string) ArtifactOption {
+	return func(c *ArtifactConfig) {
+		c.Type = artifactType
+	}
+}
+
+// WithAssessment sets the artifact assessment.
+func WithAssessment(assessment *string) ArtifactOption {
+	return func(c *ArtifactConfig) {
+		c.Assessment = assessment
+	}
 }
 
 // WithMetadata adds metadata to an artifact.

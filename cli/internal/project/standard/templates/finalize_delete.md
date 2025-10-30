@@ -15,10 +15,10 @@ WORKFLOW:
   4. Create pull request via GitHub CLI
 
 NEXT ACTIONS:
-  1. Verify git status is clean (all work committed)
+  1. Verify all work is committed: git status
   2. Run: sow agent delete
   3. Commit deletion: git add -A && git commit -m "chore: remove project state"
-  4. Push: git push
+  4. Push to remote: git push -u origin HEAD
   5. Create pull request:
 
      Write a comprehensive PR description summarizing:
@@ -27,15 +27,20 @@ NEXT ACTIONS:
        - Testing performed
        - Any important notes for reviewers
 
-     Then create the PR:
-       echo "<your-pr-description>" | sow agent create-pr
+     Then create the PR (choose one method):
+       sow agent create-pr --body "$(cat <<'EOF'
+       <your-pr-description>
+       EOF
+       )"
+
+       OR: echo "<your-pr-description>" | sow agent create-pr
 
      The command will:
-       - Auto-generate title from project name
+       - Auto-generate title from project name and description
        - Add "Closes #<number>" if issue-linked
-       - Add sow footer
+       - Add sow footer automatically
        - Create PR via gh CLI
-       - Output the PR URL
+       - Store and output the PR URL
 
 PR DESCRIPTION EXAMPLE:
   ## Summary
@@ -56,11 +61,20 @@ PR DESCRIPTION EXAMPLE:
   - Integration tests verify issue linking workflow
   - Manual testing confirmed end-to-end flow
 
-FALLBACK (if gh unavailable):
-  - The create-pr command will fail with helpful error
-  - Instruct user to create PR manually via GitHub UI
-  - Provide your written description
-  - Remind them to include "Closes #<number>" for issue-linked projects
+FALLBACK (if gh CLI unavailable):
+  If create-pr fails:
+  1. Output your PR description to the user
+  2. Inform them to create PR manually at GitHub web UI
+  3. Remind them to:
+     - Use project name/description as title
+     - Include "Closes #<number>" if issue-linked
+     - Add footer: "🤖 Generated with sow"
+
+PROJECT COMPLETION:
+  After PR is created successfully:
+  - Project lifecycle is complete
+  - State machine reaches terminal state
+  - Branch is ready for human code review and merge
 
 Reference: PHASES/FINALIZE.md
 

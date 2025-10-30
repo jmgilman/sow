@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/logging"
-	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/schemas"
 )
 
@@ -55,10 +54,11 @@ func (t *Task) State() (*schemas.TaskState, error) {
 func (t *Task) SetStatus(status string) error {
 	// Validate status
 	validStatuses := map[string]bool{
-		"pending":     true,
-		"in_progress": true,
-		"completed":   true,
-		"abandoned":   true,
+		"pending":      true,
+		"in_progress":  true,
+		"needs_review": true,
+		"completed":    true,
+		"abandoned":    true,
 	}
 
 	if !validStatuses[status] {
@@ -85,8 +85,16 @@ func (t *Task) SetStatus(status string) error {
 
 	// Set timestamps based on status
 	now := time.Now()
-	if status == "in_progress" && taskState.Task.Started_at == nil {
-		taskState.Task.Started_at = &now
+	if status == "in_progress" {
+		// If transitioning from needs_review back to in_progress (new iteration after feedback),
+		// clear completed_at. Keep started_at from original iteration.
+		if taskState.Task.Status == "needs_review" || taskState.Task.Completed_at != nil {
+			taskState.Task.Completed_at = nil
+		}
+		// Set started_at if this is the first time entering in_progress
+		if taskState.Task.Started_at == nil {
+			taskState.Task.Started_at = &now
+		}
 	}
 	if (status == "completed" || status == "abandoned") && taskState.Task.Completed_at == nil {
 		taskState.Task.Completed_at = &now
@@ -101,6 +109,7 @@ func (t *Task) SetStatus(status string) error {
 	}
 
 	// Check if all tasks are now complete
+	// Note: needs_review tasks are NOT considered complete
 	allComplete := true
 	for _, task := range projectState.Phases.Implementation.Tasks {
 		if task.Status != "completed" && task.Status != "abandoned" {
@@ -116,7 +125,8 @@ func (t *Task) SetStatus(status string) error {
 		projectState.Phases.Implementation.Completed_at = &now
 
 		// Fire state machine event to transition to review
-		if err := t.Project.Machine().Fire(statechart.EventAllTasksComplete); err == nil {
+		// Use string constant to avoid import cycle (domain -> standard -> domain)
+		if err := t.Project.Machine().Fire("all_tasks_complete"); err == nil {
 			// Transition succeeded - set review phase status
 			projectState.Phases.Review.Status = "in_progress"
 			if projectState.Phases.Review.Started_at == nil {

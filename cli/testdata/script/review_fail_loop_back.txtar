@@ -1,0 +1,221 @@
+# Test: Review Fail Loop Back to Implementation
+# Purpose: Test that review failure assessment correctly transitions back to implementation
+# Coverage: EventReviewFail transition, review assessment metadata, state machine loop-back
+# Regression: Ensures review.Complete() fires EventReviewFail when assessment=fail
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/review-fail-test
+exec sow init
+exec sow agent init review-fail-test --description 'Test review fail loop back'
+
+# =====================================
+# Complete Planning Phase
+# =====================================
+
+# Add and approve task list to complete planning
+exec mkdir -p .sow/project/artifacts
+exec sh -c 'echo "# Task List" > .sow/project/artifacts/tasks.md'
+exec sh -c 'echo "- [ ] Implement feature X" >> .sow/project/artifacts/tasks.md'
+exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
+exec sow agent artifact approve project/artifacts/tasks.md
+exec sow agent complete
+stderr '✓ Completed planning phase'
+
+# Verify in ImplementationPlanning
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# =====================================
+# Create and Complete Tasks (First Implementation)
+# =====================================
+
+# Add tasks and approve
+exec sow agent task add 'Implement feature X' --description 'Core implementation'
+exec sow agent task approve
+stderr '✓ Approved task plan'
+
+# Verify transition to ImplementationExecuting
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationExecuting'
+
+# Complete the task
+exec sow agent task update 010 --status completed
+stderr 'Transitioning to review'
+
+# Verify transition to ReviewActive
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+
+# =====================================
+# Test: Review FAIL Assessment - Should Loop Back
+# =====================================
+
+# Create review report with FAIL assessment
+exec mkdir -p .sow/project/phases/review/reports
+exec sh -c 'echo "# Review Report - Iteration 1" > .sow/project/phases/review/reports/001-fail.md'
+exec sh -c 'echo "" >> .sow/project/phases/review/reports/001-fail.md'
+exec sh -c 'echo "## Issues Found" >> .sow/project/phases/review/reports/001-fail.md'
+exec sh -c 'echo "- Feature X is missing error handling" >> .sow/project/phases/review/reports/001-fail.md'
+exec sh -c 'echo "- Unit tests not comprehensive enough" >> .sow/project/phases/review/reports/001-fail.md'
+
+# Add review artifact with assessment=fail
+exec sow agent artifact add project/phases/review/reports/001-fail.md --metadata type=review --metadata assessment=fail --metadata iteration=1
+
+# Human approves the review artifact
+exec sow agent artifact approve project/phases/review/reports/001-fail.md
+
+# Complete review phase - should fire EventReviewFail
+exec sow agent complete
+stderr '✓ Completed review phase'
+
+# CRITICAL: Verify transition BACK to ImplementationPlanning (not forward to finalize!)
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# Verify we did NOT transition to finalize
+exec cat .sow/project/state.yaml
+! stdout 'current_state: FinalizeDocumentation'
+
+# =====================================
+# Second Implementation Iteration
+# =====================================
+
+# Verify we can add more tasks in this second iteration
+exec sow agent task add 'Add error handling' --description 'Address review feedback'
+exec sow agent task add 'Expand unit tests' --description 'Address review feedback'
+stderr '✓ Created task'
+
+# Approve new task plan
+exec sow agent task approve
+
+# Verify in ImplementationExecuting
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationExecuting'
+
+# Complete both new tasks
+exec sow agent task update 020 --status completed
+exec sow agent task update 030 --status completed
+
+# Should transition back to review
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+
+# =====================================
+# Test: Review PASS Assessment - Should Go to Finalize
+# =====================================
+
+# Create second review report with PASS assessment
+exec sh -c 'echo "# Review Report - Iteration 2" > .sow/project/phases/review/reports/002-pass.md'
+exec sh -c 'echo "" >> .sow/project/phases/review/reports/002-pass.md'
+exec sh -c 'echo "## Assessment: PASS" >> .sow/project/phases/review/reports/002-pass.md'
+exec sh -c 'echo "All issues from iteration 1 have been addressed." >> .sow/project/phases/review/reports/002-pass.md'
+
+# Add review artifact with assessment=pass
+exec sow agent artifact add project/phases/review/reports/002-pass.md --metadata type=review --metadata assessment=pass --metadata iteration=2
+
+# Human approves the review artifact
+exec sow agent artifact approve project/phases/review/reports/002-pass.md
+
+# Complete review phase - should fire EventReviewPass
+exec sow agent complete
+stderr '✓ Completed review phase'
+
+# CRITICAL: Verify transition FORWARD to FinalizeDocumentation (not back to implementation!)
+exec cat .sow/project/state.yaml
+stdout 'current_state: FinalizeDocumentation'
+
+# Verify we did NOT loop back to implementation
+exec cat .sow/project/state.yaml
+! stdout 'current_state: ImplementationPlanning'
+
+# =====================================
+# Test: Invalid Assessment Value
+# =====================================
+
+# Reset to test error case
+exec sow agent complete
+exec sow agent complete
+exec sow agent delete --force
+exec sow agent init invalid-assessment-test --description 'Test invalid assessment'
+
+# Setup through to review
+exec mkdir -p .sow/project/artifacts
+exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
+exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
+exec sow agent artifact approve project/artifacts/tasks.md
+exec sow agent complete
+exec sow agent task add 'Task' --description 'Test'
+exec sow agent task approve
+exec sow agent task update 010 --status completed
+
+# Create review with invalid assessment
+exec mkdir -p .sow/project/phases/review/reports
+exec sh -c 'echo "# Review" > .sow/project/phases/review/reports/invalid.md'
+exec sow agent artifact add project/phases/review/reports/invalid.md --metadata type=review --metadata assessment=maybe
+exec sow agent artifact approve project/phases/review/reports/invalid.md
+
+# Complete should fail with error
+! exec sow agent complete
+stderr 'invalid assessment value: maybe'
+
+# =====================================
+# Test: Missing Assessment Metadata
+# =====================================
+
+# Delete and create new project
+exec sow agent delete --force
+exec sow agent init missing-assessment-test --description 'Test missing assessment'
+
+# Setup through to review
+exec mkdir -p .sow/project/artifacts
+exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
+exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
+exec sow agent artifact approve project/artifacts/tasks.md
+exec sow agent complete
+exec sow agent task add 'Task' --description 'Test'
+exec sow agent task approve
+exec sow agent task update 010 --status completed
+
+# Create review without assessment metadata
+exec mkdir -p .sow/project/phases/review/reports
+exec sh -c 'echo "# Review" > .sow/project/phases/review/reports/no-assessment.md'
+exec sow agent artifact add project/phases/review/reports/no-assessment.md --metadata type=review
+exec sow agent artifact approve project/phases/review/reports/no-assessment.md
+
+# Complete should fail with error
+! exec sow agent complete
+stderr 'review artifact missing assessment'
+
+# =====================================
+# Test: No Review Artifact
+# =====================================
+
+# Delete and create new project
+exec sow agent delete --force
+exec sow agent init no-review-test --description 'Test no review artifact'
+
+# Setup through to review
+exec mkdir -p .sow/project/artifacts
+exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
+exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
+exec sow agent artifact approve project/artifacts/tasks.md
+exec sow agent complete
+exec sow agent task add 'Task' --description 'Test'
+exec sow agent task approve
+exec sow agent task update 010 --status completed
+
+# Try to complete without any review artifact
+! exec sow agent complete
+stderr 'no approved review artifact found'
+
+# =====================================
+# Cleanup
+# =====================================
+exec sow agent delete --force
+! exists .sow/project

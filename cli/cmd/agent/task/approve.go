@@ -54,12 +54,24 @@ Example:
 			}
 
 			// Approve tasks via Phase interface
-			err = phase.ApproveTasks()
+			result, err := phase.ApproveTasks()
 			if errors.Is(err, project.ErrNotSupported) {
 				return fmt.Errorf("phase %s does not support task approval", phase.Name())
 			}
 			if err != nil {
 				return fmt.Errorf("failed to approve tasks: %w", err)
+			}
+
+			// Fire event if phase returned one
+			if result.Event != "" {
+				machine := proj.Machine()
+				if err := machine.Fire(result.Event); err != nil {
+					return fmt.Errorf("failed to fire event %s: %w", result.Event, err)
+				}
+				// Save after transition
+				if err := proj.Save(); err != nil {
+					return fmt.Errorf("failed to save project state: %w", err)
+				}
 			}
 
 			cmd.Printf("\n✓ Approved task plan\n")

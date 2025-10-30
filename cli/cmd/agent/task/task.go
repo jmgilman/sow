@@ -31,7 +31,7 @@ and listing. Tasks are the atomic units of work within the implementation phase.
 Tasks follow gap numbering (010, 020, 030...) to allow insertion of new tasks
 between existing ones if needed. Each task has:
   - A unique ID (gap-numbered: 010, 020, 030...)
-  - A status (pending, in_progress, completed, abandoned)
+  - A status (pending, in_progress, needs_review, completed, abandoned)
   - An assigned agent type (e.g., "implementer", "reviewer")
   - Dependencies on other tasks (optional)
   - Iteration tracking and feedback history`,
@@ -43,6 +43,7 @@ between existing ones if needed. Each task has:
 	cmd.AddCommand(NewListCmd())
 	cmd.AddCommand(NewStatusCmd())
 	cmd.AddCommand(NewUpdateCmd())
+	cmd.AddCommand(NewReviewCmd())
 	cmd.AddCommand(newStateCmd())
 	cmd.AddCommand(newFeedbackCmd())
 

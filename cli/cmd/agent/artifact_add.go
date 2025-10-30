@@ -72,18 +72,45 @@ Examples:
 				return fmt.Errorf("no active phase found")
 			}
 
-			// Parse metadata
+			// Parse metadata and extract typed fields
 			metadata := make(map[string]interface{})
+			var artifactType *string
+			var assessment *string
+
 			for _, pair := range metadataFlags {
 				parts := strings.SplitN(pair, "=", 2)
 				if len(parts) != 2 {
 					return fmt.Errorf("invalid metadata format: %s (use key=value)", pair)
 				}
-				metadata[parts[0]] = parts[1]
+				key := parts[0]
+				value := parts[1]
+
+				// Extract typed fields
+				switch key {
+				case "type":
+					artifactType = &value
+				case "assessment":
+					assessment = &value
+				default:
+					// Everything else goes in metadata
+					metadata[key] = value
+				}
+			}
+
+			// Build options
+			opts := []domain.ArtifactOption{}
+			if artifactType != nil {
+				opts = append(opts, domain.WithType(artifactType))
+			}
+			if assessment != nil {
+				opts = append(opts, domain.WithAssessment(assessment))
+			}
+			if len(metadata) > 0 {
+				opts = append(opts, domain.WithMetadata(metadata))
 			}
 
 			// Add artifact via Phase interface
-			err = phase.AddArtifact(path, domain.WithMetadata(metadata))
+			err = phase.AddArtifact(path, opts...)
 			if errors.Is(err, project.ErrNotSupported) {
 				return fmt.Errorf("phase %s does not support artifacts", phase.Name())
 			}
@@ -92,6 +119,12 @@ Examples:
 			}
 
 			cmd.Printf("\n✓ Added artifact to %s phase: %s\n", phase.Name(), path)
+			if artifactType != nil {
+				cmd.Printf("  Type: %s\n", *artifactType)
+			}
+			if assessment != nil {
+				cmd.Printf("  Assessment: %s\n", *assessment)
+			}
 			if len(metadata) > 0 {
 				cmd.Printf("  Metadata: %v\n", metadata)
 			}

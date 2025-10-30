@@ -1,7 +1,6 @@
 package statechart
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/sow"
@@ -19,23 +18,18 @@ type Machine struct {
 
 // NewMachine creates a new state machine for project lifecycle management.
 // The initial state is determined from the project state (or NoProject if nil).
+//
+// Deprecated: Use MachineBuilder to construct state machines. This function is only
+// used by tests and may be removed in the future.
 func NewMachine(projectState *schemas.ProjectState) *Machine {
-	return NewMachineAt(NoProject, projectState)
-}
-
-// NewMachineAt creates a new state machine starting at a specific state.
-// This is useful when loading state from disk where the state is explicitly stored.
-func NewMachineAt(initialState State, projectState *schemas.ProjectState) *Machine {
-	sm := stateless.NewStateMachine(initialState)
-	m := &Machine{
+	sm := stateless.NewStateMachine(NoProject)
+	return &Machine{
 		sm:              sm,
 		projectState:    projectState,
-		suppressPrompts: false, // Show prompts by default
+		suppressPrompts: false,
 	}
-
-	m.configure()
-	return m
 }
+
 
 // ProjectState returns the machine's project state for modification.
 func (m *Machine) ProjectState() *schemas.ProjectState {
@@ -57,132 +51,6 @@ func (m *Machine) SuppressPrompts(suppress bool) {
 	m.suppressPrompts = suppress
 }
 
-// configure sets up all state transitions, guards, and entry actions.
-func (m *Machine) configure() {
-	// NoProject state
-	m.sm.Configure(NoProject).
-		Permit(EventProjectInit, PlanningActive).
-		OnEntry(m.onEntry(NoProject))
-
-	// PlanningActive state
-	// Allow deletion from any state to support abandoning projects
-	m.sm.Configure(PlanningActive).
-		Permit(EventCompletePlanning, ImplementationPlanning, m.planningComplete).
-		Permit(EventProjectDelete, NoProject).
-		OnEntry(m.onEntry(PlanningActive))
-
-	// ImplementationPlanning state
-	m.sm.Configure(ImplementationPlanning).
-		Permit(EventTaskCreated, ImplementationExecuting, m.hasAtLeastOneTask).
-		Permit(EventTasksApproved, ImplementationExecuting, m.tasksApproved).
-		Permit(EventProjectDelete, NoProject).
-		OnEntry(m.onEntry(ImplementationPlanning))
-
-	// ImplementationExecuting state
-	m.sm.Configure(ImplementationExecuting).
-		Permit(EventAllTasksComplete, ReviewActive, m.allTasksComplete).
-		Permit(EventProjectDelete, NoProject).
-		OnEntry(m.onEntry(ImplementationExecuting))
-
-	// ReviewActive state
-	m.sm.Configure(ReviewActive).
-		Permit(EventReviewFail, ImplementationPlanning, m.latestReviewApproved). // Loop back to re-plan
-		Permit(EventReviewPass, FinalizeDocumentation, m.latestReviewApproved).
-		Permit(EventProjectDelete, NoProject).
-		OnEntry(m.onEntry(ReviewActive))
-
-	// FinalizeDocumentation state
-	m.sm.Configure(FinalizeDocumentation).
-		Permit(EventDocumentationDone, FinalizeChecks, m.documentationAssessed).
-		Permit(EventProjectDelete, NoProject).
-		OnEntry(m.onEntry(FinalizeDocumentation))
-
-	// FinalizeChecks state
-	m.sm.Configure(FinalizeChecks).
-		Permit(EventChecksDone, FinalizeDelete, m.checksAssessed).
-		Permit(EventProjectDelete, NoProject).
-		OnEntry(m.onEntry(FinalizeChecks))
-
-	// FinalizeDelete state
-	m.sm.Configure(FinalizeDelete).
-		Permit(EventProjectDelete, NoProject, m.projectDeleted).
-		OnEntry(m.onEntry(FinalizeDelete))
-}
-
-// onEntry creates an entry action that outputs the contextual prompt for a state.
-func (m *Machine) onEntry(state State) func(context.Context, ...any) error {
-	return func(_ context.Context, _ ...any) error {
-		// Skip entirely if prompts are suppressed (avoids any template execution)
-		if m.suppressPrompts {
-			return nil
-		}
-
-		prompt := GeneratePrompt(PromptContext{
-			State:        state,
-			ProjectState: m.projectState,
-		})
-		fmt.Println(prompt)
-		return nil
-	}
-}
-
-// Guard wrapper functions
-
-func (m *Machine) planningComplete(_ context.Context, _ ...any) bool {
-	if m.projectState == nil {
-		return false
-	}
-	return PlanningComplete(m.projectState.Phases.Planning)
-}
-
-func (m *Machine) hasAtLeastOneTask(_ context.Context, _ ...any) bool {
-	if m.projectState == nil {
-		return false
-	}
-	return HasAtLeastOneTask(m.projectState)
-}
-
-func (m *Machine) tasksApproved(_ context.Context, _ ...any) bool {
-	if m.projectState == nil {
-		return false
-	}
-	return TasksApproved(m.projectState)
-}
-
-func (m *Machine) allTasksComplete(_ context.Context, _ ...any) bool {
-	if m.projectState == nil {
-		return false
-	}
-	return AllTasksComplete(m.projectState)
-}
-
-func (m *Machine) documentationAssessed(_ context.Context, _ ...any) bool {
-	if m.projectState == nil {
-		return false
-	}
-	return DocumentationAssessed(m.projectState)
-}
-
-func (m *Machine) checksAssessed(_ context.Context, _ ...any) bool {
-	if m.projectState == nil {
-		return false
-	}
-	return ChecksAssessed(m.projectState)
-}
-
-func (m *Machine) latestReviewApproved(_ context.Context, _ ...any) bool {
-	if m.projectState == nil {
-		return false
-	}
-	return LatestReviewApproved(m.projectState)
-}
-
-func (m *Machine) projectDeleted(_ context.Context, _ ...any) bool {
-	if m.projectState == nil {
-		return false
-	}
-	return ProjectDeleted(m.projectState)
-}
 
 // Fire triggers an event, causing a state transition if valid.
 func (m *Machine) Fire(event Event) error {

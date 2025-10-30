@@ -56,8 +56,21 @@ Example:
 			}
 
 			// Complete the phase via Phase interface
-			if err := phase.Complete(); err != nil {
+			result, err := phase.Complete()
+			if err != nil {
 				return fmt.Errorf("failed to complete phase: %w", err)
+			}
+
+			// Fire event if phase returned one
+			if result.Event != "" {
+				machine := proj.Machine()
+				if err := machine.Fire(result.Event); err != nil {
+					return fmt.Errorf("failed to fire event %s: %w", result.Event, err)
+				}
+				// Save after transition
+				if err := proj.Save(); err != nil {
+					return fmt.Errorf("failed to save project state: %w", err)
+				}
 			}
 
 			cmd.Printf("\n✓ Completed %s phase\n", phase.Name())

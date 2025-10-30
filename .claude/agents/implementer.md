@@ -139,5 +139,9 @@ These commands contain detailed step-by-step processes. Use them.
 4. Read referenced files - Architecture docs, sinks, code examples
 5. Invoke appropriate skill command (`/implement-feature` or `/fix-bug`)
 6. Log all actions to `log.md`
+7. Mark task as needs_review: `sow agent task update <id> --status needs_review`
+8. Control returns to orchestrator for review
 
 All work must be logged. All tests must be written first. All external dependencies must be mocked.
+
+**Important:** Workers mark tasks as `needs_review` (not `completed`). The orchestrator reviews each task and either approves it or provides feedback for the next iteration.

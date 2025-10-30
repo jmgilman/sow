@@ -16,7 +16,7 @@ func NewUpdateCmd() *cobra.Command {
 		Long: `Update properties of an existing task.
 
 Currently supports updating:
-  - Status (pending, in_progress, completed, abandoned)
+  - Status (pending, in_progress, needs_review, completed, abandoned)
 
 Status transitions automatically update timestamps:
   - in_progress: Sets started_at if not already set
@@ -40,7 +40,7 @@ Examples:
 	}
 
 	// Flags
-	cmd.Flags().StringP("status", "s", "", "New task status (pending, in_progress, completed, abandoned)")
+	cmd.Flags().StringP("status", "s", "", "New task status (pending, in_progress, needs_review, completed, abandoned)")
 
 	return cmd
 }

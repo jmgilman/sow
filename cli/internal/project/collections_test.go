@@ -7,11 +7,13 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/jmgilman/sow/cli/internal/project/domain"
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
+	projectsSchema "github.com/jmgilman/sow/cli/schemas/projects"
 )
 
 // setupTestRepo creates a temporary directory with an initialized git repository
@@ -346,7 +348,7 @@ func TestTaskCollectionList(t *testing.T) {
 	}
 }
 
-// TestTaskCollectionApprove verifies task approval sets metadata.
+// TestTaskCollectionApprove verifies task approval sets typed field.
 func TestTaskCollectionApprove(t *testing.T) {
 	ctx := setupTestRepo(t)
 	now := time.Now()
@@ -370,9 +372,10 @@ func TestTaskCollectionApprove(t *testing.T) {
 		t.Fatalf("Failed to approve tasks: %v", err)
 	}
 
-	// Verify metadata was set
-	if approved, ok := phaseState.Metadata["tasks_approved"].(bool); !ok || !approved {
-		t.Error("Expected tasks_approved metadata to be true")
+	// Verify typed field was set using unsafe cast (same as production code)
+	implPhase := (*projectsSchema.ImplementationPhase)(unsafe.Pointer(phaseState))
+	if implPhase.Tasks_approved == nil || !*implPhase.Tasks_approved {
+		t.Error("Expected Tasks_approved typed field to be true")
 	}
 
 	// Verify status changed to in_progress

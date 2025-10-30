@@ -3,12 +3,13 @@ package standard
 import (
 	"fmt"
 	"time"
+	"unsafe"
 
 	"github.com/jmgilman/sow/cli/internal/project"
-	"github.com/jmgilman/sow/cli/internal/project/statechart"
-	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/internal/project/domain"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
+	"github.com/jmgilman/sow/cli/schemas/projects"
 )
 
 // ReviewPhase implements the review phase for standard projects.
@@ -55,11 +56,11 @@ func (p *ReviewPhase) AddArtifact(path string, opts ...domain.ArtifactOption) er
 }
 
 // ApproveArtifact approves an artifact in the review phase.
-func (p *ReviewPhase) ApproveArtifact(path string) error {
+func (p *ReviewPhase) ApproveArtifact(path string) (*domain.PhaseOperationResult, error) {
 	if err := p.artifacts.Approve(path); err != nil {
-		return fmt.Errorf("failed to approve artifact: %w", err)
+		return nil, fmt.Errorf("failed to approve artifact: %w", err)
 	}
-	return nil
+	return domain.NoEvent(), nil
 }
 
 // ListArtifacts returns all artifacts in the review phase.
@@ -83,17 +84,20 @@ func (p *ReviewPhase) ListTasks() []*domain.Task {
 }
 
 // ApproveTasks is not supported in the review phase.
-func (p *ReviewPhase) ApproveTasks() error {
-	return project.ErrNotSupported
+func (p *ReviewPhase) ApproveTasks() (*domain.PhaseOperationResult, error) {
+	return nil, project.ErrNotSupported
 }
 
 // Set sets a metadata field in the review phase.
-func (p *ReviewPhase) Set(field string, value interface{}) error {
+func (p *ReviewPhase) Set(field string, value interface{}) (*domain.PhaseOperationResult, error) {
 	if p.state.Metadata == nil {
 		p.state.Metadata = make(map[string]interface{})
 	}
 	p.state.Metadata[field] = value
-	return p.project.Save()
+	if err := p.project.Save(); err != nil {
+		return nil, err
+	}
+	return domain.NoEvent(), nil
 }
 
 // Get retrieves a metadata field from the review phase.
@@ -109,18 +113,48 @@ func (p *ReviewPhase) Get(field string) (interface{}, error) {
 }
 
 // Complete marks the review phase as completed.
-func (p *ReviewPhase) Complete() error {
+// The event fired depends on the assessment of the latest approved review artifact:
+// - "pass" fires EventReviewPass (transitions to FinalizeDocumentation)
+// - "fail" fires EventReviewFail (transitions back to ImplementationPlanning).
+func (p *ReviewPhase) Complete() (*domain.PhaseOperationResult, error) {
+	// Find the latest approved review artifact
+	var latestReview *phasesSchema.Artifact
+	for i := len(p.state.Artifacts) - 1; i >= 0; i-- {
+		artifact := &p.state.Artifacts[i]
+		if artifact.Type != nil && *artifact.Type == "review" && artifact.Approved {
+			latestReview = artifact
+			break
+		}
+	}
+
+	if latestReview == nil {
+		return nil, fmt.Errorf("cannot complete review: no approved review artifact found")
+	}
+
+	// Extract assessment from typed field
+	if latestReview.Assessment == nil {
+		return nil, fmt.Errorf("cannot complete review: review artifact missing assessment")
+	}
+	assessment := *latestReview.Assessment
+
 	// Update status and timestamps
 	p.state.Status = "completed"
 	now := time.Now()
 	p.state.Completed_at = &now
 
-	// Fire state machine event
-	if err := p.project.Machine().Fire(statechart.EventReviewPass); err != nil {
-		return fmt.Errorf("failed to fire review pass event: %w", err)
+	if err := p.project.Save(); err != nil {
+		return nil, err
 	}
 
-	return p.project.Save()
+	// Return appropriate event based on assessment
+	switch assessment {
+	case "pass":
+		return domain.WithEvent(EventReviewPass), nil
+	case "fail":
+		return domain.WithEvent(EventReviewFail), nil
+	default:
+		return nil, fmt.Errorf("invalid assessment value: %s (must be 'pass' or 'fail')", assessment)
+	}
 }
 
 // Skip is not supported as review phase is required.
@@ -137,22 +171,19 @@ func (p *ReviewPhase) Enable(_ ...domain.PhaseOption) error {
 func (p *ReviewPhase) AllReviewsApproved() bool {
 	// Check for artifacts with type=review that aren't approved
 	for _, artifact := range p.state.Artifacts {
-		if artifactType, ok := artifact.Metadata["type"].(string); ok {
-			if artifactType == "review" && !artifact.Approved {
-				return false
-			}
+		if artifact.Type != nil && *artifact.Type == "review" && !artifact.Approved {
+			return false
 		}
 	}
 	return true
 }
 
-// Iteration returns the current iteration count from metadata.
+// Iteration returns the current iteration count from typed field.
 func (p *ReviewPhase) Iteration() int {
-	if p.state.Metadata == nil {
-		return 1
-	}
-	if iter, ok := p.state.Metadata["iteration"].(int); ok {
-		return iter
+	// Get iteration from typed field in review phase
+	reviewPhase := (*projects.ReviewPhase)(unsafe.Pointer(p.state))
+	if reviewPhase.Iteration != nil {
+		return *reviewPhase.Iteration
 	}
 	return 1
 }

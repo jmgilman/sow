@@ -39,44 +39,6 @@ func LoadProjectState(fs sow.FS) (*schemas.ProjectState, State, error) {
 	return &state, currentState, nil
 }
 
-// LoadFS reads the state from disk using the provided filesystem.
-// If no project exists, returns a machine in NoProject state.
-// If fs is nil, falls back to using os.ReadFile directly.
-//
-// Deprecated: Use LoadProjectState() with types.DetectProjectType() and BuildStateMachine() instead.
-// This function is kept for backward compatibility.
-func LoadFS(fs sow.FS) (*Machine, error) {
-	var data []byte
-	var err error
-
-	// Use filesystem if available, otherwise use os
-	if fs != nil {
-		data, err = fs.ReadFile(stateFilePathChrooted)
-	} else {
-		data, err = os.ReadFile(stateFilePath)
-	}
-
-	if err != nil {
-		if os.IsNotExist(err) || err.Error() == "file does not exist" {
-			// No project yet - start with NoProject state
-			m := NewMachine(nil)
-			m.fs = fs
-			return m, nil
-		}
-		return nil, fmt.Errorf("failed to read state file: %w", err)
-	}
-
-	var state schemas.ProjectState
-	if err := yaml.Unmarshal(data, &state); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal state: %w", err)
-	}
-
-	// Create machine starting from the stored state
-	currentState := State(state.Statechart.Current_state)
-	m := NewMachineAt(currentState, &state)
-	m.fs = fs
-	return m, nil
-}
 
 // NewProjectState creates an initialized project state with default values.
 // This is a helper function for creating new projects.
@@ -86,8 +48,8 @@ func NewProjectState(name, description, branch string) *schemas.ProjectState {
 	state := &schemas.ProjectState{}
 
 	// Statechart metadata
-	// StandardProject starts in PlanningActive state
-	state.Statechart.Current_state = string(PlanningActive)
+	// StandardProject starts in PlanningActive state (hardcoded string to avoid import cycle)
+	state.Statechart.Current_state = "PlanningActive"
 
 	// Project metadata
 	state.Project.Type = "standard"
@@ -108,43 +70,28 @@ func NewProjectState(name, description, branch string) *schemas.ProjectState {
 	state.Phases.Implementation.Status = "pending"
 	state.Phases.Implementation.Created_at = now
 	state.Phases.Implementation.Tasks = []phases.Task{}
-	state.Phases.Implementation.Metadata = map[string]interface{}{
-		"tasks_approved": false,
-	}
+	tasksApproved := false
+	state.Phases.Implementation.Tasks_approved = &tasksApproved
 
 	// Review phase (required, enabled by default)
 	state.Phases.Review.Enabled = true
 	state.Phases.Review.Status = "pending"
 	state.Phases.Review.Created_at = now
 	state.Phases.Review.Artifacts = []phases.Artifact{}
-	state.Phases.Review.Metadata = map[string]interface{}{
-		"iteration": 1,
-	}
+	iteration := 1
+	state.Phases.Review.Iteration = &iteration
 
 	// Finalize phase (required, enabled by default)
 	state.Phases.Finalize.Enabled = true
 	state.Phases.Finalize.Status = "pending"
 	state.Phases.Finalize.Created_at = now
 	state.Phases.Finalize.Artifacts = []phases.Artifact{}
-	state.Phases.Finalize.Metadata = map[string]interface{}{
-		"project_deleted": false,
-	}
+	projectDeleted := false
+	state.Phases.Finalize.Project_deleted = &projectDeleted
 
 	return state
 }
 
-// NewWithProject creates a new project state machine with initial project metadata.
-// This is used when creating a new project.
-//
-// Deprecated: Use types.DetectProjectType() and BuildStateMachine() instead.
-// This function is kept for backward compatibility.
-func NewWithProject(name, description, branch string, fs sow.FS) (*Machine, error) {
-	state := NewProjectState(name, description, branch)
-
-	m := NewMachine(state)
-	m.fs = fs
-	return m, nil
-}
 
 // Save writes the current state to disk atomically.
 func (m *Machine) Save() error {

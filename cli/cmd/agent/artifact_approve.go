@@ -51,12 +51,24 @@ Example:
 			}
 
 			// Approve artifact via Phase interface
-			err = phase.ApproveArtifact(path)
+			result, err := phase.ApproveArtifact(path)
 			if errors.Is(err, project.ErrNotSupported) {
 				return fmt.Errorf("phase %s does not support artifacts", phase.Name())
 			}
 			if err != nil {
 				return fmt.Errorf("failed to approve artifact: %w", err)
+			}
+
+			// Fire event if phase returned one
+			if result.Event != "" {
+				machine := proj.Machine()
+				if err := machine.Fire(result.Event); err != nil {
+					return fmt.Errorf("failed to fire event %s: %w", result.Event, err)
+				}
+				// Save after transition
+				if err := proj.Save(); err != nil {
+					return fmt.Errorf("failed to save project state: %w", err)
+				}
 			}
 
 			cmd.Printf("\n✓ Approved artifact: %s\n", path)
