@@ -144,6 +144,8 @@ func (p *StandardProject) Log(action, result string, opts ...domain.LogOption) e
 }
 
 // buildStateMachine constructs the state machine for this project using the builder pattern.
+//
+//nolint:funlen // This function is necessarily long due to the comprehensive setup of the state machine.
 func (p *StandardProject) buildStateMachine() *statechart.Machine {
 	// Get current state from the project
 	currentState := statechart.State(p.state.Statechart.Current_state)
