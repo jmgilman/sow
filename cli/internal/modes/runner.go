@@ -34,7 +34,7 @@ func NewModeRunner(mode Mode, existsFunc ExistsFunc, initFunc InitFunc, promptGe
 // Run determines which branch and topic to use, and whether to create new or resume.
 // This is a pure decision function - it does NOT initialize or generate prompts.
 // Call Initialize() and GeneratePrompt() separately with the worktree context.
-func (r *ModeRunner) Run(ctx *sow.Context, branchName, initialPrompt string) (*RunResult, error) {
+func (r *ModeRunner) Run(ctx *sow.Context, branchName, _ string) (*RunResult, error) {
 	var modeInfo ModeInfo
 
 	if branchName != "" {
