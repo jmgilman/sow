@@ -85,6 +85,10 @@ TASK REVIEW WORKFLOW:
 
 NEXT ACTIONS:
   - For pending tasks: Spawn implementer agent
+    • The implementer will automatically load guidance via sow prompt system
+    • Provide task context in spawn message: task ID and location
+    • Example: "Execute task 010. Context at .sow/project/phases/implementation/tasks/010/"
+
   - When task reaches needs_review: Perform review (see workflow above)
   - To approve: sow agent task review <id> --approve
   - To reject: sow agent task review <id> --request-changes

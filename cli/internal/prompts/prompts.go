@@ -43,6 +43,13 @@ const (
 	PromptGuidanceDesignDoc        PromptID = "guidance.design.design-doc"
 	PromptGuidanceDesignADR        PromptID = "guidance.design.adr"
 	PromptGuidanceDesignC4Diagrams PromptID = "guidance.design.c4-diagrams"
+
+	// Implementer guidance prompts.
+	PromptGuidanceImplementerBase     PromptID = "guidance.implementer.base"
+	PromptGuidanceImplementerTDD      PromptID = "guidance.implementer.tdd"
+	PromptGuidanceImplementerFeature  PromptID = "guidance.implementer.feature"
+	PromptGuidanceImplementerBug      PromptID = "guidance.implementer.bug"
+	PromptGuidanceImplementerRefactor PromptID = "guidance.implementer.refactor"
 )
 
 // Context represents data needed to render a prompt.
@@ -112,7 +119,7 @@ func (r *Registry[K]) Render(id K, ctx Context) (string, error) {
 // Embed shared prompt templates from the templates/ directory.
 // Project-specific templates are embedded in their respective packages.
 //
-//go:embed templates/greet/*.md templates/greet/states/*.md templates/commands/*.md templates/modes/*.md templates/guidance/*.md templates/guidance/design/*.md
+//go:embed templates/greet/*.md templates/greet/states/*.md templates/commands/*.md templates/modes/*.md templates/guidance/*.md templates/guidance/design/*.md templates/guidance/implementer/*.md
 var templatesFS embed.FS
 
 // Default registry, initialized at startup.
@@ -149,6 +156,13 @@ func init() {
 		PromptGuidanceDesignDoc:        "templates/guidance/design/design-doc.md",
 		PromptGuidanceDesignADR:        "templates/guidance/design/adr.md",
 		PromptGuidanceDesignC4Diagrams: "templates/guidance/design/c4-diagrams.md",
+
+		// Implementer guidance prompts
+		PromptGuidanceImplementerBase:     "templates/guidance/implementer/base.md",
+		PromptGuidanceImplementerTDD:      "templates/guidance/implementer/tdd.md",
+		PromptGuidanceImplementerFeature:  "templates/guidance/implementer/feature.md",
+		PromptGuidanceImplementerBug:      "templates/guidance/implementer/bug.md",
+		PromptGuidanceImplementerRefactor: "templates/guidance/implementer/refactor.md",
 	}
 
 	// Load and parse all shared templates
