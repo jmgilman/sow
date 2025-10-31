@@ -1,0 +1,99 @@
+```mermaid
+graph TB
+    %% External Actors
+    Dev[Developer<br/>Publishing and consuming refs]
+    Agent[AI Agent<br/>Reading ref contents]
+
+    %% External Systems
+    subgraph "External Systems"
+        OCIReg[OCI Registries<br/>ghcr.io, Docker Hub, Harbor<br/>estargz images + annotations]
+        GitRepo[Git Repositories<br/>Legacy refs, being phased out]
+        Docker[Docker Credential Chain<br/>~/.docker/config.json<br/>Authentication]
+    end
+
+    %% Sow CLI Container
+    subgraph "Sow CLI (Go)"
+        RefsCLI[Refs CLI Commands<br/>Cobra framework<br/>publish, inspect, add, update, remove]
+
+        RefsCore[Refs Core Logic<br/>Go<br/>Orchestration, format detection, security enforcement]
+
+        OCIClient[OCI Client Wrapper<br/>Go + github.com/jmgilman/go/oci<br/>Push, pull, ListFiles, estargz support]
+
+        GitClient[Git Client<br/>Go + go-git<br/>Clone, pull, checkout<br/>DEPRECATED]
+
+        Packager[Ref Packager<br/>Go<br/>Create estargz, map annotations]
+
+        Validator[Schema Validator<br/>Go + CUE<br/>ref_manifest.cue validation]
+
+        Inspector[Inspector<br/>Go<br/>ListFiles pre-inspection]
+
+        Installer[Ref Installer<br/>Go<br/>Pull full or selective, extract]
+
+        CacheMgr[Cache Manager<br/>Go<br/>Digest-based deduplication]
+
+        IndexMgr[Index Manager<br/>Go + file locking<br/>Read/write index.json]
+    end
+
+    %% Local Filesystem Storage
+    subgraph "Local Filesystem"
+        CUESchema[(CUE Schema<br/>cli/schemas/ref_manifest.cue<br/>Embedded in binary)]
+
+        Cache[(Ref Cache<br/>~/.cache/sow/refs/<br/>id-digest/ directories<br/>Content-addressable storage)]
+
+        Workspace[(Workspace Refs<br/>.sow/refs/<br/>Symlinks to cache)]
+
+        RefIndex[(Refs Index<br/>.sow/refs/index.json<br/>Catalog of installed refs)]
+    end
+
+    %% Publishing Flow
+    Dev -->|sow refs publish| RefsCLI
+    RefsCLI --> RefsCore
+    RefsCore --> Validator
+    Validator --> CUESchema
+    RefsCore --> Packager
+    Packager --> OCIClient
+    OCIClient -->|Docker credentials| Docker
+    OCIClient -->|HTTPS: Push estargz image| OCIReg
+
+    %% Inspection Flow (Pre-Download)
+    Dev -->|sow refs inspect| RefsCLI
+    RefsCore --> Inspector
+    Inspector --> OCIClient
+    OCIClient -->|HTTPS: Download TOC only ~5KB| OCIReg
+    OCIClient -->|HTTPS: Selective extract .sow-ref.yaml ~2KB| OCIReg
+
+    %% Installation Flow (Full)
+    Dev -->|sow refs add| RefsCLI
+    RefsCore --> Installer
+    Installer --> OCIClient
+    OCIClient -->|HTTPS: Pull full image| OCIReg
+    Installer --> Validator
+    Installer --> CacheMgr
+    CacheMgr -->|Extract to digest-based path| Cache
+    CacheMgr -->|Create symlink| Workspace
+    Installer --> IndexMgr
+    IndexMgr -->|Write entry| RefIndex
+
+    %% Installation Flow (Selective with Glob)
+    OCIClient -->|HTTPS: Pull matching files only via estargz| OCIReg
+
+    %% Legacy Git Flow (Transition Period)
+    RefsCore --> GitClient
+    GitClient -->|HTTPS/SSH: Clone, pull| GitRepo
+    GitClient -->|Extract to cache| Cache
+
+    %% Agent Reading Refs
+    Agent -->|Read files via symlink| Workspace
+    Workspace -.->|Resolves to| Cache
+
+    %% Styling
+    classDef external fill:#e1f5ff,stroke:#0277bd,stroke-width:2px
+    classDef deprecated fill:#ffebee,stroke:#c62828,stroke-width:2px,stroke-dasharray: 5 5
+    classDef storage fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef core fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+
+    class OCIReg,GitRepo,Docker external
+    class GitClient deprecated
+    class CUESchema,Cache,Workspace,RefIndex storage
+    class RefsCore,OCIClient core
+```
