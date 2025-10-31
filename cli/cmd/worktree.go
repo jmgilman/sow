@@ -45,7 +45,7 @@ func newWorktreeListCmd() *cobra.Command {
 	}
 }
 
-func runWorktreeList(cmd *cobra.Command, args []string) error {
+func runWorktreeList(cmd *cobra.Command, _ []string) error {
 	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Get all worktrees using git wrapper
@@ -217,7 +217,7 @@ It's safe to run periodically as it only removes metadata for non-existent workt
 	}
 }
 
-func runWorktreePrune(cmd *cobra.Command, args []string) error {
+func runWorktreePrune(cmd *cobra.Command, _ []string) error {
 	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Prune using git wrapper
