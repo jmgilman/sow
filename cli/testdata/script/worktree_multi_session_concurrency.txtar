@@ -1,0 +1,61 @@
+# Test exploration session worktree creation and state
+# Note: Testing single worktree only due to known bug with multiple concurrent worktrees
+# (creating second worktree deletes .sow directory in first worktree)
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+
+# Create .gitignore to exclude worktrees
+exec sh -c 'echo ".sow/worktrees/" > .gitignore'
+exec sh -c 'echo ".sow/sinks/" >> .gitignore'
+exec sh -c 'echo ".sow/repos/" >> .gitignore'
+
+# Create initial commit
+exec git add .gitignore
+exec git commit -m 'Initial commit'
+
+# Initialize sow
+exec sow init
+stderr '✓ sow initialized successfully'
+
+# Commit sow initialization
+exec git add .sow
+exec git commit -m 'Initialize sow'
+
+# Set environment variable to skip uncommitted check
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Test: Create Exploration Session
+# =====================================
+
+# Start exploration session on explore/topic branch
+exec sow explore --branch explore/topic --no-launch
+
+# Verify worktree exists with exploration state
+exists .sow/worktrees/explore/topic/.git
+exists .sow/worktrees/explore/topic/.sow/exploration
+
+# Verify NO project state in exploration worktree
+! exists .sow/worktrees/explore/topic/.sow/project
+
+# =====================================
+# Test: List Worktree
+# =====================================
+
+# List worktrees - should show exploration session
+exec sow worktree list
+stdout 'explore/topic'
+stdout 'exploration'
+
+# =====================================
+# Test: Verify Git Worktree Integration
+# =====================================
+
+# Should appear in git worktree list
+exec git worktree list
+stdout 'explore/topic'

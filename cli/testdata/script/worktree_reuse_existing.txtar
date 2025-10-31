@@ -1,0 +1,92 @@
+# Test that commands succeed when worktree already exists
+# Tests idempotent behavior - running same command twice should succeed
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+
+# Create .gitignore
+exec sh -c 'echo ".sow/worktrees/" > .gitignore'
+exec sh -c 'echo ".sow/sinks/" >> .gitignore'
+exec sh -c 'echo ".sow/repos/" >> .gitignore'
+
+# Create initial commit
+exec git add .gitignore
+exec git commit -m 'Initial commit'
+
+# Initialize sow
+exec sow init
+stderr '✓ sow initialized successfully'
+
+# Commit sow initialization
+exec git add .sow
+exec git commit -m 'Initialize sow'
+
+# Set test environment variable to skip uncommitted check
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Test 1: sow explore - create then reuse
+# =====================================
+# Create worktree first time
+exec sow explore --branch explore-test --no-launch
+exists .sow/worktrees/explore-test/.git
+exists .sow/worktrees/explore-test/.sow/exploration/
+
+# Verify git worktree
+exec git worktree list
+stdout 'explore-test'
+
+# Run command again with same branch - should succeed (idempotent)
+exec sow explore --branch explore-test --no-launch
+exists .sow/worktrees/explore-test/.git
+exists .sow/worktrees/explore-test/.sow/exploration/
+
+# =====================================
+# Test 2: sow project - create then reuse
+# =====================================
+# Create worktree first time
+exec sow project --branch feat/auth --no-launch
+exists .sow/worktrees/feat/auth/.git
+exists .sow/worktrees/feat/auth/.sow/project/
+
+# Verify git worktree
+exec git worktree list
+stdout 'feat/auth'
+
+# Run again - should succeed
+exec sow project --branch feat/auth --no-launch
+exists .sow/worktrees/feat/auth/.git
+exists .sow/worktrees/feat/auth/.sow/project/
+
+# =====================================
+# Test 3: sow design - create then reuse
+# =====================================
+exec sow design --branch design/api --no-launch
+exists .sow/worktrees/design/api/.git
+
+# Run again
+exec sow design --branch design/api --no-launch
+exists .sow/worktrees/design/api/.git
+
+# =====================================
+# Test 4: sow breakdown - create then reuse
+# =====================================
+exec sow breakdown --branch breakdown/task --no-launch
+exists .sow/worktrees/breakdown/task/.git
+
+# Run again
+exec sow breakdown --branch breakdown/task --no-launch
+exists .sow/worktrees/breakdown/task/.git
+
+# =====================================
+# Verify all worktrees still exist
+# =====================================
+exec git worktree list
+stdout 'explore-test'
+stdout 'feat/auth'
+stdout 'design/api'
+stdout 'breakdown/task'

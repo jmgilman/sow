@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	sowexec "github.com/jmgilman/sow/cli/internal/exec"
@@ -20,6 +21,7 @@ import (
 func NewProjectCmd() *cobra.Command {
 	var branchName string
 	var issueNumber int
+	var noLaunch bool
 
 	cmd := &cobra.Command{
 		Use:   "project",
@@ -53,22 +55,24 @@ Examples:
   sow project --issue 123        # Work on issue #123
   sow project -- --model opus    # Continue with specific Claude model`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runProject(cmd, branchName, issueNumber)
+			return runProject(cmd, branchName, issueNumber, noLaunch)
 		},
 	}
 
 	cmd.Flags().StringVar(&branchName, "branch", "", "Branch to work on (creates if doesn't exist)")
 	cmd.Flags().IntVar(&issueNumber, "issue", 0, "GitHub issue number to work on")
+	cmd.Flags().BoolVar(&noLaunch, "no-launch", false, "Setup worktree and project but don't launch Claude Code (for testing)")
 	cmd.MarkFlagsMutuallyExclusive("branch", "issue")
 
 	return cmd
 }
 
-func runProject(cmd *cobra.Command, branchName string, issueNumber int) error {
-	ctx := cmdutil.GetContext(cmd.Context())
+func runProject(cmd *cobra.Command, branchName string, issueNumber int, noLaunch bool) error {
+	// 1. Get main repo context
+	mainCtx := cmdutil.GetContext(cmd.Context())
 
 	// Require sow to be initialized
-	if !ctx.IsInitialized() {
+	if !mainCtx.IsInitialized() {
 		fmt.Fprintln(os.Stderr, "Error: sow not initialized in this repository")
 		fmt.Fprintln(os.Stderr, "Run: sow init")
 		return fmt.Errorf("not initialized")
@@ -80,6 +84,12 @@ func runProject(cmd *cobra.Command, branchName string, issueNumber int) error {
 		claudeFlags = cmd.Flags().Args()[dashIndex:]
 	}
 
+	// 2. Check for uncommitted changes BEFORE any branch operations
+	if err := sow.CheckUncommittedChanges(mainCtx); err != nil {
+		return fmt.Errorf("cannot create worktree: %w", err)
+	}
+
+	// 3. Determine target branch BEFORE worktree creation
 	var selectedBranch string
 	var err error
 	var issue *sow.Issue
@@ -87,19 +97,19 @@ func runProject(cmd *cobra.Command, branchName string, issueNumber int) error {
 
 	// Scenario 1: --issue flag provided
 	if issueNumber > 0 {
-		selectedBranch, issue, shouldCreateNew, err = handleIssueScenario(ctx, issueNumber)
+		selectedBranch, issue, shouldCreateNew, err = handleIssueScenario(mainCtx, issueNumber)
 		if err != nil {
 			return err
 		}
 	} else if branchName != "" {
 		// Scenario 2: --branch flag provided
-		selectedBranch, shouldCreateNew, err = handleBranchScenario(ctx, branchName)
+		selectedBranch, shouldCreateNew, err = handleBranchScenario(mainCtx, branchName)
 		if err != nil {
 			return err
 		}
 	} else {
 		// Scenario 3: No flags (current branch)
-		selectedBranch, shouldCreateNew, err = handleCurrentBranchScenario(ctx)
+		selectedBranch, shouldCreateNew, err = handleCurrentBranchScenario(mainCtx)
 		if err != nil {
 			return err
 		}
@@ -110,34 +120,65 @@ func runProject(cmd *cobra.Command, branchName string, issueNumber int) error {
 	// - shouldCreateNew: whether to create new or continue
 	// - issue: GitHub issue if applicable (nil otherwise)
 
+	// 4. Validate not on protected branch (if creating new project)
+	if shouldCreateNew && mainCtx.Git().IsProtectedBranch(selectedBranch) {
+		return fmt.Errorf("cannot create project on protected branch '%s' - use a feature branch", selectedBranch)
+	}
+
+	// 5. Generate worktree path and ensure directory exists
+	worktreePath := sow.WorktreePath(mainCtx.RepoRoot(), selectedBranch)
+	worktreesDir := filepath.Join(mainCtx.RepoRoot(), ".sow", "worktrees")
+	if err := os.MkdirAll(worktreesDir, 0755); err != nil {
+		return fmt.Errorf("failed to create worktrees directory: %w", err)
+	}
+
+	// 6. Ensure worktree exists
+	if err := sow.EnsureWorktree(mainCtx, worktreePath, selectedBranch); err != nil {
+		return fmt.Errorf("failed to ensure worktree: %w", err)
+	}
+
+	// 7. Create worktree context
+	worktreeCtx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		return fmt.Errorf("failed to create worktree context: %w", err)
+	}
+
 	if shouldCreateNew {
-		// Create new project
-		if err := initializeProject(ctx, issue, ""); err != nil {
+		// Create new project in worktree context
+		if err := initializeProject(worktreeCtx, issue, ""); err != nil {
 			return fmt.Errorf("failed to initialize project: %w", err)
 		}
 
 		// Generate new project prompt
-		prompt, err := generateNewProjectPrompt(ctx, issue, "", selectedBranch)
+		prompt, err := generateNewProjectPrompt(worktreeCtx, issue, "", selectedBranch)
 		if err != nil {
 			return fmt.Errorf("failed to generate new project prompt: %w", err)
 		}
 
-		return launchClaudeCode(cmd, ctx, prompt, claudeFlags)
+		// 8. Launch Claude Code from worktree directory (unless --no-launch)
+		if noLaunch {
+			return nil
+		}
+		return launchClaudeCode(cmd, worktreeCtx, prompt, claudeFlags)
 	}
 
-	// Continue existing project
-	project, err := loader.Load(ctx)
+	// Continue existing project in worktree context
+	project, err := loader.Load(worktreeCtx)
 	if err != nil {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
 
 	// Generate continue prompt
-	prompt, err := generateContinuePrompt(ctx, project)
+	prompt, err := generateContinuePrompt(worktreeCtx, project)
 	if err != nil {
 		return fmt.Errorf("failed to generate continue prompt: %w", err)
 	}
 
-	return launchClaudeCode(cmd, ctx, prompt, claudeFlags)
+	// 8. Launch Claude Code from worktree directory (unless --no-launch)
+	if noLaunch {
+		return nil
+	}
+	return launchClaudeCode(cmd, worktreeCtx, prompt, claudeFlags)
 }
 
 // handleIssueScenario handles the --issue flag scenario.

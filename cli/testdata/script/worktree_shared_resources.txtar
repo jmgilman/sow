@@ -1,0 +1,53 @@
+# Test shared resource access from worktrees
+# Validates committed files (.sow/knowledge/) exist in worktrees
+# while git-ignored resources (.sow/sinks/, .sow/repos/) remain only in main repo
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+
+exec sh -c 'echo ".sow/worktrees/" > .gitignore'
+exec sh -c 'echo ".sow/sinks/" >> .gitignore'
+exec sh -c 'echo ".sow/repos/" >> .gitignore'
+exec git add .gitignore
+exec git commit -m 'init'
+
+exec sow init
+
+# Create knowledge (committed)
+exec mkdir -p .sow/knowledge
+exec sh -c 'echo "# Architecture" > .sow/knowledge/arch.md'
+exec git add .sow
+exec git commit -m 'Add knowledge'
+
+# Create sinks and repos (git-ignored)
+exec mkdir -p .sow/sinks
+exec sh -c 'echo "# External" > .sow/sinks/external.md'
+exec mkdir -p .sow/repos
+exec sh -c 'echo "# Example" > .sow/repos/example.md'
+
+# Verify they exist in main repo
+exists .sow/sinks/external.md
+exists .sow/repos/example.md
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Test: Worktree has committed resources only
+# =====================================
+
+exec sow explore --branch explore/test --no-launch
+
+# Knowledge exists (committed)
+exists .sow/worktrees/explore/test/.sow/knowledge/arch.md
+
+# Sinks/repos don't exist (git-ignored)
+! exists .sow/worktrees/explore/test/.sow/sinks
+! exists .sow/worktrees/explore/test/.sow/repos
+
+# But still exist in main repo
+exists .sow/sinks/external.md
+exists .sow/repos/example.md

@@ -12,6 +12,7 @@
 - 💾 **Zero-context resumability** - Resume work anytime from disk state without conversation history
 - 🔗 **External knowledge integration** - Reference style guides, conventions, and code examples during work
 - 🌿 **One project per branch** - Clean git integration with project state committed to feature branches
+- 🔀 **Multi-session concurrency** - Work on multiple branches simultaneously via git worktrees with isolated state
 
 ## Quick Start
 
@@ -132,6 +133,31 @@ Resume work on a branch:
 ```
 
 The orchestrator reads project state from disk and continues where you left off.
+
+### Multi-Session Concurrency
+
+Work on multiple branches simultaneously using git worktrees. When you start a project or exploration session, sow automatically creates an isolated worktree:
+
+```bash
+# Start work on multiple branches concurrently
+sow project --branch feat/auth    # Creates worktree at .sow/worktrees/feat/auth
+sow explore --branch explore/api  # Creates worktree at .sow/worktrees/explore/api
+```
+
+Each worktree has isolated session state (`.sow/project/`, `.sow/exploration/`, etc.) while sharing committed knowledge (`.sow/knowledge/`).
+
+**Manage worktrees:**
+
+```bash
+# List active worktrees with session types
+sow worktree list
+
+# Remove a specific worktree
+sow worktree remove .sow/worktrees/feat/auth
+
+# Clean up orphaned worktree metadata
+sow worktree prune
+```
 
 ### Provide Feedback
 

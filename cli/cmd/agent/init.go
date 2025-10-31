@@ -108,6 +108,16 @@ func initManual(cmd *cobra.Command, args []string, ctx *sow.Context, description
 		return fmt.Errorf("--branch-name can only be used with --issue")
 	}
 
+	// Validate not on protected branch
+	currentBranch, err := ctx.Git().CurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	if ctx.Git().IsProtectedBranch(currentBranch) {
+		return fmt.Errorf("cannot create project on protected branch '%s' - use a feature branch", currentBranch)
+	}
+
 	name := args[0]
 	proj, err := loader.Create(ctx, name, description)
 	if err != nil {
