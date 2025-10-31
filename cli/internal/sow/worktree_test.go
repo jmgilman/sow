@@ -282,9 +282,9 @@ func TestCheckUncommittedChanges_CleanRepo(t *testing.T) {
 	}
 }
 
-// TestCheckUncommittedChanges_UncommittedFiles tests that checkUncommittedChanges
-// returns an error when there are uncommitted changes.
-func TestCheckUncommittedChanges_UncommittedFiles(t *testing.T) {
+// TestCheckUncommittedChanges_UntrackedFiles tests that checkUncommittedChanges
+// allows untracked files (matches git status behavior).
+func TestCheckUncommittedChanges_UntrackedFiles(t *testing.T) {
 	// Create a temporary directory for test repository
 	tempDir := t.TempDir()
 
@@ -322,10 +322,10 @@ func TestCheckUncommittedChanges_UncommittedFiles(t *testing.T) {
 		t.Fatalf("failed to commit: %v", err)
 	}
 
-	// Now create an uncommitted file
-	uncommittedFile := filepath.Join(tempDir, "uncommitted.txt")
-	if err := os.WriteFile(uncommittedFile, []byte("uncommitted"), 0644); err != nil {
-		t.Fatalf("failed to write uncommitted file: %v", err)
+	// Now create an untracked file (should be allowed - doesn't block worktree creation)
+	untrackedFile := filepath.Join(tempDir, "untracked.txt")
+	if err := os.WriteFile(untrackedFile, []byte("untracked"), 0644); err != nil {
+		t.Fatalf("failed to write untracked file: %v", err)
 	}
 
 	// Open repository with git wrapper
@@ -340,15 +340,10 @@ func TestCheckUncommittedChanges_UncommittedFiles(t *testing.T) {
 		repoRoot: tempDir,
 	}
 
-	// Check for uncommitted changes (should return error)
+	// Check for uncommitted changes (should pass - untracked files are allowed)
 	err = CheckUncommittedChanges(ctx)
-	if err == nil {
-		t.Errorf("expected error for uncommitted changes, got nil")
-	}
-
-	// Verify error message is user-friendly
-	if err != nil && err.Error() == "" {
-		t.Errorf("error message should not be empty")
+	if err != nil {
+		t.Errorf("untracked files should not block worktree creation, got error: %v", err)
 	}
 }
 

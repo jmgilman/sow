@@ -105,8 +105,17 @@ func CheckUncommittedChanges(ctx *Context) error {
 		return fmt.Errorf("failed to get git status: %w", err)
 	}
 
-	if !status.IsClean() {
-		return fmt.Errorf("repository has uncommitted changes - commit or stash them before creating worktree")
+	// Check for actual uncommitted changes (modifications or staged changes)
+	// Ignore untracked files (status == '?') as they don't affect worktree creation
+	for _, fileStatus := range status {
+		// Check if file has staged changes (anything except ' ' or '?')
+		if fileStatus.Staging != ' ' && fileStatus.Staging != '?' {
+			return fmt.Errorf("repository has uncommitted changes - commit or stash them before creating worktree")
+		}
+		// Check if file has worktree modifications or deletions (not untracked '?')
+		if fileStatus.Worktree == 'M' || fileStatus.Worktree == 'D' {
+			return fmt.Errorf("repository has uncommitted changes - commit or stash them before creating worktree")
+		}
 	}
 
 	return nil
