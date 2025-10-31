@@ -13,7 +13,7 @@ import (
 )
 
 // TestWorktreePath_PreservesSlashes tests that WorktreePath preserves forward slashes
-// in branch names to maintain git's semantic branch grouping
+// in branch names to maintain git's semantic branch grouping.
 func TestWorktreePath_PreservesSlashes(t *testing.T) {
 	repoRoot := "/Users/test/repo"
 	branch := "feat/auth"

@@ -116,7 +116,7 @@ func TestNewContext_MainRepo(t *testing.T) {
 }
 
 // TestNewContext_Worktree tests that NewContext correctly detects a worktree environment
-// and extracts the main repository path
+// and extracts the main repository path.
 func TestNewContext_Worktree(t *testing.T) {
 	// Set up test main repo
 	mainRepoPath, repo := setupTestRepo(t)
@@ -144,7 +144,7 @@ func TestNewContext_Worktree(t *testing.T) {
 	}
 }
 
-// TestContext_IsWorktree tests the IsWorktree accessor method
+// TestContext_IsWorktree tests the IsWorktree accessor method.
 func TestContext_IsWorktree(t *testing.T) {
 	// Test main repo scenario
 	t.Run("MainRepo", func(t *testing.T) {
@@ -175,7 +175,7 @@ func TestContext_IsWorktree(t *testing.T) {
 	})
 }
 
-// TestContext_MainRepoRoot tests the MainRepoRoot accessor method
+// TestContext_MainRepoRoot tests the MainRepoRoot accessor method.
 func TestContext_MainRepoRoot(t *testing.T) {
 	// Test main repo scenario
 	t.Run("MainRepo", func(t *testing.T) {
@@ -207,7 +207,7 @@ func TestContext_MainRepoRoot(t *testing.T) {
 }
 
 // TestNewContext_WorktreeWithSlashesInBranch tests worktree detection with branch names
-// containing slashes (e.g., feat/auth)
+// containing slashes (e.g., feat/auth).
 func TestNewContext_WorktreeWithSlashesInBranch(t *testing.T) {
 	// Set up test main repo
 	mainRepoPath, repo := setupTestRepo(t)
@@ -236,7 +236,7 @@ func TestNewContext_WorktreeWithSlashesInBranch(t *testing.T) {
 }
 
 // TestContext_SinksPath_MainRepo tests that SinksPath returns the local path
-// when running in the main repository (not a worktree)
+// when running in the main repository (not a worktree).
 func TestContext_SinksPath_MainRepo(t *testing.T) {
 	// Set up test repo (main, not worktree)
 	testRepoPath, _ := setupTestRepo(t)
@@ -255,7 +255,7 @@ func TestContext_SinksPath_MainRepo(t *testing.T) {
 }
 
 // TestContext_SinksPath_Worktree tests that SinksPath returns the main repo path
-// when running in a worktree
+// when running in a worktree.
 func TestContext_SinksPath_Worktree(t *testing.T) {
 	// Set up test main repo
 	mainRepoPath, repo := setupTestRepo(t)
@@ -278,7 +278,7 @@ func TestContext_SinksPath_Worktree(t *testing.T) {
 }
 
 // TestContext_ReposPath_MainRepo tests that ReposPath returns the local path
-// when running in the main repository (not a worktree)
+// when running in the main repository (not a worktree).
 func TestContext_ReposPath_MainRepo(t *testing.T) {
 	// Set up test repo (main, not worktree)
 	testRepoPath, _ := setupTestRepo(t)
@@ -297,7 +297,7 @@ func TestContext_ReposPath_MainRepo(t *testing.T) {
 }
 
 // TestContext_ReposPath_Worktree tests that ReposPath returns the main repo path
-// when running in a worktree
+// when running in a worktree.
 func TestContext_ReposPath_Worktree(t *testing.T) {
 	// Set up test main repo
 	mainRepoPath, repo := setupTestRepo(t)

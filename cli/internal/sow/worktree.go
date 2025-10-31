@@ -9,7 +9,7 @@ import (
 
 // WorktreePath returns the path where a worktree for the given branch should be created.
 // Preserves forward slashes in branch names to maintain git's branch namespacing.
-// Example: branch "feat/auth" → "<repoRoot>/.sow/worktrees/feat/auth/"
+// Example: branch "feat/auth" → "<repoRoot>/.sow/worktrees/feat/auth/".
 func WorktreePath(repoRoot, branch string) string {
 	return filepath.Join(repoRoot, ".sow", "worktrees", branch)
 }
