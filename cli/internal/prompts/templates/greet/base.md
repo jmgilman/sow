@@ -117,7 +117,8 @@ sow agent project delete                           # Clean up completed project
 **Task Management** (within projects):
 ```bash
 sow agent task add <name>        # Add new task
-sow agent task status            # Show task details
+sow agent task list              # List all tasks with status
+sow agent task status [<id>]     # Show detailed info for one task
 ```
 
 **Logging** (critical for workers):

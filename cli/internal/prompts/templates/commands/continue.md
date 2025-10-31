@@ -68,11 +68,12 @@ sow agent project delete                              # Clean up project
 
 **Task Management** (in implementation phase):
 ```bash
-sow agent task add <name>                   # Add new task
-sow agent task status [<id>]                # Show task details
-sow agent task update <id> --status <status>     # Update task status
-sow agent task review <id> --approve             # Approve task review
-sow agent task review <id> --request-changes     # Request changes
+sow agent task add <name>                         # Add new task
+sow agent task list                               # List all tasks with status
+sow agent task status [<id>]                      # Show detailed info for ONE task
+sow agent task update <id> --status <status>      # Update task status
+sow agent task review <id> --approve              # Approve task review
+sow agent task review <id> --request-changes      # Request changes
 ```
 
 **Logging** (critical for audit trail):

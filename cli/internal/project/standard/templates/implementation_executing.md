@@ -58,6 +58,13 @@ TRACKING TASK STATE:
     sow agent task state add-file <path>        # Track modified files
     sow agent task state add-reference <path>   # Track context used
 
+CHECKING TASK STATUS:
+  To get current status of all tasks:
+    sow agent task list                         # List all tasks with status
+
+  To get detailed info about one specific task:
+    sow agent task status <id>                  # Show detailed task information
+
 TASK REVIEW WORKFLOW:
 
   When a task transitions to "needs_review":
