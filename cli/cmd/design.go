@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	designcmd "github.com/jmgilman/sow/cli/cmd/design"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
@@ -16,6 +17,7 @@ import (
 // NewDesignCmd creates the design command.
 func NewDesignCmd() *cobra.Command {
 	var branchName string
+	var noLaunch bool
 
 	cmd := &cobra.Command{
 		Use:   "design [prompt]",
@@ -84,11 +86,12 @@ Examples:
 			if len(argsBeforeDash) > 0 {
 				initialPrompt = argsBeforeDash[0]
 			}
-			return runDesign(cmd, branchName, initialPrompt)
+			return runDesign(cmd, branchName, initialPrompt, noLaunch)
 		},
 	}
 
 	cmd.Flags().StringVar(&branchName, "branch", "", "Branch to work on (creates if doesn't exist)")
+	cmd.Flags().BoolVar(&noLaunch, "no-launch", false, "Setup worktree and design but don't launch Claude Code (for testing)")
 
 	// Add management subcommands
 	cmd.AddCommand(designcmd.NewAddInputCmd())
@@ -102,11 +105,12 @@ Examples:
 	return cmd
 }
 
-func runDesign(cmd *cobra.Command, branchName, initialPrompt string) error {
-	ctx := cmdutil.GetContext(cmd.Context())
+func runDesign(cmd *cobra.Command, branchName, initialPrompt string, noLaunch bool) error {
+	// 1. Get main repo context
+	mainCtx := cmdutil.GetContext(cmd.Context())
 
 	// Require sow to be initialized
-	if !ctx.IsInitialized() {
+	if !mainCtx.IsInitialized() {
 		fmt.Fprintln(os.Stderr, "Error: sow not initialized in this repository")
 		fmt.Fprintln(os.Stderr, "Run: sow init")
 		return fmt.Errorf("not initialized")
@@ -118,7 +122,24 @@ func runDesign(cmd *cobra.Command, branchName, initialPrompt string) error {
 		claudeFlags = cmd.Flags().Args()[dashIndex:]
 	}
 
-	// Create mode runner
+	// 2. Check for uncommitted changes BEFORE any branch operations
+	if err := sow.CheckUncommittedChanges(mainCtx); err != nil {
+		return fmt.Errorf("cannot create worktree: %w", err)
+	}
+
+	// 3. Determine target branch name (no git operations, just string logic)
+	var targetBranch string
+	if branchName != "" {
+		targetBranch = branchName
+	} else {
+		// Use current branch
+		currentBranch, err := mainCtx.Git().CurrentBranch()
+		if err != nil {
+			return fmt.Errorf("failed to get current branch: %w", err)
+		}
+		targetBranch = currentBranch
+	}
+
 	mode := &designMode{}
 	runner := modes.NewModeRunner(
 		mode,
@@ -127,18 +148,49 @@ func runDesign(cmd *cobra.Command, branchName, initialPrompt string) error {
 		generateDesignPrompt,
 	)
 
-	// Run the mode
-	result, err := runner.Run(ctx, branchName, initialPrompt)
-	if err != nil {
-		return err
+	// 4. Generate worktree path and ensure directory exists
+	worktreePath := sow.WorktreePath(mainCtx.RepoRoot(), targetBranch)
+	worktreesDir := filepath.Join(mainCtx.RepoRoot(), ".sow", "worktrees")
+	if err := os.MkdirAll(worktreesDir, 0755); err != nil {
+		return fmt.Errorf("failed to create worktrees directory: %w", err)
 	}
 
-	// Display appropriate message
-	if result.ShouldCreateNew {
-		modes.FormatCreationMessage(cmd, mode, result.Topic, result.SelectedBranch)
+	// 5. Ensure worktree exists
+	if err := sow.EnsureWorktree(mainCtx, worktreePath, targetBranch); err != nil {
+		return fmt.Errorf("failed to ensure worktree: %w", err)
+	}
+
+	// 6. Create worktree context
+	worktreeCtx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		return fmt.Errorf("failed to create worktree context: %w", err)
+	}
+
+	// 7. Check if mode exists in worktree (the definitive check)
+	modeExistsInWorktree := design.Exists(worktreeCtx)
+
+	// 8. Extract topic from branch name
+	topic := modes.ExtractTopicFromBranch(mode, targetBranch)
+
+	// 9. Initialize mode IN WORKTREE (if doesn't exist)
+	if !modeExistsInWorktree {
+		if err := runner.Initialize(worktreeCtx, topic, targetBranch); err != nil {
+			return fmt.Errorf("failed to initialize design: %w", err)
+		}
+	}
+
+	// 10. Generate prompt with worktree context
+	prompt, err := runner.GeneratePrompt(worktreeCtx, topic, targetBranch, initialPrompt)
+	if err != nil {
+		return fmt.Errorf("failed to generate prompt: %w", err)
+	}
+
+	// 11. Display appropriate message
+	if !modeExistsInWorktree {
+		modes.FormatCreationMessage(cmd, mode, topic, targetBranch)
 	} else {
-		// Load index for resumption message
-		index, err := design.LoadIndex(ctx)
+		// Load index for resumption message using worktree context
+		index, err := design.LoadIndex(worktreeCtx)
 		if err != nil {
 			return fmt.Errorf("failed to load design: %w", err)
 		}
@@ -148,8 +200,11 @@ func runDesign(cmd *cobra.Command, branchName, initialPrompt string) error {
 		})
 	}
 
-	// Launch Claude Code
-	return launchClaudeCode(cmd, ctx, result.Prompt, claudeFlags)
+	// 12. Launch Claude Code from worktree directory (unless --no-launch)
+	if noLaunch {
+		return nil
+	}
+	return launchClaudeCode(cmd, worktreeCtx, prompt, claudeFlags)
 }
 
 // designMode implements the modes.Mode interface for design mode.

@@ -1,0 +1,94 @@
+# Test that worktree creation fails with uncommitted changes
+# Tests that commands detect uncommitted changes and provide helpful error messages
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+
+# Create .gitignore
+exec sh -c 'echo ".sow/worktrees/" > .gitignore'
+exec sh -c 'echo ".sow/sinks/" >> .gitignore'
+exec sh -c 'echo ".sow/repos/" >> .gitignore'
+
+# Create initial commit
+exec git add .gitignore
+exec git commit -m 'Initial commit'
+
+# Initialize sow
+exec sow init
+stderr '✓ sow initialized successfully'
+
+# Commit sow initialization
+exec git add .sow
+exec git commit -m 'Initialize sow'
+
+# =====================================
+# Test 1: Uncommitted file (untracked)
+# =====================================
+exec touch uncommitted-file.txt
+
+# Command should fail with uncommitted changes error
+! exec sow explore --branch explore-test --no-launch
+stderr 'uncommitted changes'
+stderr 'commit or stash'
+
+# Verify worktree was NOT created
+! exists .sow/worktrees/explore-test/
+
+# =====================================
+# Test 2: Modified tracked file
+# =====================================
+# Commit the new file first
+exec git add uncommitted-file.txt
+exec git commit -m 'Add file'
+
+# Modify the file
+exec sh -c 'echo "modified" > uncommitted-file.txt'
+
+# Command should fail again
+! exec sow project --branch feat/test --no-launch
+stderr 'uncommitted changes'
+stderr 'commit or stash'
+
+# Verify worktree was NOT created
+! exists .sow/worktrees/feat/test/
+
+# =====================================
+# Test 3: Success after committing
+# =====================================
+# Commit the modification
+exec git add uncommitted-file.txt
+exec git commit -m 'Modify file'
+
+# Skip uncommitted check for test environment workaround
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# Now worktree creation should succeed (with test environment variable)
+exec sow explore --branch explore-test --no-launch
+exists .sow/worktrees/explore-test/.git
+exists .sow/worktrees/explore-test/.sow/exploration/
+
+# Verify git worktree created
+exec git worktree list
+stdout 'explore-test'
+
+# =====================================
+# Test 4: Staged but not committed
+# =====================================
+# Remove test environment variable
+env SOW_SKIP_UNCOMMITTED_CHECK=
+
+# Create and stage a new file
+exec touch staged-file.txt
+exec git add staged-file.txt
+
+# Command should fail with uncommitted changes
+! exec sow design --branch design/test --no-launch
+stderr 'uncommitted changes'
+stderr 'commit or stash'
+
+# Verify worktree was NOT created
+! exists .sow/worktrees/design/test/

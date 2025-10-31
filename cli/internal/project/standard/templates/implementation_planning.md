@@ -15,10 +15,10 @@ AVAILABLE CONTEXT:
 {{end}}{{if not (or .HasDesign .HasDiscovery)}}  • Direct implementation (no discovery or design phases)
 {{end}}
 RESPONSIBILITIES:
-  - Create task breakdown independently
-  - Break work into discrete, testable units
-  - Request human approval when planning is complete
-  - Use gap-numbered IDs (010, 020, 030...) to allow insertions
+  - Review task descriptions created during Planning phase
+  - Create tasks from existing task description files
+  - Request human approval when task creation is complete
+  - Use gap-numbered IDs (010, 020, 030...) matching the task files
 
 TASK NUMBERING:
   Start at 010, increment by 10 (020, 030, 040...)
@@ -30,20 +30,52 @@ TASK LIFECYCLE:
   Workers mark tasks as "needs_review" when done, NOT "completed"
   You (orchestrator) review and approve/reject in executing phase
 
-TASK DESCRIPTION TEMPLATE:
-  Each task should include:
-  - What needs to be built/changed
-  - Acceptance criteria (how to verify completion)
-  - Dependencies on other tasks (if any)
-  - Files likely to be modified
+USING PLANNING PHASE TASK DESCRIPTIONS
 
-NEXT ACTIONS:
-  1. Review available artifacts (design docs, discovery notes)
-  2. Break work into discrete tasks with clear acceptance criteria
-  3. Create tasks: sow agent task add "<name>" --description "..."
-  4. When all tasks created, present plan to human
-  5. After human confirms: sow agent task approve
-  6. Then autonomous execution begins
+Task descriptions were created during Planning phase at:
+  Location: project/context/tasks/
+  Files: 010-task-name.md, 020-task-name.md, 030-task-name.md, etc.
+
+These files are comprehensive, standalone documents ready to be used as task descriptions.
+
+CRITICAL: Implementer agents start with ZERO CONTEXT and see ONLY the description.md
+file. The Planning phase task files were created to be comprehensive enough for this.
+
+WORKFLOW:
+
+1. Read the task index from Planning phase: project/context/task-index.md
+
+2. For each task in the index:
+
+   a. Read the task file: project/context/tasks/{id}-{name}.md
+      Use Read tool to load the file content
+
+   b. Extract task name from the file (usually the first heading)
+
+   c. Create task using the file content as description:
+
+      Read the file into memory, then pass the ENTIRE file content as description:
+
+      sow agent task add "{task-name}" --description "{entire-file-content}" --id {id}
+
+      Example:
+      - Read project/context/tasks/010-jwt-middleware.md
+      - Extract name: "Implement JWT middleware"
+      - Run: sow agent task add "Implement JWT middleware" --description "{contents-of-010-jwt-middleware.md}" --id 010
+
+   The description will be saved to:
+   project/phases/implementation/tasks/task-{id}/description.md
+
+   This ensures the comprehensive task description from Planning transfers directly
+   to the implementation phase without any loss of detail.
+
+3. Verify all tasks created successfully
+
+4. Present task list to human for confirmation
+
+5. After human confirms: sow agent task approve
+
+6. Autonomous execution begins
 
 Reference: PHASES/IMPLEMENTATION.md
 

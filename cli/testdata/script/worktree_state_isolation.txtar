@@ -1,0 +1,30 @@
+# Test state isolation within a single worktree
+# Verifies that session directories don't mix (exploration vs project)
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+
+exec sh -c 'echo ".sow/worktrees/" > .gitignore'
+exec git add .gitignore
+exec git commit -m 'init'
+
+exec sow init
+exec git add .sow
+exec git commit -m 'sow init'
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Test: Exploration worktree has only exploration state
+# =====================================
+
+exec sow explore --branch explore/test --no-launch
+
+exists .sow/worktrees/explore/test/.sow/exploration
+! exists .sow/worktrees/explore/test/.sow/project
+! exists .sow/worktrees/explore/test/.sow/design
+! exists .sow/worktrees/explore/test/.sow/breakdown

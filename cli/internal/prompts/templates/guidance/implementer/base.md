@@ -26,6 +26,35 @@ Understand:
 - Any specific constraints or requirements
 - Task scenario type (see detection heuristics below)
 
+**CRITICAL: Validate Task Description Sufficiency**
+
+Before proceeding, verify the description includes:
+- Context about the overall goal
+- Detailed requirements (NOT just 1-2 sentences)
+- Clear acceptance criteria
+- Technical details (APIs, patterns, file locations)
+- Examples or code snippets (when relevant)
+
+**If the description is insufficient** (e.g., "Add JWT middleware" with no details):
+
+1. Log the issue:
+   ```bash
+   sow agent log -a "Blocked: insufficient task description" -r "Task description lacks technical details and acceptance criteria needed for implementation"
+   ```
+
+2. Report back to orchestrator with specifics about what's missing:
+   "I cannot proceed with this task. The description '{task_name}' is too brief. I need:
+   - Context: What am I building this for?
+   - Requirements: Detailed specifications (algorithm, data structures, etc.)
+   - Acceptance Criteria: How do I know when it's done correctly?
+   - Technical Details: File locations, APIs to use, patterns to follow
+   - Examples: Expected inputs/outputs, code snippets, test cases"
+
+3. DO NOT attempt to implement based on guesswork
+4. DO NOT proceed without comprehensive requirements
+
+The orchestrator must provide complete task descriptions. You start with zero context.
+
 ### 3. Read Feedback (If Iteration > 1)
 
 If iteration > 1, read all feedback files: `.sow/project/phases/implementation/tasks/{id}/feedback/*.md`

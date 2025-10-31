@@ -55,6 +55,10 @@ linters:
       - path: ^internal/sow/project\.go$
         linters:
           - nestif
+      # Worktree detection requires complex path parsing
+      - path: ^internal/sow/context\.go$
+        linters:
+          - nestif
       # Command handlers have inherent branching complexity
       - path: ^cmd/explore\.go$
         linters:

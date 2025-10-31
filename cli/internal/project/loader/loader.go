@@ -61,11 +61,6 @@ func Create(ctx *sow.Context, name, description string) (domain.Project, error) 
 		return nil, fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	// Validate not on protected branch
-	if ctx.Git().IsProtectedBranch(branch) {
-		return nil, fmt.Errorf("cannot create project on protected branch '%s'", branch)
-	}
-
 	// Check if project already exists
 	exists, _ := fs.Exists("project/state.yaml")
 	if exists {

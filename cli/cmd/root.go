@@ -79,6 +79,7 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 	cmd.AddCommand(issue.NewIssueCmd())
 	cmd.AddCommand(refs.NewRefsCmd())
 	cmd.AddCommand(agent.NewAgentCmd())
+	cmd.AddCommand(NewWorktreeCmd())
 
 	return cmd
 }
