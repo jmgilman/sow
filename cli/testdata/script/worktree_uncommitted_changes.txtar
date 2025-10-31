@@ -1,5 +1,5 @@
-# Test that worktree creation fails with uncommitted changes
-# Tests that commands detect uncommitted changes and provide helpful error messages
+# Test that worktree creation properly handles uncommitted changes
+# Tests that commands allow untracked files but block modified/staged files
 
 # =====================================
 # Setup Git Repository
@@ -26,17 +26,18 @@ exec git add .sow
 exec git commit -m 'Initialize sow'
 
 # =====================================
-# Test 1: Uncommitted file (untracked)
+# Test 1: Untracked file (should be allowed)
 # =====================================
 exec touch uncommitted-file.txt
 
-# Command should fail with uncommitted changes error
-! exec sow explore --branch explore-test --no-launch
-stderr 'uncommitted changes'
-stderr 'commit or stash'
+# Command should succeed - untracked files don't block worktree creation
+exec sow explore --branch explore-test --no-launch
+exists .sow/worktrees/explore-test/.git
+exists .sow/worktrees/explore-test/.sow/exploration/
 
-# Verify worktree was NOT created
-! exists .sow/worktrees/explore-test/
+# Verify git worktree created
+exec git worktree list
+stdout 'explore-test'
 
 # =====================================
 # Test 2: Modified tracked file
@@ -63,29 +64,23 @@ stderr 'commit or stash'
 exec git add uncommitted-file.txt
 exec git commit -m 'Modify file'
 
-# Skip uncommitted check for test environment workaround
-env SOW_SKIP_UNCOMMITTED_CHECK=1
-
-# Now worktree creation should succeed (with test environment variable)
-exec sow explore --branch explore-test --no-launch
-exists .sow/worktrees/explore-test/.git
-exists .sow/worktrees/explore-test/.sow/exploration/
+# Now worktree creation should succeed
+exec sow breakdown --branch breakdown/test --no-launch
+exists .sow/worktrees/breakdown/test/.git
+exists .sow/worktrees/breakdown/test/.sow/breakdown/
 
 # Verify git worktree created
 exec git worktree list
-stdout 'explore-test'
+stdout 'breakdown/test'
 
 # =====================================
 # Test 4: Staged but not committed
 # =====================================
-# Remove test environment variable
-env SOW_SKIP_UNCOMMITTED_CHECK=
-
 # Create and stage a new file
 exec touch staged-file.txt
 exec git add staged-file.txt
 
-# Command should fail with uncommitted changes
+# Command should fail with uncommitted changes (staged changes block creation)
 ! exec sow design --branch design/test --no-launch
 stderr 'uncommitted changes'
 stderr 'commit or stash'
