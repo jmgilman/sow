@@ -26,7 +26,7 @@ func TestWorktreePath_PreservesSlashes(t *testing.T) {
 	}
 }
 
-// TestWorktreePath_SimpleBranch tests path generation for simple branch names
+// TestWorktreePath_SimpleBranch tests path generation for simple branch names.
 func TestWorktreePath_SimpleBranch(t *testing.T) {
 	repoRoot := "/Users/test/repo"
 	branch := "main"
@@ -39,7 +39,7 @@ func TestWorktreePath_SimpleBranch(t *testing.T) {
 	}
 }
 
-// TestWorktreePath_NestedSlashes tests path generation with multiple slashes
+// TestWorktreePath_NestedSlashes tests path generation with multiple slashes.
 func TestWorktreePath_NestedSlashes(t *testing.T) {
 	repoRoot := "/Users/test/repo"
 	branch := "feature/epic/task"
@@ -53,7 +53,7 @@ func TestWorktreePath_NestedSlashes(t *testing.T) {
 }
 
 // TestEnsureWorktree_CreatesWhenMissing tests that ensureWorktree creates a worktree
-// when the path doesn't exist
+// when the path doesn't exist.
 func TestEnsureWorktree_CreatesWhenMissing(t *testing.T) {
 	// Create a temporary directory for test repository
 	tempDir := t.TempDir()
@@ -138,7 +138,7 @@ func TestEnsureWorktree_CreatesWhenMissing(t *testing.T) {
 }
 
 // TestEnsureWorktree_SucceedsWhenExists tests that ensureWorktree is idempotent
-// and returns nil when the worktree already exists
+// and returns nil when the worktree already exists.
 func TestEnsureWorktree_SucceedsWhenExists(t *testing.T) {
 	// Create a temporary directory for test repository
 	tempDir := t.TempDir()
@@ -224,7 +224,7 @@ func TestEnsureWorktree_SucceedsWhenExists(t *testing.T) {
 }
 
 // TestCheckUncommittedChanges_CleanRepo tests that checkUncommittedChanges returns nil
-// for a clean repository
+// for a clean repository.
 func TestCheckUncommittedChanges_CleanRepo(t *testing.T) {
 	// Create a temporary directory for test repository
 	tempDir := t.TempDir()
@@ -283,7 +283,7 @@ func TestCheckUncommittedChanges_CleanRepo(t *testing.T) {
 }
 
 // TestCheckUncommittedChanges_UncommittedFiles tests that checkUncommittedChanges
-// returns an error when there are uncommitted changes
+// returns an error when there are uncommitted changes.
 func TestCheckUncommittedChanges_UncommittedFiles(t *testing.T) {
 	// Create a temporary directory for test repository
 	tempDir := t.TempDir()
@@ -352,7 +352,7 @@ func TestCheckUncommittedChanges_UncommittedFiles(t *testing.T) {
 	}
 }
 
-// TestCheckUncommittedChanges_ModifiedFiles tests detection of modified tracked files
+// TestCheckUncommittedChanges_ModifiedFiles tests detection of modified tracked files.
 func TestCheckUncommittedChanges_ModifiedFiles(t *testing.T) {
 	// Create a temporary directory for test repository
 	tempDir := t.TempDir()

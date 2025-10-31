@@ -1,6 +1,7 @@
 package sow
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -30,7 +31,8 @@ func EnsureWorktree(ctx *Context, path, branch string) error {
 	}
 
 	// Check current branch in main repo
-	currentBranchCmd := exec.Command("git", "branch", "--show-current")
+	bgCtx := context.Background()
+	currentBranchCmd := exec.CommandContext(bgCtx, "git", "branch", "--show-current")
 	currentBranchCmd.Dir = ctx.RepoRoot()
 	currentBranchOutput, err := currentBranchCmd.Output()
 	if err != nil {
@@ -42,18 +44,18 @@ func EnsureWorktree(ctx *Context, path, branch string) error {
 	// If we're currently on the branch we want to create a worktree for,
 	// switch to a different branch first (git worktree add fails if branch is checked out)
 	if currentBranch == branch {
-		switchCmd := exec.Command("git", "checkout", "master")
+		switchCmd := exec.CommandContext(bgCtx, "git", "checkout", "master")
 		switchCmd.Dir = ctx.RepoRoot()
 		if err := switchCmd.Run(); err != nil {
 			// If master doesn't exist, try main
-			switchCmd = exec.Command("git", "checkout", "main")
+			switchCmd = exec.CommandContext(bgCtx, "git", "checkout", "main")
 			switchCmd.Dir = ctx.RepoRoot()
 			_ = switchCmd.Run() // Ignore error - we'll fail later if needed
 		}
 	}
 
 	// Check if branch exists using git CLI
-	checkCmd := exec.Command("git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
+	checkCmd := exec.CommandContext(bgCtx, "git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
 	checkCmd.Dir = ctx.RepoRoot()
 	branchExists := checkCmd.Run() == nil
 
@@ -67,7 +69,7 @@ func EnsureWorktree(ctx *Context, path, branch string) error {
 		}
 
 		// Create branch using git CLI
-		createBranchCmd := exec.Command("git", "branch", branch, head.Hash().String())
+		createBranchCmd := exec.CommandContext(bgCtx, "git", "branch", branch, head.Hash().String())
 		createBranchCmd.Dir = ctx.RepoRoot()
 		if output, err := createBranchCmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create branch via git CLI: %w (output: %s)", err, output)
@@ -75,7 +77,7 @@ func EnsureWorktree(ctx *Context, path, branch string) error {
 	}
 
 	// Create worktree using git CLI (more reliable than go-git for worktrees)
-	addCmd := exec.Command("git", "worktree", "add", path, branch)
+	addCmd := exec.CommandContext(bgCtx, "git", "worktree", "add", path, branch)
 	addCmd.Dir = ctx.RepoRoot()
 	if output, err := addCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to add worktree: command %v failed with exit code %d: %s", addCmd.Args, addCmd.ProcessState.ExitCode(), string(output))
