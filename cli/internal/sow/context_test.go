@@ -11,7 +11,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
-// setupTestRepo creates a test git repository with an initial commit
+// setupTestRepo creates a test git repository with an initial commit.
 func setupTestRepo(t *testing.T) (string, *gogit.Repository) {
 	t.Helper()
 
@@ -55,7 +55,7 @@ func setupTestRepo(t *testing.T) (string, *gogit.Repository) {
 	return tempDir, repo
 }
 
-// createWorktree creates a worktree for testing by simulating git's worktree structure
+// createWorktree creates a worktree for testing by simulating git's worktree structure.
 func createWorktree(t *testing.T, repo *gogit.Repository, mainRepoPath, branchName string) string {
 	t.Helper()
 
@@ -91,7 +91,7 @@ func createWorktree(t *testing.T, repo *gogit.Repository, mainRepoPath, branchNa
 }
 
 // TestNewContext_MainRepo tests that NewContext correctly detects a main repository
-// and sets worktree fields appropriately
+// and sets worktree fields appropriately.
 func TestNewContext_MainRepo(t *testing.T) {
 	// Set up a test repository (main repo, not worktree)
 	testRepoPath, _ := setupTestRepo(t)

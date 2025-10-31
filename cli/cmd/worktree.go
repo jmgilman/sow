@@ -83,17 +83,23 @@ func runWorktreeList(cmd *cobra.Command, args []string) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "PATH\tBRANCH\tSESSION TYPE\tSTATUS")
-	for _, wt := range sowWorktrees {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			wt.Path, wt.Branch, wt.SessionType, wt.Status)
+	if _, err := fmt.Fprintln(w, "PATH\tBRANCH\tSESSION TYPE\tSTATUS"); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
 	}
-	w.Flush()
+	for _, wt := range sowWorktrees {
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+			wt.Path, wt.Branch, wt.SessionType, wt.Status); err != nil {
+			return fmt.Errorf("failed to write worktree info: %w", err)
+		}
+	}
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("failed to flush output: %w", err)
+	}
 
 	return nil
 }
 
-// WorktreeInfo holds information about a worktree
+// WorktreeInfo holds information about a worktree.
 type WorktreeInfo struct {
 	Path        string
 	Branch      string
@@ -101,7 +107,7 @@ type WorktreeInfo struct {
 	Status      string
 }
 
-// isSowWorktree checks if a path is a .sow/worktrees/* worktree
+// isSowWorktree checks if a path is a .sow/worktrees/* worktree.
 func isSowWorktree(path, repoRoot string) bool {
 	worktreesDir := filepath.Join(repoRoot, ".sow", "worktrees")
 	rel, err := filepath.Rel(worktreesDir, path)
@@ -113,7 +119,7 @@ func isSowWorktree(path, repoRoot string) bool {
 	return !filepath.IsAbs(rel) && rel != "." && !strings.HasPrefix(rel, "..")
 }
 
-// detectSessionType checks which type of session is active in a worktree
+// detectSessionType checks which type of session is active in a worktree.
 func detectSessionType(worktreePath string) string {
 	// Check for session state directories
 	if _, err := os.Stat(filepath.Join(worktreePath, ".sow", "project")); err == nil {
@@ -131,7 +137,7 @@ func detectSessionType(worktreePath string) string {
 	return "unknown"
 }
 
-// extractBranchName extracts the branch name from a worktree path
+// extractBranchName extracts the branch name from a worktree path.
 func extractBranchName(worktreePath, repoRoot string) string {
 	worktreesDir := filepath.Join(repoRoot, ".sow", "worktrees")
 	rel, err := filepath.Rel(worktreesDir, worktreePath)
