@@ -109,6 +109,16 @@ type FinalizePhase struct {
 }
 
 // ProjectState is the root discriminated union for all project types.
-// For MVP, only StandardProjectState exists. Future project types
-// (DesignProjectState, SpikeProjectState, etc.) will be added here.
+// The discriminator field is project.type.
+//
+// Valid project types:
+//   - StandardProjectState (project.type == "standard")
+//   - ExplorationProjectState (project.type == "exploration")
+//   - DesignProjectState (project.type == "design")
+//   - BreakdownProjectState (project.type == "breakdown")
+//
+// Note: Go does not support true discriminated unions like CUE does.
+// This type alias points to StandardProjectState for backward compatibility.
+// Code that needs to handle all project types should use type switches on the
+// project.type field and cast appropriately.
 type ProjectState = StandardProjectState

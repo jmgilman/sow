@@ -127,7 +127,7 @@ func (c *StatechartContext) addPlanningData(data map[string]interface{}) {
 	approvedCount := 0
 	taskListApproved := false
 	for _, a := range artifacts {
-		if a.Approved {
+		if a.Approved != nil && *a.Approved {
 			approvedCount++
 			// Check if this is the task list artifact
 			if a.Metadata != nil {

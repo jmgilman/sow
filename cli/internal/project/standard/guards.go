@@ -18,7 +18,7 @@ func PlanningComplete(phase phases.Phase) bool {
 	// Check if task list artifact is approved
 	for _, a := range phase.Artifacts {
 		if a.Type != nil && *a.Type == "task_list" {
-			return a.Approved
+			return a.Approved != nil && *a.Approved
 		}
 	}
 	// If no task list artifact exists, planning is not complete
@@ -76,7 +76,7 @@ func LatestReviewApproved(state *schemas.ProjectState) bool {
 	}
 
 	latest := reviewArtifacts[len(reviewArtifacts)-1]
-	return latest.Approved
+	return latest.Approved != nil && *latest.Approved
 }
 
 // ProjectDeleted checks if the project folder has been deleted.

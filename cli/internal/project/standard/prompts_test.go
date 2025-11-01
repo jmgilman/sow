@@ -127,14 +127,16 @@ func TestGeneratePlanningPrompt(t *testing.T) {
 	})
 
 	t.Run("WithArtifacts", func(t *testing.T) {
+		approvedFalse := false
+		approvedTrue := true
 		projectState.Phases.Planning.Artifacts = []phases.Artifact{
 			{
 				Path:     "task-list.md",
-				Approved: false,
+				Approved: &approvedFalse,
 			},
 			{
 				Path:     "context.md",
-				Approved: true,
+				Approved: &approvedTrue,
 			},
 		}
 
@@ -153,9 +155,10 @@ func TestGenerateImplementationPlanningPrompt(t *testing.T) {
 	projectState := mockProjectState()
 
 	t.Run("WithPlanningArtifacts", func(t *testing.T) {
+		approvedTrue := true
 		projectState.Phases.Planning.Artifacts = []phases.Artifact{
-			{Path: "task-list.md", Approved: true},
-			{Path: "requirements.md", Approved: true},
+			{Path: "task-list.md", Approved: &approvedTrue},
+			{Path: "requirements.md", Approved: &approvedTrue},
 		}
 
 		prompt, err := generator.generateImplementationPlanningPrompt(projectState)
@@ -250,13 +253,14 @@ func TestGenerateReviewPrompt(t *testing.T) {
 	})
 
 	t.Run("WithPreviousReviewArtifact", func(t *testing.T) {
+		approvedFalse := false
 		projectState.Phases.Review.Metadata = map[string]interface{}{
 			"iteration": 2,
 		}
 		projectState.Phases.Review.Artifacts = []phases.Artifact{
 			{
 				Path:     "review-1.md",
-				Approved: false,
+				Approved: &approvedFalse,
 				Metadata: map[string]interface{}{
 					"type":       "review",
 					"iteration":  1,

@@ -114,7 +114,7 @@ func (p *PlanningPhase) Complete() (*domain.PhaseOperationResult, error) {
 	// Verify that the task list artifact is approved
 	taskListApproved := false
 	for _, artifact := range p.state.Artifacts {
-		if artifact.Type != nil && *artifact.Type == "task_list" && artifact.Approved {
+		if artifact.Type != nil && *artifact.Type == "task_list" && artifact.Approved != nil && *artifact.Approved {
 			taskListApproved = true
 			break
 		}
@@ -144,4 +144,9 @@ func (p *PlanningPhase) Skip() error {
 // Enable is not supported as planning phase is always enabled.
 func (p *PlanningPhase) Enable(_ ...domain.PhaseOption) error {
 	return project.ErrNotSupported // Planning is always enabled
+}
+
+// Advance is not supported as planning phase has no internal states.
+func (p *PlanningPhase) Advance() (*domain.PhaseOperationResult, error) {
+	return nil, project.ErrNotSupported
 }

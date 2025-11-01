@@ -31,6 +31,9 @@ type Phase struct {
 
 	Tasks []Task `json:"tasks"`
 
+	// Input sources that inform this phase's work (design, breakdown)
+	Inputs []Artifact `json:"inputs,omitempty"`
+
 	// Escape hatch for unanticipated fields
 	Metadata map[string]any/* CUE top */ `json:"metadata,omitempty"`
 }
@@ -40,8 +43,8 @@ type Artifact struct {
 	// Path relative to .sow/project/
 	Path string `json:"path"`
 
-	// Human approval status
-	Approved bool `json:"approved"`
+	// Human approval status (optional for exploration artifacts)
+	Approved *bool `json:"approved,omitempty"`
 
 	// When artifact was created
 	Created_at time.Time `json:"created_at"`
@@ -72,4 +75,10 @@ type Task struct {
 
 	// Task IDs this task depends on
 	Dependencies []string `json:"dependencies,omitempty"`
+
+	// References to artifacts created for this task (exploration topics)
+	Refs []Artifact `json:"refs,omitempty"`
+
+	// Task-specific metadata (e.g., github_issue_url for breakdown tasks)
+	Metadata map[string]any/* CUE top */ `json:"metadata,omitempty"`
 }

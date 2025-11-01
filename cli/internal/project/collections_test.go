@@ -135,7 +135,7 @@ func TestArtifactCollectionAdd(t *testing.T) {
 		t.Errorf("Expected path 'test.md', got '%s'", artifact.Path)
 	}
 
-	if artifact.Approved {
+	if artifact.Approved != nil && *artifact.Approved {
 		t.Error("Expected artifact to be unapproved initially")
 	}
 
@@ -152,6 +152,7 @@ func TestArtifactCollectionAdd(t *testing.T) {
 // TestArtifactCollectionApprove verifies artifacts can be approved.
 func TestArtifactCollectionApprove(t *testing.T) {
 	now := time.Now()
+	approvedFalse := false
 	phaseState := &phasesSchema.Phase{
 		Status:     "in_progress",
 		Created_at: now,
@@ -159,7 +160,7 @@ func TestArtifactCollectionApprove(t *testing.T) {
 		Artifacts: []phasesSchema.Artifact{
 			{
 				Path:       "test.md",
-				Approved:   false,
+				Approved:   &approvedFalse,
 				Created_at: now,
 			},
 		},
@@ -175,7 +176,7 @@ func TestArtifactCollectionApprove(t *testing.T) {
 	}
 
 	// Verify artifact is approved
-	if !phaseState.Artifacts[0].Approved {
+	if phaseState.Artifacts[0].Approved == nil || !*phaseState.Artifacts[0].Approved {
 		t.Error("Expected artifact to be approved")
 	}
 
@@ -188,13 +189,15 @@ func TestArtifactCollectionApprove(t *testing.T) {
 // TestArtifactCollectionList verifies artifacts can be listed.
 func TestArtifactCollectionList(t *testing.T) {
 	now := time.Now()
+	approvedFalse := false
+	approvedTrue := true
 	phaseState := &phasesSchema.Phase{
 		Status:     "in_progress",
 		Created_at: now,
 		Enabled:    true,
 		Artifacts: []phasesSchema.Artifact{
-			{Path: "test1.md", Approved: false, Created_at: now},
-			{Path: "test2.md", Approved: true, Created_at: now},
+			{Path: "test1.md", Approved: &approvedFalse, Created_at: now},
+			{Path: "test2.md", Approved: &approvedTrue, Created_at: now},
 		},
 	}
 
@@ -216,6 +219,8 @@ func TestArtifactCollectionList(t *testing.T) {
 // TestArtifactCollectionAllApproved verifies AllApproved check.
 func TestArtifactCollectionAllApproved(t *testing.T) {
 	now := time.Now()
+	approvedTrue := true
+	approvedFalse := false
 
 	tests := []struct {
 		name      string
@@ -230,16 +235,16 @@ func TestArtifactCollectionAllApproved(t *testing.T) {
 		{
 			name: "all approved",
 			artifacts: []phasesSchema.Artifact{
-				{Path: "test1.md", Approved: true, Created_at: now},
-				{Path: "test2.md", Approved: true, Created_at: now},
+				{Path: "test1.md", Approved: &approvedTrue, Created_at: now},
+				{Path: "test2.md", Approved: &approvedTrue, Created_at: now},
 			},
 			expected: true,
 		},
 		{
 			name: "some unapproved",
 			artifacts: []phasesSchema.Artifact{
-				{Path: "test1.md", Approved: true, Created_at: now},
-				{Path: "test2.md", Approved: false, Created_at: now},
+				{Path: "test1.md", Approved: &approvedTrue, Created_at: now},
+				{Path: "test2.md", Approved: &approvedFalse, Created_at: now},
 			},
 			expected: false,
 		},

@@ -69,6 +69,9 @@ func TestTasksComplete(t *testing.T) {
 }
 
 func TestArtifactsApproved(t *testing.T) {
+	approvedTrue := true
+	approvedFalse := false
+
 	tests := []struct {
 		name      string
 		artifacts []phases.Artifact
@@ -82,24 +85,24 @@ func TestArtifactsApproved(t *testing.T) {
 		{
 			name: "all approved returns true",
 			artifacts: []phases.Artifact{
-				{Approved: true},
-				{Approved: true},
+				{Approved: &approvedTrue},
+				{Approved: &approvedTrue},
 			},
 			expected: true,
 		},
 		{
 			name: "one not approved returns false",
 			artifacts: []phases.Artifact{
-				{Approved: true},
-				{Approved: false},
+				{Approved: &approvedTrue},
+				{Approved: &approvedFalse},
 			},
 			expected: false,
 		},
 		{
 			name: "all not approved returns false",
 			artifacts: []phases.Artifact{
-				{Approved: false},
-				{Approved: false},
+				{Approved: &approvedFalse},
+				{Approved: &approvedFalse},
 			},
 			expected: false,
 		},

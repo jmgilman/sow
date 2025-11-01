@@ -32,12 +32,20 @@ func Load(ctx *sow.Context) (domain.Project, error) {
 		return nil, fmt.Errorf("failed to load project state: %w", err)
 	}
 
-	// Convert to StandardProjectState (they're type aliases)
-	standardState := (*projects.StandardProjectState)(state)
-
-	// For now, only StandardProject exists
-	// TODO: Add project type detection when we have multiple types
-	return standard.New(standardState, ctx), nil
+	// Route based on project type
+	switch state.Project.Type {
+	case "standard":
+		return standard.New((*projects.StandardProjectState)(state), ctx), nil
+	case "exploration":
+		// NOTE: This will fail until exploration implementation
+		return nil, fmt.Errorf("exploration project type not yet implemented")
+	case "design":
+		return nil, fmt.Errorf("design project type not yet implemented")
+	case "breakdown":
+		return nil, fmt.Errorf("breakdown project type not yet implemented")
+	default:
+		return nil, fmt.Errorf("unknown project type: %s", state.Project.Type)
+	}
 }
 
 // Create creates a new project with the given name and description.
@@ -59,6 +67,17 @@ func Create(ctx *sow.Context, name, description string) (domain.Project, error) 
 	branch, err := ctx.Git().CurrentBranch()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	// Detect type from branch name
+	projectType := project.DetectProjectType(branch)
+
+	// For now, only support standard type until other types implemented
+	if projectType != "standard" {
+		return nil, fmt.Errorf(
+			"project type %s not yet implemented - detected from branch %s",
+			projectType, branch,
+		)
 	}
 
 	// Check if project already exists
@@ -209,11 +228,11 @@ func Delete(ctx *sow.Context) error {
 	}
 
 	// Set project_deleted flag to true (required by state machine guard)
+	// Must set the typed field, not metadata, so the guard can read it
 	state := proj.Machine().ProjectState()
-	if state.Phases.Finalize.Metadata == nil {
-		state.Phases.Finalize.Metadata = make(map[string]interface{})
-	}
-	state.Phases.Finalize.Metadata["project_deleted"] = true
+	typedState := (*projects.StandardProjectState)(state)
+	deleted := true
+	typedState.Phases.Finalize.Project_deleted = &deleted
 
 	// Save state with flag set
 	if err := proj.Save(); err != nil {

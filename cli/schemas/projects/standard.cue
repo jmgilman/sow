@@ -92,6 +92,5 @@ import (
 }
 
 // ProjectState is the root discriminated union for all project types.
-// For MVP, only StandardProjectState exists. Future project types
-// (DesignProjectState, SpikeProjectState, etc.) will be added here.
-#ProjectState: #StandardProjectState
+// The discriminator field is project.type.
+#ProjectState: #StandardProjectState | #ExplorationProjectState | #DesignProjectState | #BreakdownProjectState

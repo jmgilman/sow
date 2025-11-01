@@ -28,7 +28,7 @@ func ArtifactsApproved(artifacts []phases.Artifact) bool {
 		return false
 	}
 	for _, a := range artifacts {
-		if !a.Approved {
+		if a.Approved == nil || !*a.Approved {
 			return false
 		}
 	}

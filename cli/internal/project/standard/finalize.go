@@ -104,17 +104,44 @@ func (p *FinalizePhase) Get(field string) (interface{}, error) {
 	return val, nil
 }
 
-// Complete marks the finalize phase as completed.
+// Complete handles completion of the current finalize sub-state.
+// Finalize has 3 sub-states that must be completed in sequence:
+// FinalizeDocumentation → FinalizeChecks → FinalizeDelete.
 func (p *FinalizePhase) Complete() (*domain.PhaseOperationResult, error) {
-	p.state.Status = "completed"
-	now := time.Now()
-	p.state.Completed_at = &now
+	// Get current state to determine which event to fire
+	machine := p.project.Machine()
+	currentState := machine.State()
 
-	// Finalize is the last phase - no state transition needed
-	if err := p.project.Save(); err != nil {
-		return nil, err
+	// Handle completion based on current state
+	switch currentState {
+	case FinalizeDocumentation:
+		// Documentation work complete - transition to checks
+		if err := p.project.Save(); err != nil {
+			return nil, err
+		}
+		return domain.WithEvent(EventDocumentationDone), nil
+
+	case FinalizeChecks:
+		// Checks complete - transition to delete
+		if err := p.project.Save(); err != nil {
+			return nil, err
+		}
+		return domain.WithEvent(EventChecksDone), nil
+
+	case FinalizeDelete:
+		// Delete is the final step - mark phase as completed
+		p.state.Status = "completed"
+		now := time.Now()
+		p.state.Completed_at = &now
+		if err := p.project.Save(); err != nil {
+			return nil, err
+		}
+		// Note: EventProjectDelete must be fired separately via `sow agent delete`
+		return domain.NoEvent(), nil
+
+	default:
+		return nil, fmt.Errorf("unexpected state: %s", currentState)
 	}
-	return domain.NoEvent(), nil
 }
 
 // Skip is not supported as finalize phase is required.
@@ -125,4 +152,9 @@ func (p *FinalizePhase) Skip() error {
 // Enable is not supported as finalize phase is always enabled.
 func (p *FinalizePhase) Enable(_ ...domain.PhaseOption) error {
 	return project.ErrNotSupported // Finalize is always enabled
+}
+
+// Advance is not supported as finalize phase has no internal states.
+func (p *FinalizePhase) Advance() (*domain.PhaseOperationResult, error) {
+	return nil, project.ErrNotSupported
 }

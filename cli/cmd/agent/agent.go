@@ -33,6 +33,7 @@ Phase management (work on implicit active phase):
   - enable: Enable a specific phase
   - status: Show current project status
   - info: Show phase information
+  - advance: Advance to next state within current phase
 
 Artifact management:
   - artifact: Manage artifacts (add, approve, list)
@@ -56,6 +57,7 @@ Utilities:
 	cmd.AddCommand(NewEnableCmd())
 	cmd.AddCommand(NewStatusCmd())
 	cmd.AddCommand(NewInfoCmd())
+	cmd.AddCommand(NewAdvanceCmd())
 
 	// Artifact management
 	cmd.AddCommand(NewArtifactCmd())
