@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/jmgilman/sow/cli/internal/project/domain"
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/cli/schemas"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 	projectsSchema "github.com/jmgilman/sow/cli/schemas/projects"
 )
@@ -79,6 +79,7 @@ func setupTestRepo(t *testing.T) *sow.Context {
 // mockProject implements domain.Project for testing.
 type mockProject struct {
 	saveCount int
+	machine   *statechart.Machine
 }
 
 func (m *mockProject) Name() string                                        { return "test" }
@@ -87,7 +88,7 @@ func (m *mockProject) Description() string                                 { ret
 func (m *mockProject) Type() string                                        { return "test" }
 func (m *mockProject) CurrentPhase() domain.Phase                          { return nil }
 func (m *mockProject) Phase(_ string) (domain.Phase, error)               { return nil, nil }
-func (m *mockProject) Machine() *statechart.Machine                        { return nil }
+func (m *mockProject) Machine() *statechart.Machine                        { return m.machine }
 func (m *mockProject) InitialState() statechart.State                      { return statechart.NoProject }
 func (m *mockProject) Save() error {
 	m.saveCount++
@@ -135,7 +136,7 @@ func TestArtifactCollectionAdd(t *testing.T) {
 		t.Errorf("Expected path 'test.md', got '%s'", artifact.Path)
 	}
 
-	if artifact.Approved {
+	if artifact.Approved != nil && *artifact.Approved {
 		t.Error("Expected artifact to be unapproved initially")
 	}
 
@@ -152,6 +153,7 @@ func TestArtifactCollectionAdd(t *testing.T) {
 // TestArtifactCollectionApprove verifies artifacts can be approved.
 func TestArtifactCollectionApprove(t *testing.T) {
 	now := time.Now()
+	approvedFalse := false
 	phaseState := &phasesSchema.Phase{
 		Status:     "in_progress",
 		Created_at: now,
@@ -159,7 +161,7 @@ func TestArtifactCollectionApprove(t *testing.T) {
 		Artifacts: []phasesSchema.Artifact{
 			{
 				Path:       "test.md",
-				Approved:   false,
+				Approved:   &approvedFalse,
 				Created_at: now,
 			},
 		},
@@ -175,7 +177,7 @@ func TestArtifactCollectionApprove(t *testing.T) {
 	}
 
 	// Verify artifact is approved
-	if !phaseState.Artifacts[0].Approved {
+	if phaseState.Artifacts[0].Approved == nil || !*phaseState.Artifacts[0].Approved {
 		t.Error("Expected artifact to be approved")
 	}
 
@@ -188,13 +190,15 @@ func TestArtifactCollectionApprove(t *testing.T) {
 // TestArtifactCollectionList verifies artifacts can be listed.
 func TestArtifactCollectionList(t *testing.T) {
 	now := time.Now()
+	approvedFalse := false
+	approvedTrue := true
 	phaseState := &phasesSchema.Phase{
 		Status:     "in_progress",
 		Created_at: now,
 		Enabled:    true,
 		Artifacts: []phasesSchema.Artifact{
-			{Path: "test1.md", Approved: false, Created_at: now},
-			{Path: "test2.md", Approved: true, Created_at: now},
+			{Path: "test1.md", Approved: &approvedFalse, Created_at: now},
+			{Path: "test2.md", Approved: &approvedTrue, Created_at: now},
 		},
 	}
 
@@ -216,6 +220,8 @@ func TestArtifactCollectionList(t *testing.T) {
 // TestArtifactCollectionAllApproved verifies AllApproved check.
 func TestArtifactCollectionAllApproved(t *testing.T) {
 	now := time.Now()
+	approvedTrue := true
+	approvedFalse := false
 
 	tests := []struct {
 		name      string
@@ -230,16 +236,16 @@ func TestArtifactCollectionAllApproved(t *testing.T) {
 		{
 			name: "all approved",
 			artifacts: []phasesSchema.Artifact{
-				{Path: "test1.md", Approved: true, Created_at: now},
-				{Path: "test2.md", Approved: true, Created_at: now},
+				{Path: "test1.md", Approved: &approvedTrue, Created_at: now},
+				{Path: "test2.md", Approved: &approvedTrue, Created_at: now},
 			},
 			expected: true,
 		},
 		{
 			name: "some unapproved",
 			artifacts: []phasesSchema.Artifact{
-				{Path: "test1.md", Approved: true, Created_at: now},
-				{Path: "test2.md", Approved: false, Created_at: now},
+				{Path: "test1.md", Approved: &approvedTrue, Created_at: now},
+				{Path: "test2.md", Approved: &approvedFalse, Created_at: now},
 			},
 			expected: false,
 		},
@@ -353,17 +359,42 @@ func TestTaskCollectionApprove(t *testing.T) {
 	ctx := setupTestRepo(t)
 	now := time.Now()
 	var err error
-	phaseState := &phasesSchema.Phase{
-		Status:     "pending",
-		Created_at: now,
-		Enabled:    true,
-		Tasks: []phasesSchema.Task{
-			{Id: "010", Name: "Task 1", Status: "pending", Parallel: false},
+
+	// Create a full project state with implementation phase
+	projectState := &projectsSchema.StandardProjectState{
+		Phases: struct {
+			Planning       projectsSchema.PlanningPhase       `json:"planning"`
+			Implementation projectsSchema.ImplementationPhase `json:"implementation"`
+			Review         projectsSchema.ReviewPhase         `json:"review"`
+			Finalize       projectsSchema.FinalizePhase       `json:"finalize"`
+		}{
+			Implementation: projectsSchema.ImplementationPhase{
+				Phase: phasesSchema.Phase{
+					Status:     "pending",
+					Created_at: now,
+					Enabled:    true,
+					Tasks: []phasesSchema.Task{
+						{Id: "010", Name: "Task 1", Status: "pending", Parallel: false},
+					},
+					Metadata: make(map[string]interface{}),
+				},
+			},
 		},
-		Metadata: make(map[string]interface{}),
 	}
 
-	proj := &mockProject{}
+	// Create a minimal state machine for testing
+	// NewMachine is deprecated but explicitly documented as "only used by tests"
+	// Using MachineBuilder would be unnecessarily complex for this unit test
+	//nolint:staticcheck // SA1019: NewMachine is deprecated but intended for test use
+	machine := statechart.NewMachine((*schemas.ProjectState)(projectState))
+
+	// Create mock project with the machine
+	proj := &mockProject{
+		machine: machine,
+	}
+
+	// Use the phase from the project state
+	phaseState := &projectState.Phases.Implementation.Phase
 	collection := NewTaskCollection(phaseState, proj, ctx)
 
 	// Approve tasks
@@ -372,9 +403,8 @@ func TestTaskCollectionApprove(t *testing.T) {
 		t.Fatalf("Failed to approve tasks: %v", err)
 	}
 
-	// Verify typed field was set using unsafe cast (same as production code)
-	implPhase := (*projectsSchema.ImplementationPhase)(unsafe.Pointer(phaseState))
-	if implPhase.Tasks_approved == nil || !*implPhase.Tasks_approved {
+	// Verify typed field was set correctly
+	if projectState.Phases.Implementation.Tasks_approved == nil || !*projectState.Phases.Implementation.Tasks_approved {
 		t.Error("Expected Tasks_approved typed field to be true")
 	}
 

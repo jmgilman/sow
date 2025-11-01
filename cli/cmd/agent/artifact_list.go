@@ -59,7 +59,7 @@ Example:
 			cmd.Printf("Artifacts in %s phase:\n\n", phase.Name())
 			for _, a := range artifacts {
 				status := "pending"
-				if a.Approved {
+				if a.Approved != nil && *a.Approved {
 					status = "approved"
 				}
 				cmd.Printf("  %s [%s]", a.Path, status)
@@ -74,7 +74,7 @@ Example:
 			// Summary
 			approved := 0
 			for _, a := range artifacts {
-				if a.Approved {
+				if a.Approved != nil && *a.Approved {
 					approved++
 				}
 			}

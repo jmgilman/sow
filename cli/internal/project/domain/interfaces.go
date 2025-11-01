@@ -73,6 +73,10 @@ type Phase interface {
 	Complete() (*PhaseOperationResult, error)
 	Skip() error
 	Enable(opts ...PhaseOption) error
+
+	// Advance to next state within this phase
+	// Returns ErrNotSupported if phase has no internal states
+	Advance() (*PhaseOperationResult, error)
 }
 
 // ArtifactOption configures artifact creation.

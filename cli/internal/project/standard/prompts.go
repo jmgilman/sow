@@ -141,7 +141,7 @@ func (g *StandardPromptGenerator) generatePlanningPrompt(
 		buf.WriteString("\n## Planning Artifacts\n\n")
 		for _, artifact := range projectState.Phases.Planning.Artifacts {
 			status := "pending"
-			if artifact.Approved {
+			if artifact.Approved != nil && *artifact.Approved {
 				status = "approved"
 			}
 			buf.WriteString(fmt.Sprintf("- %s (%s)\n", artifact.Path, status))

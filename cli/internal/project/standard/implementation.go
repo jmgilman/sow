@@ -143,3 +143,8 @@ func (p *ImplementationPhase) Skip() error {
 func (p *ImplementationPhase) Enable(_ ...domain.PhaseOption) error {
 	return project.ErrNotSupported // Implementation is always enabled
 }
+
+// Advance is not supported as implementation phase has no internal states.
+func (p *ImplementationPhase) Advance() (*domain.PhaseOperationResult, error) {
+	return nil, project.ErrNotSupported
+}

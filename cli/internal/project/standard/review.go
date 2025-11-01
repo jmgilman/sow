@@ -121,7 +121,7 @@ func (p *ReviewPhase) Complete() (*domain.PhaseOperationResult, error) {
 	var latestReview *phasesSchema.Artifact
 	for i := len(p.state.Artifacts) - 1; i >= 0; i-- {
 		artifact := &p.state.Artifacts[i]
-		if artifact.Type != nil && *artifact.Type == "review" && artifact.Approved {
+		if artifact.Type != nil && *artifact.Type == "review" && artifact.Approved != nil && *artifact.Approved {
 			latestReview = artifact
 			break
 		}
@@ -167,11 +167,16 @@ func (p *ReviewPhase) Enable(_ ...domain.PhaseOption) error {
 	return project.ErrNotSupported // Review is always enabled
 }
 
+// Advance is not supported as review phase has no internal states.
+func (p *ReviewPhase) Advance() (*domain.PhaseOperationResult, error) {
+	return nil, project.ErrNotSupported
+}
+
 // AllReviewsApproved checks if all review artifacts have been approved.
 func (p *ReviewPhase) AllReviewsApproved() bool {
 	// Check for artifacts with type=review that aren't approved
 	for _, artifact := range p.state.Artifacts {
-		if artifact.Type != nil && *artifact.Type == "review" && !artifact.Approved {
+		if artifact.Type != nil && *artifact.Type == "review" && (artifact.Approved == nil || !*artifact.Approved) {
 			return false
 		}
 	}

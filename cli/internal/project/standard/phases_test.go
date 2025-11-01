@@ -216,6 +216,7 @@ func TestReviewPhaseGuards(t *testing.T) {
 	// Create phase with review artifacts
 	reviewType := "review"
 	passAssessment := "pass"
+	approvedTrue := true
 	phaseState := &phasesSchema.Phase{
 		Status:     "in_progress",
 		Created_at: now,
@@ -223,7 +224,7 @@ func TestReviewPhaseGuards(t *testing.T) {
 		Artifacts: []phasesSchema.Artifact{
 			{
 				Path:       "review-001.md",
-				Approved:   true,
+				Approved:   &approvedTrue,
 				Created_at: now,
 				Type:       &reviewType,
 				Assessment: &passAssessment,
@@ -333,6 +334,7 @@ func TestReviewPhaseCompleteWithAssessment(t *testing.T) {
 
 			// Create phase with approved review artifact
 			reviewType := "review"
+			approvedTrue := true
 			phaseState := &phasesSchema.Phase{
 				Status:     "in_progress",
 				Created_at: now,
@@ -340,7 +342,7 @@ func TestReviewPhaseCompleteWithAssessment(t *testing.T) {
 				Artifacts: []phasesSchema.Artifact{
 					{
 						Path:       "review-001.md",
-						Approved:   true,
+						Approved:   &approvedTrue,
 						Created_at: now,
 						Type:       &reviewType,
 						Assessment: &tt.assessment,
@@ -395,6 +397,8 @@ func TestReviewPhaseCompleteWithoutApprovedReview(t *testing.T) {
 	reviewType := "review"
 	passAssessment := "pass"
 	otherType := "other"
+	approvedTrue := true
+	approvedFalse := false
 
 	tests := []struct {
 		name      string
@@ -409,7 +413,7 @@ func TestReviewPhaseCompleteWithoutApprovedReview(t *testing.T) {
 			artifacts: []phasesSchema.Artifact{
 				{
 					Path:       "review-001.md",
-					Approved:   false,
+					Approved:   &approvedFalse,
 					Created_at: now,
 					Type:       &reviewType,
 					Assessment: &passAssessment,
@@ -421,7 +425,7 @@ func TestReviewPhaseCompleteWithoutApprovedReview(t *testing.T) {
 			artifacts: []phasesSchema.Artifact{
 				{
 					Path:       "other.md",
-					Approved:   true,
+					Approved:   &approvedTrue,
 					Created_at: now,
 					Type:       &otherType,
 				},
@@ -432,7 +436,7 @@ func TestReviewPhaseCompleteWithoutApprovedReview(t *testing.T) {
 			artifacts: []phasesSchema.Artifact{
 				{
 					Path:       "review-001.md",
-					Approved:   true,
+					Approved:   &approvedTrue,
 					Created_at: now,
 					Type:       &reviewType,
 				},
@@ -512,5 +516,121 @@ func TestStandardProjectInitialState(t *testing.T) {
 	// Verify it's specifically PlanningActive for StandardProject
 	if declaredInitial != "PlanningActive" {
 		t.Errorf("StandardProject should declare PlanningActive as initial state, got %s", declaredInitial)
+	}
+}
+
+// TestPlanningPhase_Advance verifies that planning phase returns ErrNotSupported for Advance.
+func TestPlanningPhase_Advance(t *testing.T) {
+	ctx := setupTestRepo(t)
+	now := time.Now()
+
+	phaseState := &phasesSchema.Phase{
+		Status:     "in_progress",
+		Created_at: now,
+		Enabled:    true,
+	}
+
+	state := &projects.StandardProjectState{}
+	proj := New(state, ctx)
+
+	phase := NewPlanningPhase(phaseState, proj, ctx)
+
+	result, err := phase.Advance()
+
+	// Should return ErrNotSupported
+	if !errors.Is(err, project.ErrNotSupported) {
+		t.Errorf("Expected ErrNotSupported, got: %v", err)
+	}
+
+	// Result should be nil
+	if result != nil {
+		t.Errorf("Expected nil result with ErrNotSupported, got: %+v", result)
+	}
+}
+
+// TestImplementationPhase_Advance verifies that implementation phase returns ErrNotSupported for Advance.
+func TestImplementationPhase_Advance(t *testing.T) {
+	ctx := setupTestRepo(t)
+	now := time.Now()
+
+	phaseState := &phasesSchema.Phase{
+		Status:     "in_progress",
+		Created_at: now,
+		Enabled:    true,
+	}
+
+	state := &projects.StandardProjectState{}
+	proj := New(state, ctx)
+
+	phase := NewImplementationPhase(phaseState, proj, ctx)
+
+	result, err := phase.Advance()
+
+	// Should return ErrNotSupported
+	if !errors.Is(err, project.ErrNotSupported) {
+		t.Errorf("Expected ErrNotSupported, got: %v", err)
+	}
+
+	// Result should be nil
+	if result != nil {
+		t.Errorf("Expected nil result with ErrNotSupported, got: %+v", result)
+	}
+}
+
+// TestReviewPhase_Advance verifies that review phase returns ErrNotSupported for Advance.
+func TestReviewPhase_Advance(t *testing.T) {
+	ctx := setupTestRepo(t)
+	now := time.Now()
+
+	phaseState := &phasesSchema.Phase{
+		Status:     "in_progress",
+		Created_at: now,
+		Enabled:    true,
+	}
+
+	state := &projects.StandardProjectState{}
+	proj := New(state, ctx)
+
+	phase := NewReviewPhase(phaseState, proj, ctx)
+
+	result, err := phase.Advance()
+
+	// Should return ErrNotSupported
+	if !errors.Is(err, project.ErrNotSupported) {
+		t.Errorf("Expected ErrNotSupported, got: %v", err)
+	}
+
+	// Result should be nil
+	if result != nil {
+		t.Errorf("Expected nil result with ErrNotSupported, got: %+v", result)
+	}
+}
+
+// TestFinalizePhase_Advance verifies that finalize phase returns ErrNotSupported for Advance.
+func TestFinalizePhase_Advance(t *testing.T) {
+	ctx := setupTestRepo(t)
+	now := time.Now()
+
+	phaseState := &phasesSchema.Phase{
+		Status:     "in_progress",
+		Created_at: now,
+		Enabled:    true,
+	}
+
+	state := &projects.StandardProjectState{}
+	proj := New(state, ctx)
+
+	phase := NewFinalizePhase(phaseState, proj, ctx)
+
+	result, err := phase.Advance()
+
+	// Should return ErrNotSupported
+	if !errors.Is(err, project.ErrNotSupported) {
+		t.Errorf("Expected ErrNotSupported, got: %v", err)
+	}
+
+	// Result should be nil
+	if result != nil {
+		t.Errorf("Expected nil result with ErrNotSupported, got: %+v", result)
 	}
 }

@@ -31,9 +31,10 @@ func (ac *ArtifactCollection) Add(path string, opts ...domain.ArtifactOption) er
 		opt(cfg)
 	}
 
+	approved := false
 	artifact := phases.Artifact{
 		Path:       path,
-		Approved:   false,
+		Approved:   &approved,
 		Created_at: time.Now(),
 		Type:       cfg.Type,
 		Assessment: cfg.Assessment,
@@ -51,7 +52,8 @@ func (ac *ArtifactCollection) Add(path string, opts ...domain.ArtifactOption) er
 func (ac *ArtifactCollection) Approve(path string) error {
 	for i := range ac.state.Artifacts {
 		if ac.state.Artifacts[i].Path == path {
-			ac.state.Artifacts[i].Approved = true
+			approved := true
+			ac.state.Artifacts[i].Approved = &approved
 			if err := ac.project.Save(); err != nil {
 				return fmt.Errorf("failed to save project after approving artifact: %w", err)
 			}
@@ -73,7 +75,7 @@ func (ac *ArtifactCollection) List() []*phases.Artifact {
 // AllApproved checks if all artifacts are approved.
 func (ac *ArtifactCollection) AllApproved() bool {
 	for _, a := range ac.state.Artifacts {
-		if !a.Approved {
+		if a.Approved == nil || !*a.Approved {
 			return false
 		}
 	}

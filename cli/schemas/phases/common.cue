@@ -23,6 +23,9 @@ import "time"
 	artifacts: [...#Artifact] // Used by discovery, design, review
 	tasks: [...#Task] // Used by implementation
 
+	// Input sources that inform this phase's work (design, breakdown)
+	inputs?: [...#Artifact] @go(,optional=nillable)
+
 	// Escape hatch for unanticipated fields
 	metadata?: {[string]: _} @go(,optional=nillable)
 }
@@ -32,8 +35,8 @@ import "time"
 	// Path relative to .sow/project/
 	path: string
 
-	// Human approval status
-	approved: bool
+	// Human approval status (optional for exploration artifacts)
+	approved?: bool @go(,optional=nillable)
 
 	// When artifact was created
 	created_at: time.Time
@@ -64,4 +67,10 @@ import "time"
 
 	// Task IDs this task depends on
 	dependencies?: [...string] @go(,optional=nillable)
+
+	// References to artifacts created for this task (exploration topics)
+	refs?: [...#Artifact] @go(,optional=nillable)
+
+	// Task-specific metadata (e.g., github_issue_url for breakdown tasks)
+	metadata?: {[string]: _} @go(,optional=nillable)
 }
