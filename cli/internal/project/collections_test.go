@@ -382,8 +382,10 @@ func TestTaskCollectionApprove(t *testing.T) {
 		},
 	}
 
-	// Create a proper state machine with the project state
-	// schemas.ProjectState is a type alias to projects.StandardProjectState
+	// Create a minimal state machine for testing
+	// NewMachine is deprecated but explicitly documented as "only used by tests"
+	// Using MachineBuilder would be unnecessarily complex for this unit test
+	//nolint:staticcheck // SA1019: NewMachine is deprecated but intended for test use
 	machine := statechart.NewMachine((*schemas.ProjectState)(projectState))
 
 	// Create mock project with the machine
