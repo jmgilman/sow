@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"time"
-	"unsafe"
 
 	"github.com/jmgilman/sow/cli/internal/project/domain"
 	"github.com/jmgilman/sow/cli/internal/sow"
@@ -97,11 +96,13 @@ func (tc *TaskCollection) Approve() error {
 		return fmt.Errorf("cannot approve: no tasks exist")
 	}
 
-	// Set approval in typed field
-	// We know this is called from ImplementationPhase, so cast to ImplementationPhase
-	implPhase := (*projects.ImplementationPhase)(unsafe.Pointer(tc.state))
+	// Set approval in typed field by accessing the full project state
+	// We can't use unsafe.Pointer on tc.state because it's only a *phases.Phase,
+	// but we need access to the full *projects.ImplementationPhase which is larger
+	projectState := tc.project.Machine().ProjectState()
+	typedState := (*projects.StandardProjectState)(projectState)
 	approved := true
-	implPhase.Tasks_approved = &approved
+	typedState.Phases.Implementation.Tasks_approved = &approved
 
 	tc.state.Status = "in_progress"
 	if tc.state.Started_at == nil {

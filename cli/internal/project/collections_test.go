@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/jmgilman/sow/cli/internal/project/domain"
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/cli/schemas"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 	projectsSchema "github.com/jmgilman/sow/cli/schemas/projects"
 )
@@ -79,6 +79,7 @@ func setupTestRepo(t *testing.T) *sow.Context {
 // mockProject implements domain.Project for testing.
 type mockProject struct {
 	saveCount int
+	machine   *statechart.Machine
 }
 
 func (m *mockProject) Name() string                                        { return "test" }
@@ -87,7 +88,7 @@ func (m *mockProject) Description() string                                 { ret
 func (m *mockProject) Type() string                                        { return "test" }
 func (m *mockProject) CurrentPhase() domain.Phase                          { return nil }
 func (m *mockProject) Phase(_ string) (domain.Phase, error)               { return nil, nil }
-func (m *mockProject) Machine() *statechart.Machine                        { return nil }
+func (m *mockProject) Machine() *statechart.Machine                        { return m.machine }
 func (m *mockProject) InitialState() statechart.State                      { return statechart.NoProject }
 func (m *mockProject) Save() error {
 	m.saveCount++
@@ -358,17 +359,40 @@ func TestTaskCollectionApprove(t *testing.T) {
 	ctx := setupTestRepo(t)
 	now := time.Now()
 	var err error
-	phaseState := &phasesSchema.Phase{
-		Status:     "pending",
-		Created_at: now,
-		Enabled:    true,
-		Tasks: []phasesSchema.Task{
-			{Id: "010", Name: "Task 1", Status: "pending", Parallel: false},
+
+	// Create a full project state with implementation phase
+	projectState := &projectsSchema.StandardProjectState{
+		Phases: struct {
+			Planning       projectsSchema.PlanningPhase       `json:"planning"`
+			Implementation projectsSchema.ImplementationPhase `json:"implementation"`
+			Review         projectsSchema.ReviewPhase         `json:"review"`
+			Finalize       projectsSchema.FinalizePhase       `json:"finalize"`
+		}{
+			Implementation: projectsSchema.ImplementationPhase{
+				Phase: phasesSchema.Phase{
+					Status:     "pending",
+					Created_at: now,
+					Enabled:    true,
+					Tasks: []phasesSchema.Task{
+						{Id: "010", Name: "Task 1", Status: "pending", Parallel: false},
+					},
+					Metadata: make(map[string]interface{}),
+				},
+			},
 		},
-		Metadata: make(map[string]interface{}),
 	}
 
-	proj := &mockProject{}
+	// Create a proper state machine with the project state
+	// schemas.ProjectState is a type alias to projects.StandardProjectState
+	machine := statechart.NewMachine((*schemas.ProjectState)(projectState))
+
+	// Create mock project with the machine
+	proj := &mockProject{
+		machine: machine,
+	}
+
+	// Use the phase from the project state
+	phaseState := &projectState.Phases.Implementation.Phase
 	collection := NewTaskCollection(phaseState, proj, ctx)
 
 	// Approve tasks
@@ -377,9 +401,8 @@ func TestTaskCollectionApprove(t *testing.T) {
 		t.Fatalf("Failed to approve tasks: %v", err)
 	}
 
-	// Verify typed field was set using unsafe cast (same as production code)
-	implPhase := (*projectsSchema.ImplementationPhase)(unsafe.Pointer(phaseState))
-	if implPhase.Tasks_approved == nil || !*implPhase.Tasks_approved {
+	// Verify typed field was set correctly
+	if projectState.Phases.Implementation.Tasks_approved == nil || !*projectState.Phases.Implementation.Tasks_approved {
 		t.Error("Expected Tasks_approved typed field to be true")
 	}
 
