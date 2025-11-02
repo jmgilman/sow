@@ -47,7 +47,9 @@ type TransitionOption func(*transitionConfig)
 
 // transitionConfig holds configuration for a single transition.
 type transitionConfig struct {
-	guard GuardFunc
+	guard        GuardFunc
+	entryActions []func(context.Context, ...any) error
+	exitActions  []func(context.Context, ...any) error
 }
 
 // GuardFunc is a function that determines if a transition is permitted.
@@ -71,6 +73,54 @@ type GuardFunc func() bool
 func WithGuard(guard GuardFunc) TransitionOption {
 	return func(c *transitionConfig) {
 		c.guard = guard
+	}
+}
+
+// WithOnEntry adds a custom entry action to execute when entering the target state.
+// Multiple entry actions can be added and will execute in the order they are added,
+// after the built-in prompt generation action.
+//
+// Entry actions receive the context and can mutate shared state through closures.
+// The project state will be saved after all entry actions complete.
+//
+// Example:
+//
+//	builder.AddTransition(
+//	    PlanningActive,
+//	    ImplementationPlanning,
+//	    EventCompletePlanning,
+//	    statechart.WithOnEntry(func(_ context.Context, _ ...any) error {
+//	        project.state.Phases.Implementation.Status = "in_progress"
+//	        return nil
+//	    }),
+//	)
+func WithOnEntry(action func(context.Context, ...any) error) TransitionOption {
+	return func(c *transitionConfig) {
+		c.entryActions = append(c.entryActions, action)
+	}
+}
+
+// WithOnExit adds a custom exit action to execute when leaving the source state.
+// Multiple exit actions can be added and will execute in the order they are added,
+// before the state transition occurs.
+//
+// Exit actions receive the context and can mutate shared state through closures.
+// The project state will be saved after the transition completes.
+//
+// Example:
+//
+//	builder.AddTransition(
+//	    PlanningActive,
+//	    ImplementationPlanning,
+//	    EventCompletePlanning,
+//	    statechart.WithOnExit(func(_ context.Context, _ ...any) error {
+//	        project.state.Phases.Planning.Status = "completed"
+//	        return nil
+//	    }),
+//	)
+func WithOnExit(action func(context.Context, ...any) error) TransitionOption {
+	return func(c *transitionConfig) {
+		c.exitActions = append(c.exitActions, action)
 	}
 }
 
@@ -106,22 +156,36 @@ func (b *MachineBuilder) AddTransition(
 		opt(config)
 	}
 
-	// Configure the transition
-	cfg := b.sm.Configure(from)
+	// Configure the source state for exit actions
+	cfgFrom := b.sm.Configure(from)
 
+	// Add user-defined exit actions (run before leaving source state)
+	for _, action := range config.exitActions {
+		cfgFrom.OnExit(action)
+	}
+
+	// Configure the transition
 	if config.guard != nil {
 		// Conditional transition with guard
 		// Wrap guard to match stateless signature
-		cfg.Permit(event, to, func(_ context.Context, _ ...any) bool {
+		cfgFrom.Permit(event, to, func(_ context.Context, _ ...any) bool {
 			return config.guard()
 		})
 	} else {
 		// Unconditional transition
-		cfg.Permit(event, to)
+		cfgFrom.Permit(event, to)
 	}
 
-	// Add entry action to generate prompt on state entry
-	cfg.OnEntry(b.onEntry(from))
+	// Configure the target state for entry actions
+	cfgTo := b.sm.Configure(to)
+
+	// Add built-in prompt generation entry action
+	cfgTo.OnEntry(b.onEntry(from))
+
+	// Add user-defined entry actions (run after entering target state)
+	for _, action := range config.entryActions {
+		cfgTo.OnEntry(action)
+	}
 
 	return b
 }

@@ -164,11 +164,11 @@ Please review and let me know if this matches your expectations or if we need ad
 Once the developer approves:
 
 ```bash
-# Approve the task list artifact
+# Step 1: Approve the task list artifact
 sow agent project artifact approve context/task-breakdown.md --phase planning
 
-# Complete planning phase (transitions to ImplementationPlanning)
-sow agent project phase complete planning
+# Step 2: Advance to next state (transitions to ImplementationPlanning)
+sow advance
 ```
 
 ---
@@ -178,7 +178,7 @@ sow agent project phase complete planning
 ### Project Management
 ```bash
 sow agent project status                          # Show detailed project state
-sow agent project phase complete planning         # Complete planning phase
+sow advance                                       # Advance to next state after approvals
 ```
 
 ### Artifact Management
@@ -233,14 +233,14 @@ After planning completes, you'll enter `ImplementationPlanning` state where you:
 - Create tasks from the approved breakdown
 - Set up task workspaces
 - Configure task metadata
-- Transition to execution when ready
+- Use `sow advance` to transition to execution when ready
 
 ### Implementation Executing
 During execution:
 - Spawn implementer agents via Task tool
 - Track task progress
 - Update state as tasks complete
-- Transition to Review when all tasks done
+- Use `sow advance` to transition to Review when all tasks done
 
 ### Review
 Perform quality validation:

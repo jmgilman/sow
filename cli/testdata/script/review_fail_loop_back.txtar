@@ -24,8 +24,8 @@ exec sh -c 'echo "# Task List" > .sow/project/artifacts/tasks.md'
 exec sh -c 'echo "- [ ] Implement feature X" >> .sow/project/artifacts/tasks.md'
 exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
 exec sow agent artifact approve project/artifacts/tasks.md
-exec sow agent complete
-stderr '✓ Completed planning phase'
+exec sow advance
+stderr '✓ Advanced to next state'
 
 # Verify in ImplementationPlanning
 exec cat .sow/project/state.yaml
@@ -40,13 +40,18 @@ exec sow agent task add 'Implement feature X' --description 'Core implementation
 exec sow agent task approve
 stderr '✓ Approved task plan'
 
+# Transition to ImplementationExecuting
+exec sow advance
+
 # Verify transition to ImplementationExecuting
 exec cat .sow/project/state.yaml
 stdout 'current_state: ImplementationExecuting'
 
 # Complete the task
 exec sow agent task update 010 --status completed
-stderr 'Transitioning to review'
+
+# Transition to ReviewActive
+exec sow advance
 
 # Verify transition to ReviewActive
 exec cat .sow/project/state.yaml
@@ -70,9 +75,9 @@ exec sow agent artifact add project/phases/review/reports/001-fail.md --metadata
 # Human approves the review artifact
 exec sow agent artifact approve project/phases/review/reports/001-fail.md
 
-# Complete review phase - should fire EventReviewFail
-exec sow agent complete
-stderr '✓ Completed review phase'
+# Advance review phase - should fire EventReviewFail
+exec sow advance
+stderr '✓ Advanced to next state'
 
 # CRITICAL: Verify transition BACK to ImplementationPlanning (not forward to finalize!)
 exec cat .sow/project/state.yaml
@@ -94,6 +99,9 @@ stderr '✓ Created task'
 # Approve new task plan
 exec sow agent task approve
 
+# Transition to ImplementationExecuting
+exec sow advance
+
 # Verify in ImplementationExecuting
 exec cat .sow/project/state.yaml
 stdout 'current_state: ImplementationExecuting'
@@ -101,6 +109,9 @@ stdout 'current_state: ImplementationExecuting'
 # Complete both new tasks
 exec sow agent task update 020 --status completed
 exec sow agent task update 030 --status completed
+
+# Transition back to review
+exec sow advance
 
 # Should transition back to review
 exec cat .sow/project/state.yaml
@@ -122,9 +133,9 @@ exec sow agent artifact add project/phases/review/reports/002-pass.md --metadata
 # Human approves the review artifact
 exec sow agent artifact approve project/phases/review/reports/002-pass.md
 
-# Complete review phase - should fire EventReviewPass
-exec sow agent complete
-stderr '✓ Completed review phase'
+# Advance review phase - should fire EventReviewPass
+exec sow advance
+stderr '✓ Advanced to next state'
 
 # CRITICAL: Verify transition FORWARD to FinalizeDocumentation (not back to implementation!)
 exec cat .sow/project/state.yaml
@@ -139,8 +150,8 @@ exec cat .sow/project/state.yaml
 # =====================================
 
 # Reset to test error case
-exec sow agent complete
-exec sow agent complete
+exec sow advance
+exec sow advance
 exec sow agent delete --force
 exec sow agent init invalid-assessment-test --description 'Test invalid assessment'
 
@@ -149,10 +160,12 @@ exec mkdir -p .sow/project/artifacts
 exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
 exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
 exec sow agent artifact approve project/artifacts/tasks.md
-exec sow agent complete
+exec sow advance
 exec sow agent task add 'Task' --description 'Test'
 exec sow agent task approve
+exec sow advance
 exec sow agent task update 010 --status completed
+exec sow advance
 
 # Create review with invalid assessment
 exec mkdir -p .sow/project/phases/review/reports
@@ -160,9 +173,9 @@ exec sh -c 'echo "# Review" > .sow/project/phases/review/reports/invalid.md'
 exec sow agent artifact add project/phases/review/reports/invalid.md --metadata type=review --metadata assessment=maybe
 exec sow agent artifact approve project/phases/review/reports/invalid.md
 
-# Complete should fail with error
-! exec sow agent complete
-stderr 'invalid assessment value: maybe'
+# Advance should fail with error
+! exec sow advance
+stderr 'invalid assessment'
 
 # =====================================
 # Test: Missing Assessment Metadata
@@ -177,10 +190,12 @@ exec mkdir -p .sow/project/artifacts
 exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
 exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
 exec sow agent artifact approve project/artifacts/tasks.md
-exec sow agent complete
+exec sow advance
 exec sow agent task add 'Task' --description 'Test'
 exec sow agent task approve
+exec sow advance
 exec sow agent task update 010 --status completed
+exec sow advance
 
 # Create review without assessment metadata
 exec mkdir -p .sow/project/phases/review/reports
@@ -188,8 +203,8 @@ exec sh -c 'echo "# Review" > .sow/project/phases/review/reports/no-assessment.m
 exec sow agent artifact add project/phases/review/reports/no-assessment.md --metadata type=review
 exec sow agent artifact approve project/phases/review/reports/no-assessment.md
 
-# Complete should fail with error
-! exec sow agent complete
+# Advance should fail with error
+! exec sow advance
 stderr 'review artifact missing assessment'
 
 # =====================================
@@ -205,13 +220,15 @@ exec mkdir -p .sow/project/artifacts
 exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
 exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
 exec sow agent artifact approve project/artifacts/tasks.md
-exec sow agent complete
+exec sow advance
 exec sow agent task add 'Task' --description 'Test'
 exec sow agent task approve
+exec sow advance
 exec sow agent task update 010 --status completed
+exec sow advance
 
-# Try to complete without any review artifact
-! exec sow agent complete
+# Try to advance without any review artifact
+! exec sow advance
 stderr 'no approved review artifact found'
 
 # =====================================

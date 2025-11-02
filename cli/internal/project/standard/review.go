@@ -2,11 +2,11 @@ package standard
 
 import (
 	"fmt"
-	"time"
 	"unsafe"
 
 	"github.com/jmgilman/sow/cli/internal/project"
 	"github.com/jmgilman/sow/cli/internal/project/domain"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/jmgilman/sow/cli/schemas/projects"
@@ -56,11 +56,11 @@ func (p *ReviewPhase) AddArtifact(path string, opts ...domain.ArtifactOption) er
 }
 
 // ApproveArtifact approves an artifact in the review phase.
-func (p *ReviewPhase) ApproveArtifact(path string) (*domain.PhaseOperationResult, error) {
+func (p *ReviewPhase) ApproveArtifact(path string) error {
 	if err := p.artifacts.Approve(path); err != nil {
-		return nil, fmt.Errorf("failed to approve artifact: %w", err)
+		return fmt.Errorf("failed to approve artifact: %w", err)
 	}
-	return domain.NoEvent(), nil
+	return nil
 }
 
 // ListArtifacts returns all artifacts in the review phase.
@@ -84,20 +84,20 @@ func (p *ReviewPhase) ListTasks() []*domain.Task {
 }
 
 // ApproveTasks is not supported in the review phase.
-func (p *ReviewPhase) ApproveTasks() (*domain.PhaseOperationResult, error) {
-	return nil, project.ErrNotSupported
+func (p *ReviewPhase) ApproveTasks() error {
+	return project.ErrNotSupported
 }
 
 // Set sets a metadata field in the review phase.
-func (p *ReviewPhase) Set(field string, value interface{}) (*domain.PhaseOperationResult, error) {
+func (p *ReviewPhase) Set(field string, value interface{}) error {
 	if p.state.Metadata == nil {
 		p.state.Metadata = make(map[string]interface{})
 	}
 	p.state.Metadata[field] = value
 	if err := p.project.Save(); err != nil {
-		return nil, err
+		return err
 	}
-	return domain.NoEvent(), nil
+	return nil
 }
 
 // Get retrieves a metadata field from the review phase.
@@ -112,49 +112,9 @@ func (p *ReviewPhase) Get(field string) (interface{}, error) {
 	return val, nil
 }
 
-// Complete marks the review phase as completed.
-// The event fired depends on the assessment of the latest approved review artifact:
-// - "pass" fires EventReviewPass (transitions to FinalizeDocumentation)
-// - "fail" fires EventReviewFail (transitions back to ImplementationPlanning).
-func (p *ReviewPhase) Complete() (*domain.PhaseOperationResult, error) {
-	// Find the latest approved review artifact
-	var latestReview *phasesSchema.Artifact
-	for i := len(p.state.Artifacts) - 1; i >= 0; i-- {
-		artifact := &p.state.Artifacts[i]
-		if artifact.Type != nil && *artifact.Type == "review" && artifact.Approved != nil && *artifact.Approved {
-			latestReview = artifact
-			break
-		}
-	}
-
-	if latestReview == nil {
-		return nil, fmt.Errorf("cannot complete review: no approved review artifact found")
-	}
-
-	// Extract assessment from typed field
-	if latestReview.Assessment == nil {
-		return nil, fmt.Errorf("cannot complete review: review artifact missing assessment")
-	}
-	assessment := *latestReview.Assessment
-
-	// Update status and timestamps
-	p.state.Status = "completed"
-	now := time.Now()
-	p.state.Completed_at = &now
-
-	if err := p.project.Save(); err != nil {
-		return nil, err
-	}
-
-	// Return appropriate event based on assessment
-	switch assessment {
-	case "pass":
-		return domain.WithEvent(EventReviewPass), nil
-	case "fail":
-		return domain.WithEvent(EventReviewFail), nil
-	default:
-		return nil, fmt.Errorf("invalid assessment value: %s (must be 'pass' or 'fail')", assessment)
-	}
+// Complete is not supported - use Advance() instead.
+func (p *ReviewPhase) Complete() error {
+	return project.ErrNotSupported
 }
 
 // Skip is not supported as review phase is required.
@@ -167,9 +127,50 @@ func (p *ReviewPhase) Enable(_ ...domain.PhaseOption) error {
 	return project.ErrNotSupported // Review is always enabled
 }
 
-// Advance is not supported as review phase has no internal states.
-func (p *ReviewPhase) Advance() (*domain.PhaseOperationResult, error) {
-	return nil, project.ErrNotSupported
+// Advance examines the latest approved review artifact and fires the appropriate event.
+// If the assessment is "pass", fires EventReviewPass. If "fail", fires EventReviewFail.
+func (p *ReviewPhase) Advance() error {
+	// Find the latest approved review artifact
+	var latestReview *phasesSchema.Artifact
+	for i := len(p.state.Artifacts) - 1; i >= 0; i-- {
+		artifact := &p.state.Artifacts[i]
+		if artifact.Type != nil && *artifact.Type == "review" && artifact.Approved != nil && *artifact.Approved {
+			latestReview = artifact
+			break
+		}
+	}
+
+	if latestReview == nil {
+		return fmt.Errorf("%w: no approved review artifact found", project.ErrCannotAdvance)
+	}
+
+	// Extract assessment from typed field
+	if latestReview.Assessment == nil {
+		return fmt.Errorf("%w: review artifact missing assessment", project.ErrCannotAdvance)
+	}
+	assessment := *latestReview.Assessment
+
+	// Determine event based on assessment
+	var event statechart.Event
+	switch assessment {
+	case "pass":
+		event = EventReviewPass
+	case "fail":
+		event = EventReviewFail
+	default:
+		return fmt.Errorf("%w: invalid assessment: %s", project.ErrUnexpectedState, assessment)
+	}
+
+	machine := p.project.Machine()
+	if err := machine.Fire(event); err != nil {
+		return fmt.Errorf("%w: %w", project.ErrCannotAdvance, err)
+	}
+
+	if err := p.project.Save(); err != nil {
+		return fmt.Errorf("failed to save state: %w", err)
+	}
+
+	return nil
 }
 
 // AllReviewsApproved checks if all review artifacts have been approved.

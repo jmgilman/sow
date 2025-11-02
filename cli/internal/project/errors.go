@@ -29,4 +29,14 @@ var (
 
 	// ErrInvalidMetadata indicates invalid metadata format.
 	ErrInvalidMetadata = errors.New("invalid metadata")
+
+	// ErrUnexpectedState indicates the phase is in a state not handled by Advance() logic.
+	// This typically indicates state file corruption or a programming error.
+	ErrUnexpectedState = errors.New("unexpected state for advance")
+
+	// ErrCannotAdvance indicates the transition prerequisites are not met.
+	// This occurs when guards fail, meaning the user called advance prematurely.
+	ErrCannotAdvance = errors.New("cannot advance: prerequisites not met")
+
+	// Note: State save errors wrap underlying I/O errors, not sentinel errors.
 )

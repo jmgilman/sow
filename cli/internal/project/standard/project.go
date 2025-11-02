@@ -1,6 +1,7 @@
 package standard
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -175,6 +176,20 @@ func (p *StandardProject) buildStateMachine() *statechart.Machine {
 			statechart.WithGuard(func() bool {
 				return PlanningComplete(*(*phases.Phase)(unsafe.Pointer(&p.state.Phases.Planning)))
 			}),
+			statechart.WithOnExit(func(_ context.Context, _ ...any) error {
+				now := time.Now()
+				p.state.Phases.Planning.Status = "completed"
+				p.state.Phases.Planning.Completed_at = &now
+				return nil
+			}),
+			statechart.WithOnEntry(func(_ context.Context, _ ...any) error {
+				now := time.Now()
+				p.state.Phases.Implementation.Status = "in_progress"
+				if p.state.Phases.Implementation.Started_at == nil {
+					p.state.Phases.Implementation.Started_at = &now
+				}
+				return nil
+			}),
 		).
 		// Allow project deletion from planning
 		AddTransition(
@@ -214,6 +229,20 @@ func (p *StandardProject) buildStateMachine() *statechart.Machine {
 			statechart.WithGuard(func() bool {
 				return AllTasksComplete(projectState)
 			}),
+			statechart.WithOnExit(func(_ context.Context, _ ...any) error {
+				now := time.Now()
+				p.state.Phases.Implementation.Status = "completed"
+				p.state.Phases.Implementation.Completed_at = &now
+				return nil
+			}),
+			statechart.WithOnEntry(func(_ context.Context, _ ...any) error {
+				now := time.Now()
+				p.state.Phases.Review.Status = "in_progress"
+				if p.state.Phases.Review.Started_at == nil {
+					p.state.Phases.Review.Started_at = &now
+				}
+				return nil
+			}),
 		).
 		// Allow project deletion from implementation executing
 		AddTransition(
@@ -229,6 +258,17 @@ func (p *StandardProject) buildStateMachine() *statechart.Machine {
 			statechart.WithGuard(func() bool {
 				return LatestReviewApproved(projectState)
 			}),
+			statechart.WithOnEntry(func(_ context.Context, _ ...any) error {
+				// Loop back to implementation - set status back to in_progress
+				now := time.Now()
+				p.state.Phases.Implementation.Status = "in_progress"
+				// Reset completed_at since we're going back to work
+				p.state.Phases.Implementation.Completed_at = nil
+				if p.state.Phases.Implementation.Started_at == nil {
+					p.state.Phases.Implementation.Started_at = &now
+				}
+				return nil
+			}),
 		).
 		// ReviewActive → FinalizeDocumentation (review passed)
 		AddTransition(
@@ -237,6 +277,20 @@ func (p *StandardProject) buildStateMachine() *statechart.Machine {
 			EventReviewPass,
 			statechart.WithGuard(func() bool {
 				return LatestReviewApproved(projectState)
+			}),
+			statechart.WithOnExit(func(_ context.Context, _ ...any) error {
+				now := time.Now()
+				p.state.Phases.Review.Status = "completed"
+				p.state.Phases.Review.Completed_at = &now
+				return nil
+			}),
+			statechart.WithOnEntry(func(_ context.Context, _ ...any) error {
+				now := time.Now()
+				p.state.Phases.Finalize.Status = "in_progress"
+				if p.state.Phases.Finalize.Started_at == nil {
+					p.state.Phases.Finalize.Started_at = &now
+				}
+				return nil
 			}),
 		).
 		// Allow project deletion from review
@@ -282,6 +336,12 @@ func (p *StandardProject) buildStateMachine() *statechart.Machine {
 			EventProjectDelete,
 			statechart.WithGuard(func() bool {
 				return ProjectDeleted(projectState)
+			}),
+			statechart.WithOnExit(func(_ context.Context, _ ...any) error {
+				now := time.Now()
+				p.state.Phases.Finalize.Status = "completed"
+				p.state.Phases.Finalize.Completed_at = &now
+				return nil
 			}),
 		)
 

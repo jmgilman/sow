@@ -61,9 +61,9 @@ stdout 'needs_docs: true'
 # Complete Command - Planning Phase
 # =====================================
 
-# Try to complete without required artifact (should fail)
-! exec sow agent complete
-stderr 'task list artifact must be approved'
+# Try to advance without required artifact (should fail)
+! exec sow advance
+stderr 'cannot advance.*prerequisites not met'
 
 # Add and approve task list
 exec mkdir -p .sow/project/artifacts
@@ -71,9 +71,9 @@ exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
 exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
 exec sow agent artifact approve project/artifacts/tasks.md
 
-# Now complete should work
-exec sow agent complete
-stderr '✓ Completed planning phase'
+# Now advance should work
+exec sow advance
+stderr '✓ Advanced to next state'
 
 # =====================================
 # Status Command - Implementation Planning
@@ -121,6 +121,7 @@ stderr '○ 3 pending'
 
 # Update some tasks
 exec sow agent task approve
+exec sow advance
 exec sow agent task update 010 --status in_progress
 
 # Check status shows updated counts
@@ -144,7 +145,9 @@ stderr '○ 2 pending'
 exec sow agent task update 020 --status completed
 exec sow agent task update 030 --status completed
 
-# Should auto-transition to review
+# Transition to review
+exec sow advance
+
 exec cat .sow/project/state.yaml
 stdout 'current_state: ReviewActive'
 
@@ -177,8 +180,8 @@ exec sh -c 'echo "# Review" > .sow/project/phases/review/reports/001.md'
 exec sow agent artifact add project/phases/review/reports/001.md --metadata type=review --metadata assessment=pass
 exec sow agent artifact approve project/phases/review/reports/001.md
 
-exec sow agent complete
-stderr '✓ Completed review phase'
+exec sow advance
+stderr '✓ Advanced to next state'
 
 # Verify transition to finalize
 exec cat .sow/project/state.yaml
@@ -195,8 +198,8 @@ stderr 'Active Phase: finalize'
 # Complete Finalize Phase
 # =====================================
 
-exec sow agent complete
-stderr '✓ Completed finalize phase'
+exec sow advance
+stderr '✓ Advanced to next state'
 
 # =====================================
 # Cleanup

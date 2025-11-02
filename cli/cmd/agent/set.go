@@ -74,24 +74,12 @@ Examples:
 			}
 
 			// Set field via Phase interface
-			result, err := phase.Set(field, parsedValue)
+			err = phase.Set(field, parsedValue)
 			if errors.Is(err, project.ErrNotSupported) {
 				return fmt.Errorf("field %s not supported by phase %s", field, phase.Name())
 			}
 			if err != nil {
 				return fmt.Errorf("failed to set field: %w", err)
-			}
-
-			// Fire event if phase returned one
-			if result.Event != "" {
-				machine := proj.Machine()
-				if err := machine.Fire(result.Event); err != nil {
-					return fmt.Errorf("failed to fire event %s: %w", result.Event, err)
-				}
-				// Save after transition
-				if err := proj.Save(); err != nil {
-					return fmt.Errorf("failed to save project state: %w", err)
-				}
 			}
 
 			cmd.Printf("\n✓ Set %s = %v on %s phase\n", field, parsedValue, phase.Name())

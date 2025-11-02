@@ -33,7 +33,7 @@ Continue work on task {{.Project.CurrentTask.ID}}: {{.Project.CurrentTask.Name}}
 {{else if gt .Project.TasksPending 0}}
 Start the next pending task.
 {{else}}
-All tasks are complete. Transition to the review phase.
+All tasks are complete. Use `sow advance` to transition to the review phase.
 {{end}}
 {{else}}
 Continue the {{.Project.CurrentPhase}} phase where you left off.

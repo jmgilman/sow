@@ -16,8 +16,8 @@ exec sow init
 # Error: Commands Without Active Project
 # =====================================
 
-# Complete without project
-! exec sow agent complete
+# Advance without project
+! exec sow advance
 stderr 'no active project'
 
 # Status without project
@@ -61,7 +61,7 @@ exec mkdir -p .sow/project/artifacts
 exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
 exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
 exec sow agent artifact approve project/artifacts/tasks.md
-exec sow agent complete
+exec sow advance
 
 # Try artifact operations in implementation phase
 ! exec sow agent artifact add some-artifact.md
@@ -76,6 +76,7 @@ stderr 'does not support artifacts'
 
 exec sow agent task add 'Test task' --description 'Test'
 exec sow agent task approve
+exec sow advance
 
 # Try invalid status
 ! exec sow agent task update 010 --status invalid_status
@@ -123,6 +124,7 @@ stderr 'required'
 
 # Transition to review for artifact testing
 exec sow agent task update 010 --status completed
+exec sow advance
 
 # Try to approve non-existent artifact
 ! exec sow agent artifact approve project/non-existent.md
@@ -136,9 +138,9 @@ stderr 'not found'
 exec sow agent delete --force
 exec sow agent init completion-test --description 'Test completion requirements'
 
-# Try to complete planning without task list
-! exec sow agent complete
-stderr 'task list artifact must be approved'
+# Try to advance planning without task list
+! exec sow advance
+stderr 'cannot advance.*prerequisites not met'
 
 # Add task list but don't approve
 exec mkdir -p .sow/project/artifacts
@@ -146,8 +148,8 @@ exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
 exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
 
 # Still should fail
-! exec sow agent complete
-stderr 'task list artifact must be approved'
+! exec sow advance
+stderr 'cannot advance.*prerequisites not met'
 
 # =====================================
 # Error: Invalid Metadata Values
@@ -155,7 +157,7 @@ stderr 'task list artifact must be approved'
 
 # Metadata values are loosely typed, but test that command accepts various types
 exec sow agent artifact approve project/artifacts/tasks.md
-exec sow agent complete
+exec sow advance
 
 # Set accepts various types - these should all work
 exec sow agent set string_field 'value'
@@ -174,6 +176,7 @@ stdout 'bool_field: true'
 
 exec sow agent task add 'State test task' --description 'Test'
 exec sow agent task approve
+exec sow advance
 
 ! exec sow agent task state add-file 999 file.go
 stderr 'not found'

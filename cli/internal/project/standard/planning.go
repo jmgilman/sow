@@ -2,7 +2,6 @@ package standard
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/jmgilman/sow/cli/internal/project"
 	"github.com/jmgilman/sow/cli/internal/project/domain"
@@ -52,11 +51,11 @@ func (p *PlanningPhase) AddArtifact(path string, opts ...domain.ArtifactOption) 
 }
 
 // ApproveArtifact approves an artifact in the planning phase.
-func (p *PlanningPhase) ApproveArtifact(path string) (*domain.PhaseOperationResult, error) {
+func (p *PlanningPhase) ApproveArtifact(path string) error {
 	if err := p.artifacts.Approve(path); err != nil {
-		return nil, fmt.Errorf("failed to approve artifact: %w", err)
+		return fmt.Errorf("failed to approve artifact: %w", err)
 	}
-	return domain.NoEvent(), nil
+	return nil
 }
 
 // ListArtifacts returns all artifacts in the planning phase.
@@ -80,20 +79,20 @@ func (p *PlanningPhase) ListTasks() []*domain.Task {
 }
 
 // ApproveTasks is not supported in the planning phase.
-func (p *PlanningPhase) ApproveTasks() (*domain.PhaseOperationResult, error) {
-	return nil, project.ErrNotSupported
+func (p *PlanningPhase) ApproveTasks() error {
+	return project.ErrNotSupported
 }
 
 // Set sets a metadata field in the planning phase.
-func (p *PlanningPhase) Set(field string, value interface{}) (*domain.PhaseOperationResult, error) {
+func (p *PlanningPhase) Set(field string, value interface{}) error {
 	if p.state.Metadata == nil {
 		p.state.Metadata = make(map[string]interface{})
 	}
 	p.state.Metadata[field] = value
 	if err := p.project.Save(); err != nil {
-		return nil, err
+		return err
 	}
-	return domain.NoEvent(), nil
+	return nil
 }
 
 // Get retrieves a metadata field from the planning phase.
@@ -108,32 +107,9 @@ func (p *PlanningPhase) Get(field string) (interface{}, error) {
 	return val, nil
 }
 
-// Complete marks the planning phase as completed.
-// This requires that the task list artifact has been approved.
-func (p *PlanningPhase) Complete() (*domain.PhaseOperationResult, error) {
-	// Verify that the task list artifact is approved
-	taskListApproved := false
-	for _, artifact := range p.state.Artifacts {
-		if artifact.Type != nil && *artifact.Type == "task_list" && artifact.Approved != nil && *artifact.Approved {
-			taskListApproved = true
-			break
-		}
-	}
-
-	if !taskListApproved {
-		return nil, fmt.Errorf("cannot complete planning: task list artifact must be approved")
-	}
-
-	p.state.Status = "completed"
-	now := time.Now()
-	p.state.Completed_at = &now
-
-	if err := p.project.Save(); err != nil {
-		return nil, err
-	}
-
-	// Return event to be fired by CLI
-	return domain.WithEvent(EventCompletePlanning), nil
+// Complete is not supported - use Advance() instead.
+func (p *PlanningPhase) Complete() error {
+	return project.ErrNotSupported
 }
 
 // Skip is not supported as planning phase is required.
@@ -146,7 +122,17 @@ func (p *PlanningPhase) Enable(_ ...domain.PhaseOption) error {
 	return project.ErrNotSupported // Planning is always enabled
 }
 
-// Advance is not supported as planning phase has no internal states.
-func (p *PlanningPhase) Advance() (*domain.PhaseOperationResult, error) {
-	return nil, project.ErrNotSupported
+// Advance moves the planning phase to implementation by firing EventCompletePlanning.
+func (p *PlanningPhase) Advance() error {
+	// Planning phase has only one possible transition
+	machine := p.project.Machine()
+	if err := machine.Fire(EventCompletePlanning); err != nil {
+		return fmt.Errorf("%w: %w", project.ErrCannotAdvance, err)
+	}
+
+	if err := p.project.Save(); err != nil {
+		return fmt.Errorf("failed to save state: %w", err)
+	}
+
+	return nil
 }
