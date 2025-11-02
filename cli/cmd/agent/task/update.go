@@ -87,16 +87,6 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		}
 
 		updated = append(updated, fmt.Sprintf("status: %s → %s", oldStatus, statusFlag))
-
-		// Check if we transitioned to review phase
-		if statusFlag == "completed" || statusFlag == "abandoned" {
-			// The SetStatus method already handles the state machine transition if all tasks are complete
-			// Just provide user feedback if we're now in review
-			currentState := proj.Machine().State()
-			if currentState.String() == "ReviewActive" {
-				cmd.Printf("\n✓ All tasks complete. Transitioning to review phase.\n")
-			}
-		}
 	}
 
 	// Note: SetStatus() already saves the state, so no need to save again

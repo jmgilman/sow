@@ -66,9 +66,10 @@ exec sow agent artifact approve project/artifacts/tasks.md
 # =====================================
 
 # Transition to implementation
-exec sow agent complete
+exec sow advance
 exec sow agent task add 'Test task' --description 'Test'
 exec sow agent task approve
+exec sow advance
 
 # Test that artifact operations fail on implementation phase
 ! exec sow agent artifact add project/some-artifact.md
@@ -87,6 +88,7 @@ exec sow agent artifact list
 
 # Transition to review
 exec sow agent task update 010 --status completed
+exec sow advance
 
 # Create review artifacts
 exec mkdir -p .sow/project/phases/review/reports
@@ -125,7 +127,7 @@ stdout 'approved: true'
 # =====================================
 # Cleanup
 # =====================================
-exec sow agent complete
-exec sow agent complete
+exec sow advance
+exec sow advance
 exec sow agent delete --force
 ! exists .sow/project

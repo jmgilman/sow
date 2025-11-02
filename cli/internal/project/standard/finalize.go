@@ -6,12 +6,14 @@ package standard
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/jmgilman/sow/cli/internal/project"
 	"github.com/jmgilman/sow/cli/internal/project/domain"
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
+	"github.com/jmgilman/sow/cli/schemas/projects"
 )
 
 // FinalizePhase implements the finalize phase for standard projects.
@@ -81,11 +83,33 @@ func (p *FinalizePhase) ApproveTasks() error {
 }
 
 // Set sets a metadata field in the finalize phase.
+// Handles both typed fields (project_deleted, pr_url) and generic metadata.
 func (p *FinalizePhase) Set(field string, value interface{}) error {
-	if p.state.Metadata == nil {
-		p.state.Metadata = make(map[string]interface{})
+	// Cast to typed FinalizePhase to access typed fields
+	finalizePhase := (*projects.FinalizePhase)(unsafe.Pointer(p.state))
+
+	// Handle typed fields
+	switch field {
+	case "project_deleted":
+		if boolVal, ok := value.(bool); ok {
+			finalizePhase.Project_deleted = &boolVal
+		} else {
+			return fmt.Errorf("project_deleted must be a boolean")
+		}
+	case "pr_url":
+		if strVal, ok := value.(string); ok {
+			finalizePhase.Pr_url = &strVal
+		} else {
+			return fmt.Errorf("pr_url must be a string")
+		}
+	default:
+		// Generic metadata field
+		if p.state.Metadata == nil {
+			p.state.Metadata = make(map[string]interface{})
+		}
+		p.state.Metadata[field] = value
 	}
-	p.state.Metadata[field] = value
+
 	if err := p.project.Save(); err != nil {
 		return err
 	}

@@ -18,7 +18,7 @@ exec mkdir -p .sow/project/artifacts
 exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
 exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
 exec sow agent artifact approve project/artifacts/tasks.md
-exec sow agent complete
+exec sow advance
 exec sow agent task add 'Test task' --description 'Task for state testing'
 exec sow agent task approve
 

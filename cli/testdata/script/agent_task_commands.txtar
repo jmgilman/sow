@@ -18,7 +18,7 @@ exec mkdir -p .sow/project/artifacts
 exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
 exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
 exec sow agent artifact approve project/artifacts/tasks.md
-exec sow agent complete
+exec sow advance
 
 # =====================================
 # Task Add Command
@@ -137,7 +137,7 @@ exec mkdir -p .sow/project/artifacts
 exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
 exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
 exec sow agent artifact approve project/artifacts/tasks.md
-exec sow agent complete
+exec sow advance
 
 # Verify in ImplementationPlanning state
 exec cat .sow/project/state.yaml
@@ -152,6 +152,9 @@ exec sow agent task approve
 stderr '✓ Approved task plan'
 stderr 'autonomous execution'
 
+# Advance to ImplementationExecuting
+exec sow advance
+
 # Verify transition to ImplementationExecuting
 exec cat .sow/project/state.yaml
 stdout 'current_state: ImplementationExecuting'
@@ -161,12 +164,14 @@ stdout 'tasks_approved: true'
 # Task Completion Triggers State Transition
 # =====================================
 
-# Complete all tasks to test auto-transition
+# Complete all tasks
 exec sow agent task update 010 --status completed
 exec sow agent task update 020 --status completed
-stderr 'Transitioning to review'
 
-# Verify auto-transition to ReviewActive
+# Advance to review
+exec sow advance
+
+# Verify transition to ReviewActive
 exec cat .sow/project/state.yaml
 stdout 'current_state: ReviewActive'
 

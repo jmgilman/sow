@@ -97,7 +97,7 @@ exec mkdir -p .sow/project/artifacts
 exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
 exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
 exec sow agent artifact approve project/artifacts/tasks.md
-exec sow agent complete
+exec sow advance
 
 # Verify project state updated
 exec cat .sow/project/state.yaml
@@ -109,9 +109,16 @@ stdout 'completed_at:'
 # Add tasks
 exec sow agent task add 'Implement JWT' --description 'Core JWT implementation'
 exec sow agent task approve
+
+# Advance to executing
+exec sow advance
+
 exec sow agent task update 010 --status completed
 
-# Verify implementation phase completed
+# Advance to review
+exec sow advance
+
+# Verify transitioned to review
 exec cat .sow/project/state.yaml
 stdout 'current_state: ReviewActive'
 
@@ -120,14 +127,14 @@ exec mkdir -p .sow/project/phases/review/reports
 exec sh -c 'echo "# Review" > .sow/project/phases/review/reports/001.md'
 exec sow agent artifact add project/phases/review/reports/001.md --metadata type=review --metadata assessment=pass
 exec sow agent artifact approve project/phases/review/reports/001.md
-exec sow agent complete
+exec sow advance
 
 # Verify in finalize
 exec cat .sow/project/state.yaml
 stdout 'current_state: FinalizeDocumentation'
 
 # Complete finalize
-exec sow agent complete
+exec sow advance
 
 # Verify all phases completed
 exec cat .sow/project/state.yaml

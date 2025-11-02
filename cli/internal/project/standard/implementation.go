@@ -83,16 +83,15 @@ func (p *ImplementationPhase) ListTasks() []*domain.Task {
 
 // ApproveTasks approves all tasks in the implementation phase for execution.
 func (p *ImplementationPhase) ApproveTasks() error {
-	if p.state.Metadata == nil {
-		p.state.Metadata = make(map[string]interface{})
-	}
-	p.state.Metadata["tasks_approved"] = true
+	// Set tasks_approved in typed field (used by guards)
+	tasksApproved := true
+	p.project.state.Phases.Implementation.Tasks_approved = &tasksApproved
 
 	if err := p.project.Save(); err != nil {
 		return fmt.Errorf("failed to save: %w", err)
 	}
 
-	return nil // No event fired
+	return nil
 }
 
 // Set sets a metadata field in the implementation phase.

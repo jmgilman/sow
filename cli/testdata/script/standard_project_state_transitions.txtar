@@ -21,9 +21,9 @@ exec sow agent init state-test --description 'Test state machine transitions'
 exec cat .sow/project/state.yaml
 stdout 'current_state: PlanningActive'
 
-# Try to complete without task list (should fail)
-! exec sow agent complete
-stderr 'task list artifact must be approved'
+# Try to advance without task list (should fail)
+! exec sow advance
+stderr 'cannot advance.*prerequisites not met'
 
 # Add non-task-list artifact (should still fail)
 exec mkdir -p .sow/project/artifacts
@@ -31,20 +31,20 @@ exec sh -c 'echo "# Context" > .sow/project/artifacts/context.md'
 exec sow agent artifact add project/artifacts/context.md --metadata type=context
 exec sow agent artifact approve project/artifacts/context.md
 
-! exec sow agent complete
-stderr 'task list artifact must be approved'
+! exec sow advance
+stderr 'cannot advance.*prerequisites not met'
 
 # Add task list but don't approve (should still fail)
 exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
 exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
 
-! exec sow agent complete
-stderr 'task list artifact must be approved'
+! exec sow advance
+stderr 'cannot advance.*prerequisites not met'
 
 # Approve task list (should now succeed)
 exec sow agent artifact approve project/artifacts/tasks.md
-exec sow agent complete
-stderr '✓ Completed planning phase'
+exec sow advance
+stderr '✓ Advanced to next state'
 
 # Verify transition
 exec cat .sow/project/state.yaml
@@ -61,9 +61,12 @@ stdout 'current_state: ImplementationPlanning'
 exec sow agent task add 'First task' --description 'Test'
 stderr '✓ Created task 010'
 
-# Approve tasks to trigger transition
+# Approve tasks
 exec sow agent task approve
 stderr '✓ Approved task plan'
+
+# Advance to executing
+exec sow advance
 
 # Verify transition to ImplementationExecuting
 exec cat .sow/project/state.yaml
@@ -93,9 +96,11 @@ exec sow agent task update 030 --status completed
 exec cat .sow/project/state.yaml
 stdout 'current_state: ImplementationExecuting'
 
-# Complete final task - should transition
+# Complete final task
 exec sow agent task update 040 --status completed
-stderr 'Transitioning to review'
+
+# Advance to review
+exec sow advance
 
 exec cat .sow/project/state.yaml
 stdout 'current_state: ReviewActive'
@@ -111,12 +116,15 @@ exec mkdir -p .sow/project/artifacts
 exec sh -c 'echo "# Tasks" > .sow/project/artifacts/tasks.md'
 exec sow agent artifact add project/artifacts/tasks.md --metadata type=task_list
 exec sow agent artifact approve project/artifacts/tasks.md
-exec sow agent complete
+exec sow advance
 exec sow agent task add 'Task A' --description 'Test'
 exec sow agent task add 'Task B' --description 'Test'
 
 # Approve tasks first
 exec sow agent task approve
+
+# Advance to executing
+exec sow advance
 
 # Complete first task
 exec sow agent task update 010 --status completed
@@ -124,8 +132,8 @@ exec sow agent task update 010 --status completed
 # Abandon second task - should also trigger transition when it's the last one
 exec sow agent task update 020 --status abandoned
 
-# Manually complete implementation phase since abandoned doesn't auto-trigger
-exec sow agent complete
+# Manually advance implementation phase since abandoned doesn't auto-trigger
+exec sow advance
 
 # Should now be in review
 exec cat .sow/project/state.yaml
@@ -144,9 +152,9 @@ exec sh -c 'echo "# Review Pass" > .sow/project/phases/review/reports/001.md'
 exec sow agent artifact add project/phases/review/reports/001.md --metadata type=review --metadata assessment=pass
 exec sow agent artifact approve project/phases/review/reports/001.md
 
-# Complete review
-exec sow agent complete
-stderr '✓ Completed review phase'
+# Advance review
+exec sow advance
+stderr '✓ Advanced to next state'
 
 # Verify transition to finalize
 exec cat .sow/project/state.yaml
@@ -169,21 +177,23 @@ exec sow agent artifact approve project/artifacts/tasks.md
 exec cat .sow/project/state.yaml
 stdout 'current_state: PlanningActive'
 
-# Complete fires EventCompletePlanning
-exec sow agent complete
+# Advance fires EventCompletePlanning
+exec sow advance
 # State should transition to ImplementationPlanning
 exec cat .sow/project/state.yaml
 stdout 'current_state: ImplementationPlanning'
 
-# Task approval fires EventTasksApproved
+# Task approval then advance fires EventTasksApproved
 exec sow agent task add 'Test' --description 'Test'
 exec sow agent task approve
-# Should be in ImplementationExecuting now (EventTasksApproved fired)
+exec sow advance
+# Should be in ImplementationExecuting now
 exec cat .sow/project/state.yaml
 stdout 'current_state: ImplementationExecuting'
 
-# Task completion fires EventAllTasksComplete automatically
+# Task completion then advance fires EventAllTasksComplete
 exec sow agent task update 010 --status completed
+exec sow advance
 exec cat .sow/project/state.yaml
 stdout 'current_state: ReviewActive'
 
@@ -198,7 +208,7 @@ exec mkdir -p .sow/project/phases/review/reports
 exec sh -c 'echo "# Review" > .sow/project/phases/review/reports/001.md'
 exec sow agent artifact add project/phases/review/reports/001.md --metadata type=review --metadata assessment=pass
 exec sow agent artifact approve project/phases/review/reports/001.md
-exec sow agent complete
+exec sow advance
 
 # Verify state file exists and is valid YAML
 exec cat .sow/project/state.yaml
@@ -212,6 +222,6 @@ stdout 'finalize:'
 # =====================================
 # Cleanup
 # =====================================
-exec sow agent complete
+exec sow advance
 exec sow agent delete --force
 ! exists .sow/project

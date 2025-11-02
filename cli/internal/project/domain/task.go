@@ -108,33 +108,9 @@ func (t *Task) SetStatus(status string) error {
 		return fmt.Errorf("failed to write task state: %w", err)
 	}
 
-	// Check if all tasks are now complete
-	// Note: needs_review tasks are NOT considered complete
-	allComplete := true
-	for _, task := range projectState.Phases.Implementation.Tasks {
-		if task.Status != "completed" && task.Status != "abandoned" {
-			allComplete = false
-			break
-		}
-	}
-
-	// If all complete, mark implementation as complete and fire state machine event
-	if allComplete && status == "completed" {
-		now := time.Now()
-		projectState.Phases.Implementation.Status = "completed"
-		projectState.Phases.Implementation.Completed_at = &now
-
-		// Fire state machine event to transition to review
-		// Use string constant to avoid import cycle (domain -> standard -> domain)
-		if err := t.Project.Machine().Fire("all_tasks_complete"); err == nil {
-			// Transition succeeded - set review phase status
-			projectState.Phases.Review.Status = "in_progress"
-			if projectState.Phases.Review.Started_at == nil {
-				projectState.Phases.Review.Started_at = &now
-			}
-		}
-		// Silently ignore transition errors - task status update should still succeed
-	}
+	// Note: With the new Advance() pattern, SetStatus() ONLY updates the task status.
+	// It does NOT fire state machine events. The orchestrator is responsible for calling
+	// `sow advance` when appropriate to transition between states.
 
 	// Auto-save project state
 	if err := t.Project.Save(); err != nil {
