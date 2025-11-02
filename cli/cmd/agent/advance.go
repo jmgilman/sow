@@ -59,24 +59,12 @@ Example:
 			}
 
 			// Advance the phase
-			result, err := phase.Advance()
+			err = phase.Advance()
 			if errors.Is(err, project.ErrNotSupported) {
 				return fmt.Errorf("phase %s does not support state advancement", phase.Name())
 			}
 			if err != nil {
 				return fmt.Errorf("failed to advance: %w", err)
-			}
-
-			// Fire event if phase returned one
-			if result.Event != "" {
-				machine := proj.Machine()
-				if err := machine.Fire(result.Event); err != nil {
-					return fmt.Errorf("failed to fire event %s: %w", result.Event, err)
-				}
-				// Save after transition
-				if err := proj.Save(); err != nil {
-					return fmt.Errorf("failed to save project state: %w", err)
-				}
 			}
 
 			cmd.Println("✓ Advanced to next state")

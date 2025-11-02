@@ -55,7 +55,7 @@ type Phase interface {
 	// Artifact operations (discovery, design, review)
 	// Returns schema types directly - no wrapper needed
 	AddArtifact(path string, opts ...ArtifactOption) error
-	ApproveArtifact(path string) (*PhaseOperationResult, error)
+	ApproveArtifact(path string) error
 	ListArtifacts() []*phases.Artifact
 
 	// Task operations (implementation only)
@@ -63,20 +63,20 @@ type Phase interface {
 	AddTask(name string, opts ...TaskOption) (*Task, error)
 	GetTask(id string) (*Task, error)
 	ListTasks() []*Task
-	ApproveTasks() (*PhaseOperationResult, error)
+	ApproveTasks() error
 
 	// Generic field access (for metadata)
-	Set(field string, value interface{}) (*PhaseOperationResult, error)
+	Set(field string, value interface{}) error
 	Get(field string) (interface{}, error)
 
 	// Lifecycle
-	Complete() (*PhaseOperationResult, error)
+	Complete() error
 	Skip() error
 	Enable(opts ...PhaseOption) error
 
 	// Advance to next state within this phase
 	// Returns ErrNotSupported if phase has no internal states
-	Advance() (*PhaseOperationResult, error)
+	Advance() error
 }
 
 // ArtifactOption configures artifact creation.

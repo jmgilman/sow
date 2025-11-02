@@ -28,12 +28,11 @@ Project lifecycle:
   - create-pr: Create a pull request
 
 Phase management (work on implicit active phase):
-  - complete: Complete the active phase
+  - advance: Advance to next state within current phase
   - skip: Skip the active phase
   - enable: Enable a specific phase
   - status: Show current project status
   - info: Show phase information
-  - advance: Advance to next state within current phase
 
 Artifact management:
   - artifact: Manage artifacts (add, approve, list)
@@ -52,12 +51,11 @@ Utilities:
 	cmd.AddCommand(NewCreatePRCmd())
 
 	// Phase management (implicit active phase)
-	cmd.AddCommand(NewCompleteCmd())
+	cmd.AddCommand(NewAdvanceCmd())
 	cmd.AddCommand(NewSkipCmd())
 	cmd.AddCommand(NewEnableCmd())
 	cmd.AddCommand(NewStatusCmd())
 	cmd.AddCommand(NewInfoCmd())
-	cmd.AddCommand(NewAdvanceCmd())
 
 	// Artifact management
 	cmd.AddCommand(NewArtifactCmd())

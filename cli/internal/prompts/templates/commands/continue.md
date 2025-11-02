@@ -62,7 +62,7 @@ You are resuming work on this project. Based on the current state ({{.Statechart
 sow agent project status                              # Show detailed state
 sow agent project phase enable <phase> [--type <type>]  # Enable a phase
 sow agent project phase skip <phase>                  # Skip a phase
-sow agent project phase complete <phase>              # Mark phase done
+sow advance                                           # Advance to next state
 sow agent project delete                              # Clean up project
 ```
 

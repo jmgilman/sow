@@ -2,10 +2,10 @@ package standard
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/jmgilman/sow/cli/internal/project"
 	"github.com/jmgilman/sow/cli/internal/project/domain"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 )
@@ -49,8 +49,8 @@ func (p *ImplementationPhase) AddArtifact(_ string, _ ...domain.ArtifactOption) 
 }
 
 // ApproveArtifact is not supported in the implementation phase.
-func (p *ImplementationPhase) ApproveArtifact(_ string) (*domain.PhaseOperationResult, error) {
-	return nil, project.ErrNotSupported
+func (p *ImplementationPhase) ApproveArtifact(_ string) error {
+	return project.ErrNotSupported
 }
 
 // ListArtifacts returns an empty list as artifacts are not supported in implementation phase.
@@ -82,30 +82,29 @@ func (p *ImplementationPhase) ListTasks() []*domain.Task {
 }
 
 // ApproveTasks approves all tasks in the implementation phase for execution.
-func (p *ImplementationPhase) ApproveTasks() (*domain.PhaseOperationResult, error) {
-	if err := p.tasks.Approve(); err != nil {
-		return nil, fmt.Errorf("failed to approve tasks: %w", err)
+func (p *ImplementationPhase) ApproveTasks() error {
+	if p.state.Metadata == nil {
+		p.state.Metadata = make(map[string]interface{})
 	}
+	p.state.Metadata["tasks_approved"] = true
 
-	// Save before returning event
 	if err := p.project.Save(); err != nil {
-		return nil, err
+		return fmt.Errorf("failed to save: %w", err)
 	}
 
-	// Return event to be fired by CLI
-	return domain.WithEvent(EventTasksApproved), nil
+	return nil // No event fired
 }
 
 // Set sets a metadata field in the implementation phase.
-func (p *ImplementationPhase) Set(field string, value interface{}) (*domain.PhaseOperationResult, error) {
+func (p *ImplementationPhase) Set(field string, value interface{}) error {
 	if p.state.Metadata == nil {
 		p.state.Metadata = make(map[string]interface{})
 	}
 	p.state.Metadata[field] = value
 	if err := p.project.Save(); err != nil {
-		return nil, err
+		return err
 	}
-	return domain.NoEvent(), nil
+	return nil
 }
 
 // Get retrieves a metadata field from the implementation phase.
@@ -120,18 +119,9 @@ func (p *ImplementationPhase) Get(field string) (interface{}, error) {
 	return val, nil
 }
 
-// Complete marks the implementation phase as completed.
-func (p *ImplementationPhase) Complete() (*domain.PhaseOperationResult, error) {
-	p.state.Status = "completed"
-	now := time.Now()
-	p.state.Completed_at = &now
-
-	if err := p.project.Save(); err != nil {
-		return nil, err
-	}
-
-	// Return event to be fired by CLI
-	return domain.WithEvent(EventAllTasksComplete), nil
+// Complete is not supported - use Advance() instead.
+func (p *ImplementationPhase) Complete() error {
+	return project.ErrNotSupported
 }
 
 // Skip is not supported as implementation phase is required.
@@ -144,7 +134,30 @@ func (p *ImplementationPhase) Enable(_ ...domain.PhaseOption) error {
 	return project.ErrNotSupported // Implementation is always enabled
 }
 
-// Advance is not supported as implementation phase has no internal states.
-func (p *ImplementationPhase) Advance() (*domain.PhaseOperationResult, error) {
-	return nil, project.ErrNotSupported
+// Advance progresses the implementation phase by examining the current state
+// and firing the appropriate event.
+func (p *ImplementationPhase) Advance() error {
+	machine := p.project.Machine()
+	currentState := machine.State()
+
+	// Determine event based on state machine state
+	var event statechart.Event
+	switch currentState {
+	case ImplementationPlanning:
+		event = EventTasksApproved
+	case ImplementationExecuting:
+		event = EventAllTasksComplete
+	default:
+		return fmt.Errorf("%w: %s", project.ErrUnexpectedState, currentState)
+	}
+
+	if err := machine.Fire(event); err != nil {
+		return fmt.Errorf("%w: cannot advance from %s: %w", project.ErrCannotAdvance, currentState, err)
+	}
+
+	if err := p.project.Save(); err != nil {
+		return fmt.Errorf("failed to save state: %w", err)
+	}
+
+	return nil
 }

@@ -6,10 +6,10 @@ package standard
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/jmgilman/sow/cli/internal/project"
 	"github.com/jmgilman/sow/cli/internal/project/domain"
+	"github.com/jmgilman/sow/cli/internal/project/statechart"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	phasesSchema "github.com/jmgilman/sow/cli/schemas/phases"
 )
@@ -51,8 +51,8 @@ func (p *FinalizePhase) AddArtifact(_ string, _ ...domain.ArtifactOption) error 
 }
 
 // ApproveArtifact is not supported in the finalize phase.
-func (p *FinalizePhase) ApproveArtifact(_ string) (*domain.PhaseOperationResult, error) {
-	return nil, project.ErrNotSupported
+func (p *FinalizePhase) ApproveArtifact(_ string) error {
+	return project.ErrNotSupported
 }
 
 // ListArtifacts returns an empty list as artifacts are not supported in finalize phase.
@@ -76,20 +76,20 @@ func (p *FinalizePhase) ListTasks() []*domain.Task {
 }
 
 // ApproveTasks is not supported in the finalize phase.
-func (p *FinalizePhase) ApproveTasks() (*domain.PhaseOperationResult, error) {
-	return nil, project.ErrNotSupported
+func (p *FinalizePhase) ApproveTasks() error {
+	return project.ErrNotSupported
 }
 
 // Set sets a metadata field in the finalize phase.
-func (p *FinalizePhase) Set(field string, value interface{}) (*domain.PhaseOperationResult, error) {
+func (p *FinalizePhase) Set(field string, value interface{}) error {
 	if p.state.Metadata == nil {
 		p.state.Metadata = make(map[string]interface{})
 	}
 	p.state.Metadata[field] = value
 	if err := p.project.Save(); err != nil {
-		return nil, err
+		return err
 	}
-	return domain.NoEvent(), nil
+	return nil
 }
 
 // Get retrieves a metadata field from the finalize phase.
@@ -104,44 +104,9 @@ func (p *FinalizePhase) Get(field string) (interface{}, error) {
 	return val, nil
 }
 
-// Complete handles completion of the current finalize sub-state.
-// Finalize has 3 sub-states that must be completed in sequence:
-// FinalizeDocumentation → FinalizeChecks → FinalizeDelete.
-func (p *FinalizePhase) Complete() (*domain.PhaseOperationResult, error) {
-	// Get current state to determine which event to fire
-	machine := p.project.Machine()
-	currentState := machine.State()
-
-	// Handle completion based on current state
-	switch currentState {
-	case FinalizeDocumentation:
-		// Documentation work complete - transition to checks
-		if err := p.project.Save(); err != nil {
-			return nil, err
-		}
-		return domain.WithEvent(EventDocumentationDone), nil
-
-	case FinalizeChecks:
-		// Checks complete - transition to delete
-		if err := p.project.Save(); err != nil {
-			return nil, err
-		}
-		return domain.WithEvent(EventChecksDone), nil
-
-	case FinalizeDelete:
-		// Delete is the final step - mark phase as completed
-		p.state.Status = "completed"
-		now := time.Now()
-		p.state.Completed_at = &now
-		if err := p.project.Save(); err != nil {
-			return nil, err
-		}
-		// Note: EventProjectDelete must be fired separately via `sow agent delete`
-		return domain.NoEvent(), nil
-
-	default:
-		return nil, fmt.Errorf("unexpected state: %s", currentState)
-	}
+// Complete is not supported - use Advance() instead.
+func (p *FinalizePhase) Complete() error {
+	return project.ErrNotSupported
 }
 
 // Skip is not supported as finalize phase is required.
@@ -154,7 +119,32 @@ func (p *FinalizePhase) Enable(_ ...domain.PhaseOption) error {
 	return project.ErrNotSupported // Finalize is always enabled
 }
 
-// Advance is not supported as finalize phase has no internal states.
-func (p *FinalizePhase) Advance() (*domain.PhaseOperationResult, error) {
-	return nil, project.ErrNotSupported
+// Advance progresses the finalize phase to the next substate.
+// Examines the current finalize substate and fires the appropriate event.
+func (p *FinalizePhase) Advance() error {
+	machine := p.project.Machine()
+	currentState := machine.State()
+
+	// Determine event based on finalize substate
+	var event statechart.Event
+	switch currentState {
+	case FinalizeDocumentation:
+		event = EventDocumentationDone
+	case FinalizeChecks:
+		event = EventChecksDone
+	case FinalizeDelete:
+		event = EventProjectDelete
+	default:
+		return fmt.Errorf("%w: %s", project.ErrUnexpectedState, currentState)
+	}
+
+	if err := machine.Fire(event); err != nil {
+		return fmt.Errorf("%w: cannot advance from %s: %w", project.ErrCannotAdvance, currentState, err)
+	}
+
+	if err := p.project.Save(); err != nil {
+		return fmt.Errorf("failed to save state: %w", err)
+	}
+
+	return nil
 }
