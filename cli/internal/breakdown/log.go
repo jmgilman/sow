@@ -11,15 +11,15 @@ import (
 
 // Breakdown-specific log actions.
 const (
-	ActionInputAdded            = "input_added"
-	ActionInputRemoved          = "input_removed"
-	ActionWorkUnitAdded         = "work_unit_added"
-	ActionWorkUnitUpdated       = "work_unit_updated"
-	ActionWorkUnitRemoved       = "work_unit_removed"
-	ActionWorkUnitDocumentSet   = "work_unit_document_set"
-	ActionWorkUnitApproved      = "work_unit_approved"
-	ActionWorkUnitPublished     = "work_unit_published"
-	ActionStatusChanged         = "status_changed"
+	ActionInputAdded          = "input_added"
+	ActionInputRemoved        = "input_removed"
+	ActionWorkUnitAdded       = "work_unit_added"
+	ActionWorkUnitUpdated     = "work_unit_updated"
+	ActionWorkUnitRemoved     = "work_unit_removed"
+	ActionWorkUnitDocumentSet = "work_unit_document_set"
+	ActionWorkUnitApproved    = "work_unit_approved"
+	ActionWorkUnitPublished   = "work_unit_published"
+	ActionStatusChanged       = "status_changed"
 )
 
 // Log result values.

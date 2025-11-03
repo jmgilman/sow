@@ -1,4 +1,4 @@
-package statechart
+package state
 
 import (
 	"github.com/jmgilman/sow/cli/schemas/phases"

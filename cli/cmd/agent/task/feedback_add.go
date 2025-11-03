@@ -1,9 +1,9 @@
 package task
 
 import (
+	"fmt"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/project/loader"
-	"fmt"
 
 	"github.com/spf13/cobra"
 )

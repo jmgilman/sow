@@ -7,7 +7,8 @@ import (
 // newStateCmd creates the state command for managing task state.
 //
 // Usage:
-//   sow task state <subcommand>
+//
+//	sow task state <subcommand>
 //
 // Subcommands:
 //   - increment: Increment the task iteration counter

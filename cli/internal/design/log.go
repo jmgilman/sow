@@ -11,12 +11,12 @@ import (
 
 // Design-specific log actions.
 const (
-	ActionInputAdded        = "input_added"
-	ActionInputRemoved      = "input_removed"
-	ActionOutputAdded       = "output_added"
-	ActionOutputRemoved     = "output_removed"
-	ActionOutputTargetSet   = "output_target_set"
-	ActionStatusChanged     = "status_changed"
+	ActionInputAdded      = "input_added"
+	ActionInputRemoved    = "input_removed"
+	ActionOutputAdded     = "output_added"
+	ActionOutputRemoved   = "output_removed"
+	ActionOutputTargetSet = "output_target_set"
+	ActionStatusChanged   = "status_changed"
 )
 
 // Log result values.

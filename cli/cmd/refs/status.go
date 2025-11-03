@@ -1,9 +1,9 @@
 package refs
 
 import (
+	"fmt"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/refs"
-	"fmt"
 
 	"github.com/spf13/cobra"
 )

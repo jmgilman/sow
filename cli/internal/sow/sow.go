@@ -169,4 +169,3 @@ func DetectContext(repoRoot string) (string, string) {
 
 	return "none", ""
 }
-

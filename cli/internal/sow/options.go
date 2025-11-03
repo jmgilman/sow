@@ -25,8 +25,8 @@ func WithDiscoveryType(discoveryType string) PhaseOption {
 // Exported for use by project package.
 type TaskConfig struct {
 	id           string
-	Status       string   // Exported for direct access
-	Parallel     bool     // Exported for direct access
+	Status       string // Exported for direct access
+	Parallel     bool   // Exported for direct access
 	dependencies []string
 	Agent        string // Exported for direct access
 	description  string

@@ -107,9 +107,9 @@ func TestLoad_StandardProject(t *testing.T) {
 // TestLoad_UnimplementedType verifies error messages for unimplemented project types.
 func TestLoad_UnimplementedType(t *testing.T) {
 	tests := []struct {
-		name         string
-		projectType  string
-		expectedErr  string
+		name        string
+		projectType string
+		expectedErr string
 	}{
 		{
 			name:        "exploration type not implemented",
@@ -199,10 +199,10 @@ func TestLoad_UnknownType(t *testing.T) {
 // TestCreate_DetectsTypeFromBranch verifies Create detects type from branch name.
 func TestCreate_DetectsTypeFromBranch(t *testing.T) {
 	tests := []struct {
-		name         string
-		branchName   string
-		expectedType string
-		expectError  bool
+		name          string
+		branchName    string
+		expectedType  string
+		expectError   bool
 		errorContains string
 	}{
 		{

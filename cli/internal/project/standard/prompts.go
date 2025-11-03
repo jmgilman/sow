@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/prompts"
 	"github.com/jmgilman/sow/cli/internal/project/statechart"
+	"github.com/jmgilman/sow/cli/internal/prompts"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/jmgilman/sow/cli/schemas/phases"
@@ -57,7 +57,6 @@ func init() {
 		}
 	}
 }
-
 
 // StandardPromptGenerator implements the PromptGenerator interface for standard projects.
 // It generates contextual prompts for each state in the standard project state machine,

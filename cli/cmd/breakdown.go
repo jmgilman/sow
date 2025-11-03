@@ -107,7 +107,7 @@ Examples:
 	return cmd
 }
 
-func runBreakdown(cmd *cobra.Command, branchName, initialPrompt string, noLaunch bool) error{
+func runBreakdown(cmd *cobra.Command, branchName, initialPrompt string, noLaunch bool) error {
 	// 1. Get main repo context
 	mainCtx := cmdutil.GetContext(cmd.Context())
 
@@ -212,12 +212,12 @@ func runBreakdown(cmd *cobra.Command, branchName, initialPrompt string, noLaunch
 // breakdownMode implements the modes.Mode interface for breakdown mode.
 type breakdownMode struct{}
 
-func (m *breakdownMode) Name() string                    { return "breakdown" }
-func (m *breakdownMode) BranchPrefix() string            { return "breakdown/" }
-func (m *breakdownMode) DirectoryName() string           { return "breakdown" }
-func (m *breakdownMode) IndexPath() string               { return "breakdown/index.yaml" }
-func (m *breakdownMode) PromptID() prompts.PromptID      { return prompts.PromptModeBreakdown }
-func (m *breakdownMode) ValidStatuses() []string         { return []string{"active", "completed", "abandoned"} }
+func (m *breakdownMode) Name() string               { return "breakdown" }
+func (m *breakdownMode) BranchPrefix() string       { return "breakdown/" }
+func (m *breakdownMode) DirectoryName() string      { return "breakdown" }
+func (m *breakdownMode) IndexPath() string          { return "breakdown/index.yaml" }
+func (m *breakdownMode) PromptID() prompts.PromptID { return prompts.PromptModeBreakdown }
+func (m *breakdownMode) ValidStatuses() []string    { return []string{"active", "completed", "abandoned"} }
 
 // generateBreakdownPrompt creates the breakdown mode prompt with context.
 func generateBreakdownPrompt(sowCtx *sow.Context, topic, branch, initialPrompt string) (string, error) {

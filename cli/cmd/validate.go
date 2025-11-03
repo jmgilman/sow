@@ -1,9 +1,9 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sow"
-	"fmt"
 
 	"github.com/spf13/cobra"
 )
