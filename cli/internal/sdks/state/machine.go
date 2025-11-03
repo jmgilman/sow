@@ -10,10 +10,9 @@ import (
 
 // Machine wraps the stateless state machine with project-specific context.
 type Machine struct {
-	sm              *stateless.StateMachine
-	projectState    *schemas.ProjectState
-	fs              sow.FS // Optional filesystem for testability
-	suppressPrompts bool   // Suppress prompt printing (useful for tests and CLI commands)
+	sm           *stateless.StateMachine
+	projectState *schemas.ProjectState
+	fs           sow.FS // Optional filesystem for testability
 }
 
 // NewMachine creates a new state machine for project lifecycle management.
@@ -24,9 +23,8 @@ type Machine struct {
 func NewMachine(projectState *schemas.ProjectState) *Machine {
 	sm := stateless.NewStateMachine(NoProject)
 	return &Machine{
-		sm:              sm,
-		projectState:    projectState,
-		suppressPrompts: false,
+		sm:           sm,
+		projectState: projectState,
 	}
 }
 
@@ -43,11 +41,6 @@ func (m *Machine) SetProjectState(state *schemas.ProjectState) {
 // SetFilesystem sets the filesystem for persistence operations.
 func (m *Machine) SetFilesystem(fs sow.FS) {
 	m.fs = fs
-}
-
-// SuppressPrompts disables prompt output (useful for tests and non-interactive CLI commands).
-func (m *Machine) SuppressPrompts(suppress bool) {
-	m.suppressPrompts = suppress
 }
 
 // Fire triggers an event, causing a state transition if valid.

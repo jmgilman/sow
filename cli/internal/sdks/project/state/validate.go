@@ -101,3 +101,38 @@ func validateMetadata(metadata map[string]interface{}, cueSchema string) error {
 
 	return nil
 }
+
+// validateArtifactTypes checks if artifact types are in the allowed list.
+// Empty allowed list means "allow all types" (no validation).
+func validateArtifactTypes(
+	artifacts []project.ArtifactState,
+	allowedTypes []string,
+	phaseName string,
+	category string, // "input" or "output"
+) error {
+	// Empty allowed list = allow all
+	if len(allowedTypes) == 0 {
+		return nil
+	}
+
+	// Build set for O(1) lookup
+	allowed := make(map[string]bool)
+	for _, t := range allowedTypes {
+		allowed[t] = true
+	}
+
+	// Check each artifact
+	for _, artifact := range artifacts {
+		if !allowed[artifact.Type] {
+			return fmt.Errorf(
+				"phase %s: %s artifact type %q not allowed (allowed: %v)",
+				phaseName,
+				category,
+				artifact.Type,
+				allowedTypes,
+			)
+		}
+	}
+
+	return nil
+}

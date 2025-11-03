@@ -1,50 +1,28 @@
 package state
 
-import "github.com/jmgilman/sow/cli/schemas"
-
-// PromptGenerator defines the contract for project-owned prompt generation.
-// Each project type implements this interface to generate contextual prompts
-// for their specific state machine states.
+// PromptFunc is an optional callback that generates contextual prompts for state entry.
+// It receives the current state and returns a prompt string to display to the user.
 //
-// Prompt generators have access to:
-//   - Full project state (for context like task lists, artifacts, etc.)
-//   - External systems via sow.Context (git, GitHub, filesystem)
-//   - PromptComponents for reusable prompt sections
-//   - Template rendering via prompts package
+// Prompts are pure string transformations - they should not perform I/O operations
+// or return errors. If prompt generation requires complex logic or external state,
+// that logic should be encapsulated within the function via closures.
 //
-// Example implementation:
+// Usage:
 //
-//	type StandardPromptGenerator struct {
-//	    components *statechart.PromptComponents
-//	}
-//
-//	func (g *StandardPromptGenerator) GeneratePrompt(
-//	    state statechart.State,
-//	    projectState *schemas.ProjectState,
-//	) (string, error) {
+//	promptFunc := func(state State) string {
 //	    switch state {
-//	    case statechart.PlanningActive:
-//	        return g.generatePlanningPrompt(projectState)
-//	    case statechart.ImplementationExecuting:
-//	        return g.generateImplementationPrompt(projectState)
+//	    case PlanningActive:
+//	        return "Planning phase: Create and approve task list"
+//	    case ImplementationActive:
+//	        return "Implementation phase: Execute tasks"
 //	    default:
-//	        return "", fmt.Errorf("unknown state: %s", state)
+//	        return ""
 //	    }
 //	}
-type PromptGenerator interface {
-	// GeneratePrompt generates a contextual prompt for the given state.
-	// The prompt should provide guidance appropriate for the current state
-	// and include relevant context from the project state.
-	//
-	// This method is called automatically on state entry by the state machine.
-	// Errors are propagated to the caller, preventing the state transition.
-	//
-	// Parameters:
-	//   - state: The state machine state to generate a prompt for
-	//   - projectState: The current project state with full context
-	//
-	// Returns:
-	//   - The rendered prompt string ready to display to the user
-	//   - An error if prompt generation fails (e.g., template error, external system failure)
-	GeneratePrompt(state State, projectState *schemas.ProjectState) (string, error)
-}
+//
+//	builder := NewBuilder(initialState, projectState, promptFunc)
+//
+// Passing nil for the prompt function is allowed and will skip prompt generation:
+//
+//	builder := NewBuilder(initialState, projectState, nil)
+type PromptFunc func(State) string
