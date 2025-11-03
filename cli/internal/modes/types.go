@@ -31,8 +31,8 @@ type Mode interface {
 
 // ModeInfo contains information about a mode session.
 type ModeInfo struct {
-	Branch         string
-	Topic          string
+	Branch          string
+	Topic           string
 	ShouldCreateNew bool
 }
 

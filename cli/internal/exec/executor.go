@@ -5,8 +5,9 @@
 // easy mocking in tests.
 //
 // Usage:
-//   executor := exec.NewLocal("gh")
-//   github := sow.NewGitHub(executor)
+//
+//	executor := exec.NewLocal("gh")
+//	github := sow.NewGitHub(executor)
 package exec
 
 import (

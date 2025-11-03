@@ -197,12 +197,14 @@ func runExplore(cmd *cobra.Command, branchName, initialPrompt string, noLaunch b
 // explorationMode implements the modes.Mode interface for exploration mode.
 type explorationMode struct{}
 
-func (m *explorationMode) Name() string                    { return "exploration" }
-func (m *explorationMode) BranchPrefix() string            { return "explore/" }
-func (m *explorationMode) DirectoryName() string           { return "exploration" }
-func (m *explorationMode) IndexPath() string               { return "exploration/index.yaml" }
-func (m *explorationMode) PromptID() prompts.PromptID      { return prompts.PromptModeExplore }
-func (m *explorationMode) ValidStatuses() []string         { return []string{"active", "completed", "abandoned"} }
+func (m *explorationMode) Name() string               { return "exploration" }
+func (m *explorationMode) BranchPrefix() string       { return "explore/" }
+func (m *explorationMode) DirectoryName() string      { return "exploration" }
+func (m *explorationMode) IndexPath() string          { return "exploration/index.yaml" }
+func (m *explorationMode) PromptID() prompts.PromptID { return prompts.PromptModeExplore }
+func (m *explorationMode) ValidStatuses() []string {
+	return []string{"active", "completed", "abandoned"}
+}
 
 // generateExplorationPrompt creates the exploration mode prompt with context.
 func generateExplorationPrompt(sowCtx *sow.Context, topic, branch, initialPrompt string) (string, error) {

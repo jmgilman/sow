@@ -13,7 +13,8 @@ import (
 // NewApproveCmd creates the command to approve the task plan.
 //
 // Usage:
-//   sow agent task approve
+//
+//	sow agent task approve
 //
 // Approves the implementation task plan created during the planning phase.
 // This transitions from planning to autonomous execution mode.

@@ -314,20 +314,20 @@ type ContinueProjectContext struct {
 	FinalizeStatus       string
 
 	// Task information
-	TasksTotal       int
-	TasksCompleted   int
-	TasksInProgress  int
-	TasksPending     int
-	TasksAbandoned   int
-	CurrentTaskID    string
-	CurrentTaskName  string
+	TasksTotal        int
+	TasksCompleted    int
+	TasksInProgress   int
+	TasksPending      int
+	TasksAbandoned    int
+	CurrentTaskID     string
+	CurrentTaskName   string
 	CurrentTaskStatus string
 
 	// Guidance
-	StateSpecificGuidance string
-	NextActions           string
+	StateSpecificGuidance   string
+	NextActions             string
 	CurrentPhaseDescription string
-	NextActionSummary     string
+	NextActionSummary       string
 }
 
 // ToMap converts ContinueProjectContext to a map for template rendering.

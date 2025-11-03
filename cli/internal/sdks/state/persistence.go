@@ -1,4 +1,4 @@
-package statechart
+package state
 
 import (
 	"fmt"

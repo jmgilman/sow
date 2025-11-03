@@ -14,12 +14,12 @@ import "context"
 //	}
 //	github := sow.NewGitHub(mock)
 type MockExecutor struct {
-	CommandFunc           func() string
-	ExistsFunc            func() bool
-	RunFunc               func(args ...string) (stdout, stderr string, err error)
-	RunContextFunc        func(ctx context.Context, args ...string) (stdout, stderr string, err error)
-	RunSilentFunc         func(args ...string) error
-	RunSilentContextFunc  func(ctx context.Context, args ...string) error
+	CommandFunc          func() string
+	ExistsFunc           func() bool
+	RunFunc              func(args ...string) (stdout, stderr string, err error)
+	RunContextFunc       func(ctx context.Context, args ...string) (stdout, stderr string, err error)
+	RunSilentFunc        func(args ...string) error
+	RunSilentContextFunc func(ctx context.Context, args ...string) error
 }
 
 // Command calls the mock function if set, otherwise returns "mock-command".

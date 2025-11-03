@@ -7,7 +7,8 @@ import (
 // newFeedbackCmd creates the feedback command for managing task feedback.
 //
 // Usage:
-//   sow task feedback <subcommand>
+//
+//	sow task feedback <subcommand>
 //
 // Subcommands:
 //   - add: Create new feedback for a task

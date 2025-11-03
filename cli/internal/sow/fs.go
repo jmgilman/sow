@@ -16,8 +16,9 @@ import (
 // .sow/ directory, so all operations are relative to .sow/
 //
 // Example:
-//   fs.ReadFile("project/state.yaml")  // Reads .sow/project/state.yaml
-//   fs.WriteFile("refs/index.json", data, 0644)
+//
+//	fs.ReadFile("project/state.yaml")  // Reads .sow/project/state.yaml
+//	fs.WriteFile("refs/index.json", data, 0644)
 type FS = core.FS
 
 // NewFS creates a new filesystem scoped to .sow/ directory.

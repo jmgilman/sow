@@ -210,12 +210,12 @@ func runDesign(cmd *cobra.Command, branchName, initialPrompt string, noLaunch bo
 // designMode implements the modes.Mode interface for design mode.
 type designMode struct{}
 
-func (m *designMode) Name() string                    { return "design" }
-func (m *designMode) BranchPrefix() string            { return "design/" }
-func (m *designMode) DirectoryName() string           { return "design" }
-func (m *designMode) IndexPath() string               { return "design/index.yaml" }
-func (m *designMode) PromptID() prompts.PromptID      { return prompts.PromptModeDesign }
-func (m *designMode) ValidStatuses() []string         { return []string{"active", "in_review", "completed"} }
+func (m *designMode) Name() string               { return "design" }
+func (m *designMode) BranchPrefix() string       { return "design/" }
+func (m *designMode) DirectoryName() string      { return "design" }
+func (m *designMode) IndexPath() string          { return "design/index.yaml" }
+func (m *designMode) PromptID() prompts.PromptID { return prompts.PromptModeDesign }
+func (m *designMode) ValidStatuses() []string    { return []string{"active", "in_review", "completed"} }
 
 // generateDesignPrompt creates the design mode prompt with context.
 func generateDesignPrompt(sowCtx *sow.Context, topic, branch, initialPrompt string) (string, error) {

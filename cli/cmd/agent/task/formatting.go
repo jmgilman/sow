@@ -11,11 +11,12 @@ import (
 // formatTaskList generates a human-readable task list.
 //
 // Output format:
-//   Tasks:
-//     ID   Status        Name
-//     010  pending       Add authentication
-//     020  in_progress   Create database schema
-//     030  completed     Setup project structure
+//
+//	Tasks:
+//	  ID   Status        Name
+//	  010  pending       Add authentication
+//	  020  in_progress   Create database schema
+//	  030  completed     Setup project structure
 //
 // Parameters:
 //   - tasks: List of tasks to format
@@ -57,15 +58,16 @@ func formatTaskList(tasks []phases.Task) string {
 // formatTaskStatus generates a detailed human-readable task status.
 //
 // Output format:
-//   Task: 010 - Add authentication
-//   Status: in_progress
-//   Phase: implementation
-//   Created: 2024-01-15 10:30:00
-//   Started: 2024-01-15 11:00:00
-//   Iteration: 1
-//   Assigned Agent: implementer
-//   Parallel: false
-//   Dependencies: none
+//
+//	Task: 010 - Add authentication
+//	Status: in_progress
+//	Phase: implementation
+//	Created: 2024-01-15 10:30:00
+//	Started: 2024-01-15 11:00:00
+//	Iteration: 1
+//	Assigned Agent: implementer
+//	Parallel: false
+//	Dependencies: none
 //
 // Parameters:
 //   - taskState: Task state to format

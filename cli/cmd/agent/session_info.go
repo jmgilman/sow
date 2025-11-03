@@ -13,12 +13,12 @@ import (
 
 // SessionInfo represents the session information output structure.
 type SessionInfo struct {
-	Repository  RepositoryInfo   `json:"repository"`
-	Context     ContextInfo      `json:"context"`
-	Project     *ProjectInfo     `json:"project,omitempty"`
-	Statechart  *StatechartInfo  `json:"statechart,omitempty"`
-	Versions    VersionInfo      `json:"versions"`
-	Available   []string         `json:"available_commands,omitempty"`
+	Repository RepositoryInfo  `json:"repository"`
+	Context    ContextInfo     `json:"context"`
+	Project    *ProjectInfo    `json:"project,omitempty"`
+	Statechart *StatechartInfo `json:"statechart,omitempty"`
+	Versions   VersionInfo     `json:"versions"`
+	Available  []string        `json:"available_commands,omitempty"`
 }
 
 // RepositoryInfo contains git repository information.

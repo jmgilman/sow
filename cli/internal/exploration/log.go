@@ -11,14 +11,14 @@ import (
 
 // Exploration-specific log actions.
 const (
-	ActionFileAdded       = "file_added"
-	ActionFileRemoved     = "file_removed"
-	ActionFileUpdated     = "file_updated"
-	ActionTopicAdded      = "topic_added"
-	ActionTopicCompleted  = "topic_completed"
-	ActionTopicUpdated    = "topic_updated"
-	ActionJournalEntry    = "journal_entry"
-	ActionStatusChanged   = "status_changed"
+	ActionFileAdded      = "file_added"
+	ActionFileRemoved    = "file_removed"
+	ActionFileUpdated    = "file_updated"
+	ActionTopicAdded     = "topic_added"
+	ActionTopicCompleted = "topic_completed"
+	ActionTopicUpdated   = "topic_updated"
+	ActionJournalEntry   = "journal_entry"
+	ActionStatusChanged  = "status_changed"
 )
 
 // Log result values.

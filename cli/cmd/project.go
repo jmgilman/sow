@@ -305,6 +305,7 @@ func handleCurrentBranchScenario(ctx *sow.Context) (string, bool, error) {
 
 	return currentBranch, !projectExists, nil
 }
+
 // initializeProject creates the project structure via statechart.
 func initializeProject(ctx *sow.Context, issue *sow.Issue, initialPrompt string) error {
 	// Determine project name and description

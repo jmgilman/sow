@@ -58,8 +58,9 @@ func (g *Git) RepoRoot() string {
 // Returns an empty string if HEAD is in detached state.
 //
 // Example:
-//   branch, err := git.CurrentBranch()
-//   // branch = "main" or "feat/my-feature"
+//
+//	branch, err := git.CurrentBranch()
+//	// branch = "main" or "feat/my-feature"
 func (g *Git) CurrentBranch() (string, error) {
 	branch, err := g.repo.CurrentBranch()
 	if err != nil {
@@ -82,9 +83,10 @@ func (g *Git) CurrentBranch() (string, error) {
 // to avoid accidental commits to the main development line.
 //
 // Example:
-//   if git.IsProtectedBranch("main") {
-//       return errors.New("cannot create project on main branch")
-//   }
+//
+//	if git.IsProtectedBranch("main") {
+//	    return errors.New("cannot create project on main branch")
+//	}
 func (g *Git) IsProtectedBranch(branch string) bool {
 	return branch == "main" || branch == "master"
 }
@@ -143,7 +145,8 @@ func (g *Git) Branches() ([]string, error) {
 //   - The checkout operation fails
 //
 // Example:
-//   err := git.CheckoutBranch("feat/auth")
+//
+//	err := git.CheckoutBranch("feat/auth")
 func (g *Git) CheckoutBranch(branchName string) error {
 	// Get the worktree
 	wt, err := g.repo.Underlying().Worktree()
