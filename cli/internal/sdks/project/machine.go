@@ -2,11 +2,9 @@ package project
 
 import (
 	"context"
-	"unsafe"
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	stateMachine "github.com/jmgilman/sow/cli/internal/sdks/state"
-	"github.com/jmgilman/sow/cli/schemas"
 )
 
 // BuildMachine builds a state machine for a project using this project type's configuration.
@@ -58,13 +56,11 @@ func (ptc *ProjectTypeConfig) BuildMachine(
 		}
 	}
 
-	// The embedded ProjectState can be cast to *schemas.ProjectState since
-	// schemas.ProjectState is a type alias for project.ProjectState
-	// We use unsafe.Pointer as an intermediate to convert between the types
-	projectStatePtr := unsafe.Pointer(&project.ProjectState)
-	schemasProjectState := (*schemas.ProjectState)(projectStatePtr)
-
-	builder := stateMachine.NewBuilder(initialState, schemasProjectState, promptFunc)
+	// NOTE: We pass nil for projectState because the Project SDK uses closures
+	// to bind project state to guards and actions. The state machine builder's
+	// projectState field is only used for the old StandardProjectState type and
+	// is not needed when using the builder pattern with closures.
+	builder := stateMachine.NewBuilder(initialState, nil, promptFunc)
 
 	// Add all transitions with guards and actions bound to project instance
 	for _, tc := range ptc.transitions {
