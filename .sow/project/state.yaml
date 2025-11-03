@@ -7,7 +7,7 @@ project:
     description: Project SDK Builder & Configuration
     github_issue: 48
     created_at: 2025-11-03T12:34:12.185488-08:00
-    updated_at: 2025-11-03T14:15:09.795498-08:00
+    updated_at: 2025-11-03T14:15:46.090028-08:00
 phases:
     planning:
         phase:
@@ -123,6 +123,7 @@ phases:
             artifacts: []
             tasks: []
             inputs: []
-            metadata: {}
+            metadata:
+                project_deleted: true
         project_deleted: false
         documentation_updates: []
