@@ -1,3 +1,5 @@
+// Package project provides a builder SDK for declaratively defining project types
+// with phases, transitions, validation, and state machine integration.
 package project
 
 import (

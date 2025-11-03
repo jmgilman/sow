@@ -199,11 +199,11 @@ func TestOnEntryOnExitActionsIntegration(t *testing.T) {
 			sdkstate.State("Middle"),
 			sdkstate.State("End"),
 			sdkstate.Event("Finish"),
-			WithOnExit(func(p *state.Project) error {
+			WithOnExit(func(_ *state.Project) error {
 				actionsExecuted = append(actionsExecuted, "exit-Middle")
 				return nil
 			}),
-			WithOnEntry(func(p *state.Project) error {
+			WithOnEntry(func(_ *state.Project) error {
 				actionsExecuted = append(actionsExecuted, "enter-End")
 				return nil
 			}),
@@ -427,7 +427,7 @@ func TestGuardBlocksAndAllows(t *testing.T) {
 				sdkstate.State("Start"),
 				sdkstate.State("End"),
 				sdkstate.Event("Go"),
-				WithGuard(func(p *state.Project) bool {
+				WithGuard(func(_ *state.Project) bool {
 					return false // Always block
 				}),
 			).
@@ -464,7 +464,7 @@ func TestGuardBlocksAndAllows(t *testing.T) {
 				sdkstate.State("Start"),
 				sdkstate.State("End"),
 				sdkstate.Event("Go"),
-				WithGuard(func(p *state.Project) bool {
+				WithGuard(func(_ *state.Project) bool {
 					return true // Always allow
 				}),
 			).
@@ -505,7 +505,7 @@ func TestGuardBlocksAndAllows(t *testing.T) {
 }
 
 // createTestProject creates a minimal project state for testing.
-func createTestProject(t *testing.T, typeName string) *state.Project {
+func createTestProject(_ *testing.T, typeName string) *state.Project {
 	return &state.Project{
 		ProjectState: projectschema.ProjectState{
 			Name:   "test-project",

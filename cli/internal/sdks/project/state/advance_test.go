@@ -7,9 +7,9 @@ import (
 	"github.com/jmgilman/sow/cli/schemas/project"
 )
 
-// TestGetEventDeterminerReturnsConfiguredDeterminer verifies. GetEventDeterminer returns the configured determiner for a state
+// TestGetEventDeterminerReturnsConfiguredDeterminer verifies that GetEventDeterminer returns the configured determiner for a state.
 func TestGetEventDeterminerReturnsConfiguredDeterminer(t *testing.T) {
-	determiner := func(p *Project) (Event, error) {
+	determiner := func(_ *Project) (Event, error) {
 		return Event("test_event"), nil
 	}
 
@@ -35,11 +35,11 @@ func TestGetEventDeterminerReturnsConfiguredDeterminer(t *testing.T) {
 	}
 }
 
-// TestGetEventDeterminerReturnsNilForUnconfiguredState verifies. GetEventDeterminer returns nil for states without determiners
+// TestGetEventDeterminerReturnsNilForUnconfiguredState verifies that GetEventDeterminer returns nil for states without determiners.
 func TestGetEventDeterminerReturnsNilForUnconfiguredState(t *testing.T) {
 	config := &ProjectTypeConfig{
 		onAdvance: map[State]EventDeterminer{
-			State("configured"): func(p *Project) (Event, error) {
+			State("configured"): func(_ *Project) (Event, error) {
 				return Event("event"), nil
 			},
 		},
@@ -52,14 +52,14 @@ func TestGetEventDeterminerReturnsNilForUnconfiguredState(t *testing.T) {
 	}
 }
 
-// TestGetEventDeterminerMultipleStates verifies. different states can have different determiners
+// TestGetEventDeterminerMultipleStates verifies that different states can have different determiners.
 func TestGetEventDeterminerMultipleStates(t *testing.T) {
 	config := &ProjectTypeConfig{
 		onAdvance: map[State]EventDeterminer{
-			State("state1"): func(p *Project) (Event, error) {
+			State("state1"): func(_ *Project) (Event, error) {
 				return Event("event1"), nil
 			},
-			State("state2"): func(p *Project) (Event, error) {
+			State("state2"): func(_ *Project) (Event, error) {
 				return Event("event2"), nil
 			},
 		},
@@ -83,7 +83,7 @@ func TestGetEventDeterminerMultipleStates(t *testing.T) {
 	}
 }
 
-// TestAdvanceCallsEventDeterminer verifies. Advance() calls the event determiner for current state
+// TestAdvanceCallsEventDeterminer verifies that Advance() calls the event determiner for current state.
 func TestAdvanceCallsEventDeterminer(t *testing.T) {
 	called := false
 	config := &ProjectTypeConfig{
@@ -95,7 +95,7 @@ func TestAdvanceCallsEventDeterminer(t *testing.T) {
 			},
 		},
 		onAdvance: map[State]EventDeterminer{
-			State("start"): func(p *Project) (Event, error) {
+			State("start"): func(_ *Project) (Event, error) {
 				called = true
 				return Event("advance"), nil
 			},
@@ -112,7 +112,7 @@ func TestAdvanceCallsEventDeterminer(t *testing.T) {
 	}
 }
 
-// TestAdvanceFiresEvent verifies. Advance() fires the determined event
+// TestAdvanceFiresEvent verifies that Advance() fires the determined event.
 func TestAdvanceFiresEvent(t *testing.T) {
 	config := &ProjectTypeConfig{
 		transitions: []TransitionConfig{
@@ -123,7 +123,7 @@ func TestAdvanceFiresEvent(t *testing.T) {
 			},
 		},
 		onAdvance: map[State]EventDeterminer{
-			State("start"): func(p *Project) (Event, error) {
+			State("start"): func(_ *Project) (Event, error) {
 				return Event("advance"), nil
 			},
 		},
@@ -143,7 +143,7 @@ func TestAdvanceFiresEvent(t *testing.T) {
 	}
 }
 
-// TestAdvanceTransitionsToNewState verifies. Advance() transitions to new state
+// TestAdvanceTransitionsToNewState verifies that Advance() transitions to new state.
 func TestAdvanceTransitionsToNewState(t *testing.T) {
 	config := &ProjectTypeConfig{
 		transitions: []TransitionConfig{
@@ -159,7 +159,7 @@ func TestAdvanceTransitionsToNewState(t *testing.T) {
 			},
 		},
 		onAdvance: map[State]EventDeterminer{
-			State("start"): func(p *Project) (Event, error) {
+			State("start"): func(_ *Project) (Event, error) {
 				return Event("advance"), nil
 			},
 		},
@@ -179,7 +179,7 @@ func TestAdvanceTransitionsToNewState(t *testing.T) {
 	}
 }
 
-// TestAdvanceErrorNoDeterminer verifies. Advance() returns error if no determiner configured
+// TestAdvanceErrorNoDeterminer verifies that Advance() returns error if no determiner configured.
 func TestAdvanceErrorNoDeterminer(t *testing.T) {
 	config := &ProjectTypeConfig{
 		onAdvance: map[State]EventDeterminer{
@@ -201,11 +201,11 @@ func TestAdvanceErrorNoDeterminer(t *testing.T) {
 	}
 }
 
-// TestAdvanceDeterminerError verifies. Advance() returns error if determiner fails
+// TestAdvanceDeterminerError verifies that Advance() returns error if determiner fails.
 func TestAdvanceDeterminerError(t *testing.T) {
 	config := &ProjectTypeConfig{
 		onAdvance: map[State]EventDeterminer{
-			State("start"): func(p *Project) (Event, error) {
+			State("start"): func(_ *Project) (Event, error) {
 				return "", fmt.Errorf("cannot determine event")
 			},
 		},
@@ -226,7 +226,7 @@ func TestAdvanceDeterminerError(t *testing.T) {
 	}
 }
 
-// TestAdvanceGuardBlocks verifies. Advance() returns error if guard prevents transition
+// TestAdvanceGuardBlocks verifies that Advance() returns error if guard prevents transition.
 func TestAdvanceGuardBlocks(t *testing.T) {
 	config := &ProjectTypeConfig{
 		transitions: []TransitionConfig{
@@ -234,13 +234,13 @@ func TestAdvanceGuardBlocks(t *testing.T) {
 				From:  State("start"),
 				To:    State("end"),
 				Event: Event("advance"),
-				guardTemplate: func(p *Project) bool {
+				guardTemplate: func(_ *Project) bool {
 					return false // Always block
 				},
 			},
 		},
 		onAdvance: map[State]EventDeterminer{
-			State("start"): func(p *Project) (Event, error) {
+			State("start"): func(_ *Project) (Event, error) {
 				return Event("advance"), nil
 			},
 		},
@@ -261,7 +261,7 @@ func TestAdvanceGuardBlocks(t *testing.T) {
 	}
 }
 
-// TestAdvanceGuardAllows verifies. Advance() succeeds when guard allows transition
+// TestAdvanceGuardAllows verifies that Advance() succeeds when guard allows transition.
 func TestAdvanceGuardAllows(t *testing.T) {
 	config := &ProjectTypeConfig{
 		transitions: []TransitionConfig{
@@ -269,13 +269,13 @@ func TestAdvanceGuardAllows(t *testing.T) {
 				From:  State("start"),
 				To:    State("end"),
 				Event: Event("advance"),
-				guardTemplate: func(p *Project) bool {
+				guardTemplate: func(_ *Project) bool {
 					return true // Always allow
 				},
 			},
 		},
 		onAdvance: map[State]EventDeterminer{
-			State("start"): func(p *Project) (Event, error) {
+			State("start"): func(_ *Project) (Event, error) {
 				return Event("advance"), nil
 			},
 		},
@@ -295,7 +295,7 @@ func TestAdvanceGuardAllows(t *testing.T) {
 	}
 }
 
-// TestAdvanceFullFlow is an integration test of the complete advance flow
+// TestAdvanceFullFlow is an integration test of the complete advance flow.
 func TestAdvanceFullFlow(t *testing.T) {
 	// Setup: Create project with config
 	project := &Project{
@@ -322,7 +322,7 @@ func TestAdvanceFullFlow(t *testing.T) {
 			},
 		},
 		onAdvance: map[State]EventDeterminer{
-			State("start"): func(p *Project) (Event, error) {
+			State("start"): func(_ *Project) (Event, error) {
 				return Event("advance"), nil
 			},
 		},
@@ -343,7 +343,7 @@ func TestAdvanceFullFlow(t *testing.T) {
 	}
 }
 
-// TestAdvanceFullFlowWithActions verifies. Advance() executes OnEntry and OnExit actions
+// TestAdvanceFullFlowWithActions verifies that Advance() executes OnEntry and OnExit actions.
 func TestAdvanceFullFlowWithActions(t *testing.T) {
 	onExitCalled := false
 	onEntryCalled := false
@@ -362,7 +362,7 @@ func TestAdvanceFullFlowWithActions(t *testing.T) {
 				From:  State("start"),
 				To:    State("end"),
 				Event: Event("advance"),
-				onExit: func(p *Project) error {
+				onExit: func(_ *Project) error {
 					onExitCalled = true
 					return nil
 				},
@@ -376,7 +376,7 @@ func TestAdvanceFullFlowWithActions(t *testing.T) {
 			},
 		},
 		onAdvance: map[State]EventDeterminer{
-			State("start"): func(p *Project) (Event, error) {
+			State("start"): func(_ *Project) (Event, error) {
 				return Event("advance"), nil
 			},
 		},
@@ -402,7 +402,7 @@ func TestAdvanceFullFlowWithActions(t *testing.T) {
 	}
 }
 
-// TestAdvanceDeterminerAccessesProjectState verifies. determiner can access and use project state
+// TestAdvanceDeterminerAccessesProjectState verifies that determiner can access and use project state.
 func TestAdvanceDeterminerAccessesProjectState(t *testing.T) {
 	project := &Project{
 		ProjectState: project.ProjectState{

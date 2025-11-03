@@ -275,7 +275,7 @@ func TestBuildMachineGuardBlocksTransition(t *testing.T) {
 			stateMachine.State("start"),
 			stateMachine.State("end"),
 			stateMachine.Event("advance"),
-			WithGuard(func(p *state.Project) bool {
+			WithGuard(func(_ *state.Project) bool {
 				return false // Always block
 			}),
 		).
@@ -327,11 +327,11 @@ func TestBuildMachineCombinedGuardAndActions(t *testing.T) {
 			WithGuard(func(p *state.Project) bool {
 				return p.PhaseOutputApproved("test", "result")
 			}),
-			WithOnExit(func(p *state.Project) error {
+			WithOnExit(func(_ *state.Project) error {
 				exitCalled = true
 				return nil
 			}),
-			WithOnEntry(func(p *state.Project) error {
+			WithOnEntry(func(_ *state.Project) error {
 				entryCalled = true
 				return nil
 			}),

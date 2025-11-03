@@ -152,7 +152,7 @@ func TestMultiplePhaseOptions(t *testing.T) {
 func TestWithGuard(t *testing.T) {
 	config := &TransitionConfig{}
 
-	guardFunc := func(p *state.Project) bool {
+	guardFunc := func(_ *state.Project) bool {
 		return true
 	}
 
@@ -173,7 +173,7 @@ func TestWithOnEntry(t *testing.T) {
 	config := &TransitionConfig{}
 
 	called := false
-	entryAction := func(p *state.Project) error {
+	entryAction := func(_ *state.Project) error {
 		called = true
 		return nil
 	}
@@ -196,7 +196,7 @@ func TestWithOnExit(t *testing.T) {
 	config := &TransitionConfig{}
 
 	called := false
-	exitAction := func(p *state.Project) error {
+	exitAction := func(_ *state.Project) error {
 		called = true
 		return nil
 	}
@@ -222,17 +222,17 @@ func TestMultipleTransitionOptions(t *testing.T) {
 	entryCalled := false
 	exitCalled := false
 
-	guardFunc := func(p *state.Project) bool {
+	guardFunc := func(_ *state.Project) bool {
 		guardCalled = true
 		return true
 	}
 
-	entryAction := func(p *state.Project) error {
+	entryAction := func(_ *state.Project) error {
 		entryCalled = true
 		return nil
 	}
 
-	exitAction := func(p *state.Project) error {
+	exitAction := func(_ *state.Project) error {
 		exitCalled = true
 		return nil
 	}

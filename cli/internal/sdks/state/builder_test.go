@@ -19,7 +19,7 @@ const (
 
 func TestNewBuilder(t *testing.T) {
 	projectState := &schemas.ProjectState{}
-	promptFunc := func(state State) string {
+	promptFunc := func(_ State) string {
 		return "test prompt"
 	}
 

@@ -74,6 +74,17 @@ linters:
       - text: "var-naming: don't use underscores in Go names"
         linters:
           - revive
+      # Comprehensive integration tests are acceptable to exceed funlen threshold
+      - path: ^internal/sdks/project/integration_test\.go$
+        linters:
+          - funlen
+      - path: ^internal/sdks/project/builder_test\.go$
+        linters:
+          - funlen
+      # Project SDK types intentionally use full names for clarity
+      - text: "stutters; consider calling this"
+        linters:
+          - revive
   enable:
     # errors
     - errcheck # no unchecked errors

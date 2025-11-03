@@ -2,7 +2,7 @@ package state
 
 import "testing"
 
-// TestRegisterAddsConfigToRegistry verifies. that Register() adds a config to the registry
+// TestRegisterAddsConfigToRegistry verifies that Register() adds a config to the registry.
 func TestRegisterAddsConfigToRegistry(t *testing.T) {
 	// Clear registry for test isolation
 	Registry = make(map[string]*ProjectTypeConfig)
@@ -19,7 +19,7 @@ func TestRegisterAddsConfigToRegistry(t *testing.T) {
 	}
 }
 
-// TestRegisterStoresConfigUnderCorrectName verifies. that Register() stores config under the correct name
+// TestRegisterStoresConfigUnderCorrectName verifies that Register() stores config under the correct name.
 func TestRegisterStoresConfigUnderCorrectName(t *testing.T) {
 	// Clear registry for test isolation
 	Registry = make(map[string]*ProjectTypeConfig)
@@ -37,7 +37,7 @@ func TestRegisterStoresConfigUnderCorrectName(t *testing.T) {
 	}
 }
 
-// TestRegisterDuplicatePanics verifies. that Register() panics when registering a duplicate name
+// TestRegisterDuplicatePanics verifies that Register() panics when registering a duplicate name.
 func TestRegisterDuplicatePanics(t *testing.T) {
 	// Clear registry for test isolation
 	Registry = make(map[string]*ProjectTypeConfig)
@@ -63,7 +63,7 @@ func TestRegisterDuplicatePanics(t *testing.T) {
 	Register("test", config) // Should panic
 }
 
-// TestRegisterMultipleDifferentTypes verifies. that multiple different types can be registered
+// TestRegisterMultipleDifferentTypes verifies that multiple different types can be registered.
 func TestRegisterMultipleDifferentTypes(t *testing.T) {
 	// Clear registry for test isolation
 	Registry = make(map[string]*ProjectTypeConfig)
@@ -91,7 +91,7 @@ func TestRegisterMultipleDifferentTypes(t *testing.T) {
 	}
 }
 
-// TestGetReturnsConfigForRegisteredType verifies. that Get() returns (config, true) for a registered type
+// TestGetReturnsConfigForRegisteredType verifies that Get() returns (config, true) for a registered type.
 func TestGetReturnsConfigForRegisteredType(t *testing.T) {
 	// Clear registry for test isolation
 	Registry = make(map[string]*ProjectTypeConfig)
@@ -110,7 +110,7 @@ func TestGetReturnsConfigForRegisteredType(t *testing.T) {
 	}
 }
 
-// TestGetReturnsCorrectConfigForRegisteredType verifies. that Get() returns the correct config
+// TestGetReturnsCorrectConfigForRegisteredType verifies that Get() returns the correct config.
 func TestGetReturnsCorrectConfigForRegisteredType(t *testing.T) {
 	// Clear registry for test isolation
 	Registry = make(map[string]*ProjectTypeConfig)
@@ -131,7 +131,7 @@ func TestGetReturnsCorrectConfigForRegisteredType(t *testing.T) {
 	}
 }
 
-// TestGetReturnsNilForUnregisteredType verifies. that Get() returns (nil, false) for an unregistered type
+// TestGetReturnsNilForUnregisteredType verifies that Get() returns (nil, false) for an unregistered type.
 func TestGetReturnsNilForUnregisteredType(t *testing.T) {
 	// Clear registry for test isolation
 	Registry = make(map[string]*ProjectTypeConfig)
@@ -147,7 +147,7 @@ func TestGetReturnsNilForUnregisteredType(t *testing.T) {
 	}
 }
 
-// TestGetWorksAfterMultipleTypesRegistered verifies. that Get() works correctly after multiple types are registered
+// TestGetWorksAfterMultipleTypesRegistered verifies that Get() works correctly after multiple types are registered.
 func TestGetWorksAfterMultipleTypesRegistered(t *testing.T) {
 	// Clear registry for test isolation
 	Registry = make(map[string]*ProjectTypeConfig)
@@ -174,7 +174,7 @@ func TestGetWorksAfterMultipleTypesRegistered(t *testing.T) {
 	}
 }
 
-// TestRegisterThenGetIntegration verifies. the integration between Register and Get
+// TestRegisterThenGetIntegration verifies that the integration between Register and Get.
 func TestRegisterThenGetIntegration(t *testing.T) {
 	// Clear registry for test isolation
 	Registry = make(map[string]*ProjectTypeConfig)

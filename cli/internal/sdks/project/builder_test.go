@@ -138,9 +138,9 @@ func TestAddTransition(t *testing.T) {
 	t.Run("applies options correctly", func(t *testing.T) {
 		builder := NewProjectTypeConfigBuilder(testProjectName)
 
-		guardFunc := func(p *state.Project) bool { return true }
-		entryAction := func(p *state.Project) error { return nil }
-		exitAction := func(p *state.Project) error { return nil }
+		guardFunc := func(_ *state.Project) bool { return true }
+		entryAction := func(_ *state.Project) error { return nil }
+		exitAction := func(_ *state.Project) error { return nil }
 
 		builder.AddTransition(testState1, testState2, testEvent1,
 			WithGuard(guardFunc),
@@ -181,7 +181,7 @@ func TestOnAdvance(t *testing.T) {
 	t.Run("stores event determiner for state", func(t *testing.T) {
 		builder := NewProjectTypeConfigBuilder(testProjectName)
 
-		determiner := func(p *state.Project) (sdkstate.Event, error) {
+		determiner := func(_ *state.Project) (sdkstate.Event, error) {
 			return testEvent1, nil
 		}
 
@@ -193,7 +193,7 @@ func TestOnAdvance(t *testing.T) {
 	t.Run("returns builder for chaining", func(t *testing.T) {
 		builder := NewProjectTypeConfigBuilder(testProjectName)
 
-		determiner := func(p *state.Project) (sdkstate.Event, error) {
+		determiner := func(_ *state.Project) (sdkstate.Event, error) {
 			return testEvent1, nil
 		}
 
@@ -205,10 +205,10 @@ func TestOnAdvance(t *testing.T) {
 	t.Run("multiple states can have determiners", func(t *testing.T) {
 		builder := NewProjectTypeConfigBuilder(testProjectName)
 
-		determiner1 := func(p *state.Project) (sdkstate.Event, error) {
+		determiner1 := func(_ *state.Project) (sdkstate.Event, error) {
 			return testEvent1, nil
 		}
-		determiner2 := func(p *state.Project) (sdkstate.Event, error) {
+		determiner2 := func(_ *state.Project) (sdkstate.Event, error) {
 			return testEvent1, nil
 		}
 
@@ -226,7 +226,7 @@ func TestWithPrompt(t *testing.T) {
 	t.Run("stores prompt generator for state", func(t *testing.T) {
 		builder := NewProjectTypeConfigBuilder(testProjectName)
 
-		generator := func(p *state.Project) string {
+		generator := func(_ *state.Project) string {
 			return "test prompt"
 		}
 
@@ -238,7 +238,7 @@ func TestWithPrompt(t *testing.T) {
 	t.Run("returns builder for chaining", func(t *testing.T) {
 		builder := NewProjectTypeConfigBuilder(testProjectName)
 
-		generator := func(p *state.Project) string {
+		generator := func(_ *state.Project) string {
 			return "test prompt"
 		}
 
@@ -250,10 +250,10 @@ func TestWithPrompt(t *testing.T) {
 	t.Run("multiple states can have prompts", func(t *testing.T) {
 		builder := NewProjectTypeConfigBuilder(testProjectName)
 
-		generator1 := func(p *state.Project) string {
+		generator1 := func(_ *state.Project) string {
 			return "prompt1"
 		}
-		generator2 := func(p *state.Project) string {
+		generator2 := func(_ *state.Project) string {
 			return "prompt2"
 		}
 
@@ -276,12 +276,12 @@ func TestBuild(t *testing.T) {
 		builder.SetInitialState(testState1)
 		builder.AddTransition(testState1, testState2, testEvent1)
 
-		determiner := func(p *state.Project) (sdkstate.Event, error) {
+		determiner := func(_ *state.Project) (sdkstate.Event, error) {
 			return testEvent1, nil
 		}
 		builder.OnAdvance(testState1, determiner)
 
-		generator := func(p *state.Project) string {
+		generator := func(_ *state.Project) string {
 			return "test prompt"
 		}
 		builder.WithPrompt(testState1, generator)
@@ -337,7 +337,7 @@ func TestBuild(t *testing.T) {
 
 	t.Run("copies onAdvance map", func(t *testing.T) {
 		builder := NewProjectTypeConfigBuilder(testProjectName)
-		determiner := func(p *state.Project) (sdkstate.Event, error) {
+		determiner := func(_ *state.Project) (sdkstate.Event, error) {
 			return testEvent1, nil
 		}
 		builder.OnAdvance(testState1, determiner)
@@ -350,7 +350,7 @@ func TestBuild(t *testing.T) {
 
 	t.Run("copies prompts map", func(t *testing.T) {
 		builder := NewProjectTypeConfigBuilder(testProjectName)
-		generator := func(p *state.Project) string {
+		generator := func(_ *state.Project) string {
 			return "test"
 		}
 		builder.WithPrompt(testState1, generator)
@@ -401,10 +401,10 @@ func TestBuild(t *testing.T) {
 // TestChaining tests that all methods can be chained.
 func TestChaining(t *testing.T) {
 	t.Run("all methods can be chained in single expression", func(t *testing.T) {
-		determiner := func(p *state.Project) (sdkstate.Event, error) {
+		determiner := func(_ *state.Project) (sdkstate.Event, error) {
 			return testEvent1, nil
 		}
-		generator := func(p *state.Project) string {
+		generator := func(_ *state.Project) string {
 			return "test"
 		}
 
