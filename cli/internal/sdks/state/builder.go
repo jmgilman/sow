@@ -12,33 +12,40 @@ import (
 // It enables project types to define their own state machines without duplicating
 // common infrastructure patterns.
 type MachineBuilder struct {
-	sm              *stateless.StateMachine
-	projectState    *schemas.ProjectState
-	promptGenerator PromptGenerator
-	suppressPrompts bool
+	sm           *stateless.StateMachine
+	projectState *schemas.ProjectState
+	promptFunc   PromptFunc // Optional prompt generator (can be nil)
 }
 
 // NewBuilder creates a new MachineBuilder starting at the specified initial state.
-// The promptGenerator is used to generate contextual prompts for state entry actions.
+// The promptFunc is an optional callback for generating contextual prompts on state entry.
+// Pass nil to disable prompt generation.
 //
-// Example:
+// Example with prompts:
 //
-//	builder := statechart.NewBuilder(
-//	    statechart.PlanningActive,
-//	    projectState,
-//	    NewStandardPromptGenerator(ctx),
-//	)
+//	promptFunc := func(state State) string {
+//	    switch state {
+//	    case PlanningActive:
+//	        return "Create task list"
+//	    default:
+//	        return ""
+//	    }
+//	}
+//	builder := NewBuilder(PlanningActive, projectState, promptFunc)
+//
+// Example without prompts:
+//
+//	builder := NewBuilder(PlanningActive, projectState, nil)
 func NewBuilder(
 	initialState State,
 	projectState *schemas.ProjectState,
-	promptGenerator PromptGenerator,
+	promptFunc PromptFunc,
 ) *MachineBuilder {
 	sm := stateless.NewStateMachine(initialState)
 	return &MachineBuilder{
-		sm:              sm,
-		projectState:    projectState,
-		promptGenerator: promptGenerator,
-		suppressPrompts: false,
+		sm:           sm,
+		projectState: projectState,
+		promptFunc:   promptFunc,
 	}
 }
 
@@ -204,13 +211,6 @@ func (b *MachineBuilder) ConfigureState(state State) *stateless.StateConfigurati
 	return b.sm.Configure(state)
 }
 
-// SuppressPrompts disables prompt generation for all state entry actions.
-// This is useful for tests and non-interactive CLI commands.
-func (b *MachineBuilder) SuppressPrompts(suppress bool) *MachineBuilder {
-	b.suppressPrompts = suppress
-	return b
-}
-
 // Build creates the final Machine instance with all configured transitions.
 // This should be called after all transitions have been added.
 //
@@ -222,26 +222,24 @@ func (b *MachineBuilder) SuppressPrompts(suppress bool) *MachineBuilder {
 //	    Build()
 func (b *MachineBuilder) Build() *Machine {
 	return &Machine{
-		sm:              b.sm,
-		projectState:    b.projectState,
-		suppressPrompts: b.suppressPrompts,
+		sm:           b.sm,
+		projectState: b.projectState,
 	}
 }
 
 // onEntry creates an entry action that generates and prints a contextual prompt.
+// If no prompt function is configured, this is a no-op.
 func (b *MachineBuilder) onEntry(state State) func(context.Context, ...any) error {
 	return func(_ context.Context, _ ...any) error {
-		// Skip entirely if prompts are suppressed
-		if b.suppressPrompts {
+		// Skip if no prompt function configured
+		if b.promptFunc == nil {
 			return nil
 		}
 
-		prompt, err := b.promptGenerator.GeneratePrompt(state, b.projectState)
-		if err != nil {
-			return fmt.Errorf("failed to generate prompt for state %s: %w", state, err)
+		prompt := b.promptFunc(state)
+		if prompt != "" {
+			fmt.Println(prompt)
 		}
-
-		fmt.Println(prompt)
 		return nil
 	}
 }

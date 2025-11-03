@@ -490,3 +490,440 @@ func TestValidateMetadata_EmptySchema(t *testing.T) {
 		t.Errorf("Expected no error for empty schema, got: %v", err)
 	}
 }
+
+// TestValidateArtifactTypesAllowed tests that artifacts pass when type is in allowed list.
+func TestValidateArtifactTypesAllowed(t *testing.T) {
+	// Given: Artifacts with types in allowed list
+	artifacts := []project.ArtifactState{
+		{Type: "task_list"},
+		{Type: "design"},
+	}
+	allowed := []string{"task_list", "design", "review"}
+
+	// When: validateArtifactTypes() called
+	err := validateArtifactTypes(artifacts, allowed, "planning", "output")
+
+	// Then: No error returned
+	if err != nil {
+		t.Errorf("Expected no error for allowed types, got: %v", err)
+	}
+}
+
+// TestValidateArtifactTypesRejects tests that artifacts fail when type not in allowed list.
+func TestValidateArtifactTypesRejects(t *testing.T) {
+	// Given: Artifact with type not in allowed list
+	artifacts := []project.ArtifactState{
+		{Type: "invalid_type"},
+	}
+	allowed := []string{"task_list", "design"}
+
+	// When: validateArtifactTypes() called
+	err := validateArtifactTypes(artifacts, allowed, "planning", "output")
+
+	// Then: Error returned mentioning the invalid type
+	if err == nil {
+		t.Error("Expected error for invalid artifact type")
+	}
+	if err != nil && !contains(err.Error(), "invalid_type") {
+		t.Errorf("Error should mention invalid type, got: %v", err)
+	}
+	if err != nil && !contains(err.Error(), "planning") {
+		t.Errorf("Error should mention phase name, got: %v", err)
+	}
+}
+
+// TestValidateArtifactTypesEmptyAllowed tests that empty allowed list allows all types.
+func TestValidateArtifactTypesEmptyAllowed(t *testing.T) {
+	// Given: Artifacts and empty allowed list
+	artifacts := []project.ArtifactState{
+		{Type: "any_type"},
+		{Type: "another_type"},
+	}
+	allowed := []string{} // Empty = allow all
+
+	// When: validateArtifactTypes() called
+	err := validateArtifactTypes(artifacts, allowed, "planning", "input")
+
+	// Then: No error (all types allowed)
+	if err != nil {
+		t.Errorf("Expected no error for empty allowed list, got: %v", err)
+	}
+}
+
+// TestValidateArtifactTypesMultiple tests validation of multiple artifacts.
+func TestValidateArtifactTypesMultiple(t *testing.T) {
+	// Given: Multiple artifacts, all with allowed types
+	artifacts := []project.ArtifactState{
+		{Type: "design"},
+		{Type: "task_list"},
+		{Type: "review"},
+	}
+	allowed := []string{"design", "task_list", "review", "adr"}
+
+	// When: validateArtifactTypes() called
+	err := validateArtifactTypes(artifacts, allowed, "implementation", "output")
+
+	// Then: No error
+	if err != nil {
+		t.Errorf("Expected no error for multiple valid artifacts, got: %v", err)
+	}
+}
+
+// TestValidateArtifactTypesErrorMessage tests error message includes all details.
+func TestValidateArtifactTypesErrorMessage(t *testing.T) {
+	// Given: Invalid artifact type
+	artifacts := []project.ArtifactState{
+		{Type: "bad_type"},
+	}
+	allowed := []string{"good_type1", "good_type2"}
+
+	// When: validateArtifactTypes() called
+	err := validateArtifactTypes(artifacts, allowed, "review", "input")
+
+	// Then: Error includes phase, category, invalid type, and allowed types
+	if err == nil {
+		t.Fatal("Expected error for invalid type")
+	}
+	errMsg := err.Error()
+	if !contains(errMsg, "review") {
+		t.Errorf("Error should mention phase name 'review', got: %v", errMsg)
+	}
+	if !contains(errMsg, "input") {
+		t.Errorf("Error should mention category 'input', got: %v", errMsg)
+	}
+	if !contains(errMsg, "bad_type") {
+		t.Errorf("Error should mention invalid type 'bad_type', got: %v", errMsg)
+	}
+}
+
+// TestProjectTypeConfigValidateAllPhases tests that Validate() checks all phases.
+func TestProjectTypeConfigValidateAllPhases(t *testing.T) {
+	// Given: Config with multiple phases and matching project
+	now := time.Now()
+	config := &ProjectTypeConfig{
+		phaseConfigs: map[string]*PhaseConfig{
+			"planning": {
+				allowedOutputTypes: []string{"design"},
+			},
+			"implementation": {
+				allowedInputTypes:  []string{"design"},
+				allowedOutputTypes: []string{"code"},
+			},
+		},
+	}
+
+	projectState := &Project{
+		ProjectState: project.ProjectState{
+			Phases: map[string]project.PhaseState{
+				"planning": {
+					Outputs: []project.ArtifactState{
+						{Type: "design", Created_at: now},
+					},
+				},
+				"implementation": {
+					Inputs: []project.ArtifactState{
+						{Type: "design", Created_at: now},
+					},
+					Outputs: []project.ArtifactState{
+						{Type: "code", Created_at: now},
+					},
+				},
+			},
+		},
+	}
+
+	// When: Validate() called
+	err := config.Validate(projectState)
+
+	// Then: No error (all phases valid)
+	if err != nil {
+		t.Errorf("Expected no error for valid project, got: %v", err)
+	}
+}
+
+// TestProjectTypeConfigValidateSkipsMissingPhases tests that phases not in state are skipped.
+func TestProjectTypeConfigValidateSkipsMissingPhases(t *testing.T) {
+	// Given: Config with phase not present in project state
+	config := &ProjectTypeConfig{
+		phaseConfigs: map[string]*PhaseConfig{
+			"planning": {
+				allowedOutputTypes: []string{"design"},
+			},
+			"review": {
+				allowedInputTypes: []string{"code"},
+			},
+		},
+	}
+
+	projectState := &Project{
+		ProjectState: project.ProjectState{
+			Phases: map[string]project.PhaseState{
+				"planning": {
+					Outputs: []project.ArtifactState{
+						{Type: "design", Created_at: time.Now()},
+					},
+				},
+				// "review" phase not present
+			},
+		},
+	}
+
+	// When: Validate() called
+	err := config.Validate(projectState)
+
+	// Then: No error (missing phase skipped)
+	if err != nil {
+		t.Errorf("Expected no error when phase missing from state, got: %v", err)
+	}
+}
+
+// TestProjectTypeConfigValidateInputTypes tests input artifact type validation.
+func TestProjectTypeConfigValidateInputTypes(t *testing.T) {
+	// Given: Config with restricted input types and invalid input
+	config := &ProjectTypeConfig{
+		phaseConfigs: map[string]*PhaseConfig{
+			"implementation": {
+				allowedInputTypes: []string{"design", "task_list"},
+			},
+		},
+	}
+
+	projectState := &Project{
+		ProjectState: project.ProjectState{
+			Phases: map[string]project.PhaseState{
+				"implementation": {
+					Inputs: []project.ArtifactState{
+						{Type: "invalid_input", Created_at: time.Now()},
+					},
+				},
+			},
+		},
+	}
+
+	// When: Validate() called
+	err := config.Validate(projectState)
+
+	// Then: Error returned for invalid input type
+	if err == nil {
+		t.Error("Expected error for invalid input type")
+	}
+	if err != nil && !contains(err.Error(), "implementation") {
+		t.Errorf("Error should mention phase name, got: %v", err)
+	}
+	if err != nil && !contains(err.Error(), "input") {
+		t.Errorf("Error should mention input category, got: %v", err)
+	}
+}
+
+// TestProjectTypeConfigValidateOutputTypes tests output artifact type validation.
+func TestProjectTypeConfigValidateOutputTypes(t *testing.T) {
+	// Given: Config with restricted output types and invalid output
+	config := &ProjectTypeConfig{
+		phaseConfigs: map[string]*PhaseConfig{
+			"planning": {
+				allowedOutputTypes: []string{"design", "task_list"},
+			},
+		},
+	}
+
+	projectState := &Project{
+		ProjectState: project.ProjectState{
+			Phases: map[string]project.PhaseState{
+				"planning": {
+					Outputs: []project.ArtifactState{
+						{Type: "code", Created_at: time.Now()}, // Not allowed
+					},
+				},
+			},
+		},
+	}
+
+	// When: Validate() called
+	err := config.Validate(projectState)
+
+	// Then: Error returned for invalid output type
+	if err == nil {
+		t.Error("Expected error for invalid output type")
+	}
+	if err != nil && !contains(err.Error(), "planning") {
+		t.Errorf("Error should mention phase name, got: %v", err)
+	}
+	if err != nil && !contains(err.Error(), "output") {
+		t.Errorf("Error should mention output category, got: %v", err)
+	}
+}
+
+// TestProjectTypeConfigValidateMetadataWithSchema tests metadata validation with schema.
+func TestProjectTypeConfigValidateMetadataWithSchema(t *testing.T) {
+	// Given: Config with metadata schema and valid metadata
+	config := &ProjectTypeConfig{
+		phaseConfigs: map[string]*PhaseConfig{
+			"planning": {
+				metadataSchema: `{
+					complexity: "low" | "medium" | "high"
+				}`,
+			},
+		},
+	}
+
+	projectState := &Project{
+		ProjectState: project.ProjectState{
+			Phases: map[string]project.PhaseState{
+				"planning": {
+					Metadata: map[string]interface{}{
+						"complexity": "medium",
+					},
+				},
+			},
+		},
+	}
+
+	// When: Validate() called
+	err := config.Validate(projectState)
+
+	// Then: No error (metadata valid)
+	if err != nil {
+		t.Errorf("Expected no error for valid metadata, got: %v", err)
+	}
+}
+
+// TestProjectTypeConfigValidateMetadataInvalid tests metadata validation failure.
+func TestProjectTypeConfigValidateMetadataInvalid(t *testing.T) {
+	// Given: Config with metadata schema and invalid metadata
+	config := &ProjectTypeConfig{
+		phaseConfigs: map[string]*PhaseConfig{
+			"planning": {
+				metadataSchema: `{
+					complexity: "low" | "medium" | "high"
+				}`,
+			},
+		},
+	}
+
+	projectState := &Project{
+		ProjectState: project.ProjectState{
+			Phases: map[string]project.PhaseState{
+				"planning": {
+					Metadata: map[string]interface{}{
+						"complexity": "invalid", // Not in allowed values
+					},
+				},
+			},
+		},
+	}
+
+	// When: Validate() called
+	err := config.Validate(projectState)
+
+	// Then: Error returned mentioning phase
+	if err == nil {
+		t.Error("Expected error for invalid metadata")
+	}
+	if err != nil && !contains(err.Error(), "planning") {
+		t.Errorf("Error should mention phase name, got: %v", err)
+	}
+}
+
+// TestProjectTypeConfigValidateRejectsUnexpectedMetadata tests rejection of metadata when no schema.
+func TestProjectTypeConfigValidateRejectsUnexpectedMetadata(t *testing.T) {
+	// Given: Config without metadata schema but project has metadata
+	config := &ProjectTypeConfig{
+		phaseConfigs: map[string]*PhaseConfig{
+			"planning": {
+				// No metadataSchema defined
+			},
+		},
+	}
+
+	projectState := &Project{
+		ProjectState: project.ProjectState{
+			Phases: map[string]project.PhaseState{
+				"planning": {
+					Metadata: map[string]interface{}{
+						"unexpected": "data",
+					},
+				},
+			},
+		},
+	}
+
+	// When: Validate() called
+	err := config.Validate(projectState)
+
+	// Then: Error returned
+	if err == nil {
+		t.Error("Expected error for unexpected metadata")
+	}
+	if err != nil && !contains(err.Error(), "does not support metadata") {
+		t.Errorf("Error should mention metadata not supported, got: %v", err)
+	}
+}
+
+// TestProjectTypeConfigValidateAllowsMissingMetadata tests that missing metadata is OK when no schema.
+func TestProjectTypeConfigValidateAllowsMissingMetadata(t *testing.T) {
+	// Given: Config without metadata schema and no metadata in project
+	config := &ProjectTypeConfig{
+		phaseConfigs: map[string]*PhaseConfig{
+			"planning": {
+				// No metadataSchema defined
+			},
+		},
+	}
+
+	projectState := &Project{
+		ProjectState: project.ProjectState{
+			Phases: map[string]project.PhaseState{
+				"planning": {
+					Metadata: map[string]interface{}{}, // Empty metadata
+				},
+			},
+		},
+	}
+
+	// When: Validate() called
+	err := config.Validate(projectState)
+
+	// Then: No error
+	if err != nil {
+		t.Errorf("Expected no error for missing metadata when no schema, got: %v", err)
+	}
+}
+
+// TestProjectTypeConfigValidateFullIntegration tests complete validation scenario.
+func TestProjectTypeConfigValidateFullIntegration(t *testing.T) {
+	// Given: Full config with artifact types and metadata
+	now := time.Now()
+	config := &ProjectTypeConfig{
+		phaseConfigs: map[string]*PhaseConfig{
+			"planning": {
+				allowedOutputTypes: []string{"task_list"},
+				metadataSchema: `{
+					complexity?: "low" | "medium" | "high"
+				}`,
+			},
+		},
+	}
+
+	projectState := &Project{
+		ProjectState: project.ProjectState{
+			Phases: map[string]project.PhaseState{
+				"planning": {
+					Outputs: []project.ArtifactState{
+						{Type: "task_list", Created_at: now},
+					},
+					Metadata: map[string]interface{}{
+						"complexity": "medium",
+					},
+				},
+			},
+		},
+	}
+
+	// When: Validate() called
+	err := config.Validate(projectState)
+
+	// Then: No error (everything valid)
+	if err != nil {
+		t.Errorf("Expected valid project to pass validation, got: %v", err)
+	}
+}

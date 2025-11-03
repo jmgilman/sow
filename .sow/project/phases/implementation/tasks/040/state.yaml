@@ -1,0 +1,16 @@
+task:
+    id: "040"
+    name: BuildMachine with Closure Binding
+    phase: implementation
+    status: completed
+    created_at: 2025-11-03T12:50:25.03924-08:00
+    started_at: 2025-11-03T13:11:28.632829-08:00
+    updated_at: 2025-11-03T13:20:01.540788-08:00
+    completed_at: 2025-11-03T13:20:01.540788-08:00
+    iteration: 1
+    assigned_agent: implementer
+    references: []
+    feedback: []
+    files_modified:
+        - cli/internal/sdks/project/machine.go
+        - cli/internal/sdks/project/machine_test.go
