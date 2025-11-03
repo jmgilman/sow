@@ -1,0 +1,16 @@
+name: test-project
+type: standard
+branch: feature/test
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: ImplementationPlanning
+  updated_at: 2025-01-01T00:00:00Z
