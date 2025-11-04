@@ -69,7 +69,7 @@ func TestFullLifecycle(t *testing.T) {
 		}
 	})
 
-	// ReviewActive → FinalizeDocumentation
+	// ReviewActive → FinalizeChecks
 	t.Run("review pass transitions to finalize", func(t *testing.T) {
 		// Add approved review with pass assessment
 		addApprovedReview(t, proj, "pass", "review.md")
@@ -78,36 +78,37 @@ func TestFullLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Fire(EventReviewPass) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(FinalizeDocumentation) {
-			t.Errorf("state = %v, want %v", got, FinalizeDocumentation)
+		if got := machine.State(); got != sdkstate.State(FinalizeChecks) {
+			t.Errorf("state = %v, want %v", got, FinalizeChecks)
 		}
 	})
 
 	// Finalize substates
 	t.Run("finalize substates progress correctly", func(t *testing.T) {
-		// FinalizeDocumentation → FinalizeChecks
-		err := machine.Fire(EventDocumentationDone)
-		if err != nil {
-			t.Fatalf("Fire(EventDocumentationDone) failed: %v", err)
-		}
-		if got := machine.State(); got != sdkstate.State(FinalizeChecks) {
-			t.Errorf("state = %v, want %v", got, FinalizeChecks)
-		}
-
-		// FinalizeChecks → FinalizeDelete
-		err = machine.Fire(EventChecksDone)
+		// FinalizeChecks → FinalizePRCreation
+		err := machine.Fire(EventChecksDone)
 		if err != nil {
 			t.Fatalf("Fire(EventChecksDone) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(FinalizeDelete) {
-			t.Errorf("state = %v, want %v", got, FinalizeDelete)
+		if got := machine.State(); got != sdkstate.State(FinalizePRCreation) {
+			t.Errorf("state = %v, want %v", got, FinalizePRCreation)
 		}
 
-		// FinalizeDelete → NoProject
-		setPhaseMetadata(t, proj, "finalize", "project_deleted", true)
-		err = machine.Fire(EventProjectDelete)
+		// FinalizePRCreation → FinalizeCleanup
+		addApprovedOutput(t, proj, "finalize", "pr_body", "pr_body.md")
+		err = machine.Fire(EventPRCreated)
 		if err != nil {
-			t.Fatalf("Fire(EventProjectDelete) failed: %v", err)
+			t.Fatalf("Fire(EventPRCreated) failed: %v", err)
+		}
+		if got := machine.State(); got != sdkstate.State(FinalizeCleanup) {
+			t.Errorf("state = %v, want %v", got, FinalizeCleanup)
+		}
+
+		// FinalizeCleanup → NoProject
+		setPhaseMetadata(t, proj, "finalize", "project_deleted", true)
+		err = machine.Fire(EventCleanupComplete)
+		if err != nil {
+			t.Fatalf("Fire(EventCleanupComplete) failed: %v", err)
 		}
 		if got := machine.State(); got != sdkstate.State(NoProject) {
 			t.Errorf("state = %v, want %v", got, NoProject)
@@ -194,9 +195,9 @@ func TestPromptGeneration(t *testing.T) {
 		sdkstate.State(ImplementationPlanning),
 		sdkstate.State(ImplementationExecuting),
 		sdkstate.State(ReviewActive),
-		sdkstate.State(FinalizeDocumentation),
 		sdkstate.State(FinalizeChecks),
-		sdkstate.State(FinalizeDelete),
+		sdkstate.State(FinalizePRCreation),
+		sdkstate.State(FinalizeCleanup),
 	}
 
 	for _, st := range states {
@@ -446,12 +447,12 @@ func getPromptGenerator(st sdkstate.State) PromptGenerator {
 		return generateImplementationExecutingPrompt
 	case sdkstate.State(ReviewActive):
 		return generateReviewPrompt
-	case sdkstate.State(FinalizeDocumentation):
-		return generateFinalizeDocumentationPrompt
 	case sdkstate.State(FinalizeChecks):
 		return generateFinalizeChecksPrompt
-	case sdkstate.State(FinalizeDelete):
-		return generateFinalizeDeletePrompt
+	case sdkstate.State(FinalizePRCreation):
+		return generateFinalizePRCreationPrompt
+	case sdkstate.State(FinalizeCleanup):
+		return generateFinalizeCleanupPrompt
 	default:
 		return nil
 	}

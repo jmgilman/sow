@@ -10,11 +10,14 @@ Follow these steps in order:
 
 Read: `.sow/project/phases/implementation/tasks/{id}/state.yaml`
 
+Or use command: `sow task status --id {id}`
+
 Check:
 - **iteration**: What iteration are you on? (1 = first attempt, 2+ = addressing feedback)
 - **assigned_agent**: Confirm you're the right agent
-- **references**: Context files the orchestrator wants you to review
-- **feedback**: List of feedback entries (if any)
+- **inputs**: Context files and feedback the orchestrator wants you to review
+  - Look for inputs with `type: reference` (context files)
+  - Look for inputs with `type: feedback` (review feedback from previous iterations)
 
 ### 2. Read Requirements
 
@@ -57,9 +60,22 @@ The orchestrator must provide complete task descriptions. You start with zero co
 
 ### 3. Read Feedback (If Iteration > 1)
 
-If iteration > 1, read all feedback files: `.sow/project/phases/implementation/tasks/{id}/feedback/*.md`
+If iteration > 1, check task inputs for feedback artifacts:
 
-Each feedback file contains corrections from the orchestrator. Address ALL feedback items.
+Use: `sow task status --id {id}` to see all inputs
+
+Look for inputs with `type: feedback`. The most recent feedback will be at:
+`.sow/project/phases/implementation/tasks/{id}/feedback/{iteration-1}.md`
+
+For example:
+- Iteration 2: Read `feedback/1.md`
+- Iteration 3: Read `feedback/2.md`
+
+Each feedback file contains corrections from the orchestrator. Check the input's metadata for assessment:
+- `metadata.assessment: fail` means you must address the feedback
+- `metadata.assessment: pass` means work was approved (you shouldn't be here)
+
+Address ALL feedback items before proceeding.
 
 ### 4. Load Mandatory TDD Guidance
 
@@ -99,10 +115,15 @@ Read the description.md content and detect which scenario applies:
 
 ### 6. Review Referenced Files
 
-Check state.yaml's `references` list. Read each referenced file:
+Check task inputs for reference artifacts:
+
+Use: `sow task status --id {id}` to see all inputs
+
+Look for inputs with `type: reference`. Read each referenced file:
 - Architecture docs in `.sow/knowledge/`
 - Style guides or conventions in `.sow/sinks/`
 - Example code in `.sow/repos/`
+- Project-specific context documents
 
 These provide context the orchestrator wants you to consider.
 
@@ -139,7 +160,8 @@ Read description.md and implement exactly what it describes—nothing more, noth
 - Mock external dependencies via ports/interfaces
 - Log all actions to task log.md
 - Work only within your assigned task scope
-- Track modified files using `sow agent task state add-file <path>`
+- Track modified files using `sow task output add --id {id} --type modified --path <path>`
+- Track context used using `sow task input add --id {id} --type reference --path <path>`
 
 **YOU DO NOT:**
 - Change architecture or design decisions
@@ -155,19 +177,25 @@ Read description.md and implement exactly what it describes—nothing more, noth
 When implementation is complete:
 
 1. **Run all tests** - Ensure everything passes
+
 2. **Track modified files:**
    ```bash
-   sow agent task state add-file path/to/modified/file.go
-   sow agent task state add-file path/to/test/file_test.go
+   sow task output add --id {id} --type modified --path "path/to/modified/file.go"
+   sow task output add --id {id} --type modified --path "path/to/test/file_test.go"
    ```
+
 3. **Log final summary** to task log.md
+
 4. **Mark task for review:**
    ```bash
-   sow agent task update {id} --status needs_review
+   sow task set --id {id} status needs_review
    ```
+
 5. **Return control to orchestrator** - Your work is done
 
-The orchestrator will review your changes and either approve (→ completed) or provide feedback (→ new iteration).
+The orchestrator will review your changes and either:
+- **Approve**: Sets `status = completed` (task done)
+- **Request changes**: Adds feedback as input, sets `status = in_progress`, increments `iteration` (you'll be restarted)
 
 ## Logging Your Work
 

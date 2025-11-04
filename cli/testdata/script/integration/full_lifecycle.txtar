@@ -189,18 +189,33 @@ stdout 'approved: true'
 
 # Advance to finalize
 exec sow advance
-stdout 'Advanced to: FinalizeDocumentation'
+stdout 'Advanced to: FinalizeChecks'
 exec cat .sow/project/state.yaml
-stdout 'current_state: FinalizeDocumentation'
+stdout 'current_state: FinalizeChecks'
 
 # =====================================
-# Finalize Phase - Advance to Completed
+# Finalize Phase - Advance through states
 # =====================================
 
-# Advance through finalize (simplified - would normally do documentation/checks/delete)
+# Advance from checks to PR creation
 exec sow advance
-stdout 'Advanced to: Completed'
+stdout 'Advanced to: FinalizePRCreation'
+
+# Create and approve PR body
+exec mkdir -p .sow/project/phases/finalize
+exec sh -c 'echo "# Test PR" > .sow/project/phases/finalize/pr_body.md'
+exec sow output add --type pr_body --path "project/phases/finalize/pr_body.md" --phase finalize
+exec sow output set --index 0 approved true --phase finalize
+
+# Advance to cleanup
+exec sow advance
+stdout 'Advanced to: FinalizeCleanup'
+
+# Set project_deleted flag and complete
+exec sow phase set metadata.project_deleted true --phase finalize
+exec sow advance
+stdout 'Advanced to: NoProject'
 
 # Verify final state
 exec cat .sow/project/state.yaml
-stdout 'current_state: Completed'
+stdout 'current_state: NoProject'

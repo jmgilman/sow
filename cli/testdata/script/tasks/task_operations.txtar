@@ -54,8 +54,8 @@ exec cat .sow/project/state.yaml
 stdout 'id: "020"'
 stdout 'name: Write tests'
 
-# Test: List tasks
-exec sow task list
+# Test: List tasks (using status command)
+exec sow task status
 stdout '\[010\] Implement feature \(pending\)'
 stdout '\[020\] Write tests \(pending\)'
 
@@ -82,6 +82,14 @@ stdout 'id: "020"'
 stdout 'status: abandoned'
 
 # Test: List shows updated statuses
-exec sow task list
+exec sow task status
 stdout '\[010\] Implement feature \(in_progress\)'
 stdout '\[020\] Write tests \(abandoned\)'
+
+# Test: Detailed status for specific task
+exec sow task status --id 010
+stdout 'Task: 010 - Implement feature'
+stdout 'Status: in_progress'
+stdout 'Iteration: 2'
+stdout 'Assigned Agent: implementer'
+stdout 'complexity: high'

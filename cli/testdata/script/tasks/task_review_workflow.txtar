@@ -1,0 +1,188 @@
+# Test: Task Review Workflow
+# Coverage: Complete review cycle with feedback, iterations, and assessments
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec sh -c 'echo ".sow/worktrees/" > .gitignore'
+exec git add .gitignore
+exec git commit -m 'Initial commit'
+exec git checkout -b feat/test-review
+exec sow init
+exec git add .sow
+exec git commit -m 'Initialize sow'
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+exec sow project new --branch feat/test-review --no-launch 'Test task review workflow'
+
+# Change into worktree for remaining commands
+cd .sow/worktrees/feat/test-review
+
+# Manually set up implementation phase for testing
+exec mkdir -p .sow/project/phases/implementation/tasks
+
+# ====================
+# ITERATION 1: Initial Implementation
+# ====================
+
+# Worker: Add task and start work
+exec sow task add 'Implement authentication' --agent implementer --description 'Add JWT auth middleware'
+exec cat .sow/project/state.yaml
+stdout 'id: "010"'
+stdout 'iteration: 1'
+stdout 'status: pending'
+
+# Worker: Start working
+exec sow task set --id 010 status in_progress
+exec cat .sow/project/state.yaml
+stdout 'status: in_progress'
+
+# Worker: Track modified files
+exec sow task output add --id 010 --type modified --path src/auth/jwt.go
+exec sow task output add --id 010 --type modified --path src/auth/jwt_test.go
+exec cat .sow/project/state.yaml
+stdout 'type: modified'
+stdout 'path: src/auth/jwt.go'
+stdout 'path: src/auth/jwt_test.go'
+
+# Worker: Mark for review
+exec sow task set --id 010 status needs_review
+exec cat .sow/project/state.yaml
+stdout 'status: needs_review'
+
+# Orchestrator: Check task status
+exec sow task status --id 010
+stdout 'Task: 010 - Implement authentication'
+stdout 'Status: needs_review'
+stdout 'Iteration: 1'
+stdout 'Outputs \(2\):'
+stdout 'modified: src/auth/jwt.go'
+stdout 'modified: src/auth/jwt_test.go'
+
+# Orchestrator: Write review feedback (rejected)
+exec mkdir -p .sow/project/phases/implementation/tasks/010/feedback
+exec sh -c 'echo "# Review Feedback - Iteration 1\n\nIssues found:\n- Missing error handling\n- Tests incomplete" > .sow/project/phases/implementation/tasks/010/feedback/1.md'
+exists .sow/project/phases/implementation/tasks/010/feedback/1.md
+
+# Orchestrator: Register feedback with fail assessment
+exec sow task input add --id 010 --type feedback --path phases/implementation/tasks/010/feedback/1.md
+exec sow task input set --id 010 --index 0 metadata.assessment fail
+exec cat .sow/project/state.yaml
+stdout 'type: feedback'
+stdout 'path: phases/implementation/tasks/010/feedback/1.md'
+stdout 'assessment: fail'
+
+# Orchestrator: Reject and increment iteration
+exec sow task set --id 010 status in_progress
+exec sow task set --id 010 iteration 2
+exec cat .sow/project/state.yaml
+stdout 'iteration: 2'
+stdout 'status: in_progress'
+
+# ====================
+# ITERATION 2: Address Feedback
+# ====================
+
+# Worker: Check status and see iteration 2
+exec sow task status --id 010
+stdout 'Iteration: 2'
+stdout 'Inputs \(1\):'
+stdout 'feedback: phases/implementation/tasks/010/feedback/1.md'
+stdout 'metadata.assessment: fail'
+
+# Worker: Add more outputs after addressing feedback
+exec sow task output add --id 010 --type modified --path src/auth/errors.go
+exec cat .sow/project/state.yaml
+stdout 'path: src/auth/errors.go'
+
+# Worker: Mark for review again
+exec sow task set --id 010 status needs_review
+
+# Orchestrator: Review again
+exec sow task status --id 010
+stdout 'Status: needs_review'
+stdout 'Iteration: 2'
+stdout 'Outputs \(3\):'
+
+# Orchestrator: Write approval feedback
+exec sh -c 'echo "# Review Feedback - Iteration 2\n\nApproved:\n- Error handling added\n- Tests complete\n- Ready to merge" > .sow/project/phases/implementation/tasks/010/feedback/2.md'
+exists .sow/project/phases/implementation/tasks/010/feedback/2.md
+
+# Orchestrator: Register feedback with pass assessment
+exec sow task input add --id 010 --type feedback --path phases/implementation/tasks/010/feedback/2.md
+exec sow task input set --id 010 --index 1 metadata.assessment pass
+exec cat .sow/project/state.yaml
+stdout 'assessment: pass'
+
+# Orchestrator: Approve task
+exec sow task set --id 010 status completed
+exec cat .sow/project/state.yaml
+stdout 'status: completed'
+
+# Verify final state
+exec sow task status --id 010
+stdout 'Task: 010 - Implement authentication'
+stdout 'Status: completed'
+stdout 'Iteration: 2'
+stdout 'Inputs \(2\):'
+stdout '\[0\] feedback: phases/implementation/tasks/010/feedback/1.md'
+stdout 'metadata.assessment: fail'
+stdout '\[1\] feedback: phases/implementation/tasks/010/feedback/2.md'
+stdout 'metadata.assessment: pass'
+stdout 'Outputs \(3\):'
+stdout '\[0\] modified: src/auth/jwt.go'
+stdout '\[1\] modified: src/auth/jwt_test.go'
+stdout '\[2\] modified: src/auth/errors.go'
+
+# ====================
+# ITERATION 3: Test another rejection cycle
+# ====================
+
+# Add another task
+exec sow task add 'Add rate limiting' --agent implementer
+exec sow task set --id 020 status in_progress
+exec sow task output add --id 020 --type modified --path src/middleware/ratelimit.go
+exec sow task set --id 020 status needs_review
+
+# Reject it
+exec mkdir -p .sow/project/phases/implementation/tasks/020/feedback
+exec sh -c 'echo "Needs tests" > .sow/project/phases/implementation/tasks/020/feedback/1.md'
+exec sow task input add --id 020 --type feedback --path phases/implementation/tasks/020/feedback/1.md
+exec sow task input set --id 020 --index 0 metadata.assessment fail
+exec sow task set --id 020 status in_progress
+exec sow task set --id 020 iteration 2
+
+# Worker addresses and submits again
+exec sow task output add --id 020 --type modified --path src/middleware/ratelimit_test.go
+exec sow task set --id 020 status needs_review
+
+# Reject again (iteration 3)
+exec sh -c 'echo "Tests need more coverage" > .sow/project/phases/implementation/tasks/020/feedback/2.md'
+exec sow task input add --id 020 --type feedback --path phases/implementation/tasks/020/feedback/2.md
+exec sow task input set --id 020 --index 1 metadata.assessment fail
+exec sow task set --id 020 status in_progress
+exec sow task set --id 020 iteration 3
+
+# Worker addresses final issues
+exec sow task output add --id 020 --type modified --path src/middleware/ratelimit_test.go
+exec sow task set --id 020 status needs_review
+
+# Finally approve
+exec sh -c 'echo "Approved" > .sow/project/phases/implementation/tasks/020/feedback/3.md'
+exec sow task input add --id 020 --type feedback --path phases/implementation/tasks/020/feedback/3.md
+exec sow task input set --id 020 --index 2 metadata.assessment pass
+exec sow task set --id 020 status completed
+
+# Verify task 020 went through 3 iterations
+exec sow task status --id 020
+stdout 'Status: completed'
+stdout 'Iteration: 3'
+stdout 'Inputs \(3\):'
+stdout 'assessment: fail'
+stdout 'assessment: fail'
+stdout 'assessment: pass'
+
+# Test overview shows both completed tasks
+exec sow task status
+stdout '\[010\] Implement authentication \(completed\)'
+stdout '\[020\] Add rate limiting \(completed\)'
+stdout '2 total tasks'

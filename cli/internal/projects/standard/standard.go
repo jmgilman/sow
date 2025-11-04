@@ -45,8 +45,9 @@ func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.Project
 			project.WithMetadataSchema(reviewMetadataSchema),
 		).
 		WithPhase("finalize",
-			project.WithStartState(sdkstate.State(FinalizeDocumentation)),
-			project.WithEndState(sdkstate.State(FinalizeDelete)),
+			project.WithStartState(sdkstate.State(FinalizeChecks)),
+			project.WithEndState(sdkstate.State(FinalizeCleanup)),
+			project.WithOutputs("pr_body"),
 			project.WithMetadataSchema(finalizeMetadataSchema),
 		)
 }
@@ -98,7 +99,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 		// Review → Finalize (pass)
 		AddTransition(
 			sdkstate.State(ReviewActive),
-			sdkstate.State(FinalizeDocumentation),
+			sdkstate.State(FinalizeChecks),
 			sdkstate.Event(EventReviewPass),
 			project.WithGuard(func(p *state.Project) bool {
 				return latestReviewApproved(p)
@@ -117,19 +118,22 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 
 		// Finalize substates
 		AddTransition(
-			sdkstate.State(FinalizeDocumentation),
 			sdkstate.State(FinalizeChecks),
-			sdkstate.Event(EventDocumentationDone),
-		).
-		AddTransition(
-			sdkstate.State(FinalizeChecks),
-			sdkstate.State(FinalizeDelete),
+			sdkstate.State(FinalizePRCreation),
 			sdkstate.Event(EventChecksDone),
 		).
 		AddTransition(
-			sdkstate.State(FinalizeDelete),
+			sdkstate.State(FinalizePRCreation),
+			sdkstate.State(FinalizeCleanup),
+			sdkstate.Event(EventPRCreated),
+			project.WithGuard(func(p *state.Project) bool {
+				return prBodyApproved(p)
+			}),
+		).
+		AddTransition(
+			sdkstate.State(FinalizeCleanup),
 			sdkstate.State(NoProject),
-			sdkstate.Event(EventProjectDelete),
+			sdkstate.Event(EventCleanupComplete),
 			project.WithGuard(func(p *state.Project) bool {
 				return projectDeleted(p)
 			}),
@@ -183,14 +187,14 @@ func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *proje
 				return "", fmt.Errorf("invalid assessment: %s", assessment)
 			}
 		}).
-		OnAdvance(sdkstate.State(FinalizeDocumentation), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventDocumentationDone), nil
-		}).
 		OnAdvance(sdkstate.State(FinalizeChecks), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventChecksDone), nil
 		}).
-		OnAdvance(sdkstate.State(FinalizeDelete), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventProjectDelete), nil
+		OnAdvance(sdkstate.State(FinalizePRCreation), func(_ *state.Project) (sdkstate.Event, error) {
+			return sdkstate.Event(EventPRCreated), nil
+		}).
+		OnAdvance(sdkstate.State(FinalizeCleanup), func(_ *state.Project) (sdkstate.Event, error) {
+			return sdkstate.Event(EventCleanupComplete), nil
 		})
 }
 
@@ -200,7 +204,7 @@ func configurePrompts(builder *project.ProjectTypeConfigBuilder) *project.Projec
 		WithPrompt(sdkstate.State(ImplementationPlanning), generateImplementationPlanningPrompt).
 		WithPrompt(sdkstate.State(ImplementationExecuting), generateImplementationExecutingPrompt).
 		WithPrompt(sdkstate.State(ReviewActive), generateReviewPrompt).
-		WithPrompt(sdkstate.State(FinalizeDocumentation), generateFinalizeDocumentationPrompt).
 		WithPrompt(sdkstate.State(FinalizeChecks), generateFinalizeChecksPrompt).
-		WithPrompt(sdkstate.State(FinalizeDelete), generateFinalizeDeletePrompt)
+		WithPrompt(sdkstate.State(FinalizePRCreation), generateFinalizePRCreationPrompt).
+		WithPrompt(sdkstate.State(FinalizeCleanup), generateFinalizeCleanupPrompt)
 }

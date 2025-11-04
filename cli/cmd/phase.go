@@ -136,7 +136,7 @@ func getActivePhase(project *state.Project) string {
 		return "implementation"
 	case string(standard.ReviewActive):
 		return "review"
-	case string(standard.FinalizeDocumentation), string(standard.FinalizeChecks), string(standard.FinalizeDelete):
+	case string(standard.FinalizeChecks), string(standard.FinalizePRCreation), string(standard.FinalizeCleanup):
 		return "finalize"
 	default:
 		// Unknown state - return empty string

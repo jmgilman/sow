@@ -81,7 +81,7 @@ WORKFLOW:
    DO NOT create a single consolidated task list document.
 
    Register each as output:
-   sow output add project/context/tasks/010-task-name.md --metadata type=task_description
+   sow output add --type task_description --path "project/context/tasks/010-task-name.md"
 
 3. After creating all task files, create a task index file:
 
@@ -99,7 +99,7 @@ WORKFLOW:
    Each task has detailed requirements in project/context/tasks/
    ```
 
-   Register index: sow output add project/context/task-index.md --metadata type=task_index
+   Register index: sow output add --type task_index --path "project/context/task-index.md"
 
 4. Present task index to human for review (they can read individual task files if needed)
 
@@ -107,7 +107,7 @@ WORKFLOW:
    - Approve the index: sow output set --index <N> approved true
    - Approve all task files: sow output set --index <N> approved true (for each)
 
-6. When all artifacts approved: sow agent complete
+6. When all artifacts approved: sow advance
 
 CRITICAL: Each task file must be comprehensive enough to serve as the complete
 task description for implementer agents. These files will be used directly as

@@ -43,12 +43,17 @@ func newTaskInputAddCmd() *cobra.Command {
 Creates a new input artifact with the specified type and path.
 The artifact is appended to the task's input list.
 
+To set metadata fields, use 'task input set' after adding the artifact.
+
 Examples:
   # Add reference artifact
   sow task input add --id 010 --type reference --path sinks/style-guide.md
 
   # Add feedback artifact
-  sow task input add --id 010 --type feedback --path feedback/001.md
+  sow task input add --id 010 --type feedback --path phases/implementation/tasks/010/feedback/1.md
+
+  # Then set metadata (e.g., assessment)
+  sow task input set --id 010 --index 0 metadata.assessment fail
 
   # Add with approval flag
   sow task input add --id 010 --type reference --path docs/arch.md --approved`,
