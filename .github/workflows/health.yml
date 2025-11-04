@@ -29,13 +29,13 @@ jobs:
         working-directory: ./cli
         run: go mod download
 
+      - name: Run tests
+        working-directory: ./cli
+        run: go test -race ./...
+
       - name: Run tests with coverage
         working-directory: ./cli
-        run: go test -v -coverprofile=coverage.out -covermode=atomic ./...
-
-      - name: Run tests with race detector
-        working-directory: ./cli
-        run: go test -v -race ./...
+        run: go test -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Upload coverage
         uses: codecov/codecov-action@v5
