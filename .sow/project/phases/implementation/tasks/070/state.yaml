@@ -1,0 +1,15 @@
+task:
+    id: "070"
+    name: Verify Old Implementation Untouched
+    phase: implementation
+    status: completed
+    created_at: 2025-11-03T15:09:53.398931-08:00
+    started_at: 2025-11-03T15:55:59.996224-08:00
+    updated_at: 2025-11-03T15:55:59.996224-08:00
+    completed_at: 2025-11-03T15:55:59.996224-08:00
+    iteration: 1
+    assigned_agent: implementer
+    references: []
+    feedback: []
+    files_modified:
+        - cli/internal/projects/standard/MIGRATION.md

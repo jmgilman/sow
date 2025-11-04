@@ -1,0 +1,117 @@
+statechart:
+    current_state: FinalizeDelete
+project:
+    type: standard
+    name: migrate-standard-project-type-to-sdk
+    branch: master
+    description: Migrate Standard Project Type to SDK
+    github_issue: 49
+    created_at: 2025-11-03T14:46:46.325308-08:00
+    updated_at: 2025-11-03T19:44:44.079999-08:00
+phases:
+    planning:
+        phase:
+            status: completed
+            enabled: true
+            created_at: 2025-11-03T14:46:46.325308-08:00
+            completed_at: 2025-11-03T15:04:14.358998-08:00
+            artifacts:
+                - path: project/context/task-breakdown.md
+                  approved: true
+                  created_at: 2025-11-03T14:52:38.901161-08:00
+                  type: task_list
+                  metadata: {}
+            tasks: []
+            inputs: []
+            metadata: {}
+    implementation:
+        phase:
+            status: completed
+            enabled: true
+            created_at: 2025-11-03T14:46:46.325308-08:00
+            started_at: 2025-11-03T15:11:57.190536-08:00
+            completed_at: 2025-11-03T15:55:59.996626-08:00
+            artifacts: []
+            tasks:
+                - id: "010"
+                  name: Create Package Structure and Copy Templates
+                  status: completed
+                  parallel: false
+                  dependencies: []
+                  refs: []
+                  metadata: {}
+                - id: "020"
+                  name: Define States and Events
+                  status: completed
+                  parallel: false
+                  dependencies: []
+                  refs: []
+                  metadata: {}
+                - id: "030"
+                  name: Create Metadata Schemas
+                  status: completed
+                  parallel: false
+                  dependencies: []
+                  refs: []
+                  metadata: {}
+                - id: "040"
+                  name: Create Prompt Functions
+                  status: completed
+                  parallel: false
+                  dependencies: []
+                  refs: []
+                  metadata: {}
+                - id: "050"
+                  name: Implement Guard Functions (TDD)
+                  status: completed
+                  parallel: false
+                  dependencies: []
+                  refs: []
+                  metadata: {}
+                - id: "060"
+                  name: Implement SDK Configuration (TDD)
+                  status: completed
+                  parallel: false
+                  dependencies: []
+                  refs: []
+                  metadata: {}
+                - id: "070"
+                  name: Verify Old Implementation Untouched
+                  status: completed
+                  parallel: false
+                  dependencies: []
+                  refs: []
+                  metadata: {}
+            inputs: []
+            metadata: {}
+        tasks_approved: true
+    review:
+        phase:
+            status: completed
+            enabled: true
+            created_at: 2025-11-03T14:46:46.325308-08:00
+            started_at: 2025-11-03T15:55:59.996626-08:00
+            completed_at: 2025-11-03T19:43:44.606985-08:00
+            artifacts:
+                - path: project/phases/review/reports/001.md
+                  approved: true
+                  created_at: 2025-11-03T15:57:04.657162-08:00
+                  type: review
+                  assessment: pass
+                  metadata: {}
+            tasks: []
+            inputs: []
+            metadata: {}
+        iteration: 1
+    finalize:
+        phase:
+            status: pending
+            enabled: true
+            created_at: 2025-11-03T14:46:46.325308-08:00
+            artifacts: []
+            tasks: []
+            inputs: []
+            metadata:
+                documentation_updates: No documentation updates required - SDK implementation is internal-only, not yet integrated into CLI. Old implementation remains active.
+        project_deleted: false
+        documentation_updates: []

@@ -1,0 +1,16 @@
+task:
+    id: "020"
+    name: Define States and Events
+    phase: implementation
+    status: completed
+    created_at: 2025-11-03T15:09:53.335506-08:00
+    started_at: 2025-11-03T15:18:30.909553-08:00
+    updated_at: 2025-11-03T15:18:30.909553-08:00
+    completed_at: 2025-11-03T15:18:30.909553-08:00
+    iteration: 1
+    assigned_agent: implementer
+    references: []
+    feedback: []
+    files_modified:
+        - cli/internal/projects/standard/states.go
+        - cli/internal/projects/standard/events.go
