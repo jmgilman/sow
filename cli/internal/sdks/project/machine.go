@@ -43,8 +43,9 @@ func (ptc *ProjectTypeConfig) BuildMachine(
 	project *state.Project,
 	initialState stateMachine.State,
 ) *stateMachine.Machine {
-	// Create prompt function that uses project SDK prompts
-	// This closure captures the project wrapper and looks up prompts from the prompts map
+	// Create prompt function that uses project type config prompts
+	// This closure captures the project wrapper and looks up prompt generators
+	// from the project type config's prompts map
 	var promptFunc stateMachine.PromptFunc
 	if len(ptc.prompts) > 0 {
 		promptFunc = func(state stateMachine.State) string {
@@ -52,14 +53,14 @@ func (ptc *ProjectTypeConfig) BuildMachine(
 			if gen == nil {
 				return "" // No prompt configured for this state
 			}
-			return gen(project) // Call project SDK prompt with Project wrapper
+			return gen(project) // Call project type config prompt generator
 		}
 	}
 
 	// NOTE: We pass nil for projectState because the Project SDK uses closures
 	// to bind project state to guards and actions. The state machine builder's
-	// projectState field is only used for the old StandardProjectState type and
-	// is not needed when using the builder pattern with closures.
+	// projectState parameter is optional and only needed for legacy code that
+	// doesn't use closures. Since we bind state via closures, we pass nil here.
 	builder := stateMachine.NewBuilder(initialState, nil, promptFunc)
 
 	// Add all transitions with guards and actions bound to project instance
@@ -68,32 +69,23 @@ func (ptc *ProjectTypeConfig) BuildMachine(
 
 		// Bind guard template to project instance via closure
 		if tc.guardTemplate != nil {
-			// Closure captures project - guard can access live state
-			guardTemplate := tc.guardTemplate // Capture for closure
-			boundGuard := func() bool {
-				return guardTemplate(project)
-			}
-			opts = append(opts, stateMachine.WithGuard(boundGuard))
+			opts = append(opts, stateMachine.WithGuard(func() bool {
+				return tc.guardTemplate(project)
+			}))
 		}
 
 		// Bind onExit action to project instance via closure
 		if tc.onExit != nil {
-			// Closure captures project and action
-			action := tc.onExit // Capture for closure
-			boundOnExit := func(_ context.Context, _ ...any) error {
-				return action(project)
-			}
-			opts = append(opts, stateMachine.WithOnExit(boundOnExit))
+			opts = append(opts, stateMachine.WithOnExit(func(_ context.Context, _ ...any) error {
+				return tc.onExit(project)
+			}))
 		}
 
 		// Bind onEntry action to project instance via closure
 		if tc.onEntry != nil {
-			// Closure captures project and action
-			action := tc.onEntry // Capture for closure
-			boundOnEntry := func(_ context.Context, _ ...any) error {
-				return action(project)
-			}
-			opts = append(opts, stateMachine.WithOnEntry(boundOnEntry))
+			opts = append(opts, stateMachine.WithOnEntry(func(_ context.Context, _ ...any) error {
+				return tc.onEntry(project)
+			}))
 		}
 
 		builder.AddTransition(

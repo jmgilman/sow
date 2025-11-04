@@ -76,22 +76,17 @@ func DefaultFuncMap() template.FuncMap {
 
 		// Phase lookup helper
 		// Usage: {{$planning := phase . "planning"}}
-		"phase": func(p *state.Project, name string) (map[string]projschema.PhaseState, error) {
+		"phase": func(p *state.Project, name string) (projschema.PhaseState, error) {
 			phase, exists := p.Phases[name]
 			if !exists {
-				return nil, fmt.Errorf("phase %s not found", name)
+				return projschema.PhaseState{}, fmt.Errorf("phase %s not found", name)
 			}
-			// Return as map for template compatibility
-			return map[string]projschema.PhaseState{name: phase}, nil
+			return phase, nil
 		},
 
 		// Count outputs of a specific type in a phase
 		// Usage: {{countOutputs $planning "task_list"}}
-		"countOutputs": func(phases map[string]projschema.PhaseState, phaseName string, outputType string) int {
-			phase, exists := phases[phaseName]
-			if !exists {
-				return 0
-			}
+		"countOutputs": func(phase projschema.PhaseState, outputType string) int {
 			count := 0
 			for _, output := range phase.Outputs {
 				if output.Type == outputType {
@@ -102,12 +97,8 @@ func DefaultFuncMap() template.FuncMap {
 		},
 
 		// Check if a phase has an approved output of a specific type
-		// Usage: {{if hasApprovedOutput $planning "planning" "task_list"}}...{{end}}
-		"hasApprovedOutput": func(phases map[string]projschema.PhaseState, phaseName string, outputType string) bool {
-			phase, exists := phases[phaseName]
-			if !exists {
-				return false
-			}
+		// Usage: {{if hasApprovedOutput $planning "task_list"}}...{{end}}
+		"hasApprovedOutput": func(phase projschema.PhaseState, outputType string) bool {
 			for _, output := range phase.Outputs {
 				if output.Type == outputType && output.Approved {
 					return true
@@ -117,12 +108,8 @@ func DefaultFuncMap() template.FuncMap {
 		},
 
 		// Count tasks by status
-		// Usage: {{countTasksByStatus $impl "implementation" "completed"}}
-		"countTasksByStatus": func(phases map[string]projschema.PhaseState, phaseName string, status string) int {
-			phase, exists := phases[phaseName]
-			if !exists {
-				return 0
-			}
+		// Usage: {{countTasksByStatus $impl "completed"}}
+		"countTasksByStatus": func(phase projschema.PhaseState, status string) int {
 			count := 0
 			for _, task := range phase.Tasks {
 				if task.Status == status {
@@ -133,10 +120,9 @@ func DefaultFuncMap() template.FuncMap {
 		},
 
 		// Get metadata value from phase
-		// Usage: {{phaseMetadata $impl "implementation" "tasks_approved"}}
-		"phaseMetadata": func(phases map[string]projschema.PhaseState, phaseName string, key string) interface{} {
-			phase, exists := phases[phaseName]
-			if !exists || phase.Metadata == nil {
+		// Usage: {{phaseMetadata $impl "tasks_approved"}}
+		"phaseMetadata": func(phase projschema.PhaseState, key string) interface{} {
+			if phase.Metadata == nil {
 				return nil
 			}
 			return phase.Metadata[key]

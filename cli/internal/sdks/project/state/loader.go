@@ -195,7 +195,7 @@ func Create(ctx *sow.Context, branch string, description string) (*Project, erro
 }
 
 // detectProjectType determines project type from branch name.
-// This is a copy of internal/project.DetectProjectType to avoid import cycle.
+// Duplicated here to avoid import cycles.
 func detectProjectType(branchName string) string {
 	switch {
 	case strings.HasPrefix(branchName, "explore/"):

@@ -2,6 +2,7 @@ package project
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
@@ -106,15 +107,7 @@ func (ptc *ProjectTypeConfig) GetTaskSupportingPhases() []string {
 		}
 	}
 	// Sort for deterministic ordering
-	if len(phases) > 1 {
-		for i := 0; i < len(phases)-1; i++ {
-			for j := i + 1; j < len(phases); j++ {
-				if phases[i] > phases[j] {
-					phases[i], phases[j] = phases[j], phases[i]
-				}
-			}
-		}
-	}
+	sort.Strings(phases)
 	return phases
 }
 

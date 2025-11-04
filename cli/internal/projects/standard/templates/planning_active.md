@@ -62,8 +62,8 @@ GOOD TASK DESCRIPTION:
 
 {{$planning := phase . "planning"}}
 {{if $planning}}CURRENT STATUS:
-  Artifacts: {{len (index $planning "planning").Outputs}} total
-  {{if hasApprovedOutput $planning "planning" "task_list"}}✓ Task list approved{{else}}⚠ Task list not yet approved{{end}}
+  Artifacts: {{len $planning.Outputs}} total
+  {{if hasApprovedOutput $planning "task_list"}}✓ Task list approved{{else}}⚠ Task list not yet approved{{end}}
 {{end}}
 
 WORKFLOW:

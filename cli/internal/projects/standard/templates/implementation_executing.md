@@ -8,13 +8,13 @@ Execute tasks by spawning implementer agents.
 
 {{$impl := phase . "implementation"}}
 {{if $impl}}TASK STATUS:
-  Total: {{len (index $impl "implementation").Tasks}}
-  Completed: {{countTasksByStatus $impl "implementation" "completed"}}
-  In Progress: {{countTasksByStatus $impl "implementation" "in_progress"}}
-  Pending: {{countTasksByStatus $impl "implementation" "pending"}}
+  Total: {{len $impl.Tasks}}
+  Completed: {{countTasksByStatus $impl "completed"}}
+  In Progress: {{countTasksByStatus $impl "in_progress"}}
+  Pending: {{countTasksByStatus $impl "pending"}}
 
 TASKS:
-{{range (index $impl "implementation").Tasks}}  [{{.Status}}] {{.Id}} - {{.Name}}
+{{range $impl.Tasks}}  [{{.Status}}] {{.Id}} - {{.Name}}
 {{end}}{{end}}
 
 TASK STATUSES:

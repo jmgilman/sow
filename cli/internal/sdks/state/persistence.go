@@ -6,9 +6,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/jmgilman/sow/cli/schemas"
-	"github.com/jmgilman/sow/cli/schemas/phases"
 	"gopkg.in/yaml.v3"
 )
 
@@ -18,78 +15,6 @@ const (
 	// stateFilePathChrooted is the relative path from .sow/ (for chrooted billy FS).
 	stateFilePathChrooted = "project/state.yaml"
 )
-
-// LoadProjectState reads the project state from disk and returns the state and current state.
-// This is used by the new composable phases architecture to load state before building the machine.
-func LoadProjectState(fs sow.FS) (*schemas.ProjectState, State, error) {
-	data, err := fs.ReadFile(stateFilePathChrooted)
-	if err != nil {
-		if os.IsNotExist(err) || err.Error() == "file does not exist" {
-			return nil, NoProject, fmt.Errorf("no project state file found")
-		}
-		return nil, NoProject, fmt.Errorf("failed to read state file: %w", err)
-	}
-
-	var state schemas.ProjectState
-	if err := yaml.Unmarshal(data, &state); err != nil {
-		return nil, NoProject, fmt.Errorf("failed to unmarshal state: %w", err)
-	}
-
-	currentState := State(state.Statechart.Current_state)
-	return &state, currentState, nil
-}
-
-// NewProjectState creates an initialized project state with default values.
-// This is a helper function for creating new projects.
-func NewProjectState(name, description, branch string) *schemas.ProjectState {
-	now := time.Now()
-
-	state := &schemas.ProjectState{}
-
-	// Statechart metadata
-	// StandardProject starts in PlanningActive state (hardcoded string to avoid import cycle)
-	state.Statechart.Current_state = "PlanningActive"
-
-	// Project metadata
-	state.Project.Type = "standard"
-	state.Project.Name = name
-	state.Project.Branch = branch
-	state.Project.Description = description
-	state.Project.Created_at = now
-	state.Project.Updated_at = now
-
-	// Planning phase (required, always enabled)
-	state.Phases.Planning.Enabled = true
-	state.Phases.Planning.Status = "in_progress"
-	state.Phases.Planning.Created_at = now
-	state.Phases.Planning.Artifacts = []phases.Artifact{}
-
-	// Implementation phase (required, enabled by default)
-	state.Phases.Implementation.Enabled = true
-	state.Phases.Implementation.Status = "pending"
-	state.Phases.Implementation.Created_at = now
-	state.Phases.Implementation.Tasks = []phases.Task{}
-	tasksApproved := false
-	state.Phases.Implementation.Tasks_approved = &tasksApproved
-
-	// Review phase (required, enabled by default)
-	state.Phases.Review.Enabled = true
-	state.Phases.Review.Status = "pending"
-	state.Phases.Review.Created_at = now
-	state.Phases.Review.Artifacts = []phases.Artifact{}
-	iteration := 1
-	state.Phases.Review.Iteration = &iteration
-
-	// Finalize phase (required, enabled by default)
-	state.Phases.Finalize.Enabled = true
-	state.Phases.Finalize.Status = "pending"
-	state.Phases.Finalize.Created_at = now
-	state.Phases.Finalize.Artifacts = []phases.Artifact{}
-	projectDeleted := false
-	state.Phases.Finalize.Project_deleted = &projectDeleted
-
-	return state
-}
 
 // Save writes the current state to disk atomically.
 func (m *Machine) Save() error {

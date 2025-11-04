@@ -15,19 +15,6 @@ type Machine struct {
 	fs           sow.FS // Optional filesystem for testability
 }
 
-// NewMachine creates a new state machine for project lifecycle management.
-// The initial state is determined from the project state (or NoProject if nil).
-//
-// Deprecated: Use MachineBuilder to construct state machines. This function is only
-// used by tests and may be removed in the future.
-func NewMachine(projectState *schemas.ProjectState) *Machine {
-	sm := stateless.NewStateMachine(NoProject)
-	return &Machine{
-		sm:           sm,
-		projectState: projectState,
-	}
-}
-
 // ProjectState returns the machine's project state for modification.
 func (m *Machine) ProjectState() *schemas.ProjectState {
 	return m.projectState
