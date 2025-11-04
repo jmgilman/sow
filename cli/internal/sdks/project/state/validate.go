@@ -67,13 +67,13 @@ func validateStructure(projectState project.ProjectState) error {
 	return nil
 }
 
-// validateMetadata validates a metadata map against a CUE schema string.
+// ValidateMetadata validates a metadata map against a CUE schema string.
 // This is used for project-type-specific metadata validation on phases and tasks.
 //
 // If cueSchema is empty, validation is skipped (no schema = no validation).
 // This validation is only run on Save() operations, not Load(), to allow for
 // schema evolution and backward compatibility.
-func validateMetadata(metadata map[string]interface{}, cueSchema string) error {
+func ValidateMetadata(metadata map[string]interface{}, cueSchema string) error {
 	if cueSchema == "" {
 		// No schema provided, skip validation
 		return nil
@@ -102,9 +102,9 @@ func validateMetadata(metadata map[string]interface{}, cueSchema string) error {
 	return nil
 }
 
-// validateArtifactTypes checks if artifact types are in the allowed list.
+// ValidateArtifactTypes checks if artifact types are in the allowed list.
 // Empty allowed list means "allow all types" (no validation).
-func validateArtifactTypes(
+func ValidateArtifactTypes(
 	artifacts []project.ArtifactState,
 	allowedTypes []string,
 	phaseName string,

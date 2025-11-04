@@ -10,12 +10,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// init registers all built-in project types.
-func init() {
-	// Register standard project type with full configuration
-	Registry["standard"] = initStandardProject()
-}
-
 // Load reads project state from disk and returns an initialized Project.
 //
 // The Load pipeline:

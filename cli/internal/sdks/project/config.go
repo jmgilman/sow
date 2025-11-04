@@ -1,6 +1,8 @@
 package project
 
 import (
+	"fmt"
+
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
 )
@@ -147,4 +149,54 @@ func (ptc *ProjectTypeConfig) GetDefaultTaskPhase(currentState sdkstate.State) s
 		return phases[0]
 	}
 	return ""
+}
+
+// Validate validates project state against project type configuration.
+//
+// Performs two-tier validation:
+//  1. Artifact type validation - Checks inputs/outputs against allowed types
+//  2. Metadata validation - Validates metadata against embedded CUE schemas
+//
+// Returns error describing first validation failure found.
+func (ptc *ProjectTypeConfig) Validate(project *state.Project) error {
+	// Validate each phase
+	for phaseName, phaseConfig := range ptc.phaseConfigs {
+		phase, exists := project.Phases[phaseName]
+		if !exists {
+			// Phase not in state - skip (may be optional/future phase)
+			continue
+		}
+
+		// Validate artifact types using state package helpers
+		if err := state.ValidateArtifactTypes(
+			phase.Inputs,
+			phaseConfig.allowedInputTypes,
+			phaseName,
+			"input",
+		); err != nil {
+			return fmt.Errorf("validating inputs: %w", err)
+		}
+
+		if err := state.ValidateArtifactTypes(
+			phase.Outputs,
+			phaseConfig.allowedOutputTypes,
+			phaseName,
+			"output",
+		); err != nil {
+			return fmt.Errorf("validating outputs: %w", err)
+		}
+
+		// Validate metadata against embedded schema (if schema provided)
+		// Phases without schemas can have arbitrary metadata
+		if phaseConfig.metadataSchema != "" {
+			if err := state.ValidateMetadata(
+				phase.Metadata,
+				phaseConfig.metadataSchema,
+			); err != nil {
+				return fmt.Errorf("phase %s metadata: %w", phaseName, err)
+			}
+		}
+	}
+
+	return nil
 }

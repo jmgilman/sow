@@ -13,6 +13,9 @@ import (
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
+
+	// Register built-in project types.
+	_ "github.com/jmgilman/sow/cli/internal/projects/standard"
 )
 
 var (

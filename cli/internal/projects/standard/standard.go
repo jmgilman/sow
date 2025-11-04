@@ -9,10 +9,10 @@ import (
 	projschema "github.com/jmgilman/sow/cli/schemas/project"
 )
 
-// TODO: Register on package load when project.Register is implemented
-// func init() {
-// 	project.Register("standard", NewStandardProjectConfig())
-// }
+// init registers the standard project type on package load.
+func init() {
+	state.Register("standard", NewStandardProjectConfig())
+}
 
 // NewStandardProjectConfig creates the complete configuration for standard project type.
 func NewStandardProjectConfig() *project.ProjectTypeConfig {
@@ -21,7 +21,29 @@ func NewStandardProjectConfig() *project.ProjectTypeConfig {
 	builder = configureTransitions(builder)
 	builder = configureEventDeterminers(builder)
 	builder = configurePrompts(builder)
+	builder = builder.WithInitializer(initializeStandardProject)
 	return builder.Build()
+}
+
+// initializeStandardProject creates all phases for a new standard project.
+// This is called during project creation to set up the phase structure.
+func initializeStandardProject(p *state.Project) error {
+	now := p.Created_at
+	phaseNames := []string{"planning", "implementation", "review", "finalize"}
+
+	for _, phaseName := range phaseNames {
+		p.Phases[phaseName] = projschema.PhaseState{
+			Status:     "pending",
+			Enabled:    false,
+			Created_at: now,
+			Inputs:     []projschema.ArtifactState{},
+			Outputs:    []projschema.ArtifactState{},
+			Tasks:      []projschema.TaskState{},
+			Metadata:   make(map[string]interface{}),
+		}
+	}
+
+	return nil
 }
 
 func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
@@ -57,7 +79,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 
 		// ===== STATE MACHINE =====
 
-		SetInitialState(sdkstate.State(NoProject)).
+		SetInitialState(sdkstate.State(PlanningActive)).
 
 		// Project initialization
 		AddTransition(
