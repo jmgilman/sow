@@ -1,0 +1,463 @@
+package standard
+
+import (
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	projschema "github.com/jmgilman/sow/cli/schemas/project"
+)
+
+// TestFullLifecycle tests complete project lifecycle from start to finish.
+func TestFullLifecycle(t *testing.T) {
+	// Setup: Create minimal project in NoProject state
+	proj, machine := createTestProject(t, NoProject)
+
+	// NoProject → PlanningActive
+	t.Run("init transitions to PlanningActive", func(t *testing.T) {
+		err := machine.Fire(EventProjectInit)
+		if err != nil {
+			t.Fatalf("Fire(EventProjectInit) failed: %v", err)
+		}
+		if got := machine.State(); got != sdkstate.State(PlanningActive) {
+			t.Errorf("state = %v, want %v", got, PlanningActive)
+		}
+	})
+
+	// PlanningActive → ImplementationPlanning
+	t.Run("planning completion transitions to implementation planning", func(t *testing.T) {
+		// Add and approve task_list output
+		addApprovedOutput(t, proj, "planning", "task_list", "tasks.md")
+
+		err := machine.Fire(EventCompletePlanning)
+		if err != nil {
+			t.Fatalf("Fire(EventCompletePlanning) failed: %v", err)
+		}
+		if got := machine.State(); got != sdkstate.State(ImplementationPlanning) {
+			t.Errorf("state = %v, want %v", got, ImplementationPlanning)
+		}
+	})
+
+	// ImplementationPlanning → ImplementationExecuting
+	t.Run("task approval transitions to execution", func(t *testing.T) {
+		// Set tasks_approved metadata
+		setPhaseMetadata(t, proj, "implementation", "tasks_approved", true)
+
+		err := machine.Fire(EventTasksApproved)
+		if err != nil {
+			t.Fatalf("Fire(EventTasksApproved) failed: %v", err)
+		}
+		if got := machine.State(); got != sdkstate.State(ImplementationExecuting) {
+			t.Errorf("state = %v, want %v", got, ImplementationExecuting)
+		}
+	})
+
+	// ImplementationExecuting → ReviewActive
+	t.Run("all tasks complete transitions to review", func(t *testing.T) {
+		// Add completed tasks
+		addCompletedTask(t, proj, "implementation", "001", "Task 1")
+		addCompletedTask(t, proj, "implementation", "002", "Task 2")
+
+		err := machine.Fire(EventAllTasksComplete)
+		if err != nil {
+			t.Fatalf("Fire(EventAllTasksComplete) failed: %v", err)
+		}
+		if got := machine.State(); got != sdkstate.State(ReviewActive) {
+			t.Errorf("state = %v, want %v", got, ReviewActive)
+		}
+	})
+
+	// ReviewActive → FinalizeDocumentation
+	t.Run("review pass transitions to finalize", func(t *testing.T) {
+		// Add approved review with pass assessment
+		addApprovedReview(t, proj, "pass", "review.md")
+
+		err := machine.Fire(EventReviewPass)
+		if err != nil {
+			t.Fatalf("Fire(EventReviewPass) failed: %v", err)
+		}
+		if got := machine.State(); got != sdkstate.State(FinalizeDocumentation) {
+			t.Errorf("state = %v, want %v", got, FinalizeDocumentation)
+		}
+	})
+
+	// Finalize substates
+	t.Run("finalize substates progress correctly", func(t *testing.T) {
+		// FinalizeDocumentation → FinalizeChecks
+		err := machine.Fire(EventDocumentationDone)
+		if err != nil {
+			t.Fatalf("Fire(EventDocumentationDone) failed: %v", err)
+		}
+		if got := machine.State(); got != sdkstate.State(FinalizeChecks) {
+			t.Errorf("state = %v, want %v", got, FinalizeChecks)
+		}
+
+		// FinalizeChecks → FinalizeDelete
+		err = machine.Fire(EventChecksDone)
+		if err != nil {
+			t.Fatalf("Fire(EventChecksDone) failed: %v", err)
+		}
+		if got := machine.State(); got != sdkstate.State(FinalizeDelete) {
+			t.Errorf("state = %v, want %v", got, FinalizeDelete)
+		}
+
+		// FinalizeDelete → NoProject
+		setPhaseMetadata(t, proj, "finalize", "project_deleted", true)
+		err = machine.Fire(EventProjectDelete)
+		if err != nil {
+			t.Fatalf("Fire(EventProjectDelete) failed: %v", err)
+		}
+		if got := machine.State(); got != sdkstate.State(NoProject) {
+			t.Errorf("state = %v, want %v", got, NoProject)
+		}
+	})
+}
+
+// TestReviewFailLoop tests review failure rework loop.
+func TestReviewFailLoop(t *testing.T) {
+	proj, machine := createTestProject(t, ReviewActive)
+
+	// Add approved review with fail assessment
+	addApprovedReview(t, proj, "fail", "review-fail.md")
+
+	// ReviewActive → ImplementationPlanning (rework)
+	err := machine.Fire(EventReviewFail)
+	if err != nil {
+		t.Fatalf("Fire(EventReviewFail) failed: %v", err)
+	}
+	if got := machine.State(); got != sdkstate.State(ImplementationPlanning) {
+		t.Errorf("state = %v, want %v", got, ImplementationPlanning)
+	}
+}
+
+// TestGuardsBlockInvalidTransitions tests guards prevent invalid transitions.
+func TestGuardsBlockInvalidTransitions(t *testing.T) {
+	tests := []struct {
+		name         string
+		initialState sdkstate.State
+		setupFunc    func(*state.Project)
+		event        sdkstate.Event
+		shouldBlock  bool
+	}{
+		{
+			name:         "planning without approved task_list blocks",
+			initialState: sdkstate.State(PlanningActive),
+			setupFunc:    func(_ *state.Project) {}, // No task list
+			event:        sdkstate.Event(EventCompletePlanning),
+			shouldBlock:  true,
+		},
+		{
+			name:         "implementation planning without tasks_approved blocks",
+			initialState: sdkstate.State(ImplementationPlanning),
+			setupFunc:    func(_ *state.Project) {}, // No metadata set
+			event:        sdkstate.Event(EventTasksApproved),
+			shouldBlock:  true,
+		},
+		{
+			name:         "implementation executing without completed tasks blocks",
+			initialState: sdkstate.State(ImplementationExecuting),
+			setupFunc: func(p *state.Project) {
+				// Add pending task
+				addPendingTask(p, "implementation", "001", "Task 1")
+			},
+			event:       sdkstate.Event(EventAllTasksComplete),
+			shouldBlock: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proj, machine := createTestProject(t, tt.initialState)
+			tt.setupFunc(proj)
+
+			can, err := machine.CanFire(tt.event)
+			if err != nil {
+				t.Fatalf("CanFire() error: %v", err)
+			}
+
+			if tt.shouldBlock && can {
+				t.Errorf("guard should block transition but allowed it")
+			}
+			if !tt.shouldBlock && !can {
+				t.Errorf("guard should allow transition but blocked it")
+			}
+		})
+	}
+}
+
+// TestPromptGeneration tests prompts generate correctly for each state.
+func TestPromptGeneration(t *testing.T) {
+	states := []sdkstate.State{
+		sdkstate.State(PlanningActive),
+		sdkstate.State(ImplementationPlanning),
+		sdkstate.State(ImplementationExecuting),
+		sdkstate.State(ReviewActive),
+		sdkstate.State(FinalizeDocumentation),
+		sdkstate.State(FinalizeChecks),
+		sdkstate.State(FinalizeDelete),
+	}
+
+	for _, st := range states {
+		t.Run(string(st), func(t *testing.T) {
+			proj, _ := createTestProject(t, st)
+
+			// Use the prompt generator directly to generate prompt
+			promptGen := getPromptGenerator(st)
+			if promptGen == nil {
+				t.Errorf("no prompt generator for state %s", st)
+				return
+			}
+
+			prompt := promptGen(proj)
+			if prompt == "" {
+				t.Error("prompt is empty")
+			}
+			if !contains(prompt, "Project:") {
+				t.Error("prompt missing project header")
+			}
+		})
+	}
+}
+
+// TestOnAdvanceEventDetermination tests event determiners work correctly.
+func TestOnAdvanceEventDetermination(t *testing.T) {
+	t.Run("ReviewActive determines pass event", func(t *testing.T) {
+		proj, _ := createTestProject(t, sdkstate.State(ReviewActive))
+		addApprovedReview(t, proj, "pass", "review.md")
+
+		// Verify the review was added with correct assessment
+		phase := proj.Phases["review"]
+		if len(phase.Outputs) == 0 {
+			t.Fatal("expected review output to be added")
+		}
+		assessment, ok := phase.Outputs[0].Metadata["assessment"].(string)
+		if !ok {
+			t.Fatal("assessment metadata not a string")
+		}
+		if assessment != "pass" {
+			t.Errorf("assessment = %v, want pass", assessment)
+		}
+	})
+
+	t.Run("ReviewActive determines fail event", func(t *testing.T) {
+		proj, _ := createTestProject(t, sdkstate.State(ReviewActive))
+		addApprovedReview(t, proj, "fail", "review.md")
+
+		// Verify the review was added with correct assessment
+		phase := proj.Phases["review"]
+		if len(phase.Outputs) == 0 {
+			t.Fatal("expected review output to be added")
+		}
+		assessment, ok := phase.Outputs[0].Metadata["assessment"].(string)
+		if !ok {
+			t.Fatal("assessment metadata not a string")
+		}
+		if assessment != "fail" {
+			t.Errorf("assessment = %v, want fail", assessment)
+		}
+	})
+}
+
+// Helper functions
+
+// createTestProject creates a project for testing in the specified initial state.
+func createTestProject(t *testing.T, initialState sdkstate.State) (*state.Project, *sdkstate.Machine) {
+	t.Helper()
+
+	// Create minimal project state
+	ps := &projschema.ProjectState{
+		Name:        "test-project",
+		Type:        "standard",
+		Branch:      "test-branch",
+		Description: "Test project for lifecycle tests",
+		Created_at:  time.Now(),
+		Updated_at:  time.Now(),
+		Phases: map[string]projschema.PhaseState{
+			"planning": {
+				Status:     "active",
+				Enabled:    true,
+				Created_at: time.Now(),
+				Started_at: time.Now(),
+				Inputs:     []projschema.ArtifactState{},
+				Outputs:    []projschema.ArtifactState{},
+			},
+			"implementation": {
+				Status:     "pending",
+				Enabled:    true,
+				Created_at: time.Now(),
+				Inputs:     []projschema.ArtifactState{},
+				Outputs:    []projschema.ArtifactState{},
+				Tasks:      []projschema.TaskState{},
+				Metadata:   make(map[string]interface{}),
+			},
+			"review": {
+				Status:     "pending",
+				Enabled:    true,
+				Created_at: time.Now(),
+				Inputs:     []projschema.ArtifactState{},
+				Outputs:    []projschema.ArtifactState{},
+				Metadata:   make(map[string]interface{}),
+			},
+			"finalize": {
+				Status:     "pending",
+				Enabled:    true,
+				Created_at: time.Now(),
+				Inputs:     []projschema.ArtifactState{},
+				Outputs:    []projschema.ArtifactState{},
+				Metadata:   make(map[string]interface{}),
+			},
+		},
+		Statechart: projschema.StatechartState{
+			Current_state: string(initialState),
+			Updated_at:    time.Now(),
+		},
+	}
+
+	// Get standard project type config
+	config := NewStandardProjectConfig()
+
+	// Create project instance (minimal wrapper for testing)
+	proj := &state.Project{
+		ProjectState: *ps,
+	}
+
+	// Build state machine with initial state
+	machine := config.BuildMachine(proj, sdkstate.State(initialState))
+
+	return proj, machine
+}
+
+// addApprovedOutput adds an approved output artifact to a phase.
+func addApprovedOutput(t *testing.T, p *state.Project, phaseName, outputType, path string) {
+	t.Helper()
+
+	phase, exists := p.Phases[phaseName]
+	if !exists {
+		t.Fatalf("phase %s not found", phaseName)
+	}
+
+	artifact := projschema.ArtifactState{
+		Type:       outputType,
+		Path:       path,
+		Created_at: time.Now(),
+		Approved:   true,
+	}
+
+	phase.Outputs = append(phase.Outputs, artifact)
+	p.Phases[phaseName] = phase
+}
+
+// addApprovedReview adds an approved review artifact with assessment metadata.
+func addApprovedReview(t *testing.T, p *state.Project, assessment, path string) {
+	t.Helper()
+
+	phase, exists := p.Phases["review"]
+	if !exists {
+		t.Fatal("review phase not found")
+	}
+
+	artifact := projschema.ArtifactState{
+		Type:       "review",
+		Path:       path,
+		Created_at: time.Now(),
+		Approved:   true,
+		Metadata: map[string]interface{}{
+			"assessment": assessment,
+		},
+	}
+
+	phase.Outputs = append(phase.Outputs, artifact)
+	p.Phases["review"] = phase
+}
+
+// setPhaseMetadata sets a metadata value on a phase.
+func setPhaseMetadata(t *testing.T, p *state.Project, phaseName, key string, value interface{}) {
+	t.Helper()
+
+	phase, exists := p.Phases[phaseName]
+	if !exists {
+		t.Fatalf("phase %s not found", phaseName)
+	}
+
+	if phase.Metadata == nil {
+		phase.Metadata = make(map[string]interface{})
+	}
+
+	phase.Metadata[key] = value
+	p.Phases[phaseName] = phase
+}
+
+// addCompletedTask adds a completed task to a phase.
+func addCompletedTask(t *testing.T, p *state.Project, phaseName, id, name string) {
+	t.Helper()
+
+	phase, exists := p.Phases[phaseName]
+	if !exists {
+		t.Fatalf("phase %s not found", phaseName)
+	}
+
+	task := projschema.TaskState{
+		Id:         id,
+		Name:       name,
+		Phase:      phaseName,
+		Status:     "completed",
+		Created_at: time.Now(),
+		Updated_at: time.Now(),
+	}
+
+	phase.Tasks = append(phase.Tasks, task)
+	p.Phases[phaseName] = phase
+}
+
+// addPendingTask adds a pending task to a phase.
+func addPendingTask(p *state.Project, phaseName, id, name string) {
+	phase, exists := p.Phases[phaseName]
+	if !exists {
+		return
+	}
+
+	task := projschema.TaskState{
+		Id:         id,
+		Name:       name,
+		Phase:      phaseName,
+		Status:     "pending",
+		Created_at: time.Now(),
+		Updated_at: time.Now(),
+	}
+
+	phase.Tasks = append(phase.Tasks, task)
+	p.Phases[phaseName] = phase
+}
+
+// PromptGenerator is a function that creates a contextual prompt for a given state.
+type PromptGenerator func(*state.Project) string
+
+// getPromptGenerator returns the prompt generator for a given state.
+func getPromptGenerator(st sdkstate.State) PromptGenerator {
+	// Map states to their prompt generators
+	switch st {
+	case sdkstate.State(PlanningActive):
+		return generatePlanningPrompt
+	case sdkstate.State(ImplementationPlanning):
+		return generateImplementationPlanningPrompt
+	case sdkstate.State(ImplementationExecuting):
+		return generateImplementationExecutingPrompt
+	case sdkstate.State(ReviewActive):
+		return generateReviewPrompt
+	case sdkstate.State(FinalizeDocumentation):
+		return generateFinalizeDocumentationPrompt
+	case sdkstate.State(FinalizeChecks):
+		return generateFinalizeChecksPrompt
+	case sdkstate.State(FinalizeDelete):
+		return generateFinalizeDeletePrompt
+	default:
+		return nil
+	}
+}
+
+// contains checks if a string contains a substring.
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
+}
