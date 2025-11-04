@@ -33,17 +33,6 @@ jobs:
         working-directory: ./cli
         run: go test -race ./...
 
-      - name: Run tests with coverage
-        working-directory: ./cli
-        run: go test -coverprofile=coverage.out -covermode=atomic ./...
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./cli/coverage.out
-          flags: unittests
-          fail_ci_if_error: false
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
