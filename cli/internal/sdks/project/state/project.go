@@ -19,6 +19,13 @@ type Project struct {
 	ctx     *sow.Context // Context for FS operations
 }
 
+// Config returns the project type configuration for this project.
+// This provides access to phase configurations, transitions, and other
+// type-specific behavior.
+func (p *Project) Config() *ProjectTypeConfig {
+	return p.config
+}
+
 // PhaseConfig holds configuration for a single phase in a project type.
 // It defines validation rules for artifacts and metadata.
 type PhaseConfig struct {
@@ -29,6 +36,9 @@ type PhaseConfig struct {
 	// allowedOutputTypes are the artifact types allowed as outputs
 	// Empty slice means all types are allowed
 	allowedOutputTypes []string
+
+	// supportsTasks indicates whether the phase can have tasks
+	supportsTasks bool
 
 	// metadataSchema is an embedded CUE schema for metadata validation
 	// Empty string means no metadata validation

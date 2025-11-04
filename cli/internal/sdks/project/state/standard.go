@@ -44,6 +44,20 @@ func initStandardProject() *ProjectTypeConfig {
 	// Set initial state
 	config.initialState = PlanningActive
 
+	// Configure phases
+	config.phaseConfigs["planning"] = &PhaseConfig{
+		supportsTasks: false,
+	}
+	config.phaseConfigs["implementation"] = &PhaseConfig{
+		supportsTasks: true, // Implementation phase supports tasks
+	}
+	config.phaseConfigs["review"] = &PhaseConfig{
+		supportsTasks: false,
+	}
+	config.phaseConfigs["finalize"] = &PhaseConfig{
+		supportsTasks: false,
+	}
+
 	// Set initializer function
 	config.initializer = func(p *Project) error {
 		// Initialize all phases with pending status
@@ -64,7 +78,7 @@ func initStandardProject() *ProjectTypeConfig {
 		return nil
 	}
 
-	// TODO: Add phase configurations, transitions, guards, actions, and event determiners
+	// TODO: Add transitions, guards, actions, and event determiners
 	// This will be expanded as the standard project type is fully migrated to the SDK
 
 	return config

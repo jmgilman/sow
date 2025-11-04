@@ -32,7 +32,7 @@ for tasks. Artifacts are managed using zero-based indices.`,
 
 // newTaskInputAddCmd creates the task input add subcommand.
 func newTaskInputAddCmd() *cobra.Command {
-	var taskID, artifactType, path string
+	var taskID, artifactType, path, phase string
 	var approved bool
 
 	cmd := &cobra.Command{
@@ -58,7 +58,7 @@ Examples:
   # Add with approval flag
   sow task input add --id 010 --type reference --path docs/arch.md --approved`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTaskInputAdd(cmd, taskID, artifactType, path, approved)
+			return runTaskInputAdd(cmd, taskID, artifactType, path, phase, approved)
 		},
 	}
 
@@ -66,6 +66,7 @@ Examples:
 	cmd.Flags().StringVar(&artifactType, "type", "", "Artifact type (required)")
 	cmd.Flags().StringVar(&path, "path", "", "Artifact path relative to task directory (required)")
 	cmd.Flags().BoolVar(&approved, "approved", false, "Mark artifact as approved")
+	cmd.Flags().StringVar(&phase, "phase", "", "Target phase (defaults to current phase)")
 
 	_ = cmd.MarkFlagRequired("id")
 	_ = cmd.MarkFlagRequired("type")
@@ -76,7 +77,7 @@ Examples:
 
 // newTaskInputSetCmd creates the task input set subcommand.
 func newTaskInputSetCmd() *cobra.Command {
-	var taskID string
+	var taskID, phase string
 	var index int
 
 	cmd := &cobra.Command{
@@ -99,12 +100,13 @@ Examples:
   sow task input set --id 010 --index 0 metadata.reviewer.name orchestrator`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTaskInputSet(cmd, args, taskID, index)
+			return runTaskInputSet(cmd, args, taskID, phase, index)
 		},
 	}
 
 	cmd.Flags().StringVar(&taskID, "id", "", "Task ID (required)")
 	cmd.Flags().IntVar(&index, "index", -1, "Artifact index (required)")
+	cmd.Flags().StringVar(&phase, "phase", "", "Target phase (defaults to current phase)")
 
 	_ = cmd.MarkFlagRequired("id")
 	_ = cmd.MarkFlagRequired("index")
@@ -114,7 +116,7 @@ Examples:
 
 // newTaskInputRemoveCmd creates the task input remove subcommand.
 func newTaskInputRemoveCmd() *cobra.Command {
-	var taskID string
+	var taskID, phase string
 	var index int
 
 	cmd := &cobra.Command{
@@ -132,12 +134,13 @@ Examples:
   # Remove specific feedback item
   sow task input remove --id 010 --index 2`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTaskInputRemove(cmd, taskID, index)
+			return runTaskInputRemove(cmd, taskID, phase, index)
 		},
 	}
 
 	cmd.Flags().StringVar(&taskID, "id", "", "Task ID (required)")
 	cmd.Flags().IntVar(&index, "index", -1, "Artifact index (required)")
+	cmd.Flags().StringVar(&phase, "phase", "", "Target phase (defaults to current phase)")
 
 	_ = cmd.MarkFlagRequired("id")
 	_ = cmd.MarkFlagRequired("index")
@@ -147,7 +150,7 @@ Examples:
 
 // newTaskInputListCmd creates the task input list subcommand.
 func newTaskInputListCmd() *cobra.Command {
-	var taskID string
+	var taskID, phase string
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -160,18 +163,19 @@ approval status, and metadata.
 Example:
   sow task input list --id 010`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTaskInputList(cmd, taskID)
+			return runTaskInputList(cmd, taskID, phase)
 		},
 	}
 
 	cmd.Flags().StringVar(&taskID, "id", "", "Task ID (required)")
+	cmd.Flags().StringVar(&phase, "phase", "", "Target phase (defaults to current phase)")
 	_ = cmd.MarkFlagRequired("id")
 
 	return cmd
 }
 
 // runTaskInputAdd implements the task input add command logic.
-func runTaskInputAdd(cmd *cobra.Command, taskID, artifactType, path string, approved bool) error {
+func runTaskInputAdd(cmd *cobra.Command, taskID, artifactType, path, explicitPhase string, approved bool) error {
 	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Check if sow is initialized
@@ -188,10 +192,16 @@ func runTaskInputAdd(cmd *cobra.Command, taskID, artifactType, path string, appr
 		return fmt.Errorf("failed to load project: %w", err)
 	}
 
-	// Get implementation phase
-	phaseState, exists := proj.Phases["implementation"]
+	// Resolve which phase to use
+	phaseName, err := resolveTaskPhase(proj, explicitPhase)
+	if err != nil {
+		return err
+	}
+
+	// Get phase
+	phaseState, exists := proj.Phases[phaseName]
 	if !exists {
-		return fmt.Errorf("implementation phase not found")
+		return fmt.Errorf("phase not found: %s", phaseName)
 	}
 
 	// Find task by ID
@@ -220,7 +230,7 @@ func runTaskInputAdd(cmd *cobra.Command, taskID, artifactType, path string, appr
 	phaseState.Tasks[taskIndex].Inputs = append(phaseState.Tasks[taskIndex].Inputs, artifact)
 	phaseState.Tasks[taskIndex].Updated_at = time.Now()
 
-	proj.Phases["implementation"] = phaseState
+	proj.Phases[phaseName] = phaseState
 
 	// Save project state
 	if err := proj.Save(); err != nil {
@@ -232,7 +242,7 @@ func runTaskInputAdd(cmd *cobra.Command, taskID, artifactType, path string, appr
 }
 
 // runTaskInputSet implements the task input set command logic.
-func runTaskInputSet(cmd *cobra.Command, args []string, taskID string, index int) error {
+func runTaskInputSet(cmd *cobra.Command, args []string, taskID, explicitPhase string, index int) error {
 	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Check if sow is initialized
@@ -249,10 +259,16 @@ func runTaskInputSet(cmd *cobra.Command, args []string, taskID string, index int
 		return fmt.Errorf("failed to load project: %w", err)
 	}
 
-	// Get implementation phase
-	phaseState, exists := proj.Phases["implementation"]
+	// Resolve which phase to use
+	phaseName, err := resolveTaskPhase(proj, explicitPhase)
+	if err != nil {
+		return err
+	}
+
+	// Get phase
+	phaseState, exists := proj.Phases[phaseName]
 	if !exists {
-		return fmt.Errorf("implementation phase not found")
+		return fmt.Errorf("phase not found: %s", phaseName)
 	}
 
 	// Find task by ID
@@ -290,7 +306,7 @@ func runTaskInputSet(cmd *cobra.Command, args []string, taskID string, index int
 
 	phaseState.Tasks[taskIndex].Updated_at = time.Now()
 
-	proj.Phases["implementation"] = phaseState
+	proj.Phases[phaseName] = phaseState
 
 	// Save project state
 	if err := proj.Save(); err != nil {
@@ -302,7 +318,7 @@ func runTaskInputSet(cmd *cobra.Command, args []string, taskID string, index int
 }
 
 // runTaskInputRemove implements the task input remove command logic.
-func runTaskInputRemove(cmd *cobra.Command, taskID string, index int) error {
+func runTaskInputRemove(cmd *cobra.Command, taskID, explicitPhase string, index int) error {
 	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Check if sow is initialized
@@ -319,10 +335,16 @@ func runTaskInputRemove(cmd *cobra.Command, taskID string, index int) error {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
 
-	// Get implementation phase
-	phaseState, exists := proj.Phases["implementation"]
+	// Resolve which phase to use
+	phaseName, err := resolveTaskPhase(proj, explicitPhase)
+	if err != nil {
+		return err
+	}
+
+	// Get phase
+	phaseState, exists := proj.Phases[phaseName]
 	if !exists {
-		return fmt.Errorf("implementation phase not found")
+		return fmt.Errorf("phase not found: %s", phaseName)
 	}
 
 	// Find task by ID
@@ -350,7 +372,7 @@ func runTaskInputRemove(cmd *cobra.Command, taskID string, index int) error {
 	)
 	phaseState.Tasks[taskIndex].Updated_at = time.Now()
 
-	proj.Phases["implementation"] = phaseState
+	proj.Phases[phaseName] = phaseState
 
 	// Save project state
 	if err := proj.Save(); err != nil {
@@ -362,7 +384,7 @@ func runTaskInputRemove(cmd *cobra.Command, taskID string, index int) error {
 }
 
 // runTaskInputList implements the task input list command logic.
-func runTaskInputList(cmd *cobra.Command, taskID string) error {
+func runTaskInputList(cmd *cobra.Command, taskID, explicitPhase string) error {
 	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Check if sow is initialized
@@ -379,10 +401,16 @@ func runTaskInputList(cmd *cobra.Command, taskID string) error {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
 
-	// Get implementation phase
-	phaseState, exists := proj.Phases["implementation"]
+	// Resolve which phase to use
+	phaseName, err := resolveTaskPhase(proj, explicitPhase)
+	if err != nil {
+		return err
+	}
+
+	// Get phase
+	phaseState, exists := proj.Phases[phaseName]
 	if !exists {
-		return fmt.Errorf("implementation phase not found")
+		return fmt.Errorf("phase not found: %s", phaseName)
 	}
 
 	// Find task by ID

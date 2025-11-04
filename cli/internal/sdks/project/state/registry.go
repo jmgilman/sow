@@ -130,3 +130,57 @@ func (ptc *ProjectTypeConfig) Validate(project *Project) error {
 
 	return nil
 }
+
+// GetTaskSupportingPhases returns the names of all phases that support tasks.
+// Returns an empty slice if no phases support tasks.
+// Phase names are returned in sorted order for deterministic behavior.
+func (ptc *ProjectTypeConfig) GetTaskSupportingPhases() []string {
+	var phases []string
+	for name, config := range ptc.phaseConfigs {
+		if config.supportsTasks {
+			phases = append(phases, name)
+		}
+	}
+	// Sort for deterministic ordering
+	if len(phases) > 1 {
+		for i := 0; i < len(phases)-1; i++ {
+			for j := i + 1; j < len(phases); j++ {
+				if phases[i] > phases[j] {
+					phases[i], phases[j] = phases[j], phases[i]
+				}
+			}
+		}
+	}
+	return phases
+}
+
+// PhaseSupportsTasks checks if a specific phase supports tasks.
+// Returns false if the phase doesn't exist or doesn't support tasks.
+func (ptc *ProjectTypeConfig) PhaseSupportsTasks(phaseName string) bool {
+	config, exists := ptc.phaseConfigs[phaseName]
+	if !exists {
+		return false
+	}
+	return config.supportsTasks
+}
+
+// GetDefaultTaskPhase returns the default phase for task operations based on current state.
+// Returns empty string if no phase supports tasks or state mapping is ambiguous.
+//
+// Logic:
+//  1. Check if current state maps to a phase's start or end state
+//  2. If that phase supports tasks, return it
+//  3. Otherwise return first task-supporting phase alphabetically
+func (ptc *ProjectTypeConfig) GetDefaultTaskPhase(currentState State) string {
+	// Try to map current state to a phase
+	// Note: state.PhaseConfig doesn't have startState/endState fields yet
+	// So for now, just return the first task-supporting phase
+	// This will be improved when phase state mappings are added
+
+	// Fallback: return first task-supporting phase
+	phases := ptc.GetTaskSupportingPhases()
+	if len(phases) > 0 {
+		return phases[0]
+	}
+	return ""
+}
