@@ -5,7 +5,7 @@ go 1.25.3
 require (
 	cuelang.org/go v0.14.2
 	github.com/go-git/go-git/v5 v5.16.3
-	github.com/jmgilman/go/cue v0.1.2
+	github.com/jmgilman/go/cue v0.1.3
 	github.com/jmgilman/go/fs/billy v0.1.1
 	github.com/jmgilman/go/fs/core v0.2.0
 	github.com/jmgilman/go/git v0.4.0
