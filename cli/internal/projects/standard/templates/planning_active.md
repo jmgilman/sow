@@ -80,8 +80,8 @@ WORKFLOW:
    Each file should be a comprehensive standalone document (see format above).
    DO NOT create a single consolidated task list document.
 
-   Register each as artifact:
-   sow agent artifact add project/context/tasks/010-task-name.md --metadata type=task_description
+   Register each as output:
+   sow output add project/context/tasks/010-task-name.md --metadata type=task_description
 
 3. After creating all task files, create a task index file:
 
@@ -99,13 +99,13 @@ WORKFLOW:
    Each task has detailed requirements in project/context/tasks/
    ```
 
-   Register index: sow agent artifact add project/context/task-index.md --metadata type=task_index
+   Register index: sow output add project/context/task-index.md --metadata type=task_index
 
 4. Present task index to human for review (they can read individual task files if needed)
 
 5. After human approval:
-   - Approve the index: sow agent artifact approve project/context/task-index.md
-   - Approve all task files: sow agent artifact approve project/context/tasks/*.md
+   - Approve the index: sow output set --index <N> approved true
+   - Approve all task files: sow output set --index <N> approved true (for each)
 
 6. When all artifacts approved: sow agent complete
 

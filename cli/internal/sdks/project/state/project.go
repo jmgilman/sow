@@ -52,6 +52,11 @@ type ActionTemplate func(*Project) error
 // It examines the project state and returns the appropriate event to advance.
 type EventDeterminer func(*Project) (Event, error)
 
+// Initializer is a function that initializes a newly created project.
+// It is called during Create() to set up phases, metadata, and any
+// project-type-specific initial state.
+type Initializer func(*Project) error
+
 // TransitionConfig defines a state transition with guards and actions.
 type TransitionConfig struct {
 	From          State
@@ -69,11 +74,32 @@ type ProjectTypeConfig struct {
 	// phaseConfigs are the phase configurations indexed by phase name
 	phaseConfigs map[string]*PhaseConfig
 
+	// initialState is the starting state for new projects of this type
+	initialState State
+
 	// transitions define the state machine transitions
 	transitions []TransitionConfig
 
 	// onAdvance maps states to event determiners for the Advance() method
 	onAdvance map[State]EventDeterminer
+
+	// initializer is called during Create() to initialize the project
+	// with phases, metadata, and any type-specific initial state
+	initializer Initializer
+}
+
+// InitialState returns the configured initial state for this project type.
+func (ptc *ProjectTypeConfig) InitialState() State {
+	return ptc.initialState
+}
+
+// Initialize calls the configured initializer function if present.
+// Returns nil if no initializer is configured.
+func (ptc *ProjectTypeConfig) Initialize(project *Project) error {
+	if ptc.initializer == nil {
+		return nil
+	}
+	return ptc.initializer(project)
 }
 
 // Machine represents the state machine for the project.

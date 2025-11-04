@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jmgilman/sow/cli/cmd/agent"
 	"github.com/jmgilman/sow/cli/cmd/exploration"
 	"github.com/jmgilman/sow/cli/cmd/issue"
+	"github.com/jmgilman/sow/cli/cmd/project"
 	"github.com/jmgilman/sow/cli/cmd/refs"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sow"
@@ -69,8 +69,11 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 	// Add subcommands
 	cmd.AddCommand(NewInitCmd())
 	cmd.AddCommand(NewValidateCmd())
-	cmd.AddCommand(NewStartCmd())
-	cmd.AddCommand(NewProjectCmd())
+	cmd.AddCommand(project.NewProjectCmd())
+	cmd.AddCommand(NewPhaseCmd())
+	cmd.AddCommand(NewTaskCmd())
+	cmd.AddCommand(NewInputCmd())
+	cmd.AddCommand(NewOutputCmd())
 	cmd.AddCommand(NewAdvanceCmd())
 	cmd.AddCommand(NewExploreCmd())
 	cmd.AddCommand(NewDesignCmd())
@@ -79,7 +82,6 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 	cmd.AddCommand(exploration.NewExplorationCmd())
 	cmd.AddCommand(issue.NewIssueCmd())
 	cmd.AddCommand(refs.NewRefsCmd())
-	cmd.AddCommand(agent.NewAgentCmd())
 	cmd.AddCommand(NewWorktreeCmd())
 
 	return cmd

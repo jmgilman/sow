@@ -2,12 +2,19 @@ package state
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas/project"
 	"gopkg.in/yaml.v3"
 )
+
+// init registers all built-in project types.
+func init() {
+	// Register standard project type with full configuration
+	Registry["standard"] = initStandardProject()
+}
 
 // Load reads project state from disk and returns an initialized Project.
 //
@@ -122,4 +129,118 @@ func (p *Project) Save() error {
 	}
 
 	return nil
+}
+
+// Create initializes a new project and writes it to disk.
+//
+// The Create pipeline:
+//  1. Detect project type from branch name
+//  2. Lookup project type configuration from registry
+//  3. Create minimal ProjectState with metadata fields
+//  4. Let project type initialize phases and state via config.Initialize()
+//  5. Build state machine with config's initial state
+//  6. Save to disk
+//
+// Returns a fully initialized Project ready for use.
+func Create(ctx *sow.Context, branch string, description string) (*Project, error) {
+	// 1. Validate branch provided
+	if branch == "" {
+		return nil, fmt.Errorf("branch name required")
+	}
+
+	// 2. Detect project type from branch name
+	projectType := detectProjectType(branch)
+
+	// 3. Lookup and validate project type configuration
+	config, exists := Registry[projectType]
+	if !exists {
+		return nil, fmt.Errorf("project type %s not yet implemented - detected from branch %s", projectType, branch)
+	}
+
+	// 4. Generate project name from description
+	name := generateProjectName(description)
+
+	// 5. Create minimal ProjectState with metadata fields
+	// The project type's initializer will set up phases and initial state
+	now := time.Now()
+	projectState := project.ProjectState{
+		Name:        name,
+		Type:        projectType,
+		Branch:      branch,
+		Description: description,
+		Created_at:  now,
+		Updated_at:  now,
+		Phases:      make(map[string]project.PhaseState),
+		Statechart: project.StatechartState{
+			Current_state: config.InitialState().String(),
+			Updated_at:    now,
+		},
+	}
+
+	// 6. Wrap in Project type and attach config
+	proj := &Project{
+		ProjectState: projectState,
+		ctx:          ctx,
+		config:       config,
+	}
+
+	// 7. Let project type initialize its phases and state
+	if err := config.Initialize(proj); err != nil {
+		return nil, fmt.Errorf("failed to initialize project: %w", err)
+	}
+
+	// 8. Build state machine with config's initial state
+	proj.machine = config.BuildMachine(proj, config.InitialState())
+
+	// 9. Save to disk
+	if err := proj.Save(); err != nil {
+		return nil, fmt.Errorf("failed to save new project: %w", err)
+	}
+
+	return proj, nil
+}
+
+// detectProjectType determines project type from branch name.
+// This is a copy of internal/project.DetectProjectType to avoid import cycle.
+func detectProjectType(branchName string) string {
+	switch {
+	case strings.HasPrefix(branchName, "explore/"):
+		return "exploration"
+	case strings.HasPrefix(branchName, "design/"):
+		return "design"
+	case strings.HasPrefix(branchName, "breakdown/"):
+		return "breakdown"
+	default:
+		return "standard"
+	}
+}
+
+// generateProjectName converts a description to a kebab-case project name.
+// This is a copy of cmd.generateProjectName to avoid import cycle.
+func generateProjectName(description string) string {
+	name := description
+	if len(name) > 50 {
+		name = name[:50]
+	}
+
+	// Convert to kebab-case
+	result := ""
+	for i, r := range name {
+		if r == ' ' || r == '_' {
+			if i > 0 && len(result) > 0 && result[len(result)-1] != '-' {
+				result += "-"
+			}
+		} else if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			result += string(r)
+		} else if r >= 'A' && r <= 'Z' {
+			result += string(r + 32) // Convert to lowercase
+		}
+	}
+
+	// Remove trailing hyphen
+	if len(result) > 0 && result[len(result)-1] == '-' {
+		result = result[:len(result)-1]
+	}
+
+	return result
 }

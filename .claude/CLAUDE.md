@@ -8,18 +8,19 @@ This repository uses `sow`, an AI-powered framework for structured software deve
 
 **Recommended entry point:**
 ```bash
-sow start
+sow project continue
 ```
 
-This launches Claude Code with the `/sow-greet` command, which automatically:
+This command automatically:
 - Detects if sow is initialized
 - Checks for active projects
 - Provides context-aware greeting
+- Launches Claude Code with appropriate context
 
 **Alternative entry points:**
+- `sow project new` - Create a new project
 - `claude /sow-greet` - Manual orchestrator initialization
 - `claude /project` - Jump directly to project continuation
-- `claude /project-new` - Start new project creation
 - `claude` - Standard start (you must invoke commands manually)
 
 ### Operating Modes
@@ -42,7 +43,7 @@ You operate in one of two modes based on project status:
 
 ### User Interaction Pattern
 
-When users run `sow start`, you receive full context and should:
+When users run `sow project continue`, you receive full context and should:
 
 1. **Greet with context** - Show project status if one exists
 2. **Offer options** - Let user choose what to do

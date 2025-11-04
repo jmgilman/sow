@@ -1,0 +1,206 @@
+# Test: Complete Standard Project Lifecycle
+# Coverage: Planning → Implementation → Review → Finalize → Complete
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-lifecycle
+exec sow init
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Create Minimal Project State at PlanningActive
+# (Bypass discovery via project new since not fully implemented)
+# =====================================
+
+exec mkdir -p .sow/project/phases/planning
+exec mkdir -p .sow/project/phases/implementation/tasks
+exec mkdir -p .sow/project/phases/review
+exec mkdir -p .sow/project/phases/finalize
+
+cp testdata/state.yaml .sow/project/state.yaml
+
+-- testdata/state.yaml --
+name: Full lifecycle test
+type: standard
+branch: feat/test-lifecycle
+description: Complete lifecycle integration test
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  implementation:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  review:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  finalize:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: PlanningActive
+  updated_at: 2025-01-01T00:00:00Z
+
+# Verify initial state
+exec cat .sow/project/state.yaml
+stdout 'current_state: PlanningActive'
+stdout 'name: Full lifecycle test'
+
+# =====================================
+# Planning Phase
+# =====================================
+
+# Add context input
+exec mkdir -p .sow/project/context
+exec sh -c 'echo "Context document" > .sow/project/context/research.md'
+exec sow input add --type context --path context/research.md --phase planning
+exec cat .sow/project/state.yaml
+stdout 'type: context'
+stdout 'path: context/research.md'
+
+# Create task list output
+exec mkdir -p .sow/project/planning
+exec sh -c 'echo "# Task List\n\n- Task 1: Implement feature\n- Task 2: Write tests" > .sow/project/planning/tasks.md'
+exec sow output add --type task_list --path planning/tasks.md --phase planning
+exec cat .sow/project/state.yaml
+stdout 'type: task_list'
+stdout 'approved: false'
+
+# Approve task list
+exec sow output set --index 0 approved true --phase planning
+exec cat .sow/project/state.yaml
+stdout 'approved: true'
+
+# Advance to implementation planning
+exec sow advance
+stdout 'Advanced to: ImplementationPlanning'
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# =====================================
+# Implementation Planning
+# =====================================
+
+# Add tasks
+exec sow task add 'Implement feature' --agent implementer --description 'Core feature implementation'
+exec sow task add 'Write tests' --agent implementer --description 'Unit and integration tests'
+exists .sow/project/phases/implementation/tasks/010/description.md
+exists .sow/project/phases/implementation/tasks/020/description.md
+exec cat .sow/project/state.yaml
+stdout 'id: "010"'
+stdout 'id: "020"'
+
+# Add task inputs (references)
+exec mkdir -p .sow/sinks
+exec sh -c 'echo "Style guide" > .sow/sinks/style-guide.md'
+exec sow task input add --id 010 --type reference --path ../../../sinks/style-guide.md
+exec cat .sow/project/state.yaml
+stdout 'type: reference'
+
+# Approve tasks
+exec sow phase set metadata.tasks_approved true --phase implementation
+exec cat .sow/project/state.yaml
+stdout 'tasks_approved: true'
+
+# Advance to execution
+exec sow advance
+stdout 'Advanced to: ImplementationExecuting'
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationExecuting'
+
+# =====================================
+# Implementation Execution
+# =====================================
+
+# Set tasks in progress
+exec sow task set --id 010 status in_progress
+exec sow task set --id 020 status in_progress
+
+# Add task outputs (modified files)
+exec sow task output add --id 010 --type modified --path src/feature.go
+exec sow task output add --id 020 --type modified --path tests/feature_test.go
+exec cat .sow/project/state.yaml
+stdout 'type: modified'
+
+# Complete tasks
+exec sow task set --id 010 status completed
+exec sow task set --id 020 status completed
+exec cat .sow/project/state.yaml
+stdout 'status: completed'
+
+# Advance to review
+exec sow advance
+stdout 'Advanced to: ReviewActive'
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+
+# =====================================
+# Review Phase - Pass Assessment
+# =====================================
+
+# Create review report with passing assessment
+exec mkdir -p .sow/project/review
+exec sh -c 'echo "# Review Report\n\nAll checks passed." > .sow/project/review/report.md'
+exec sow output add --type review --path review/report.md --phase review
+exec sow output set --index 0 metadata.assessment pass --phase review
+exec cat .sow/project/state.yaml
+stdout 'assessment: pass'
+
+# Approve review
+exec sow output set --index 0 approved true --phase review
+exec cat .sow/project/state.yaml
+stdout 'approved: true'
+
+# Advance to finalize
+exec sow advance
+stdout 'Advanced to: FinalizeDocumentation'
+exec cat .sow/project/state.yaml
+stdout 'current_state: FinalizeDocumentation'
+
+# =====================================
+# Finalize Phase - Advance to Completed
+# =====================================
+
+# Advance through finalize (simplified - would normally do documentation/checks/delete)
+exec sow advance
+stdout 'Advanced to: Completed'
+
+# Verify final state
+exec cat .sow/project/state.yaml
+stdout 'current_state: Completed'

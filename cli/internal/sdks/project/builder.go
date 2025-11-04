@@ -3,6 +3,7 @@
 package project
 
 import (
+	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
 )
 
@@ -16,6 +17,7 @@ type ProjectTypeConfigBuilder struct {
 	transitions  []TransitionConfig
 	onAdvance    map[sdkstate.State]EventDeterminer
 	prompts      map[sdkstate.State]PromptGenerator
+	initializer  state.Initializer
 }
 
 // NewProjectTypeConfigBuilder creates a new builder for a project type config.
@@ -100,6 +102,17 @@ func (b *ProjectTypeConfigBuilder) WithPrompt(
 	return b
 }
 
+// WithInitializer registers an initializer function for project creation.
+// The initializer is called during Create() to set up phases, metadata,
+// and any project-type-specific initial state.
+// Returns the builder for method chaining.
+func (b *ProjectTypeConfigBuilder) WithInitializer(
+	initializer state.Initializer,
+) *ProjectTypeConfigBuilder {
+	b.initializer = initializer
+	return b
+}
+
 // Build creates a new ProjectTypeConfig from the builder's accumulated state.
 // The builder is NOT reset after calling Build(), allowing it to be reused
 // for creating multiple configs or for building incrementally.
@@ -138,5 +151,6 @@ func (b *ProjectTypeConfigBuilder) Build() *ProjectTypeConfig {
 		transitions:  transitions,
 		onAdvance:    onAdvance,
 		prompts:      prompts,
+		initializer:  b.initializer,
 	}
 }

@@ -1,0 +1,74 @@
+# Test: Phase Set Operations
+# Purpose: Test phase field mutations via unified CLI
+# Coverage: set direct fields, set metadata fields, default to active phase
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test
+exec sow init
+exec git add .sow
+exec git commit -m 'Initialize sow'
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+exec sow project new --branch feat/test --no-launch 'Test phase commands'
+
+# Change into worktree for remaining commands
+cd .sow/worktrees/feat/test
+
+# Verify project was created (initial state is PlanningActive)
+exec cat .sow/project/state.yaml
+stdout 'current_state: PlanningActive'
+
+# =====================================
+# Test: Set Direct Field - Status
+# =====================================
+
+# Set phase status with explicit phase flag
+exec sow phase set status in_progress --phase planning
+exec cat .sow/project/state.yaml
+stdout 'status: in_progress'
+
+# =====================================
+# Test: Set Direct Field - Enabled
+# =====================================
+
+# Set phase enabled (direct field)
+exec sow phase set enabled false --phase planning
+exec cat .sow/project/state.yaml
+stdout 'enabled: false'
+
+# =====================================
+# Test: Set Metadata Field
+# =====================================
+
+# Set phase metadata with explicit phase
+exec sow phase set metadata.tasks_approved true --phase implementation
+exec cat .sow/project/state.yaml
+stdout 'tasks_approved: "?true"?'
+
+# =====================================
+# Test: Default to Active Phase
+# =====================================
+
+# Set metadata without --phase flag (should default to planning)
+exec sow phase set metadata.custom_field test_value
+exec cat .sow/project/state.yaml
+stdout 'custom_field: test_value'
+
+# Verify it was set on planning phase (the active phase)
+# The planning phase should now have both enabled=false and custom_field
+exec cat .sow/project/state.yaml
+stdout '(?s)planning:.*enabled: false.*custom_field: test_value'
+
+# =====================================
+# Test: Set Nested Metadata
+# =====================================
+
+# Set nested metadata field
+exec sow phase set metadata.complexity.level high --phase planning
+exec cat .sow/project/state.yaml
+stdout 'level: high'

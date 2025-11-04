@@ -1,0 +1,212 @@
+# Test: State Machine Transitions via Advance
+# Coverage: advance through states, guard evaluation, error handling
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec sow init
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Test: Create Minimal Project State at PlanningActive
+# (Bypass discovery states since they're not fully implemented yet)
+# =====================================
+
+exec mkdir -p .sow/project/phases/planning
+exec mkdir -p .sow/project/phases/implementation/tasks
+exec mkdir -p .sow/project/phases/review
+exec mkdir -p .sow/project/phases/finalize
+
+cp testdata/state.yaml .sow/project/state.yaml
+
+-- testdata/state.yaml --
+name: test-transitions
+type: standard
+branch: master
+description: Test state transitions
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  implementation:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  review:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  finalize:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: PlanningActive
+  updated_at: 2025-01-01T00:00:00Z
+
+# Verify initial state
+exec cat .sow/project/state.yaml
+stdout 'current_state: PlanningActive'
+
+# =====================================
+# Test: Advance Fails Without Required Artifact
+# =====================================
+
+# Try to advance without task_list output approved (guard should block)
+! exec sow advance
+stderr 'cannot fire event'
+
+# =====================================
+# Test: Add Artifact But Don't Approve (Still Blocked)
+# =====================================
+
+exec mkdir -p .sow/project/planning
+exec sh -c 'echo "# Tasks\n- Task 1" > .sow/project/planning/tasks.md'
+exec sow output add --type task_list --path planning/tasks.md --phase planning
+
+# Verify artifact was added but not approved
+exec cat .sow/project/state.yaml
+stdout 'approved: false'
+
+# Try to advance - should still fail
+! exec sow advance
+stderr 'cannot fire event'
+
+# =====================================
+# Test: Advance Succeeds After Approving Required Artifact
+# =====================================
+
+exec sow output set --index 0 approved true --phase planning
+
+# Verify approval
+exec cat .sow/project/state.yaml
+stdout 'approved: true'
+
+# Advance should succeed
+exec sow advance
+stdout 'Advanced to: ImplementationPlanning'
+
+# Verify state transition
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# =====================================
+# Test: Advance to ImplementationExecuting
+# =====================================
+
+# Set tasks_approved metadata to satisfy guard
+exec sow phase set metadata.tasks_approved true --phase implementation
+
+# Advance to executing
+exec sow advance
+stdout 'Advanced to: ImplementationExecuting'
+
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationExecuting'
+
+# =====================================
+# Test: Cannot Advance Without Tasks Completed
+# =====================================
+
+# Add tasks
+exec sow task add 'First task' --agent implementer
+exec sow task add 'Second task' --agent implementer
+exec sow task add 'Third task' --agent implementer
+
+# Try to advance - should fail (tasks not all completed)
+! exec sow advance
+stderr 'cannot fire event'
+
+# =====================================
+# Test: Complete Some Tasks (Not All)
+# =====================================
+
+exec sow task set --id 010 status completed
+exec sow task set --id 020 status in_progress
+
+# Still should fail (not all completed)
+! exec sow advance
+stderr 'cannot fire event'
+
+# =====================================
+# Test: Complete All Tasks and Advance to Review
+# =====================================
+
+exec sow task set --id 020 status completed
+exec sow task set --id 030 status completed
+
+# Verify all tasks completed
+exec cat .sow/project/state.yaml
+stdout 'id: "010"'
+stdout 'status: completed'
+stdout 'id: "020"'
+stdout 'status: completed'
+stdout 'id: "030"'
+stdout 'status: completed'
+
+# Advance should succeed
+exec sow advance
+stdout 'Advanced to: ReviewActive'
+
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+
+# =====================================
+# Test: Advance Review Phase
+# =====================================
+
+# Add and approve review artifact with assessment
+exec mkdir -p .sow/project/review
+exec sh -c 'echo "# Review Pass" > .sow/project/review/report.md'
+exec sow output add --type review --path review/report.md --phase review
+exec sow output set --index 0 approved true --phase review
+exec sow output set --index 0 metadata.assessment pass --phase review
+
+# Advance to finalize
+exec sow advance
+stdout 'Advanced to: FinalizeDocumentation'
+
+exec cat .sow/project/state.yaml
+stdout 'current_state: FinalizeDocumentation'
+
+# =====================================
+# Test: Finalize and Complete Project
+# =====================================
+
+exec sow advance
+stdout 'Advanced to: Completed'
+
+exec cat .sow/project/state.yaml
+stdout 'current_state: Completed'

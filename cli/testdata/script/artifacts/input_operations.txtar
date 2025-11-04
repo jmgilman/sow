@@ -1,0 +1,70 @@
+# Test: Input Operations
+# Coverage: add, set, remove, list for phase inputs
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec sh -c 'echo ".sow/worktrees/" > .gitignore'
+exec git add .gitignore
+exec git commit -m 'Initial commit'
+exec git checkout -b feat/test
+exec sow init
+exec git add .sow
+exec git commit -m 'Initialize sow'
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+exec sow project new --branch feat/test --no-launch test-inputs
+
+# Change into worktree
+cd .sow/worktrees/feat/test
+
+# Create test file
+exec mkdir -p .sow/project/context
+exec sh -c 'echo "Test context" > .sow/project/context/research.md'
+
+# Test: Add input artifact
+exec sow input add --type context --path context/research.md --phase planning
+exec cat .sow/project/state.yaml
+stdout 'type: context'
+stdout 'path: context/research.md'
+stdout 'approved: false'
+
+# Test: List inputs (shows index and details)
+exec sow input list --phase planning
+stdout '\[0\]'
+stdout 'Type: context'
+stdout 'Path: context/research.md'
+stdout 'Approved: false'
+
+# Test: Set approved field using index
+exec sow input set --index 0 approved true --phase planning
+exec cat .sow/project/state.yaml
+stdout 'approved: true'
+
+# Test: Set metadata field using field path
+exec sow input set --index 0 metadata.source external --phase planning
+exec cat .sow/project/state.yaml
+stdout 'source: external'
+
+# Test: List shows updated values
+exec sow input list --phase planning
+stdout 'Approved: true'
+stdout 'source: external'
+
+# Test: Add second input
+exec sh -c 'echo "More context" > .sow/project/context/design.md'
+exec sow input add --type context --path context/design.md --phase planning
+exec sow input list --phase planning
+stdout '\[0\]'
+stdout '\[1\]'
+stdout 'research.md'
+stdout 'design.md'
+
+# Test: Remove input by index (remove first one)
+exec sow input remove --index 0 --phase planning
+exec sow input list --phase planning
+stdout '\[0\]'
+! stdout '\[1\]'
+stdout 'design.md'
+! stdout 'research.md'

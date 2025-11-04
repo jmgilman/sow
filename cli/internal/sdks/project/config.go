@@ -1,6 +1,7 @@
 package project
 
 import (
+	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
 )
 
@@ -72,4 +73,22 @@ type ProjectTypeConfig struct {
 	// prompts are prompt generators mapped by state
 	// These generate contextual prompts for users in each state
 	prompts map[sdkstate.State]PromptGenerator
+
+	// initializer is called during Create() to initialize the project
+	// with phases, metadata, and any type-specific initial state
+	initializer state.Initializer
+}
+
+// InitialState returns the configured initial state for this project type.
+func (ptc *ProjectTypeConfig) InitialState() sdkstate.State {
+	return ptc.initialState
+}
+
+// Initialize calls the configured initializer function if present.
+// Returns nil if no initializer is configured.
+func (ptc *ProjectTypeConfig) Initialize(project *state.Project) error {
+	if ptc.initializer == nil {
+		return nil
+	}
+	return ptc.initializer(project)
 }

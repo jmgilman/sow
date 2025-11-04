@@ -1,0 +1,54 @@
+# Test: Artifact Metadata
+# Coverage: metadata field routing, nested metadata
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec sh -c 'echo ".sow/worktrees/" > .gitignore'
+exec git add .gitignore
+exec git commit -m 'Initial commit'
+exec git checkout -b feat/test
+exec sow init
+exec git add .sow
+exec git commit -m 'Initialize sow'
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+exec sow project new --branch feat/test --no-launch test-metadata
+
+# Change into worktree
+cd .sow/worktrees/feat/test
+
+# Create review artifact file
+exec mkdir -p .sow/project/review
+exec sh -c 'echo "Review report" > .sow/project/review/report.md'
+
+# Add output
+exec sow output add --type review --path review/report.md --phase review
+exec cat .sow/project/state.yaml
+stdout 'type: review'
+
+# Test: Set simple metadata field
+exec sow output set --index 0 metadata.assessment pass --phase review
+exec cat .sow/project/state.yaml
+stdout 'assessment: pass'
+
+# Test: Set nested metadata field
+exec sow output set --index 0 metadata.reviewer.name orchestrator --phase review
+exec cat .sow/project/state.yaml
+stdout 'reviewer:'
+stdout 'name: orchestrator'
+
+# Test: Set another nested field in same parent
+exec sow output set --index 0 metadata.reviewer.role coordinator --phase review
+exec cat .sow/project/state.yaml
+stdout 'reviewer:'
+stdout 'name: orchestrator'
+stdout 'role: coordinator'
+
+# Test: List shows all metadata
+exec sow output list --phase review
+stdout 'assessment: pass'
+stdout 'reviewer: map\['
+stdout 'orchestrator'
+stdout 'coordinator'
