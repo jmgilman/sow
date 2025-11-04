@@ -53,12 +53,12 @@ WORKFLOW:
 
       Read the file into memory, then pass the ENTIRE file content as description:
 
-      sow agent task add "{task-name}" --description "{entire-file-content}" --id {id}
+      sow task add "{task-name}" --agent implementer --description "{entire-file-content}" --id {id}
 
       Example:
       - Read project/context/tasks/010-jwt-middleware.md
       - Extract name: "Implement JWT middleware"
-      - Run: sow agent task add "Implement JWT middleware" --description "{contents-of-010-jwt-middleware.md}" --id 010
+      - Run: sow task add "Implement JWT middleware" --agent implementer --description "{contents-of-010-jwt-middleware.md}" --id 010
 
    The description will be saved to:
    project/phases/implementation/tasks/task-{id}/description.md
@@ -70,9 +70,9 @@ WORKFLOW:
 
 4. Present task list to human for confirmation
 
-5. After human confirms: sow agent task approve
+5. After human confirms: sow phase set metadata.tasks_approved true
 
-6. Autonomous execution begins
+6. Transition to execution: sow advance
 
 Reference: PHASES/IMPLEMENTATION.md
 

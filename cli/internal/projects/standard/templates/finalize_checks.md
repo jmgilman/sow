@@ -37,14 +37,14 @@ NEXT ACTIONS:
   2. Run all checks sequentially
   3. Address any failures autonomously
   4. Re-run all checks after each fix
-  5. When all checks pass: sow agent complete
+  5. When all checks pass: sow advance
 
   COMPLETION CRITERIA:
     All available checks pass successfully
     OR no checks available in project
 
   When complete:
-    → Auto-transitions to project deletion phase
+    → Auto-transitions to PR creation phase
 
 Reference: PHASES/FINALIZE.md
 

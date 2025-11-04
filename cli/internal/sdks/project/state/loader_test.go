@@ -13,9 +13,7 @@ import (
 // init registers a mock project type config for testing.
 func init() {
 	// Register mock "standard" type for testing
-	mockConfig := &ProjectTypeConfig{
-		// Minimal mock implementation - no additional fields needed yet
-	}
+	mockConfig := newMockProjectTypeConfig()
 	Registry["standard"] = mockConfig
 }
 

@@ -1,0 +1,60 @@
+# Test: Task Error Handling
+# Coverage: error cases for task commands
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec sh -c 'echo ".sow/worktrees/" > .gitignore'
+exec git add .gitignore
+exec git commit -m 'Initial commit'
+exec git checkout -b feat/test-errors
+exec sow init
+exec git add .sow
+exec git commit -m 'Initialize sow'
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+exec sow project new --branch feat/test-errors --no-launch 'Test task error handling'
+
+# Change into worktree for remaining commands
+cd .sow/worktrees/feat/test-errors
+
+# Manually set up implementation phase for testing
+exec mkdir -p .sow/project/phases/implementation/tasks
+
+# Add a task
+exec sow task add 'Test task' --agent implementer
+
+# Test: Set on non-existent task
+! exec sow task set --id 999 status completed
+stderr 'task not found'
+
+# Test: Abandon non-existent task
+! exec sow task abandon --id 999
+stderr 'task not found'
+
+# Test: Input operations on non-existent task
+! exec sow task input add --id 999 --type reference --path test.md
+stderr 'task not found'
+
+! exec sow task input list --id 999
+stderr 'task not found'
+
+# Test: Output operations on non-existent task
+! exec sow task output add --id 999 --type modified --path test.go
+stderr 'task not found'
+
+! exec sow task output list --id 999
+stderr 'task not found'
+
+# Test: Index out of range on inputs
+! exec sow task input set --id 010 --index 5 approved true
+stderr 'index out of range'
+
+! exec sow task input remove --id 010 --index 5
+stderr 'index out of range'
+
+# Test: Index out of range on outputs
+! exec sow task output set --id 010 --index 5 approved true
+stderr 'index out of range'
+
+! exec sow task output remove --id 010 --index 5
+stderr 'index out of range'

@@ -161,29 +161,6 @@ func generateReviewPrompt(p *state.Project) string {
 	return buf.String()
 }
 
-// generateFinalizeDocumentationPrompt generates the prompt for the FinalizeDocumentation state.
-// This phase focuses on updating documentation to reflect the changes made.
-func generateFinalizeDocumentationPrompt(p *state.Project) string {
-	var buf strings.Builder
-
-	// Add project header
-	buf.WriteString(fmt.Sprintf("# Project: %s\n", p.Name))
-	buf.WriteString(fmt.Sprintf("Branch: %s\n", p.Branch))
-	if p.Description != "" {
-		buf.WriteString(fmt.Sprintf("Description: %s\n", p.Description))
-	}
-	buf.WriteString("\n")
-
-	// Render finalize documentation guidance template
-	guidance, err := templates.Render(templatesFS, "templates/finalize_documentation.md", p)
-	if err != nil {
-		return fmt.Sprintf("Error rendering template: %v", err)
-	}
-	buf.WriteString(guidance)
-
-	return buf.String()
-}
-
 // generateFinalizeChecksPrompt generates the prompt for the FinalizeChecks state.
 // This phase focuses on running final validation checks before completion.
 func generateFinalizeChecksPrompt(p *state.Project) string {
@@ -207,9 +184,46 @@ func generateFinalizeChecksPrompt(p *state.Project) string {
 	return buf.String()
 }
 
-// generateFinalizeDeletePrompt generates the prompt for the FinalizeDelete state.
-// This phase focuses on cleaning up the project directory and creating a PR.
-func generateFinalizeDeletePrompt(p *state.Project) string {
+// generateFinalizePRCreationPrompt generates the prompt for the FinalizePRCreation state.
+// This phase focuses on creating PR body document and getting approval to create PR.
+func generateFinalizePRCreationPrompt(p *state.Project) string {
+	var buf strings.Builder
+
+	// Add project header
+	buf.WriteString(fmt.Sprintf("# Project: %s\n", p.Name))
+	buf.WriteString(fmt.Sprintf("Branch: %s\n", p.Branch))
+	if p.Description != "" {
+		buf.WriteString(fmt.Sprintf("Description: %s\n", p.Description))
+	}
+	buf.WriteString("\n")
+
+	// Show PR body artifact status if exists
+	if finalizePhase, exists := p.Phases["finalize"]; exists && len(finalizePhase.Outputs) > 0 {
+		buf.WriteString("## PR Body Artifact\n\n")
+		for _, artifact := range finalizePhase.Outputs {
+			if artifact.Type == "pr_body" {
+				status := "pending approval"
+				if artifact.Approved {
+					status = "approved"
+				}
+				buf.WriteString(fmt.Sprintf("- %s (%s)\n\n", artifact.Path, status))
+			}
+		}
+	}
+
+	// Render finalize PR creation guidance template
+	guidance, err := templates.Render(templatesFS, "templates/finalize_pr_creation.md", p)
+	if err != nil {
+		return fmt.Sprintf("Error rendering template: %v", err)
+	}
+	buf.WriteString(guidance)
+
+	return buf.String()
+}
+
+// generateFinalizeCleanupPrompt generates the prompt for the FinalizeCleanup state.
+// This phase focuses on cleaning up the project directory after PR creation.
+func generateFinalizeCleanupPrompt(p *state.Project) string {
 	var buf strings.Builder
 
 	// Add project header
@@ -227,8 +241,8 @@ func generateFinalizeDeletePrompt(p *state.Project) string {
 		}
 	}
 
-	// Render finalize delete guidance template
-	guidance, err := templates.Render(templatesFS, "templates/finalize_delete.md", p)
+	// Render finalize cleanup guidance template
+	guidance, err := templates.Render(templatesFS, "templates/finalize_cleanup.md", p)
 	if err != nil {
 		return fmt.Sprintf("Error rendering template: %v", err)
 	}

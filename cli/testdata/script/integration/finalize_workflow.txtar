@@ -1,0 +1,300 @@
+# Test: Finalize Phase Complete Workflow
+# Coverage: FinalizeChecks → FinalizePRCreation → FinalizeCleanup → NoProject
+# Tests: Three-state finalize flow with PR body approval
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-finalize
+exec sow init
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Create Project State at ReviewActive
+# (Start just before finalize to test transition)
+# =====================================
+
+exec mkdir -p .sow/project/phases/planning
+exec mkdir -p .sow/project/phases/implementation/tasks
+exec mkdir -p .sow/project/phases/review
+exec mkdir -p .sow/project/phases/finalize
+
+cp testdata/state.yaml .sow/project/state.yaml
+
+-- testdata/state.yaml --
+name: Finalize workflow test
+type: standard
+branch: feat/test-finalize
+description: Test complete finalize phase workflow
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:00:00Z
+    completed_at: 2025-01-01T00:01:00Z
+    metadata: {}
+    inputs: []
+    outputs:
+      - type: task_list
+        path: planning/tasks.md
+        approved: true
+        metadata: {}
+    tasks: []
+  implementation:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:01:00Z
+    completed_at: 2025-01-01T00:02:00Z
+    metadata:
+      tasks_approved: true
+    inputs: []
+    outputs: []
+    tasks:
+      - id: "010"
+        name: Implement feature
+        status: completed
+        iteration: 1
+        assigned_agent: implementer
+        created_at: 2025-01-01T00:01:00Z
+        updated_at: 2025-01-01T00:01:30Z
+        inputs: []
+        outputs:
+          - type: modified
+            path: src/feature.go
+            metadata: {}
+        metadata: {}
+  review:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:02:00Z
+    completed_at: 2025-01-01T00:03:00Z
+    metadata:
+      iteration: 1
+    inputs: []
+    outputs:
+      - type: review
+        path: review/report_1.md
+        approved: true
+        metadata:
+          assessment: pass
+    tasks: []
+  finalize:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: ReviewActive
+  updated_at: 2025-01-01T00:03:00Z
+
+# Verify starting state
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+
+# =====================================
+# Transition: ReviewActive → FinalizeChecks
+# =====================================
+
+# Advance from review (review has approved pass assessment)
+exec sow advance
+stdout 'Advanced to: FinalizeChecks'
+exec cat .sow/project/state.yaml
+stdout 'current_state: FinalizeChecks'
+stdout 'finalize:'
+stdout 'status: in_progress'
+stdout 'enabled: true'
+
+# =====================================
+# FinalizeChecks: Run validation checks
+# =====================================
+
+# In real workflow, orchestrator would:
+# - Run tests/lints/builds
+# - Fix any failures
+# - Advance when all pass
+
+# Simulate checks passed by advancing
+exec sow advance
+stdout 'Advanced to: FinalizePRCreation'
+exec cat .sow/project/state.yaml
+stdout 'current_state: FinalizePRCreation'
+
+# =====================================
+# FinalizePRCreation: Create PR body and get approval
+# =====================================
+
+# Step 1: Create PR body document
+exec mkdir -p .sow/project/phases/finalize
+exec sh -c 'cat > .sow/project/phases/finalize/pr_body.md << EOF
+# Implement feature X
+
+## Summary
+Added new feature X to the system.
+
+## Changes
+- Implemented feature.go with core logic
+- Added comprehensive tests
+
+## Testing
+All tests pass.
+EOF'
+
+# Step 2: Register as output
+exec sow output add --type pr_body --path "project/phases/finalize/pr_body.md" --phase finalize
+exec cat .sow/project/state.yaml
+stdout 'type: pr_body'
+stdout 'path: project/phases/finalize/pr_body.md'
+stdout 'approved: false'
+
+# Step 3: Verify output exists before approval
+exec sow output list --phase finalize
+stdout 'pr_body: project/phases/finalize/pr_body.md'
+stdout 'pending'
+
+# Step 4: Approve PR body (simulating user approval)
+exec sow output set --index 0 approved true --phase finalize
+exec cat .sow/project/state.yaml
+stdout 'approved: true'
+
+# Step 5: Verify approval prevents advance without it
+# (Already approved, so this tests the guard is working)
+exec sow advance
+stdout 'Advanced to: FinalizeCleanup'
+exec cat .sow/project/state.yaml
+stdout 'current_state: FinalizeCleanup'
+
+# =====================================
+# FinalizeCleanup: Delete project folder and complete
+# =====================================
+
+# Step 1: Verify PR body still exists before cleanup
+exists .sow/project/phases/finalize/pr_body.md
+
+# Step 2: Set project_deleted flag (simulates actual deletion in real workflow)
+exec sow phase set metadata.project_deleted true --phase finalize
+exec cat .sow/project/state.yaml
+stdout 'project_deleted: true'
+
+# Step 3: Advance to NoProject (terminal state)
+exec sow advance
+stdout 'Advanced to: NoProject'
+exec cat .sow/project/state.yaml
+stdout 'current_state: NoProject'
+
+# =====================================
+# Verify Complete Lifecycle
+# =====================================
+
+# Verify all phases completed
+exec cat .sow/project/state.yaml
+stdout 'planning:'
+stdout 'status: completed'
+stdout 'implementation:'
+stdout 'status: completed'
+stdout 'review:'
+stdout 'status: completed'
+stdout 'finalize:'
+stdout 'status: completed'
+
+# Verify finalize phase has PR body artifact
+stdout 'pr_body'
+stdout 'approved: true'
+
+# Verify project_deleted flag set
+stdout 'project_deleted: true'
+
+# =====================================
+# Test: PR Body Approval Guard
+# =====================================
+
+# Create new project at FinalizePRCreation to test guard
+exec mkdir -p .sow/project2/phases/finalize
+cp testdata/state_pr_creation.yaml .sow/project2/state.yaml
+
+-- testdata/state_pr_creation.yaml --
+name: PR creation guard test
+type: standard
+branch: feat/test-guard
+description: Test PR body approval guard
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  implementation:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  review:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  finalize:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs:
+      - type: pr_body
+        path: project/phases/finalize/pr_body.md
+        approved: false
+        metadata: {}
+    tasks: []
+statechart:
+  current_state: FinalizePRCreation
+  updated_at: 2025-01-01T00:00:00Z
+
+# Try to advance without approval (should fail guard)
+exec sow advance --project-dir .sow/project2
+! stdout 'Advanced to'
+stderr 'guard condition not met'
+
+# Approve and try again
+exec sow output set --index 0 approved true --phase finalize --project-dir .sow/project2
+exec sow advance --project-dir .sow/project2
+stdout 'Advanced to: FinalizeCleanup'
+
+# =====================================
+# Test: Cleanup Guard
+# =====================================
+
+# Try to advance from cleanup without project_deleted flag
+! exec sow advance --project-dir .sow/project2
+stderr 'guard condition not met'
+
+# Set flag and advance successfully
+exec sow phase set metadata.project_deleted true --phase finalize --project-dir .sow/project2
+exec sow advance --project-dir .sow/project2
+stdout 'Advanced to: NoProject'

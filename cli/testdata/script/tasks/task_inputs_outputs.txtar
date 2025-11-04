@@ -1,0 +1,87 @@
+# Test: Task Input/Output Operations
+# Coverage: add, set, remove, list for task artifacts
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec sh -c 'echo ".sow/worktrees/" > .gitignore'
+exec git add .gitignore
+exec git commit -m 'Initial commit'
+exec git checkout -b feat/test-artifacts
+exec sow init
+exec git add .sow
+exec git commit -m 'Initialize sow'
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+exec sow project new --branch feat/test-artifacts --no-launch 'Test task input/output operations'
+
+# Change into worktree for remaining commands
+cd .sow/worktrees/feat/test-artifacts
+
+# Manually set up implementation phase for testing
+exec mkdir -p .sow/project/phases/implementation/tasks
+
+# Add task
+exec sow task add 'Test task' --agent implementer
+
+# Test: Add task input (reference)
+exec mkdir -p .sow/sinks
+exec sh -c 'echo "Style guide" > .sow/sinks/style-guide.md'
+exec sow task input add --id 010 --type reference --path ../../../sinks/style-guide.md
+exec cat .sow/project/state.yaml
+stdout 'type: reference'
+stdout 'path: ../../../sinks/style-guide.md'
+
+# Test: Add task input (feedback)
+exec mkdir -p .sow/project/phases/implementation/tasks/010/feedback
+exec sh -c 'echo "Fix this" > .sow/project/phases/implementation/tasks/010/feedback/001.md'
+exec sow task input add --id 010 --type feedback --path feedback/001.md
+exec cat .sow/project/state.yaml
+stdout 'type: feedback'
+stdout 'path: feedback/001.md'
+
+# Test: List task inputs
+exec sow task input list --id 010
+stdout '\[0\]'
+stdout 'Type: reference'
+stdout 'Path: ../../../sinks/style-guide.md'
+stdout '\[1\]'
+stdout 'Type: feedback'
+stdout 'Path: feedback/001.md'
+
+# Test: Set feedback metadata (status)
+exec sow task input set --id 010 --index 1 metadata.status addressed
+exec cat .sow/project/state.yaml
+stdout 'status: addressed'
+
+# Test: Add task output (modified file)
+exec sow task output add --id 010 --type modified --path src/feature.go
+exec cat .sow/project/state.yaml
+stdout 'type: modified'
+stdout 'path: src/feature.go'
+
+# Test: List task outputs
+exec sow task output list --id 010
+stdout '\[0\]'
+stdout 'Type: modified'
+stdout 'Path: src/feature.go'
+
+# Test: Add second output
+exec sow task output add --id 010 --type modified --path src/feature_test.go
+exec sow task output list --id 010
+stdout '\[0\]'
+stdout '\[1\]'
+stdout 'feature.go'
+stdout 'feature_test.go'
+
+# Test: Remove task input (remove reference at index 0)
+exec sow task input remove --id 010 --index 0
+exec sow task input list --id 010
+! stdout 'reference'
+stdout '\[0\]'
+stdout 'Type: feedback'
+! stdout '\[1\]'
+
+# Test: Set output metadata
+exec sow task output set --id 010 --index 0 metadata.reviewed true
+exec cat .sow/project/state.yaml
+stdout 'reviewed: true'

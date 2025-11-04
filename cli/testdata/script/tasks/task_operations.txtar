@@ -1,0 +1,95 @@
+# Test: Task Operations
+# Coverage: add, set, abandon, list for unified task commands (new SDK)
+
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec sow init
+
+# Create minimal new-format project state manually
+# (Cannot use agent init as it creates old format incompatible with new SDK)
+exec mkdir -p .sow/project/phases/implementation/tasks
+cp testdata/state.yaml .sow/project/state.yaml
+
+-- testdata/state.yaml --
+name: test-tasks
+type: standard
+branch: master
+description: Test task operations
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  implementation:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: ImplementationExecuting
+  updated_at: 2025-01-01T00:00:00Z
+
+# Test: Add first task (should get ID 010)
+exec sow task add 'Implement feature' --agent implementer --description 'Implement the feature'
+exists .sow/project/phases/implementation/tasks/010/description.md
+exists .sow/project/phases/implementation/tasks/010/log.md
+exists .sow/project/phases/implementation/tasks/010/feedback
+exec cat .sow/project/state.yaml
+stdout 'id: "010"'
+stdout 'name: Implement feature'
+stdout 'status: pending'
+stdout 'iteration: 1'
+stdout 'assigned_agent: implementer'
+
+# Verify description file was created
+exec cat .sow/project/phases/implementation/tasks/010/description.md
+stdout 'Implement the feature'
+
+# Test: Add second task (should get ID 020)
+exec sow task add 'Write tests' --agent implementer
+exec cat .sow/project/state.yaml
+stdout 'id: "020"'
+stdout 'name: Write tests'
+
+# Test: List tasks (using status command)
+exec sow task status
+stdout '\[010\] Implement feature \(pending\)'
+stdout '\[020\] Write tests \(pending\)'
+
+# Test: Set task status
+exec sow task set --id 010 status in_progress
+exec cat .sow/project/state.yaml
+stdout 'id: "010"'
+stdout 'status: in_progress'
+
+# Test: Set task iteration
+exec sow task set --id 010 iteration 2
+exec cat .sow/project/state.yaml
+stdout 'iteration: 2'
+
+# Test: Set task metadata
+exec sow task set --id 010 metadata.complexity high
+exec cat .sow/project/state.yaml
+stdout 'complexity: high'
+
+# Test: Abandon task
+exec sow task abandon --id 020
+exec cat .sow/project/state.yaml
+stdout 'id: "020"'
+stdout 'status: abandoned'
+
+# Test: List shows updated statuses
+exec sow task status
+stdout '\[010\] Implement feature \(in_progress\)'
+stdout '\[020\] Write tests \(abandoned\)'
+
+# Test: Detailed status for specific task
+exec sow task status --id 010
+stdout 'Task: 010 - Implement feature'
+stdout 'Status: in_progress'
+stdout 'Iteration: 2'
+stdout 'Assigned Agent: implementer'
+stdout 'complexity: high'

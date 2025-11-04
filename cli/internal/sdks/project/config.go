@@ -1,6 +1,10 @@
 package project
 
 import (
+	"fmt"
+	"sort"
+
+	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
 )
 
@@ -72,4 +76,120 @@ type ProjectTypeConfig struct {
 	// prompts are prompt generators mapped by state
 	// These generate contextual prompts for users in each state
 	prompts map[sdkstate.State]PromptGenerator
+
+	// initializer is called during Create() to initialize the project
+	// with phases, metadata, and any type-specific initial state
+	initializer state.Initializer
+}
+
+// InitialState returns the configured initial state for this project type.
+func (ptc *ProjectTypeConfig) InitialState() sdkstate.State {
+	return ptc.initialState
+}
+
+// Initialize calls the configured initializer function if present.
+// Returns nil if no initializer is configured.
+func (ptc *ProjectTypeConfig) Initialize(project *state.Project) error {
+	if ptc.initializer == nil {
+		return nil
+	}
+	return ptc.initializer(project)
+}
+
+// GetTaskSupportingPhases returns the names of all phases that support tasks.
+// Returns an empty slice if no phases support tasks.
+// Phase names are returned in sorted order for deterministic behavior.
+func (ptc *ProjectTypeConfig) GetTaskSupportingPhases() []string {
+	var phases []string
+	for name, config := range ptc.phaseConfigs {
+		if config.supportsTasks {
+			phases = append(phases, name)
+		}
+	}
+	// Sort for deterministic ordering
+	sort.Strings(phases)
+	return phases
+}
+
+// PhaseSupportsTasks checks if a specific phase supports tasks.
+// Returns false if the phase doesn't exist or doesn't support tasks.
+func (ptc *ProjectTypeConfig) PhaseSupportsTasks(phaseName string) bool {
+	config, exists := ptc.phaseConfigs[phaseName]
+	if !exists {
+		return false
+	}
+	return config.supportsTasks
+}
+
+// GetDefaultTaskPhase returns the default phase for task operations based on current state.
+// Returns empty string if no phase supports tasks or state mapping is ambiguous.
+//
+// Logic:
+//  1. Check if current state maps to a phase's start or end state
+//  2. If that phase supports tasks, return it
+//  3. Otherwise return first task-supporting phase alphabetically
+func (ptc *ProjectTypeConfig) GetDefaultTaskPhase(currentState sdkstate.State) string {
+	// Try to map current state to a phase
+	for name, config := range ptc.phaseConfigs {
+		if (config.startState == currentState || config.endState == currentState) && config.supportsTasks {
+			return name
+		}
+	}
+
+	// Fallback: return first task-supporting phase
+	phases := ptc.GetTaskSupportingPhases()
+	if len(phases) > 0 {
+		return phases[0]
+	}
+	return ""
+}
+
+// Validate validates project state against project type configuration.
+//
+// Performs two-tier validation:
+//  1. Artifact type validation - Checks inputs/outputs against allowed types
+//  2. Metadata validation - Validates metadata against embedded CUE schemas
+//
+// Returns error describing first validation failure found.
+func (ptc *ProjectTypeConfig) Validate(project *state.Project) error {
+	// Validate each phase
+	for phaseName, phaseConfig := range ptc.phaseConfigs {
+		phase, exists := project.Phases[phaseName]
+		if !exists {
+			// Phase not in state - skip (may be optional/future phase)
+			continue
+		}
+
+		// Validate artifact types using state package helpers
+		if err := state.ValidateArtifactTypes(
+			phase.Inputs,
+			phaseConfig.allowedInputTypes,
+			phaseName,
+			"input",
+		); err != nil {
+			return fmt.Errorf("validating inputs: %w", err)
+		}
+
+		if err := state.ValidateArtifactTypes(
+			phase.Outputs,
+			phaseConfig.allowedOutputTypes,
+			phaseName,
+			"output",
+		); err != nil {
+			return fmt.Errorf("validating outputs: %w", err)
+		}
+
+		// Validate metadata against embedded schema (if schema provided)
+		// Phases without schemas can have arbitrary metadata
+		if phaseConfig.metadataSchema != "" {
+			if err := state.ValidateMetadata(
+				phase.Metadata,
+				phaseConfig.metadataSchema,
+			); err != nil {
+				return fmt.Errorf("phase %s metadata: %w", phaseName, err)
+			}
+		}
+	}
+
+	return nil
 }

@@ -1,0 +1,188 @@
+# Test: Review Failure Loop Back to Implementation
+# Coverage: Review fails → returns to ImplementationPlanning
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-review-fail
+exec sow init
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Create Minimal Project State at PlanningActive
+# =====================================
+
+exec mkdir -p .sow/project/phases/planning
+exec mkdir -p .sow/project/phases/implementation/tasks
+exec mkdir -p .sow/project/phases/review
+exec mkdir -p .sow/project/phases/finalize
+
+cp testdata/state.yaml .sow/project/state.yaml
+
+-- testdata/state.yaml --
+name: Test review fail
+type: standard
+branch: feat/test-review-fail
+description: Test review failure loop
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  implementation:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  review:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  finalize:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: PlanningActive
+  updated_at: 2025-01-01T00:00:00Z
+
+# =====================================
+# Fast-forward to ReviewActive
+# =====================================
+
+# Planning phase: Add and approve task list
+exec mkdir -p .sow/project/planning
+exec sh -c 'echo "# Tasks\n- Fix bug" > .sow/project/planning/tasks.md'
+exec sow output add --type task_list --path planning/tasks.md --phase planning
+exec sow output set --index 0 approved true --phase planning
+
+# Advance to implementation planning
+exec sow advance
+stdout 'Advanced to: ImplementationPlanning'
+
+# Implementation planning: Add task and approve
+exec sow task add 'Fix authentication bug' --agent implementer --description 'Fix login validation'
+exec sow phase set metadata.tasks_approved true --phase implementation
+
+# Advance to implementation executing
+exec sow advance
+stdout 'Advanced to: ImplementationExecuting'
+
+# Complete task
+exec sow task set --id 010 status completed
+
+# Advance to review
+exec sow advance
+stdout 'Advanced to: ReviewActive'
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+
+# =====================================
+# Review Phase - Fail Assessment
+# =====================================
+
+# Create review with fail assessment
+exec mkdir -p .sow/project/review
+exec sh -c 'echo "# Review Report\n\nIssues found:\n- Missing test coverage\n- Authentication logic incomplete" > .sow/project/review/report.md'
+exec sow output add --type review --path review/report.md --phase review
+exec sow output set --index 0 metadata.assessment fail --phase review
+exec cat .sow/project/state.yaml
+stdout 'assessment: fail'
+
+# Approve review (with fail assessment)
+exec sow output set --index 0 approved true --phase review
+exec cat .sow/project/state.yaml
+stdout 'approved: true'
+
+# =====================================
+# Advance Loops Back to ImplementationPlanning
+# =====================================
+
+exec sow advance
+stdout 'Advanced to: ImplementationPlanning'
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# =====================================
+# Verify Can Iterate on Existing Task
+# =====================================
+
+# Task should still exist and can be incremented
+exec sow task set --id 010 status pending
+exec sow task set --id 010 iteration 2
+exec cat .sow/project/state.yaml
+stdout 'id: "010"'
+stdout 'iteration: 2'
+stdout 'status: pending'
+
+# =====================================
+# Verify Can Add New Tasks
+# =====================================
+
+exec sow task add 'Add missing tests' --agent implementer --description 'Add test coverage'
+exists .sow/project/phases/implementation/tasks/020/description.md
+exec cat .sow/project/state.yaml
+stdout 'id: "020"'
+stdout 'name: Add missing tests'
+
+# =====================================
+# Complete Iteration and Pass Review
+# =====================================
+
+# Approve new plan
+exec sow phase set metadata.tasks_approved true --phase implementation
+
+# Advance to executing
+exec sow advance
+stdout 'Advanced to: ImplementationExecuting'
+
+# Complete both tasks
+exec sow task set --id 010 status completed
+exec sow task set --id 020 status completed
+
+# Advance to review
+exec sow advance
+stdout 'Advanced to: ReviewActive'
+
+# Pass review this time
+exec mkdir -p .sow/project/review
+exec sh -c 'echo "# Review Report\n\nAll issues resolved." > .sow/project/review/report2.md'
+exec sow output add --type review --path review/report2.md --phase review
+exec sow output set --index 1 metadata.assessment pass --phase review
+exec sow output set --index 1 approved true --phase review
+
+# Advance to finalize
+exec sow advance
+stdout 'Advanced to: FinalizeDocumentation'
+exec cat .sow/project/state.yaml
+stdout 'current_state: FinalizeDocumentation'

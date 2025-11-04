@@ -8,13 +8,13 @@ Execute tasks by spawning implementer agents.
 
 {{$impl := phase . "implementation"}}
 {{if $impl}}TASK STATUS:
-  Total: {{len (index $impl "implementation").Tasks}}
-  Completed: {{countTasksByStatus $impl "implementation" "completed"}}
-  In Progress: {{countTasksByStatus $impl "implementation" "in_progress"}}
-  Pending: {{countTasksByStatus $impl "implementation" "pending"}}
+  Total: {{len $impl.Tasks}}
+  Completed: {{countTasksByStatus $impl "completed"}}
+  In Progress: {{countTasksByStatus $impl "in_progress"}}
+  Pending: {{countTasksByStatus $impl "pending"}}
 
 TASKS:
-{{range (index $impl "implementation").Tasks}}  [{{.Status}}] {{.Id}} - {{.Name}}
+{{range $impl.Tasks}}  [{{.Status}}] {{.Id}} - {{.Name}}
 {{end}}{{end}}
 
 TASK STATUSES:
@@ -56,40 +56,70 @@ HANDLING BLOCKED WORKERS:
 
 TRACKING TASK STATE:
   Workers should track their changes using:
-    sow agent task state add-file <path>        # Track modified files
-    sow agent task state add-reference <path>   # Track context used
+    sow task output add --id <id> --type modified --path <path>    # Track modified files
+    sow task input add --id <id> --type reference --path <path>    # Track context used
 
 CHECKING TASK STATUS:
   To get current status of all tasks:
-    sow agent task list                         # List all tasks with status
+    sow task status                             # Overview of all tasks
 
   To get detailed info about one specific task:
-    sow agent task status <id>                  # Show detailed task information
+    sow task status --id <id>                   # Detailed task information
 
 TASK REVIEW WORKFLOW:
 
   When a task transitions to "needs_review":
 
-  1. Read task requirements from description.md
-  2. Check task state.yaml for files_modified list
-  3. Review actual changes: git diff for those files
-  4. Write review to: project/phases/implementation/tasks/<id>/review.md
+  1. Check task status to see what was done:
+     sow task status --id <id>
 
-     Include in review.md:
-     - Summary of requirements
-     - What was actually changed
-     - Assessment (approve or request changes)
-     - If requesting changes: specific issues to address
+     Review:
+     - Task requirements from description.md
+     - Outputs list (modified files)
+     - Current iteration number
 
-  5. Execute review decision:
+  2. Review actual changes:
+     - Read task log.md for worker's explanation
+     - Check git diff for modified files
+     - Verify tests were written and pass
+     - Validate against requirements
 
-     APPROVE:
-     sow agent task review <id> --approve
-     → Task marked completed, review.md preserved
+  3. Write review feedback:
+     Create: project/phases/implementation/tasks/<id>/feedback/<iteration>.md
 
-     REQUEST CHANGES:
-     sow agent task review <id> --request-changes
-     → Review becomes feedback, worker re-invoked with iteration + 1
+     Example for iteration 1: feedback/1.md
+
+     Include in feedback file:
+     - Summary of what was reviewed
+     - Assessment: pass or fail
+     - If fail: Specific issues to address (be detailed and actionable)
+     - If pass: Confirmation that work meets requirements
+
+  4. Register feedback and set assessment:
+
+     sow task input add --id <id> --type feedback \
+       --path "project/phases/implementation/tasks/<id>/feedback/<iteration>.md"
+
+     sow task input set --id <id> --index <N> metadata.assessment <pass|fail>
+
+     Note: <N> is the index of the feedback just added (0-based, check with `sow task status --id <id>`)
+
+  5. Execute review decision based on assessment:
+
+     APPROVE (assessment = pass):
+       sow task set --id <id> status completed
+       → Task done, moves to next task
+
+     REQUEST CHANGES (assessment = fail):
+       sow task set --id <id> status in_progress
+       sow task set --id <id> iteration <N+1>
+       → Worker will be restarted and will read feedback/<N>.md
+
+  IMPORTANT: Feedback file numbering
+    - Iteration 1 writes no feedback (first attempt)
+    - Iteration 2 reads feedback/1.md (review of iteration 1)
+    - Iteration 3 reads feedback/2.md (review of iteration 2)
+    - Pattern: Worker on iteration N reads feedback/(N-1).md
 
 NEXT ACTIONS:
   - For pending tasks: Spawn implementer agent
@@ -98,9 +128,7 @@ NEXT ACTIONS:
     • Example: "Execute task 010. Context at .sow/project/phases/implementation/tasks/010/"
 
   - When task reaches needs_review: Perform review (see workflow above)
-  - To approve: sow agent task review <id> --approve
-  - To reject: sow agent task review <id> --request-changes
-  - When all done: Auto-transition to review
+  - When all done: sow advance (auto-transition to review)
 
 Reference: PHASES/IMPLEMENTATION.md, AGENTS.md (implementer)
 

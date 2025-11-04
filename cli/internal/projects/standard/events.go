@@ -28,7 +28,7 @@ const (
 	EventAllTasksComplete = state.Event("all_tasks_complete")
 
 	// EventReviewPass passes review assessment.
-	// Transition: ReviewActive → FinalizeDocumentation.
+	// Transition: ReviewActive → FinalizeChecks.
 	// Guard: review artifact approved with assessment=pass.
 	EventReviewPass = state.Event("review_pass")
 
@@ -37,16 +37,17 @@ const (
 	// Guard: review artifact approved with assessment=fail.
 	EventReviewFail = state.Event("review_fail")
 
-	// EventDocumentationDone completes documentation.
-	// Transition: FinalizeDocumentation → FinalizeChecks.
-	EventDocumentationDone = state.Event("documentation_done")
-
 	// EventChecksDone completes final checks.
-	// Transition: FinalizeChecks → FinalizeDelete.
+	// Transition: FinalizeChecks → FinalizePRCreation.
 	EventChecksDone = state.Event("checks_done")
 
-	// EventProjectDelete deletes project.
-	// Transition: FinalizeDelete → NoProject.
+	// EventPRCreated indicates PR created and approved.
+	// Transition: FinalizePRCreation → FinalizeCleanup.
+	// Guard: pr_body artifact approved.
+	EventPRCreated = state.Event("pr_created")
+
+	// EventCleanupComplete completes project cleanup.
+	// Transition: FinalizeCleanup → NoProject.
 	// Guard: project_deleted metadata flag.
-	EventProjectDelete = state.Event("project_delete")
+	EventCleanupComplete = state.Event("cleanup_complete")
 )

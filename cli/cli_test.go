@@ -25,8 +25,32 @@ func TestMain(m *testing.M) {
 	})
 }
 
-func TestScripts(t *testing.T) {
+func TestScripts_Integration(t *testing.T) {
 	testscript.Run(t, testscript.Params{
-		Dir: "testdata/script",
+		Dir: "testdata/script/integration",
+	})
+}
+
+func TestScripts_Project(t *testing.T) {
+	testscript.Run(t, testscript.Params{
+		Dir: "testdata/script/project",
+	})
+}
+
+func TestScripts_Phase(t *testing.T) {
+	testscript.Run(t, testscript.Params{
+		Dir: "testdata/script/phase",
+	})
+}
+
+func TestScripts_Artifacts(t *testing.T) {
+	testscript.Run(t, testscript.Params{
+		Dir: "testdata/script/artifacts",
+	})
+}
+
+func TestScripts_Tasks(t *testing.T) {
+	testscript.Run(t, testscript.Params{
+		Dir: "testdata/script/tasks",
 	})
 }

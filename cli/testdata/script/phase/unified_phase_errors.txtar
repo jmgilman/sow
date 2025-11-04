@@ -1,0 +1,45 @@
+# Test: Phase Set Error Cases
+# Purpose: Test error handling for phase commands
+# Coverage: invalid phase, invalid field, no project
+
+# =====================================
+# Setup
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test
+exec sow init
+exec git add .sow
+exec git commit -m 'Initialize sow'
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+exec sow project new --branch feat/test --no-launch 'Test phase errors'
+
+# Change into worktree for remaining commands
+cd .sow/worktrees/feat/test
+
+# =====================================
+# Test: Error - Invalid Phase Name
+# =====================================
+
+! exec sow phase set status in_progress --phase nonexistent
+stderr 'phase not found: nonexistent'
+
+# =====================================
+# Test: Error - Invalid Field Path
+# =====================================
+
+# Try to set a non-existent direct field (project is in PlanningActive, so planning is active phase)
+! exec sow phase set invalid_field value
+stderr 'unknown field'
+
+# =====================================
+# Test: Error - No Project
+# =====================================
+
+# Delete project to test no-project error
+exec rm -rf .sow/project
+
+! exec sow phase set status in_progress
+stderr 'no active project'

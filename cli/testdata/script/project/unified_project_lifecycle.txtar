@@ -1,0 +1,80 @@
+# Test: Project Lifecycle Commands
+# Coverage: sow project new, continue, set, delete
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+
+# Create .gitignore
+exec sh -c 'echo ".sow/worktrees/" > .gitignore'
+exec sh -c 'echo ".sow/sinks/" >> .gitignore'
+exec sh -c 'echo ".sow/repos/" >> .gitignore'
+
+exec git add .gitignore
+exec git commit -m 'Initial commit'
+
+# Create and checkout feature branch
+exec git checkout -b feat/test-project
+
+# Initialize sow
+exec sow init
+exec git add .sow
+exec git commit -m 'Initialize sow'
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Test: sow project new
+# =====================================
+
+exec sow project new --branch feat/test-project --no-launch 'Test project description'
+stderr 'Initialized project'
+exists .sow/worktrees/feat/test-project/.sow/project/state.yaml
+
+# Verify project state was created correctly
+exec cat .sow/worktrees/feat/test-project/.sow/project/state.yaml
+stdout 'name: test-project-description'
+stdout 'description: Test project description'
+stdout 'branch: feat/test-project'
+stdout 'type: standard'
+
+# Change into worktree for remaining commands
+cd .sow/worktrees/feat/test-project
+
+# =====================================
+# Test: sow project set (direct field)
+# =====================================
+
+exec sow project set description 'Updated description'
+exec cat .sow/project/state.yaml
+stdout 'description: Updated description'
+! stdout 'description: Test project description'
+
+# =====================================
+# Test: sow project set (metadata field)
+# Note: ProjectState doesn't support metadata in current schema
+# Test would be: exec sow project set metadata.custom_field custom_value
+# Skipped until project-level metadata is added to schema
+# =====================================
+
+# =====================================
+# Test: sow project delete
+# =====================================
+
+exec sow project delete
+! exists .sow/project
+
+# =====================================
+# Test: Errors
+# =====================================
+
+# Test: set on non-existent project (already deleted, still in worktree)
+! exec sow project set description 'Should fail'
+stderr 'failed to load project'
+
+# Test: continue on non-existent project (from worktree where project was deleted)
+! exec sow project continue --branch feat/test-project
+stderr 'failed'

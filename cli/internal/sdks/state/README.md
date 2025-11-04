@@ -20,43 +20,65 @@ This SDK was forked from `internal/project/statechart/` to provide a reusable fo
 
 ```go
 import (
+    "context"
     "github.com/jmgilman/sow/cli/internal/sdks/state"
-    "github.com/jmgilman/sow/cli/schemas/project"
+)
+
+// Define states and events
+const (
+    StatePlanning = state.State("PlanningActive")
+    StateDesign   = state.State("DesignActive")
+    EventComplete = state.Event("complete")
+    EventApprove  = state.Event("approve")
 )
 
 // Define guard conditions
 planningComplete := false
 designApproved := false
 
+// Optional: Define prompt generator
+promptFunc := func(s state.State) string {
+    switch s {
+    case StatePlanning:
+        return "Create your project plan"
+    case StateDesign:
+        return "Design the system architecture"
+    default:
+        return ""
+    }
+}
+
 // Build a state machine
-machine := state.NewBuilder(&projectState, promptGenerator).
-    State("PlanningActive").
-        OnEntry(func(ctx context.Context, s *project.ProjectState) error {
-            // Initialize planning phase
-            return nil
-        }).
-        Permit("complete", "DesignActive").
-            When(func(ctx context.Context, s *project.ProjectState) bool {
-                return planningComplete
-            }).
-        Build().
-    State("DesignActive").
-        OnEntry(func(ctx context.Context, s *project.ProjectState) error {
-            // Initialize design phase
-            return nil
-        }).
-        Permit("approve", "ImplementationPlanning").
-            When(func(ctx context.Context, s *project.ProjectState) bool {
-                return designApproved
-            }).
-        Build().
-    InitialState("PlanningActive").
-    Build()
+builder := state.NewBuilder(StatePlanning, nil, promptFunc)
+
+// Add transitions with guards and actions
+builder.AddTransition(
+    StatePlanning,
+    StateDesign,
+    EventComplete,
+    state.WithGuard(func() bool { return planningComplete }),
+    state.WithOnEntry(func(ctx context.Context, args ...any) error {
+        // Initialize design phase
+        return nil
+    }),
+)
+
+builder.AddTransition(
+    StateDesign,
+    state.State("ImplementationPlanning"),
+    EventApprove,
+    state.WithGuard(func() bool { return designApproved }),
+)
+
+machine := builder.Build()
 
 // Fire events to transition states
-if err := machine.Fire(ctx, "complete"); err != nil {
+if err := machine.Fire(EventComplete); err != nil {
     // handle error
 }
+
+// Check current state
+currentState := machine.State()
 ```
 
 ## Key Components
@@ -75,8 +97,10 @@ Runtime state machine that:
 ### Guards (`guards.go`)
 Boolean functions that control transition availability:
 ```go
-type GuardFunc func(context.Context, *project.ProjectState) bool
+type GuardFunc func() bool
 ```
+
+Guards are closures that can capture project state or other context.
 
 ### Events (`events.go`)
 Named triggers that cause state transitions:

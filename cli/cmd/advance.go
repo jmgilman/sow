@@ -1,12 +1,11 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	"github.com/jmgilman/sow/cli/internal/project"
-	"github.com/jmgilman/sow/cli/internal/project/loader"
+	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/spf13/cobra"
 )
 
@@ -22,18 +21,20 @@ import (
 func NewAdvanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "advance",
-		Short: "Advance project to next state",
-		Long: `Advance the current phase to its next state.
+		Short: "Progress project to next state",
+		Long: `Progress the project through its state machine.
 
-This command examines the current phase and state, determines the appropriate
-transition event, validates prerequisites via guards, and advances the state
-machine if all conditions are met.
+The advance command:
+1. Determines the next event based on current state
+2. Evaluates guards to ensure transition is allowed
+3. Fires the event if guards pass
+4. Saves the updated state
 
-The command will fail if:
-  - No project exists
-  - The current phase is in an unexpected state
-  - Prerequisites for advancement are not met (guard failure)
-  - State cannot be saved
+Guards may prevent transitions. Common guard failures:
+- Planning → Implementation: task_list output not approved
+- Implementation Planning → Executing: tasks not approved (metadata.tasks_approved)
+- Implementation Executing → Review: not all tasks completed
+- Review → Finalize: review not approved or assessment not set
 
 Example:
   sow advance`,
@@ -42,38 +43,37 @@ Example:
 			// Get context
 			ctx := cmdutil.GetContext(cmd.Context())
 
-			// Load project via loader to get interface
-			proj, err := loader.Load(ctx)
+			// Load project using SDK
+			project, err := state.Load(ctx)
 			if err != nil {
-				if errors.Is(err, project.ErrNoProject) {
-					return fmt.Errorf("no active project - run 'sow agent init' first")
-				}
 				return fmt.Errorf("failed to load project: %w", err)
 			}
 
-			// Get current phase
-			phase := proj.CurrentPhase()
-			if phase == nil {
-				return fmt.Errorf("no active phase found - project may be complete")
-			}
+			// Get current state for display
+			currentState := project.Statechart.Current_state
+			fmt.Printf("Current state: %s\n", currentState)
 
-			// Advance the phase
-			// Phase.Advance() now handles event firing and state saving internally
-			if err := phase.Advance(); err != nil {
-				// Provide specific error messages for different error types
-				if errors.Is(err, project.ErrNotSupported) {
-					return fmt.Errorf("phase %s does not support state advancement", phase.Name())
+			// Advance (calls OnAdvance determiner, evaluates guards, fires event)
+			if err := project.Advance(); err != nil {
+				// Provide helpful error messages based on error type
+				if strings.Contains(err.Error(), "cannot fire event") {
+					return fmt.Errorf("transition blocked: %w\n\nCheck that all prerequisites for this state transition are met", err)
 				}
-				if errors.Is(err, project.ErrCannotAdvance) {
-					return fmt.Errorf("cannot advance: %w\n\nEnsure all prerequisites are met before advancing", err)
-				}
-				if errors.Is(err, project.ErrUnexpectedState) {
-					return fmt.Errorf("unexpected state detected: %w\n\nThis may indicate state file corruption", err)
+				if strings.Contains(err.Error(), "no event determiner") {
+					return fmt.Errorf("cannot advance from state %s: no transition configured\n\nThis may be a terminal state", currentState)
 				}
 				return fmt.Errorf("failed to advance: %w", err)
 			}
 
-			cmd.Println("✓ Advanced to next state")
+			// Save updated state
+			if err := project.Save(); err != nil {
+				return fmt.Errorf("failed to save state: %w", err)
+			}
+
+			// Display new state
+			newState := project.Statechart.Current_state
+			fmt.Printf("Advanced to: %s\n", newState)
+
 			return nil
 		},
 	}

@@ -22,8 +22,9 @@ import "time"
 
 	// status indicates the current state of the task.
 	// Must be one of: "pending" (not started), "in_progress" (actively working),
+	// "needs_review" (worker finished, awaiting orchestrator review),
 	// "completed" (successfully finished), "abandoned" (cancelled/obsolete).
-	status: "pending" | "in_progress" | "completed" | "abandoned"
+	status: "pending" | "in_progress" | "needs_review" | "completed" | "abandoned"
 
 	// created_at is the timestamp when this task was created.
 	created_at: time.Time

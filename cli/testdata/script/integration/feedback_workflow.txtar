@@ -1,0 +1,226 @@
+# Test: Feedback Workflow
+# Coverage: Add feedback, address feedback, track status
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-feedback
+exec sow init
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Create Minimal Project State at PlanningActive
+# =====================================
+
+exec mkdir -p .sow/project/phases/planning
+exec mkdir -p .sow/project/phases/implementation/tasks
+exec mkdir -p .sow/project/phases/review
+exec mkdir -p .sow/project/phases/finalize
+
+cp testdata/state.yaml .sow/project/state.yaml
+
+-- testdata/state.yaml --
+name: Test feedback
+type: standard
+branch: feat/test-feedback
+description: Test feedback workflow
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  implementation:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  review:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  finalize:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: PlanningActive
+  updated_at: 2025-01-01T00:00:00Z
+
+# =====================================
+# Fast-forward to ImplementationExecuting
+# =====================================
+
+# Planning phase: Add and approve task list
+exec mkdir -p .sow/project/planning
+exec sh -c 'echo "# Tasks\n- Implement auth" > .sow/project/planning/tasks.md'
+exec sow output add --type task_list --path planning/tasks.md --phase planning
+exec sow output set --index 0 approved true --phase planning
+
+# Advance to implementation planning
+exec sow advance
+stdout 'Advanced to: ImplementationPlanning'
+
+# Implementation planning: Add task and approve
+exec sow task add 'Implement authentication' --agent implementer --description 'JWT-based authentication'
+exec sow phase set metadata.tasks_approved true --phase implementation
+
+# Advance to implementation executing
+exec sow advance
+stdout 'Advanced to: ImplementationExecuting'
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationExecuting'
+
+# =====================================
+# Set Task In Progress
+# =====================================
+
+exec sow task set --id 010 status in_progress
+exec cat .sow/project/state.yaml
+stdout 'id: "010"'
+stdout 'status: in_progress'
+
+# =====================================
+# Add Feedback as Task Input
+# =====================================
+
+# Create feedback file
+exec mkdir -p .sow/project/phases/implementation/tasks/010/feedback
+exec sh -c 'echo "Please fix the error handling:\n- Add validation for empty tokens\n- Return proper HTTP status codes" > .sow/project/phases/implementation/tasks/010/feedback/001.md'
+
+# Add feedback as task input
+exec sow task input add --id 010 --type feedback --path feedback/001.md
+exec cat .sow/project/state.yaml
+stdout 'type: feedback'
+stdout 'path: feedback/001.md'
+
+# =====================================
+# List Task Inputs to Verify Feedback
+# =====================================
+
+exec sow task input list --id 010
+stdout '\[0\] feedback: feedback/001.md'
+
+# Verify feedback in state
+exec cat .sow/project/state.yaml
+stdout 'type: feedback'
+stdout 'path: feedback/001.md'
+
+# =====================================
+# Add Multiple Feedback Items
+# =====================================
+
+exec sh -c 'echo "Update documentation:\n- Add API examples\n- Document error codes" > .sow/project/phases/implementation/tasks/010/feedback/002.md'
+exec sow task input add --id 010 --type feedback --path feedback/002.md
+
+# List all feedback
+exec sow task input list --id 010
+stdout '\[0\] feedback: feedback/001.md'
+stdout '\[1\] feedback: feedback/002.md'
+
+# =====================================
+# Mark First Feedback as Addressed
+# =====================================
+
+exec sow task input set --id 010 --index 0 metadata.status addressed
+exec cat .sow/project/state.yaml
+stdout 'status: addressed'
+
+# Verify first feedback marked, second not
+exec sow task input list --id 010
+stdout '\[0\] feedback: feedback/001.md'
+stdout '\[1\] feedback: feedback/002.md'
+
+# =====================================
+# Mark Second Feedback as Addressed
+# =====================================
+
+exec sow task input set --id 010 --index 1 metadata.status addressed
+exec cat .sow/project/state.yaml
+stdout 'status: addressed'
+
+# =====================================
+# Complete Task Iteration
+# =====================================
+
+exec sow task set --id 010 status completed
+exec sow task set --id 010 iteration 2
+exec cat .sow/project/state.yaml
+stdout 'id: "010"'
+stdout 'status: completed'
+stdout 'iteration: 2'
+
+# =====================================
+# Verify Both Feedback Items Present in Final State
+# =====================================
+
+exec sow task input list --id 010
+stdout '\[0\] feedback: feedback/001.md'
+stdout '\[1\] feedback: feedback/002.md'
+
+# Verify metadata in state file
+exec cat .sow/project/state.yaml
+stdout 'type: feedback'
+stdout 'status: addressed'
+
+# =====================================
+# Advance Through Remaining Phases
+# =====================================
+
+# Advance to review
+exec sow advance
+stdout 'Advanced to: ReviewActive'
+
+# Pass review
+exec mkdir -p .sow/project/review
+exec sh -c 'echo "# Review\n\nFeedback addressed correctly." > .sow/project/review/report.md'
+exec sow output add --type review --path review/report.md --phase review
+exec sow output set --index 0 metadata.assessment pass --phase review
+exec sow output set --index 0 approved true --phase review
+
+# Advance to finalize
+exec sow advance
+stdout 'Advanced to: FinalizeDocumentation'
+
+# =====================================
+# Verify Feedback Persisted Throughout Lifecycle
+# =====================================
+
+exec sow task input list --id 010
+stdout '\[0\] feedback: feedback/001.md'
+stdout '\[1\] feedback: feedback/002.md'
+
+exec cat .sow/project/state.yaml
+stdout 'type: feedback'
+stdout 'status: addressed'
+stdout 'path: feedback/001.md'
+stdout 'path: feedback/002.md'

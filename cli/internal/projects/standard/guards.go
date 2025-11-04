@@ -86,6 +86,11 @@ func latestReviewApproved(p *state.Project) bool {
 	return false
 }
 
+// prBodyApproved checks if the pr_body output artifact is approved in finalize phase.
+func prBodyApproved(p *state.Project) bool {
+	return phaseOutputApproved(p, "finalize", "pr_body")
+}
+
 // projectDeleted checks if the project_deleted flag is set in finalize metadata.
 func projectDeleted(p *state.Project) bool {
 	return phaseMetadataBool(p, "finalize", "project_deleted")

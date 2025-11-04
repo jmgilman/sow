@@ -41,10 +41,9 @@ WORKFLOW:
      Save to: project/phases/review/reports/<id>.md
      (Use sequential IDs: 001.md, 002.md, etc.)
 
-  3. ADD ARTIFACT WITH ASSESSMENT
-     sow agent artifact add project/phases/review/reports/<id>.md \
-       --metadata type=review \
-       --metadata assessment=<pass|fail>
+  3. ADD OUTPUT WITH ASSESSMENT
+     sow output add --type review --path "project/phases/review/reports/<id>.md" \
+       --metadata.assessment <pass|fail>
 
   4. PRESENT TO HUMAN FOR REVIEW
      The human will review BOTH:
@@ -54,17 +53,17 @@ WORKFLOW:
      Wait for human confirmation that your review is accurate.
 
   5. AFTER HUMAN CONFIRMS
-     Approve the artifact:
-       sow agent artifact approve project/phases/review/reports/<id>.md
+     Approve the output:
+       sow output set --index <N> approved true
 
      If assessment was FAIL, increment iteration for next review cycle:
-       sow agent set iteration <current+1>
+       sow phase set metadata.iteration <current+1>
 
-  6. COMPLETE THE REVIEW PHASE
-     sow agent complete
+  6. ADVANCE TO NEXT PHASE
+     sow advance
 
      The state machine will automatically transition based on assessment:
-     - PASS → FinalizeDocumentation (proceed to merge preparation)
+     - PASS → FinalizeChecks (proceed to final validation)
      - FAIL → ImplementationPlanning (create tasks to fix issues)
 
 Reference: PHASES/REVIEW.md

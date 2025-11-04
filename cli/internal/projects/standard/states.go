@@ -22,12 +22,12 @@ const (
 	// ReviewActive indicates review phase in progress.
 	ReviewActive = state.State("ReviewActive")
 
-	// FinalizeDocumentation indicates documentation update step.
-	FinalizeDocumentation = state.State("FinalizeDocumentation")
-
 	// FinalizeChecks indicates final validation checks.
 	FinalizeChecks = state.State("FinalizeChecks")
 
-	// FinalizeDelete indicates project cleanup step.
-	FinalizeDelete = state.State("FinalizeDelete")
+	// FinalizePRCreation indicates PR creation and approval step.
+	FinalizePRCreation = state.State("FinalizePRCreation")
+
+	// FinalizeCleanup indicates project cleanup step.
+	FinalizeCleanup = state.State("FinalizeCleanup")
 )
