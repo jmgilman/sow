@@ -31,13 +31,13 @@ This project follows the **standard 3-phase workflow**: Implementation → Revie
    - Files written to `.sow/project/context/tasks/{id}-{name}.md`
    - Each contains: requirements, acceptance criteria, relevant inputs
 
-3. **Register task descriptions as outputs**:
-   ```bash
-   sow output add --type task_description --path "context/tasks/010-{name}.md"
-   ```
+3. **Present to user for review**:
+   - User reviews files and says "approved"
 
-4. **Present to user for review**:
-   - User approves with: `sow output set --index <N> approved true`
+4. **Set planning approval**:
+   ```bash
+   sow phase set metadata.planning_approved true --phase implementation
+   ```
 
 5. **Add tasks to project**:
    ```bash
@@ -47,7 +47,7 @@ This project follows the **standard 3-phase workflow**: Implementation → Revie
 
 6. **Advance when ready**:
    ```bash
-   sow advance  # Guard: all task_description outputs approved
+   sow advance  # Guard: metadata.planning_approved == true
    ```
 
 #### ImplementationExecuting
@@ -167,7 +167,8 @@ This project follows the **standard 3-phase workflow**: Implementation → Revie
 - **When**: ImplementationPlanning state
 - **Purpose**: Task breakdown and research
 - **Outputs**: Task description files in `context/tasks/`
-- **You register**: As `task_description` outputs
+- **User approval**: Reviews files, says "approved"
+- **You set**: `metadata.planning_approved = true` after approval
 - **You review**: Ensure comprehensive, self-contained
 
 ### Implementer Agent

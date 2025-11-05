@@ -186,3 +186,54 @@ func TestGreetContext_ToMap(t *testing.T) {
 
 // Note: TestStatechartContext_ToMap has been moved to cli/internal/project/standard/prompts_test.go
 // as StatechartContext is now used only by project-specific prompt generators.
+
+func TestRender_ExplorationContext_WithTags(t *testing.T) {
+	ctx := &prompts.ExplorationContext{
+		Topic:  "Test Exploration",
+		Branch: "explore/test",
+		Status: "active",
+		Files: []prompts.ExplorationFile{
+			{
+				Path:        "research.md",
+				Description: "Research notes on authentication",
+				Tags:        []string{"security", "auth", "draft"},
+			},
+			{
+				Path:        "comparison.md",
+				Description: "OAuth vs JWT comparison",
+				Tags:        []string{"security", "comparison"},
+			},
+		},
+		InitialPrompt: "Let's explore authentication options",
+	}
+
+	output, err := prompts.Render(prompts.PromptModeExplore, ctx)
+	if err != nil {
+		t.Fatalf("Render failed: %v", err)
+	}
+
+	// Verify the template rendered successfully
+	if len(output) == 0 {
+		t.Error("Expected non-empty output")
+	}
+
+	// Verify topic is present
+	if !strings.Contains(output, "Test Exploration") {
+		t.Error("Expected output to contain exploration topic")
+	}
+
+	// Verify files are listed
+	if !strings.Contains(output, "research.md") {
+		t.Error("Expected output to contain file path")
+	}
+
+	// Verify tags are joined with commas (this is what the join function does)
+	// The template uses: {{join ", " .Tags}}
+	if !strings.Contains(output, "security, auth, draft") {
+		t.Error("Expected output to contain joined tags 'security, auth, draft'")
+	}
+
+	if !strings.Contains(output, "security, comparison") {
+		t.Error("Expected output to contain joined tags 'security, comparison'")
+	}
+}
