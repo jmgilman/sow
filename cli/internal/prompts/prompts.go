@@ -18,6 +18,7 @@ const (
 	PromptGreetStateUninit   PromptID = "greet.state.uninitialized"
 	PromptGreetStateOperator PromptID = "greet.state.operator"
 	PromptGreetStateOrch     PromptID = "greet.state.orchestrator"
+	PromptGreetOrchestrator  PromptID = "greet.orchestrator"
 )
 
 // Command prompt IDs - Entry point prompts for CLI commands.
@@ -137,6 +138,7 @@ func init() {
 		PromptGreetStateUninit:   "templates/greet/states/uninitialized.md",
 		PromptGreetStateOperator: "templates/greet/states/operator.md",
 		PromptGreetStateOrch:     "templates/greet/states/orchestrator.md",
+		PromptGreetOrchestrator:  "templates/greet/orchestrator.md",
 
 		// Entry point command prompts
 		PromptCommandNew:      "templates/commands/new.md",

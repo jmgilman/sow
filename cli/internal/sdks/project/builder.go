@@ -11,13 +11,14 @@ import (
 // It accumulates configuration through chainable method calls and can be reused
 // for building multiple configs via repeated Build() calls.
 type ProjectTypeConfigBuilder struct {
-	name         string
-	phaseConfigs map[string]*PhaseConfig
-	initialState sdkstate.State
-	transitions  []TransitionConfig
-	onAdvance    map[sdkstate.State]EventDeterminer
-	prompts      map[sdkstate.State]PromptGenerator
-	initializer  state.Initializer
+	name               string
+	phaseConfigs       map[string]*PhaseConfig
+	initialState       sdkstate.State
+	transitions        []TransitionConfig
+	onAdvance          map[sdkstate.State]EventDeterminer
+	prompts            map[sdkstate.State]PromptGenerator
+	orchestratorPrompt PromptGenerator
+	initializer        state.Initializer
 }
 
 // NewProjectTypeConfigBuilder creates a new builder for a project type config.
@@ -102,6 +103,18 @@ func (b *ProjectTypeConfigBuilder) WithPrompt(
 	return b
 }
 
+// WithOrchestratorPrompt registers a prompt generator for orchestrator guidance.
+// This prompt explains how the project type works and how the orchestrator
+// should coordinate work through phases. It is shown when projects are created
+// or continued, providing workflow-specific context.
+// Returns the builder for method chaining.
+func (b *ProjectTypeConfigBuilder) WithOrchestratorPrompt(
+	generator PromptGenerator,
+) *ProjectTypeConfigBuilder {
+	b.orchestratorPrompt = generator
+	return b
+}
+
 // WithInitializer registers an initializer function for project creation.
 // The initializer is called during Create() to set up phases, metadata,
 // and any project-type-specific initial state.
@@ -145,12 +158,13 @@ func (b *ProjectTypeConfigBuilder) Build() *ProjectTypeConfig {
 	}
 
 	return &ProjectTypeConfig{
-		name:         b.name,
-		phaseConfigs: phaseConfigs,
-		initialState: b.initialState,
-		transitions:  transitions,
-		onAdvance:    onAdvance,
-		prompts:      prompts,
-		initializer:  b.initializer,
+		name:               b.name,
+		phaseConfigs:       phaseConfigs,
+		initialState:       b.initialState,
+		transitions:        transitions,
+		onAdvance:          onAdvance,
+		prompts:            prompts,
+		orchestratorPrompt: b.orchestratorPrompt,
+		initializer:        b.initializer,
 	}
 }

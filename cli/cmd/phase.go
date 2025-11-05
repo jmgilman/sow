@@ -130,8 +130,6 @@ func getActivePhase(project *state.Project) string {
 	// Map state machine states to phases
 	// Using standard project states from internal/projects/standard/states.go
 	switch currentState {
-	case string(standard.PlanningActive):
-		return "planning"
 	case string(standard.ImplementationPlanning), string(standard.ImplementationExecuting):
 		return "implementation"
 	case string(standard.ReviewActive):

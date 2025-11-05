@@ -13,44 +13,19 @@ import (
 //go:embed templates/*.md
 var templatesFS embed.FS
 
-// generatePlanningPrompt generates the prompt for the PlanningActive state.
-// This phase focuses on gathering context, confirming requirements, and creating a task list.
-func generatePlanningPrompt(p *state.Project) string {
-	var buf strings.Builder
-
-	// Add project header
-	buf.WriteString(fmt.Sprintf("# Project: %s\n", p.Name))
-	buf.WriteString(fmt.Sprintf("Branch: %s\n", p.Branch))
-	if p.Description != "" {
-		buf.WriteString(fmt.Sprintf("Description: %s\n", p.Description))
-	}
-	buf.WriteString("\n")
-
-	// Render template guidance
-	guidance, err := templates.Render(templatesFS, "templates/planning_active.md", p)
+// generateOrchestratorPrompt generates the orchestrator-level prompt for standard projects.
+// This explains how the standard project type works and how to coordinate work through phases.
+func generateOrchestratorPrompt(p *state.Project) string {
+	// Render orchestrator guidance template
+	prompt, err := templates.Render(templatesFS, "templates/orchestrator.md", p)
 	if err != nil {
-		return fmt.Sprintf("Error rendering template: %v", err)
+		return fmt.Sprintf("Error rendering orchestrator prompt: %v", err)
 	}
-	buf.WriteString(guidance)
-
-	// Show artifacts if any
-	phase, exists := p.Phases["planning"]
-	if exists && len(phase.Outputs) > 0 {
-		buf.WriteString("\n## Planning Artifacts\n\n")
-		for _, artifact := range phase.Outputs {
-			status := "pending"
-			if artifact.Approved {
-				status = "approved"
-			}
-			buf.WriteString(fmt.Sprintf("- %s (%s)\n", artifact.Path, status))
-		}
-	}
-
-	return buf.String()
+	return prompt
 }
 
 // generateImplementationPlanningPrompt generates the prompt for the ImplementationPlanning state.
-// This phase focuses on breaking down the work into concrete implementation tasks.
+// This phase focuses on gathering requirements and creating a high-level task list.
 func generateImplementationPlanningPrompt(p *state.Project) string {
 	var buf strings.Builder
 
@@ -62,16 +37,6 @@ func generateImplementationPlanningPrompt(p *state.Project) string {
 	}
 	buf.WriteString("\n")
 
-	// Include planning phase artifacts as context
-	if planningPhase, exists := p.Phases["planning"]; exists && len(planningPhase.Outputs) > 0 {
-		buf.WriteString("## Planning Context\n\n")
-		buf.WriteString("The following artifacts were created during planning:\n\n")
-		for _, artifact := range planningPhase.Outputs {
-			buf.WriteString(fmt.Sprintf("- %s\n", artifact.Path))
-		}
-		buf.WriteString("\n")
-	}
-
 	// Render implementation planning guidance template
 	guidance, err := templates.Render(templatesFS, "templates/implementation_planning.md", p)
 	if err != nil {
@@ -81,6 +46,7 @@ func generateImplementationPlanningPrompt(p *state.Project) string {
 
 	return buf.String()
 }
+
 
 // generateImplementationExecutingPrompt generates the prompt for the ImplementationExecuting state.
 // This phase focuses on executing implementation tasks with status tracking.

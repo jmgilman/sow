@@ -3,7 +3,8 @@
 IMPLEMENTATION EXECUTING (Autonomous Mode)
 
 PROJECT: {{.Name}}
-
+{{if .Description}}DESCRIPTION: {{.Description}}
+{{end}}
 Execute tasks by spawning implementer agents.
 
 {{$impl := phase . "implementation"}}

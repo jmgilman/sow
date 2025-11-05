@@ -5,75 +5,204 @@ IMPLEMENTATION PLANNING (Autonomous Mode)
 PROJECT: {{.Name}}
 {{if .Description}}DESCRIPTION: {{.Description}}
 {{end}}
-MODE CHANGE: Subservient → Autonomous
+You are operating in AUTONOMOUS MODE - coordinate planning through planner agent.
 
-You are now in AUTONOMOUS MODE - execute within established boundaries.
-
-AVAILABLE CONTEXT:
-  • Planning phase artifacts available for reference
 RESPONSIBILITIES:
-  - Review task descriptions created during Planning phase
-  - Create tasks from existing task description files
-  - Request human approval when task creation is complete
-  - Use gap-numbered IDs (010, 020, 030...) matching the task files
-
-TASK NUMBERING:
-  Start at 010, increment by 10 (020, 030, 040...)
-  This allows inserting tasks between existing ones if needed (015, 025, etc.)
-
-TASK LIFECYCLE:
-  pending → in_progress → needs_review → completed
-
-  Workers mark tasks as "needs_review" when done, NOT "completed"
-  You (orchestrator) review and approve/reject in executing phase
-
-USING PLANNING PHASE TASK DESCRIPTIONS
-
-Task descriptions were created during Planning phase at:
-  Location: project/context/tasks/
-  Files: 010-task-name.md, 020-task-name.md, 030-task-name.md, etc.
-
-These files are comprehensive, standalone documents ready to be used as task descriptions.
-
-CRITICAL: Implementer agents start with ZERO CONTEXT and see ONLY the description.md
-file. The Planning phase task files were created to be comprehensive enough for this.
+  - Spawn planner agent with project context
+  - Present planner results to user for review
+  - Handle user feedback and manual adjustments
+  - Register approved task descriptions as outputs
+  - Add tasks via CLI with relevant inputs attached
+  - Advance to execution phase
 
 WORKFLOW:
 
-1. Read the task index from Planning phase: project/context/task-index.md
+1. SPAWN PLANNER AGENT
 
-2. For each task in the index:
+   The planner agent will:
+   - Examine project inputs and context
+   - Research the codebase thoroughly
+   - Identify implementation requirements and gaps
+   - Create comprehensive task description files
+   - Identify relevant inputs for each task
 
-   a. Read the task file: project/context/tasks/{id}-{name}.md
-      Use Read tool to load the file content
+   Spawn the planner:
+   ```
+   Use the Task tool with subagent_type="planner"
 
-   b. Extract task name from the file (usually the first heading)
+   Provide context in the prompt:
+   - Project goal and description
+   - Location of any input files or context
+   - Any specific requirements or constraints
 
-   c. Create task using the file content as description:
+   Example:
+   "Create implementation task breakdown for: {{.Description}}
 
-      Read the file into memory, then pass the ENTIRE file content as description:
+   Project inputs: [list any input files]
+   Context: [provide any additional context]
 
-      sow task add "{task-name}" --agent implementer --description "{entire-file-content}" --id {id}
+   Research the codebase and create comprehensive task description files."
+   ```
 
-      Example:
-      - Read project/context/tasks/010-jwt-middleware.md
-      - Extract name: "Implement JWT middleware"
-      - Run: sow task add "Implement JWT middleware" --agent implementer --description "{contents-of-010-jwt-middleware.md}" --id 010
+2. WAIT FOR PLANNER COMPLETION
 
-   The description will be saved to:
-   project/phases/implementation/tasks/task-{id}/description.md
+   The planner will create files at:
+   `.sow/project/context/tasks/{id}-{name}.md`
 
-   This ensures the comprehensive task description from Planning transfers directly
-   to the implementation phase without any loss of detail.
+   Each file contains:
+   - Complete task requirements
+   - Acceptance criteria
+   - Technical details
+   - **Relevant Inputs** section with file paths
+   - Examples and constraints
 
-3. Verify all tasks created successfully
+3. REGISTER TASK DESCRIPTIONS AS OUTPUTS
 
-4. Present task list to human for confirmation
+   For each task description file the planner created:
 
-5. After human confirms: sow phase set metadata.tasks_approved true
+   ```bash
+   sow output add --type task_description \
+     --path "context/tasks/{id}-{name}.md" \
+     --phase implementation
+   ```
 
-6. Transition to execution: sow advance
+   This makes them artifacts that can be approved/rejected.
 
-Reference: PHASES/IMPLEMENTATION.md
+4. PRESENT TO USER FOR REVIEW
+
+   Inform the user:
+   ```
+   Planner created {N} tasks in .sow/project/context/tasks/
+
+   Tasks:
+   - 010-{name}: {brief description}
+   - 020-{name}: {brief description}
+   ...
+
+   Please review the task description files.
+
+   To approve all tasks:
+   sow output set --index 0 approved true --phase implementation
+   sow output set --index 1 approved true --phase implementation
+   ...
+
+   Or approve individually after reviewing each file.
+   ```
+
+   Wait for user approval. Do not proceed until user confirms.
+
+5. HANDLE USER FEEDBACK
+
+   If user identifies issues:
+   - Edit task description files directly (don't re-run planner)
+   - Add/remove/split tasks as needed
+   - Update Relevant Inputs sections
+   - Maintain comprehensive, self-contained descriptions
+
+   After manual changes, user approves updated artifacts.
+
+6. ADD TASKS VIA CLI
+
+   Once all task descriptions are approved, add each task:
+
+   For each approved task description:
+
+   a. Read the task description file
+   b. Extract task ID and name from filename
+   c. Parse "Relevant Inputs" section for file paths
+   d. Add the task:
+      ```bash
+      sow task add "{task-name}" --agent implementer --id {id}
+      ```
+
+   e. Copy description to task directory:
+      ```bash
+      cp .sow/project/context/tasks/{id}-{name}.md \
+         .sow/project/phases/implementation/tasks/task-{id}/description.md
+      ```
+
+   f. Register each relevant input as task input:
+      ```bash
+      sow task input add --id {id} --type reference \
+        --path "{path-from-relevant-inputs-section}"
+      ```
+
+      Repeat for each file listed in Relevant Inputs.
+
+   Example complete flow for task 010:
+   ```bash
+   # Add task
+   sow task add "Implement JWT middleware" --agent implementer --id 010
+
+   # Copy description
+   cp .sow/project/context/tasks/010-jwt-middleware.md \
+      .sow/project/phases/implementation/tasks/task-010/description.md
+
+   # Register inputs (parsed from Relevant Inputs section)
+   sow task input add --id 010 --type reference \
+     --path "internal/auth/session.go"
+   sow task input add --id 010 --type reference \
+     --path "internal/middleware/logging.go"
+   sow task input add --id 010 --type reference \
+     --path ".sow/knowledge/architecture/api_design.md"
+   ```
+
+7. ADVANCE TO EXECUTION
+
+   Once all tasks are added with inputs attached:
+
+   ```bash
+   sow advance
+   ```
+
+   This transitions to ImplementationExecuting where you'll
+   spawn implementer agents to complete the tasks.
+
+{{$impl := phase . "implementation"}}
+{{if $impl}}CURRENT STATUS:
+  Outputs: {{len $impl.Outputs}} total
+  Tasks: {{len $impl.Tasks}} total
+
+  {{range $impl.Outputs}}{{if eq .Type "task_description"}}  - {{.Path}} {{if .Approved}}(approved){{else}}(pending){{end}}
+  {{end}}{{end}}
+{{end}}
+
+IMPORTANT NOTES:
+
+**Parsing Relevant Inputs**:
+  The Relevant Inputs section in task descriptions looks like:
+  ```
+  ## Relevant Inputs
+
+  - `path/to/file.go` - Description
+  - `another/file.ts` - Description
+  ```
+
+  Extract paths between backticks, register as task inputs.
+
+**Comprehensive Descriptions**:
+  Task descriptions must be self-contained. The implementer sees ONLY:
+  - description.md
+  - Input files (from Relevant Inputs)
+  - Feedback from previous iterations (if any)
+
+  No conversation history, no context from planning.
+
+**Manual Adjustments**:
+  If user requests changes:
+  - Edit files directly with Write/Edit tools
+  - Don't re-run planner for small changes
+  - Maintain quality and completeness standards
+  - Update Relevant Inputs if adding new references
+
+**Quality Gate**:
+  Before adding tasks, verify each description includes:
+  - Full context and requirements
+  - Acceptance criteria
+  - Technical implementation details
+  - Relevant Inputs section populated
+  - Examples and constraints
+
+Reference: PHASES/IMPLEMENTATION.md, .claude/agents/planner.md
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

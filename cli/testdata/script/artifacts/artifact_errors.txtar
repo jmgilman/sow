@@ -20,47 +20,47 @@ exec sow project new --branch feat/test --no-launch test-errors
 cd .sow/worktrees/feat/test
 
 # Test: Index out of range on empty list
-! exec sow input set --index 0 approved true --phase planning
+! exec sow input set --index 0 approved true --phase implementation
 stderr 'index out of range'
 
-! exec sow input remove --index 0 --phase planning
+! exec sow input remove --index 0 --phase implementation
 stderr 'index out of range'
 
 # Add one input for further tests
 exec mkdir -p .sow/project/context
 exec sh -c 'echo "Test" > .sow/project/context/test.md'
-exec sow input add --type context --path context/test.md --phase planning
+exec sow input add --type context --path context/test.md --phase implementation
 
 # Test: Index out of range (valid: 0, invalid: 1)
-! exec sow input set --index 1 approved true --phase planning
+! exec sow input set --index 1 approved true --phase implementation
 stderr 'index out of range'
 
-! exec sow input remove --index 1 --phase planning
+! exec sow input remove --index 1 --phase implementation
 stderr 'index out of range'
 
 # Test: Negative index
-! exec sow input set --index -1 approved true --phase planning
+! exec sow input set --index -1 approved true --phase implementation
 stderr 'index out of range'
 
 # Test: Missing required flags
-! exec sow input add --path test.md --phase planning
+! exec sow input add --path test.md --phase implementation
 stderr 'required flag.*type'
 
-! exec sow input add --type context --phase planning
+! exec sow input add --type context --phase implementation
 stderr 'required flag.*path'
 
-! exec sow output add --path test.md --phase planning
+! exec sow output add --path test.md --phase implementation
 stderr 'required flag.*type'
 
-! exec sow output add --type task_list --phase planning
+! exec sow output add --type task_list --phase implementation
 stderr 'required flag.*path'
 
 # Test: Set requires index
-! exec sow input set approved true --phase planning
+! exec sow input set approved true --phase implementation
 stderr 'required flag.*index'
 
 # Test: Remove requires index
-! exec sow input remove --phase planning
+! exec sow input remove --phase implementation
 stderr 'required flag.*index'
 
 # Test: Invalid phase name

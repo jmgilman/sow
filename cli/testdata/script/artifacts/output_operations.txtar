@@ -20,50 +20,50 @@ exec sow project new --branch feat/test --no-launch test-outputs
 cd .sow/worktrees/feat/test
 
 # Create test file
-exec mkdir -p .sow/project/planning
-exec sh -c 'echo "Task list" > .sow/project/planning/tasks.md'
+exec mkdir -p .sow/project/context
+exec sh -c 'echo "Task list" > .sow/project/context/task_list.md'
 
 # Test: Add output artifact
-exec sow output add --type task_list --path planning/tasks.md --phase planning
+exec sow output add --type task_list --path context/task_list.md --phase implementation
 exec cat .sow/project/state.yaml
 stdout 'type: task_list'
-stdout 'path: planning/tasks.md'
+stdout 'path: context/task_list.md'
 stdout 'approved: false'
 
 # Test: List outputs (shows index and details)
-exec sow output list --phase planning
+exec sow output list --phase implementation
 stdout '\[0\]'
 stdout 'Type: task_list'
-stdout 'Path: planning/tasks.md'
+stdout 'Path: context/task_list.md'
 stdout 'Approved: false'
 
 # Test: Set approved field using index
-exec sow output set --index 0 approved true --phase planning
+exec sow output set --index 0 approved true --phase implementation
 exec cat .sow/project/state.yaml
 stdout 'approved: true'
 
 # Test: Set metadata field using field path
-exec sow output set --index 0 metadata.format markdown --phase planning
+exec sow output set --index 0 metadata.format markdown --phase implementation
 exec cat .sow/project/state.yaml
 stdout 'format: markdown'
 
 # Test: List shows updated values
-exec sow output list --phase planning
+exec sow output list --phase implementation
 stdout 'Approved: true'
 stdout 'format: markdown'
 
 # Test: Add second output
-exec sh -c 'echo "Design doc" > .sow/project/planning/design.md'
-exec sow output add --type task_list --path planning/design.md --phase planning
-exec sow output list --phase planning
+exec sh -c 'echo "Design doc" > .sow/project/context/design.md'
+exec sow output add --type task_list --path context/design.md --phase implementation
+exec sow output list --phase implementation
 stdout '\[0\]'
 stdout '\[1\]'
-stdout 'tasks.md'
+stdout 'task_list.md'
 stdout 'design.md'
 
 # Test: Remove output by index (remove first one)
-exec sow output remove --index 0 --phase planning
-exec sow output list --phase planning
+exec sow output remove --index 0 --phase implementation
+exec sow output list --phase implementation
 stdout '\[0\]'
 ! stdout '\[1\]'
 stdout 'design.md'

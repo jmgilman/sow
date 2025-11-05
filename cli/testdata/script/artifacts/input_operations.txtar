@@ -24,46 +24,46 @@ exec mkdir -p .sow/project/context
 exec sh -c 'echo "Test context" > .sow/project/context/research.md'
 
 # Test: Add input artifact
-exec sow input add --type context --path context/research.md --phase planning
+exec sow input add --type context --path context/research.md --phase implementation
 exec cat .sow/project/state.yaml
 stdout 'type: context'
 stdout 'path: context/research.md'
 stdout 'approved: false'
 
 # Test: List inputs (shows index and details)
-exec sow input list --phase planning
+exec sow input list --phase implementation
 stdout '\[0\]'
 stdout 'Type: context'
 stdout 'Path: context/research.md'
 stdout 'Approved: false'
 
 # Test: Set approved field using index
-exec sow input set --index 0 approved true --phase planning
+exec sow input set --index 0 approved true --phase implementation
 exec cat .sow/project/state.yaml
 stdout 'approved: true'
 
 # Test: Set metadata field using field path
-exec sow input set --index 0 metadata.source external --phase planning
+exec sow input set --index 0 metadata.source external --phase implementation
 exec cat .sow/project/state.yaml
 stdout 'source: external'
 
 # Test: List shows updated values
-exec sow input list --phase planning
+exec sow input list --phase implementation
 stdout 'Approved: true'
 stdout 'source: external'
 
 # Test: Add second input
 exec sh -c 'echo "More context" > .sow/project/context/design.md'
-exec sow input add --type context --path context/design.md --phase planning
-exec sow input list --phase planning
+exec sow input add --type context --path context/design.md --phase implementation
+exec sow input list --phase implementation
 stdout '\[0\]'
 stdout '\[1\]'
 stdout 'research.md'
 stdout 'design.md'
 
 # Test: Remove input by index (remove first one)
-exec sow input remove --index 0 --phase planning
-exec sow input list --phase planning
+exec sow input remove --index 0 --phase implementation
+exec sow input list --phase implementation
 stdout '\[0\]'
 ! stdout '\[1\]'
 stdout 'design.md'

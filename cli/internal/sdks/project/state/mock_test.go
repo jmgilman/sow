@@ -2,6 +2,7 @@ package state
 
 import (
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/cli/schemas/project"
 )
 
 // mockProjectTypeConfig is a mock implementation of ProjectTypeConfig for testing.
@@ -19,7 +20,7 @@ func (m *mockProjectTypeConfig) InitialState() State {
 	return m.initialState
 }
 
-func (m *mockProjectTypeConfig) Initialize(_ *Project) error {
+func (m *mockProjectTypeConfig) Initialize(_ *Project, _ map[string][]project.ArtifactState) error {
 	// Mock initialization - do nothing
 	return nil
 }
@@ -45,4 +46,12 @@ func (m *mockProjectTypeConfig) PhaseSupportsTasks(phaseName string) bool {
 
 func (m *mockProjectTypeConfig) GetDefaultTaskPhase(_ State) string {
 	return "implementation"
+}
+
+func (m *mockProjectTypeConfig) OrchestratorPrompt(_ *Project) string {
+	return ""
+}
+
+func (m *mockProjectTypeConfig) GetStatePrompt(_ State, _ *Project) string {
+	return ""
 }

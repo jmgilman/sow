@@ -11,7 +11,11 @@ import (
 // Initializer is a function that initializes a newly created project.
 // It is called during Create() to set up phases, metadata, and any
 // project-type-specific initial state.
-type Initializer func(*Project) error
+//
+// Parameters:
+//   - project: The project being initialized
+//   - initialInputs: Optional map of phase name to initial input artifacts (can be nil)
+type Initializer func(*Project, map[string][]project.ArtifactState) error
 
 // Event represents a trigger that causes state transitions.
 // This is a type alias for SDK state machine events.
@@ -28,7 +32,7 @@ type ProjectTypeConfig interface {
 	InitialState() State
 
 	// Initialize calls the configured initializer function if present
-	Initialize(project *Project) error
+	Initialize(project *Project, initialInputs map[string][]project.ArtifactState) error
 
 	// BuildMachine builds a state machine for the project
 	BuildMachine(project *Project, initialState State) *sdkstate.Machine
@@ -44,6 +48,12 @@ type ProjectTypeConfig interface {
 
 	// GetDefaultTaskPhase returns the default phase for task operations based on current state
 	GetDefaultTaskPhase(currentState State) string
+
+	// OrchestratorPrompt generates the orchestrator-level prompt for this project type
+	OrchestratorPrompt(project *Project) string
+
+	// GetStatePrompt generates the state-specific prompt for a given state
+	GetStatePrompt(state State, project *Project) string
 }
 
 // Project wraps the CUE-generated ProjectState with runtime behavior.
@@ -64,6 +74,12 @@ type Project struct {
 // The returned interface{} should be type-asserted to *sdkproject.ProjectTypeConfig.
 func (p *Project) Config() ProjectTypeConfig {
 	return p.config
+}
+
+// Machine returns the state machine for this project.
+// This provides access to the current state and state transition logic.
+func (p *Project) Machine() *sdkstate.Machine {
+	return p.machine
 }
 
 // Helper methods for common guard patterns
