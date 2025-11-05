@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"strings"
 	"text/template"
 )
 
@@ -94,7 +95,9 @@ func renderLegacy(embedFS embed.FS, path string, ctx Context) (string, error) {
 		return "", fmt.Errorf("failed to read template %s: %w", path, err)
 	}
 
-	tmpl, err := template.New(path).Parse(string(content))
+	// Use template helper functions for consistent rendering
+	// This is necessary for templates that use functions like {{join}}
+	tmpl, err := template.New(path).Funcs(legacyFuncMap()).Parse(string(content))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse template %s: %w", path, err)
 	}
@@ -105,4 +108,16 @@ func renderLegacy(embedFS embed.FS, path string, ctx Context) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+// legacyFuncMap returns template functions for legacy rendering.
+// This provides basic string operations needed by mode templates.
+func legacyFuncMap() template.FuncMap {
+	return template.FuncMap{
+		// String operations - join a slice of strings with a separator
+		// Usage: {{join ", " .Tags}}
+		"join": func(sep string, elems []string) string {
+			return strings.Join(elems, sep)
+		},
+	}
 }

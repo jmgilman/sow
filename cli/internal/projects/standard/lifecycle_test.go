@@ -28,9 +28,8 @@ func TestFullLifecycle(t *testing.T) {
 
 	// ImplementationPlanning → ImplementationExecuting
 	t.Run("planning complete transitions to execution", func(t *testing.T) {
-		// Add approved task description outputs
-		addApprovedOutput(t, proj, "implementation", "task_description", ".sow/project/context/tasks/010-task1.md")
-		addApprovedOutput(t, proj, "implementation", "task_description", ".sow/project/context/tasks/020-task2.md")
+		// Set planning approved metadata flag
+		setPhaseMetadata(t, proj, "implementation", "planning_approved", true)
 
 		err := machine.Fire(EventPlanningComplete)
 		if err != nil {
@@ -237,11 +236,16 @@ func TestGuardsBlockInvalidTransitions(t *testing.T) {
 			shouldBlock:  true,
 		},
 		{
-			name:         "implementation planning with unapproved descriptions blocks",
+			name:         "implementation planning with unapproved planning blocks",
 			initialState: sdkstate.State(ImplementationPlanning),
 			setupFunc: func(p *state.Project) {
-				// Add unapproved task description output
-				addUnapprovedOutput(p, "implementation", "task_description", ".sow/project/context/tasks/010-task.md")
+				// Set planning_approved to false (or leave unset - both block)
+				phase := p.Phases["implementation"]
+				if phase.Metadata == nil {
+					phase.Metadata = make(map[string]interface{})
+				}
+				phase.Metadata["planning_approved"] = false
+				p.Phases["implementation"] = phase
 			},
 			event:       sdkstate.Event(EventPlanningComplete),
 			shouldBlock: true,
@@ -425,24 +429,6 @@ func addApprovedOutput(t *testing.T, p *state.Project, phaseName, outputType, pa
 		Path:       path,
 		Created_at: time.Now(),
 		Approved:   true,
-	}
-
-	phase.Outputs = append(phase.Outputs, artifact)
-	p.Phases[phaseName] = phase
-}
-
-// addUnapprovedOutput adds an unapproved output artifact to a phase.
-func addUnapprovedOutput(p *state.Project, phaseName, outputType, path string) {
-	phase, exists := p.Phases[phaseName]
-	if !exists {
-		return
-	}
-
-	artifact := projschema.ArtifactState{
-		Type:       outputType,
-		Path:       path,
-		Created_at: time.Now(),
-		Approved:   false,
 	}
 
 	phase.Outputs = append(phase.Outputs, artifact)

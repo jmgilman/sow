@@ -56,19 +56,7 @@ WORKFLOW:
    - **Relevant Inputs** section with file paths
    - Examples and constraints
 
-3. REGISTER TASK DESCRIPTIONS AS OUTPUTS
-
-   For each task description file the planner created:
-
-   ```bash
-   sow output add --type task_description \
-     --path "context/tasks/{id}-{name}.md" \
-     --phase implementation
-   ```
-
-   This makes them artifacts that can be approved/rejected.
-
-4. PRESENT TO USER FOR REVIEW
+3. PRESENT TO USER FOR REVIEW
 
    Inform the user:
    ```
@@ -79,17 +67,21 @@ WORKFLOW:
    - 020-{name}: {brief description}
    ...
 
-   Please review the task description files.
-
-   To approve all tasks:
-   sow output set --index 0 approved true --phase implementation
-   sow output set --index 1 approved true --phase implementation
-   ...
-
-   Or approve individually after reviewing each file.
+   Please review the task description files. When satisfied, say "approved"
+   and I'll set the planning approval flag to proceed.
    ```
 
    Wait for user approval. Do not proceed until user confirms.
+
+4. SET PLANNING APPROVAL
+
+   Once user says "approved", set the metadata flag:
+
+   ```bash
+   sow phase set metadata.planning_approved true --phase implementation
+   ```
+
+   This enables the transition to execution phase.
 
 5. HANDLE USER FEEDBACK
 
@@ -99,7 +91,7 @@ WORKFLOW:
    - Update Relevant Inputs sections
    - Maintain comprehensive, self-contained descriptions
 
-   After manual changes, user approves updated artifacts.
+   After manual changes, user says "approved" and you set the flag.
 
 6. ADD TASKS VIA CLI
 
@@ -160,11 +152,13 @@ WORKFLOW:
 
 {{$impl := phase . "implementation"}}
 {{if $impl}}CURRENT STATUS:
-  Outputs: {{len $impl.Outputs}} total
+  Planning approved: {{phaseMetadata $impl "planning_approved"}}
   Tasks: {{len $impl.Tasks}} total
 
-  {{range $impl.Outputs}}{{if eq .Type "task_description"}}  - {{.Path}} {{if .Approved}}(approved){{else}}(pending){{end}}
-  {{end}}{{end}}
+  {{if not (phaseMetadata $impl "planning_approved")}}
+  ⚠️ Task descriptions need approval before proceeding.
+  Review files in .sow/project/context/tasks/ then wait for user to say "approved".
+  {{end}}
 {{end}}
 
 IMPORTANT NOTES:

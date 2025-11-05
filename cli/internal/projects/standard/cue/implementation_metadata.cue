@@ -2,7 +2,12 @@ package standard
 
 // Metadata schema for implementation phase
 {
-	// No metadata currently required for implementation phase
-	// Task list approval tracked via output artifacts
-	// Task descriptions tracked via task input artifacts
+	// Planning approval flag
+	// Set to true when user approves task descriptions in .sow/project/context/tasks/
+	// Used by guard to allow transition from ImplementationPlanning -> ImplementationExecuting
+	planning_approved?: bool
+
+	// Future: Could add fields like:
+	// - planning_iteration?: int (for rework cycles)
+	// - planner_agent_id?: string (for tracking which agent created plans)
 }
