@@ -4,7 +4,7 @@ import "time"
 
 // GenericStatus defines the common phase status values that most project types use.
 // Project types can use this for their phases or define custom status enums per phase.
-#GenericStatus: "pending" | "in_progress" | "completed" | "skipped"
+#GenericStatus: "pending" | "in_progress" | "completed" | "skipped" | "failed"
 
 // Phase is the universal schema for all phases in all project types.
 // What makes a phase unique is its guards, prompts, and which operations it supports.
@@ -18,6 +18,11 @@ import "time"
 	created_at:    time.Time
 	started_at?:   time.Time @go(,optional=nillable)
 	completed_at?: time.Time @go(,optional=nillable)
+	failed_at?:    time.Time @go(,optional=nillable)
+
+	// Iteration tracking for phases that go through multiple cycles
+	// Starts at 1, increments on re-entry after failure
+	iteration?: int & >=1 @go(,optional=nillable)
 
 	// Generic collections (used by phases that need them)
 	artifacts: [...#Artifact] // Used by discovery, design, review

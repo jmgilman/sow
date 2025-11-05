@@ -72,3 +72,55 @@ stdout '(?s)implementation:.*enabled: false.*custom_field: test_value'
 exec sow phase set metadata.complexity.level high --phase implementation
 exec cat .sow/project/state.yaml
 stdout 'level: high'
+
+# =====================================
+# Test: Set Failed Status
+# =====================================
+
+# Set phase status to failed
+exec sow phase set status failed --phase implementation
+exec cat .sow/project/state.yaml
+stdout 'status: failed'
+
+# Verify failed status persists
+exec cat .sow/project/state.yaml
+stdout '(?s)implementation:.*status: failed'
+
+# =====================================
+# Test: Set Iteration Field
+# =====================================
+
+# Set iteration field (simulating rework cycle)
+exec sow phase set iteration 2 --phase implementation
+exec cat .sow/project/state.yaml
+stdout 'iteration: 2'
+
+# Set iteration to higher value
+exec sow phase set iteration 3 --phase implementation
+exec cat .sow/project/state.yaml
+stdout 'iteration: 3'
+
+# =====================================
+# Test: Status Transitions
+# =====================================
+
+# Test valid status transitions
+exec sow phase set status pending --phase implementation
+exec cat .sow/project/state.yaml
+stdout '(?s)implementation:.*status: pending'
+
+exec sow phase set status in_progress --phase implementation
+exec cat .sow/project/state.yaml
+stdout '(?s)implementation:.*status: in_progress'
+
+exec sow phase set status completed --phase implementation
+exec cat .sow/project/state.yaml
+stdout '(?s)implementation:.*status: completed'
+
+exec sow phase set status failed --phase implementation
+exec cat .sow/project/state.yaml
+stdout '(?s)implementation:.*status: failed'
+
+exec sow phase set status skipped --phase implementation
+exec cat .sow/project/state.yaml
+stdout '(?s)implementation:.*status: skipped'

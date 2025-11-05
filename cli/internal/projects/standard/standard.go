@@ -133,6 +133,41 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			project.WithGuard(func(p *state.Project) bool {
 				return latestReviewApproved(p)
 			}),
+			project.WithOnExit(func(p *state.Project) error {
+				// Mark review phase as failed
+				return state.MarkPhaseFailed(p, "review")
+			}),
+			project.WithOnEntry(func(p *state.Project) error {
+				// Only execute rework logic if review phase exists and has failed
+				// (this prevents executing on NoProject → ImplementationPlanning transition)
+				reviewPhase, hasReview := p.Phases["review"]
+				if !hasReview || len(reviewPhase.Outputs) == 0 {
+					// First time entering implementation - no rework needed
+					return nil
+				}
+
+				// Increment implementation iteration for rework
+				if err := state.IncrementPhaseIteration(p, "implementation"); err != nil {
+					return fmt.Errorf("failed to increment implementation iteration: %w", err)
+				}
+
+				// Reopen implementation phase
+				phase := p.Phases["implementation"]
+				phase.Status = "in_progress"
+				p.Phases["implementation"] = phase
+
+				// Add failed review as implementation input
+				return state.AddPhaseInputFromOutput(
+					p,
+					"review",
+					"implementation",
+					"review",
+					func(a *projschema.ArtifactState) bool {
+						assessment, ok := a.Metadata["assessment"].(string)
+						return ok && assessment == "fail" && a.Approved
+					},
+				)
+			}),
 		).
 
 		// Finalize substates

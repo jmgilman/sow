@@ -122,6 +122,102 @@ func TestReviewFailLoop(t *testing.T) {
 	if got := machine.State(); got != sdkstate.State(ImplementationPlanning) {
 		t.Errorf("state = %v, want %v", got, ImplementationPlanning)
 	}
+
+	// Verify review phase marked as failed
+	reviewPhase := proj.Phases["review"]
+	if reviewPhase.Status != "failed" {
+		t.Errorf("review phase status = %v, want failed", reviewPhase.Status)
+	}
+	if reviewPhase.Failed_at.IsZero() {
+		t.Error("review phase failed_at not set")
+	}
+
+	// Verify implementation iteration incremented
+	implPhase := proj.Phases["implementation"]
+	if implPhase.Iteration != 1 {
+		t.Errorf("implementation phase iteration = %v, want 1", implPhase.Iteration)
+	}
+
+	// Verify implementation phase status set to in_progress
+	if implPhase.Status != "in_progress" {
+		t.Errorf("implementation phase status = %v, want in_progress", implPhase.Status)
+	}
+
+	// Verify failed review added as implementation input
+	foundReviewInput := false
+	for _, input := range implPhase.Inputs {
+		if input.Type == "review" {
+			foundReviewInput = true
+			// Verify it's the failed review
+			if assessment, ok := input.Metadata["assessment"].(string); ok {
+				if assessment != "fail" {
+					t.Errorf("review input assessment = %v, want fail", assessment)
+				}
+			} else {
+				t.Error("review input missing assessment metadata")
+			}
+			break
+		}
+	}
+	if !foundReviewInput {
+		t.Error("failed review not added as implementation input")
+	}
+}
+
+// TestMultipleReviewFailures tests iteration increments across multiple review failures.
+func TestMultipleReviewFailures(t *testing.T) {
+	proj, machine := createTestProject(t, ReviewActive)
+
+	// First review failure
+	addApprovedReview(t, proj, "fail", "review-fail-1.md")
+	err := machine.Fire(EventReviewFail)
+	if err != nil {
+		t.Fatalf("Fire(EventReviewFail) #1 failed: %v", err)
+	}
+
+	// Verify iteration = 1 after first failure
+	implPhase := proj.Phases["implementation"]
+	if implPhase.Iteration != 1 {
+		t.Errorf("after first failure: iteration = %v, want 1", implPhase.Iteration)
+	}
+
+	// Simulate completing implementation again and returning to review
+	// (In real workflow, would go through full ImplementationPlanning → ImplementationExecuting → ReviewActive)
+	// For this test, we'll just update machine state and add another review
+	machine = NewStandardProjectConfig().BuildMachine(proj, sdkstate.State(ReviewActive))
+
+	// Second review failure
+	addApprovedReview(t, proj, "fail", "review-fail-2.md")
+	err = machine.Fire(EventReviewFail)
+	if err != nil {
+		t.Fatalf("Fire(EventReviewFail) #2 failed: %v", err)
+	}
+
+	// Verify iteration = 2 after second failure
+	implPhase = proj.Phases["implementation"]
+	if implPhase.Iteration != 2 {
+		t.Errorf("after second failure: iteration = %v, want 2", implPhase.Iteration)
+	}
+
+	// Third review failure
+	machine = NewStandardProjectConfig().BuildMachine(proj, sdkstate.State(ReviewActive))
+	addApprovedReview(t, proj, "fail", "review-fail-3.md")
+	err = machine.Fire(EventReviewFail)
+	if err != nil {
+		t.Fatalf("Fire(EventReviewFail) #3 failed: %v", err)
+	}
+
+	// Verify iteration = 3 after third failure
+	implPhase = proj.Phases["implementation"]
+	if implPhase.Iteration != 3 {
+		t.Errorf("after third failure: iteration = %v, want 3", implPhase.Iteration)
+	}
+
+	// Verify review phase failed_at updated
+	reviewPhase := proj.Phases["review"]
+	if reviewPhase.Status != "failed" {
+		t.Errorf("review phase status = %v, want failed", reviewPhase.Status)
+	}
 }
 
 // TestGuardsBlockInvalidTransitions tests guards prevent invalid transitions.
