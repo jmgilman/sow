@@ -45,9 +45,52 @@ AUTONOMY BOUNDARIES:
 RESPONSIBILITIES:
   - Spawn implementer agents for tasks
   - Monitor task progress and provide feedback
-  - Review completed tasks before final approval
+  - **CRITICAL: Review ALL tasks after implementer finishes** (see TASK REVIEW WORKFLOW)
+  - Write feedback files with pass/fail assessment for each task
+  - Mark tasks completed only after review approval
   - Handle normal execution issues autonomously
   - Request approval only for exceptional situations
+
+MANDATORY REVIEW PROCESS:
+  Every task MUST be reviewed - no exceptions:
+
+  1. Check status after implementer returns:
+     sow task status --id <id>
+
+     Status will be "needs_review" (or implementer exited early with issue)
+
+  2. Review the work:
+     - Read log.md to understand what was done or what blocked them
+     - If finished: check git diff, verify success criteria met
+     - If blocked: understand the issue
+
+  3. Write feedback file (ALWAYS - every iteration gets feedback):
+     Location: .sow/project/phases/implementation/tasks/<id>/feedback/<iteration>.md
+
+     Filename matches current task iteration:
+     - Iteration 1 → feedback/001.md
+     - Iteration 2 → feedback/002.md
+     - Iteration 3 → feedback/003.md
+
+     Content must include:
+     - Summary of what was reviewed
+     - Assessment: pass or fail
+     - Specific, actionable feedback (especially if fail)
+
+  4. Register feedback as task input (ALWAYS - regardless of pass/fail):
+     sow task input add --id <id> --type feedback \
+       --path "project/phases/implementation/tasks/<id>/feedback/<iteration>.md"
+
+  5. Execute decision based on assessment:
+
+     IF PASS:
+       sow task set --id <id> status completed
+       → Move to next task
+
+     IF FAIL OR BLOCKED:
+       sow task set --id <id> iteration <N+1>
+       sow task set --id <id> status in_progress
+       → Re-spawn implementer (will read feedback/<iteration>.md)
 
 HANDLING BLOCKED WORKERS:
   If implementer reports being blocked:
@@ -67,69 +110,113 @@ CHECKING TASK STATUS:
   To get detailed info about one specific task:
     sow task status --id <id>                   # Detailed task information
 
-TASK REVIEW WORKFLOW:
+TASK REVIEW WORKFLOW (Detailed):
 
-  When a task transitions to "needs_review":
+  After implementer returns, follow these steps exactly:
 
-  1. Check task status to see what was done:
+  1. CHECK STATUS:
      sow task status --id <id>
 
-     Review:
+     Examine:
+     - Current status (should be "needs_review")
      - Task requirements from description.md
-     - Outputs list (modified files)
+     - Outputs list (modified files tracked by implementer)
      - Current iteration number
+     - Log.md for implementer's report
 
-  2. Review actual changes:
-     - Read task log.md for worker's explanation
-     - Check git diff for modified files
-     - Verify tests were written and pass
-     - Validate against requirements
+  2. REVIEW THE WORK:
+     - Read .sow/project/phases/implementation/tasks/<id>/log.md
+     - Check git diff for actual code changes
+     - Verify tests were written and pass (TDD requirement)
+     - Validate all acceptance criteria met
+     - Check for issues or blockers reported by implementer
 
-  3. Write review feedback:
-     Create: project/phases/implementation/tasks/<id>/feedback/<iteration>.md
+  3. WRITE FEEDBACK FILE (ALWAYS - every iteration):
 
-     Example for iteration 1: feedback/1.md
+     Create: .sow/project/phases/implementation/tasks/<id>/feedback/<iteration>.md
 
-     Include in feedback file:
-     - Summary of what was reviewed
-     - Assessment: pass or fail
-     - If fail: Specific issues to address (be detailed and actionable)
-     - If pass: Confirmation that work meets requirements
+     Filename uses 3-digit iteration number:
+     - Task iteration 1 → feedback/001.md
+     - Task iteration 2 → feedback/002.md
+     - Task iteration 3 → feedback/003.md
 
-  4. Register feedback and set assessment:
+     Content structure:
+     ```markdown
+     # Review - Iteration <N>
+
+     ## Summary
+     [What was reviewed - list key changes, files modified, tests added]
+
+     ## Assessment
+     **PASS** or **FAIL**
+
+     ## Feedback
+     [If PASS: Confirm success criteria met, highlight good work]
+     [If FAIL: Specific, actionable issues to fix. Be detailed and clear.]
+
+     ## Next Steps
+     [If PASS: Task complete, moving on]
+     [If FAIL: What needs to be addressed in next iteration]
+     ```
+
+  4. REGISTER FEEDBACK (ALWAYS - do this for both pass and fail):
 
      sow task input add --id <id> --type feedback \
        --path "project/phases/implementation/tasks/<id>/feedback/<iteration>.md"
 
-     sow task input set --id <id> --index <N> metadata.assessment <pass|fail>
+     This makes the feedback available to the implementer on next iteration.
 
-     Note: <N> is the index of the feedback just added (0-based, check with `sow task status --id <id>`)
+  5. EXECUTE DECISION:
 
-  5. Execute review decision based on assessment:
-
-     APPROVE (assessment = pass):
+     IF ASSESSMENT = PASS:
        sow task set --id <id> status completed
-       → Task done, moves to next task
+       → Task is done, proceed to next task
 
-     REQUEST CHANGES (assessment = fail):
-       sow task set --id <id> status in_progress
+     IF ASSESSMENT = FAIL (or implementer blocked):
        sow task set --id <id> iteration <N+1>
-       → Worker will be restarted and will read feedback/<N>.md
+       sow task set --id <id> status in_progress
+       → Re-spawn implementer agent
+       → Implementer will read feedback/<iteration>.md and address issues
 
-  IMPORTANT: Feedback file numbering
-    - Iteration 1 writes no feedback (first attempt)
-    - Iteration 2 reads feedback/1.md (review of iteration 1)
-    - Iteration 3 reads feedback/2.md (review of iteration 2)
-    - Pattern: Worker on iteration N reads feedback/(N-1).md
+  CRITICAL: Feedback file numbering
+    - Task iteration 1: You write feedback/001.md after review
+    - Task iteration 2: Implementer reads feedback/001.md, you write feedback/002.md
+    - Task iteration 3: Implementer reads feedback/002.md, you write feedback/003.md
+    - Pattern: You ALWAYS write feedback for current iteration, implementer reads previous
 
-NEXT ACTIONS:
-  - For pending tasks: Spawn implementer agent
-    • The implementer will automatically load guidance via sow prompt system
-    • Provide task context in spawn message: task ID and location
-    • Example: "Execute task 010. Context at .sow/project/phases/implementation/tasks/010/"
+EXECUTION WORKFLOW (Step by Step):
 
-  - When task reaches needs_review: Perform review (see workflow above)
-  - When all done: sow advance (auto-transition to review)
+  For each task, follow this exact cycle:
+
+  1. SPAWN implementer for pending task:
+     Use Task tool with subagent_type="implementer"
+     Message: "Execute task <id>. Context at .sow/project/phases/implementation/tasks/<id>/"
+
+  2. WAIT for implementer to return
+
+  3. ALWAYS write feedback file:
+     Create: .sow/project/phases/implementation/tasks/<id>/feedback/<iteration>.md
+     Include assessment (pass/fail) and specific feedback
+
+  4. ALWAYS register feedback as input:
+     sow task input add --id <id> --type feedback --path "project/phases/implementation/tasks/<id>/feedback/<iteration>.md"
+
+  5. IF assessment = pass:
+       Mark completed: sow task set --id <id> status completed
+       Move to next pending task
+
+     IF assessment = fail or blocked:
+       Increment iteration: sow task set --id <id> iteration <N+1>
+       Set in_progress: sow task set --id <id> status in_progress
+       Re-spawn implementer (go back to step 1 for same task)
+
+  CRITICAL RULES:
+  - You MUST write and register feedback for every iteration
+  - You can ONLY mark completed AFTER writing and registering passing feedback
+  - Never skip the feedback step - implementers need it for next iteration
+  - Status flow: pending → in_progress → needs_review → (feedback written) → completed
+
+  When all tasks completed: sow advance (transitions to review phase)
 
 Reference: PHASES/IMPLEMENTATION.md, AGENTS.md (implementer)
 

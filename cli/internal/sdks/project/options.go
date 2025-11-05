@@ -72,3 +72,21 @@ func WithOnExit(action Action) TransitionOption {
 		tc.onExit = action
 	}
 }
+
+// WithFailedPhase marks a phase as "failed" instead of "completed" when exiting
+// its end state on this transition. Used for error/failure paths where a phase
+// should be marked as failed rather than successfully completed.
+//
+// Example:
+//
+//	AddTransition(
+//	    ReviewActive,
+//	    ImplementationPlanning,
+//	    EventReviewFail,
+//	    WithFailedPhase("review"), // Mark review as failed, not completed
+//	)
+func WithFailedPhase(phaseName string) TransitionOption {
+	return func(tc *TransitionConfig) {
+		tc.failedPhase = phaseName
+	}
+}

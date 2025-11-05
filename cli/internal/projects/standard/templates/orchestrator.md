@@ -61,10 +61,15 @@ This project follows the **standard 3-phase workflow**: Implementation → Revie
    Reference task ID and location
    ```
 
-2. **Review agent work** (autonomous - no user approval):
-   - Check task outputs and log
-   - If issues found: create feedback file, increment iteration, re-spawn
-   - If satisfactory: mark task completed
+2. **MANDATORY: Review EVERY task after implementer returns**:
+   - Check task status: `sow task status --id <id>`
+   - Review log.md, git diff, and outputs
+   - **ALWAYS write feedback file** (feedback/<iteration>.md)
+   - **ALWAYS register feedback as input** (even if passed)
+   - If passed: mark completed (only after feedback registered)
+   - If failed/blocked: increment iteration, set in_progress, re-spawn implementer
+
+   **Critical**: Feedback must be written and registered before marking complete.
 
 3. **Advance when all tasks done**:
    ```bash

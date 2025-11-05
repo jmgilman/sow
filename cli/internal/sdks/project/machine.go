@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	stateMachine "github.com/jmgilman/sow/cli/internal/sdks/state"
@@ -97,4 +98,104 @@ func (ptc *ProjectTypeConfig) BuildMachine(
 	}
 
 	return builder.Build()
+}
+
+// FireWithPhaseUpdates fires an event and automatically updates phase statuses
+// based on the state transition. This wraps the standard Fire() call with
+// automatic phase status management.
+//
+// Phase status updates:
+//   - When exiting a phase's end state → mark phase "completed" (unless already "failed")
+//   - When entering a phase's start state → mark phase "in_progress" (only if "pending")
+//
+// This approach respects explicit status changes (like MarkPhaseFailed) while
+// automating the common case of successful phase progression.
+//
+// Example usage:
+//
+//	err := config.FireWithPhaseUpdates(machine, EventPlanningComplete, project)
+func (ptc *ProjectTypeConfig) FireWithPhaseUpdates(
+	machine *stateMachine.Machine,
+	event stateMachine.Event,
+	project *state.Project,
+) error {
+	// Capture old state before transition
+	oldState := machine.State()
+
+	// Fire the event (executes user-defined guards and actions)
+	if err := machine.Fire(event); err != nil {
+		return fmt.Errorf("transition failed: %w", err)
+	}
+
+	// Capture new state after transition
+	newState := machine.State()
+
+	// Look up the transition config to check for special phase status handling
+	transitionConfig := ptc.GetTransition(oldState, newState, event)
+
+	// Update phase status when exiting a phase's end state
+	if err := ptc.updateExitingPhaseStatus(oldState, transitionConfig, project); err != nil {
+		return err
+	}
+
+	// Update phase status when entering a phase's start state
+	if err := ptc.updateEnteringPhaseStatus(newState, project); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// updateExitingPhaseStatus updates the status of a phase when exiting its end state.
+// Marks the phase as "failed" if configured in the transition, otherwise "completed".
+func (ptc *ProjectTypeConfig) updateExitingPhaseStatus(
+	oldState stateMachine.State,
+	transitionConfig *TransitionConfig,
+	project *state.Project,
+) error {
+	phaseName := ptc.GetPhaseForState(oldState)
+	if phaseName == "" {
+		return nil
+	}
+
+	if !ptc.IsPhaseEndState(phaseName, oldState) {
+		return nil
+	}
+
+	// Check if this transition explicitly marks the phase as failed
+	if transitionConfig != nil && transitionConfig.failedPhase == phaseName {
+		// Mark as failed instead of completed
+		if err := state.MarkPhaseFailed(project, phaseName); err != nil {
+			return fmt.Errorf("failed to mark phase %s as failed: %w", phaseName, err)
+		}
+		return nil
+	}
+
+	// Normal case: mark as completed
+	if err := state.MarkPhaseCompleted(project, phaseName); err != nil {
+		return fmt.Errorf("failed to mark phase %s completed: %w", phaseName, err)
+	}
+	return nil
+}
+
+// updateEnteringPhaseStatus updates the status of a phase when entering its start state.
+// Marks the phase as "in_progress" if currently "pending".
+func (ptc *ProjectTypeConfig) updateEnteringPhaseStatus(
+	newState stateMachine.State,
+	project *state.Project,
+) error {
+	phaseName := ptc.GetPhaseForState(newState)
+	if phaseName == "" {
+		return nil
+	}
+
+	if !ptc.IsPhaseStartState(phaseName, newState) {
+		return nil
+	}
+
+	// MarkPhaseInProgress only updates if status is "pending"
+	if err := state.MarkPhaseInProgress(project, phaseName); err != nil {
+		return fmt.Errorf("failed to mark phase %s in_progress: %w", phaseName, err)
+	}
+	return nil
 }

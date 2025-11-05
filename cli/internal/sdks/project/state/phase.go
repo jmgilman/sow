@@ -59,6 +59,51 @@ func MarkPhaseFailed(p *Project, phaseName string) error {
 	return nil
 }
 
+// MarkPhaseInProgress sets a phase's status to "in_progress".
+// This only modifies the status if the current status is "pending", to preserve
+// manual status changes during rework loops.
+// This is typically called automatically by the SDK when entering a phase's start state.
+//
+// Example usage in transition actions:
+//
+//	project.WithOnEntry(func(p *state.Project) error {
+//	    return state.MarkPhaseInProgress(p, "implementation")
+//	})
+func MarkPhaseInProgress(p *Project, phaseName string) error {
+	phase, exists := p.Phases[phaseName]
+	if !exists {
+		return fmt.Errorf("phase %s not found", phaseName)
+	}
+
+	// Only update if currently pending (preserve manual changes for rework)
+	if phase.Status == "pending" {
+		phase.Status = "in_progress"
+		p.Phases[phaseName] = phase
+	}
+	return nil
+}
+
+// MarkPhaseCompleted sets a phase's status to "completed" and records the completed_at timestamp.
+// This is typically called automatically by the SDK when leaving a phase's end state.
+//
+// Example usage in transition actions:
+//
+//	project.WithOnExit(func(p *state.Project) error {
+//	    return state.MarkPhaseCompleted(p, "implementation")
+//	})
+func MarkPhaseCompleted(p *Project, phaseName string) error {
+	phase, exists := p.Phases[phaseName]
+	if !exists {
+		return fmt.Errorf("phase %s not found", phaseName)
+	}
+
+	now := time.Now()
+	phase.Status = "completed"
+	phase.Completed_at = now
+	p.Phases[phaseName] = phase
+	return nil
+}
+
 // AddPhaseInputFromOutput adds an artifact from one phase's outputs as an input to another phase.
 // This is useful for creating data flow between phases (e.g., failed review → implementation input).
 //

@@ -187,7 +187,8 @@ func (b *MachineBuilder) AddTransition(
 	cfgTo := b.sm.Configure(to)
 
 	// Add built-in prompt generation entry action
-	cfgTo.OnEntry(b.onEntry(from))
+	// Pass 'to' so the prompt for the NEW state is generated, not the old one
+	cfgTo.OnEntry(b.onEntry(to))
 
 	// Add user-defined entry actions (run after entering target state)
 	for _, action := range config.entryActions {

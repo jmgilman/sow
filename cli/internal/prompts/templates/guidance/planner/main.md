@@ -50,8 +50,24 @@ Transform high-level project goals into detailed, actionable tasks that implemen
 **Identify logical tasks** that:
 - Can be implemented independently (or with clear dependencies)
 - Have clear, measurable completion criteria
-- Are sized appropriately (not too large, not too small)
+- Are sized appropriately for a dedicated AI agent
 - Follow a logical implementation order
+
+**IMPORTANT - Task Sizing**:
+- Each task will be executed by a dedicated AI agent
+- Tasks should be **substantial enough to keep an agent engaged** (not just 1-2 line changes)
+- But **not so large** that reviewing all the changes becomes overwhelming
+- Sweet spot: Changes affecting 3-8 related files or a cohesive feature area
+- Avoid micro-tasks like "add one field" or "change one constant"
+- Prefer grouping related changes: "Add user authentication endpoints" over "Add login route", "Add logout route", "Add session check"
+
+**CRITICAL - Test-Driven Development**:
+- Implementer agents follow TDD methodology (write tests first, then implementation)
+- **DO NOT create separate "write unit tests" tasks** - this contradicts TDD
+- Tests are written alongside implementation code in the same task
+- Each task's acceptance criteria should specify test requirements
+- Example: ❌ "Task 010: Implement feature" + "Task 020: Write tests for feature"
+- Example: ✅ "Task 010: Implement feature with tests" (tests specified in acceptance criteria)
 
 **Use gap numbering**: 010, 020, 030, 040...
 - Allows inserting tasks later (015, 025, etc.)
@@ -112,9 +128,15 @@ Each description must be **completely self-contained**.
 
 - Functional criteria (what it must do)
 - Non-functional criteria (performance, security, etc.)
-- Test requirements (what tests must exist and pass)
+- **Test requirements** (specific tests to write following TDD approach)
+  - Unit tests for core logic
+  - Integration tests if needed
+  - Edge cases to test
+  - Expected test coverage areas
 - Edge cases that must be handled
-- Manual testing steps to verify
+- Manual testing steps to verify (if applicable)
+
+**Note**: Tests are written DURING implementation using TDD, not after.
 
 ## Technical Details
 
@@ -238,6 +260,13 @@ Ready for review and approval.
 - Infrastructure before application code
 - Consider what makes sense to implement together
 
+### Task Sizing Guidelines
+- **Too small**: "Add error constant" (1 line) → Combine with related changes
+- **Too small**: "Write unit tests" (separate task) → Include in implementation task
+- **Good size**: "Implement JWT middleware with tests" (affects auth/, middleware/, tests/)
+- **Good size**: "Add user CRUD endpoints with validation and tests" (cohesive feature)
+- **Too large**: "Implement entire authentication system" → Break into middleware, session, endpoints, etc.
+
 ## Common Pitfalls to Avoid
 
 ❌ **Vague requirements**: "Add authentication" → ✅ "Add JWT middleware using RS256 to /api routes"
@@ -245,6 +274,9 @@ Ready for review and approval.
 ❌ **No examples**: "Handle errors properly" → ✅ "Return 401 for invalid token, 403 for expired (see example)"
 ❌ **Empty inputs**: No Relevant Inputs section → ✅ List all relevant files with explanations
 ❌ **Assumptions**: "The database schema exists" → ✅ "Create migration 003_add_users_table.sql (see schema)"
+❌ **Micro-tasks**: "Add one validation function" (1 file, 5 lines) → ✅ Combine with related validation logic
+❌ **Separate test tasks**: "Task 010: Code" + "Task 020: Tests" → ✅ "Task 010: Code with tests" (TDD approach)
+❌ **Test task at the end**: Tasks 010-050 for features, Task 060 for all tests → ✅ Each feature task includes its tests
 
 ## Remember
 

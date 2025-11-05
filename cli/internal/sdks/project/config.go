@@ -54,6 +54,10 @@ type TransitionConfig struct {
 
 	// onExit is an action to execute when exiting the source state
 	onExit Action
+
+	// failedPhase optionally specifies a phase to mark as "failed" instead of "completed"
+	// when exiting its end state on this transition. Used for error/failure paths.
+	failedPhase string
 }
 
 // ProjectTypeConfig holds the complete configuration for a project type.
@@ -228,4 +232,49 @@ func (ptc *ProjectTypeConfig) DetermineEvent(project *state.Project) (sdkstate.E
 		return "", fmt.Errorf("no event determiner configured for state %s", currentState)
 	}
 	return determiner(project)
+}
+
+// GetPhaseForState returns the phase name that contains the given state.
+// Returns empty string if the state doesn't belong to any phase's start or end state.
+// If multiple phases have the same state (which shouldn't happen in a well-designed
+// project type), returns the first match in iteration order.
+func (ptc *ProjectTypeConfig) GetPhaseForState(state sdkstate.State) string {
+	for name, config := range ptc.phaseConfigs {
+		if config.startState == state || config.endState == state {
+			return name
+		}
+	}
+	return ""
+}
+
+// IsPhaseStartState checks if the given state is the startState of the specified phase.
+// Returns false if the phase doesn't exist or the state doesn't match.
+func (ptc *ProjectTypeConfig) IsPhaseStartState(phaseName string, state sdkstate.State) bool {
+	config, exists := ptc.phaseConfigs[phaseName]
+	if !exists {
+		return false
+	}
+	return config.startState == state
+}
+
+// IsPhaseEndState checks if the given state is the endState of the specified phase.
+// Returns false if the phase doesn't exist or the state doesn't match.
+func (ptc *ProjectTypeConfig) IsPhaseEndState(phaseName string, state sdkstate.State) bool {
+	config, exists := ptc.phaseConfigs[phaseName]
+	if !exists {
+		return false
+	}
+	return config.endState == state
+}
+
+// GetTransition looks up a transition config by from state, event, and to state.
+// Returns nil if no matching transition is found.
+func (ptc *ProjectTypeConfig) GetTransition(from, to sdkstate.State, event sdkstate.Event) *TransitionConfig {
+	for i := range ptc.transitions {
+		tc := &ptc.transitions[i]
+		if tc.From == from && tc.To == to && tc.Event == event {
+			return tc
+		}
+	}
+	return nil
 }

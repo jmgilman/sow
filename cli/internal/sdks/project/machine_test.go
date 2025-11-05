@@ -356,3 +356,228 @@ func TestBuildMachineCombinedGuardAndActions(t *testing.T) {
 		t.Errorf("expected state 'end', got %s", machine.State())
 	}
 }
+
+// TestBuildMachineAutomaticPhaseInProgress tests that entering a phase's start state
+// automatically marks the phase as "in_progress" (if currently "pending").
+func TestBuildMachineAutomaticPhaseInProgress(t *testing.T) {
+	proj := &state.Project{
+		ProjectState: projectSchemas.ProjectState{
+			Phases: map[string]projectSchemas.PhaseState{
+				"implementation": {Status: "pending"},
+			},
+		},
+	}
+
+	config := NewProjectTypeConfigBuilder("test").
+		WithPhase("implementation",
+			WithStartState(stateMachine.State("planning")),
+			WithEndState(stateMachine.State("executing")),
+		).
+		AddTransition(
+			stateMachine.State("init"),
+			stateMachine.State("planning"),
+			stateMachine.Event("start"),
+		).
+		Build()
+
+	machine := config.BuildMachine(proj, stateMachine.State("init"))
+
+	// Verify phase starts as pending
+	if proj.Phases["implementation"].Status != "pending" {
+		t.Errorf("expected initial status=pending, got %s", proj.Phases["implementation"].Status)
+	}
+
+	// Fire transition with phase updates to enter phase's start state
+	if err := config.FireWithPhaseUpdates(machine, stateMachine.Event("start"), proj); err != nil {
+		t.Fatalf("FireWithPhaseUpdates failed: %v", err)
+	}
+
+	// Verify phase was automatically marked in_progress
+	if proj.Phases["implementation"].Status != "in_progress" {
+		t.Errorf("expected automatic status=in_progress, got %s", proj.Phases["implementation"].Status)
+	}
+}
+
+// TestBuildMachineAutomaticPhaseCompleted tests that exiting a phase's end state
+// automatically marks the phase as "completed" with a timestamp.
+func TestBuildMachineAutomaticPhaseCompleted(t *testing.T) {
+	proj := &state.Project{
+		ProjectState: projectSchemas.ProjectState{
+			Phases: map[string]projectSchemas.PhaseState{
+				"implementation": {Status: "in_progress"},
+			},
+		},
+	}
+
+	config := NewProjectTypeConfigBuilder("test").
+		WithPhase("implementation",
+			WithStartState(stateMachine.State("planning")),
+			WithEndState(stateMachine.State("executing")),
+		).
+		AddTransition(
+			stateMachine.State("executing"),
+			stateMachine.State("review"),
+			stateMachine.Event("complete"),
+		).
+		Build()
+
+	machine := config.BuildMachine(proj, stateMachine.State("executing"))
+
+	// Fire transition with phase updates to exit phase's end state
+	if err := config.FireWithPhaseUpdates(machine, stateMachine.Event("complete"), proj); err != nil {
+		t.Fatalf("FireWithPhaseUpdates failed: %v", err)
+	}
+
+	// Verify phase was automatically marked completed
+	if proj.Phases["implementation"].Status != "completed" {
+		t.Errorf("expected automatic status=completed, got %s", proj.Phases["implementation"].Status)
+	}
+
+	// Verify completed_at timestamp was set
+	if proj.Phases["implementation"].Completed_at.IsZero() {
+		t.Error("expected completed_at timestamp to be set")
+	}
+}
+
+// TestBuildMachineAutomaticPhaseActionsBeforeUserActions tests that automatic phase
+// status actions run after machine Fire but before user accesses the phase status.
+func TestBuildMachineAutomaticPhaseActionsBeforeUserActions(t *testing.T) {
+	proj := &state.Project{
+		ProjectState: projectSchemas.ProjectState{
+			Phases: map[string]projectSchemas.PhaseState{
+				"implementation": {Status: "pending"},
+			},
+		},
+	}
+
+	config := NewProjectTypeConfigBuilder("test").
+		WithPhase("implementation",
+			WithStartState(stateMachine.State("planning")),
+			WithEndState(stateMachine.State("executing")),
+		).
+		AddTransition(
+			stateMachine.State("init"),
+			stateMachine.State("planning"),
+			stateMachine.Event("start"),
+		).
+		Build()
+
+	machine := config.BuildMachine(proj, stateMachine.State("init"))
+
+	// Status should be pending before transition
+	if proj.Phases["implementation"].Status != "pending" {
+		t.Errorf("expected initial status=pending, got %s", proj.Phases["implementation"].Status)
+	}
+
+	if err := config.FireWithPhaseUpdates(machine, stateMachine.Event("start"), proj); err != nil {
+		t.Fatalf("FireWithPhaseUpdates failed: %v", err)
+	}
+
+	// Status should be in_progress after transition (automatic update happened)
+	if proj.Phases["implementation"].Status != "in_progress" {
+		t.Errorf("expected automatic update to set status=in_progress, got %s", proj.Phases["implementation"].Status)
+	}
+}
+
+// TestBuildMachinePhaseInProgressOnlyWhenPending tests that the automatic in_progress
+// action only updates the status if currently "pending" (preserves manual overrides).
+func TestBuildMachinePhaseInProgressOnlyWhenPending(t *testing.T) {
+	proj := &state.Project{
+		ProjectState: projectSchemas.ProjectState{
+			Phases: map[string]projectSchemas.PhaseState{
+				"implementation": {Status: "completed"}, // Already completed
+			},
+		},
+	}
+
+	config := NewProjectTypeConfigBuilder("test").
+		WithPhase("implementation",
+			WithStartState(stateMachine.State("planning")),
+			WithEndState(stateMachine.State("executing")),
+		).
+		AddTransition(
+			stateMachine.State("init"),
+			stateMachine.State("planning"),
+			stateMachine.Event("start"),
+		).
+		Build()
+
+	machine := config.BuildMachine(proj, stateMachine.State("init"))
+
+	// Fire transition to enter phase's start state
+	if err := machine.Fire(stateMachine.Event("start")); err != nil {
+		t.Fatalf("Fire failed: %v", err)
+	}
+
+	// Verify status remains "completed" (not overwritten by automatic action)
+	if proj.Phases["implementation"].Status != "completed" {
+		t.Errorf("expected status to remain completed, got %s", proj.Phases["implementation"].Status)
+	}
+}
+
+// TestBuildMachineMultiplePhaseTransitions tests that phase statuses are correctly
+// updated across multiple phase transitions.
+func TestBuildMachineMultiplePhaseTransitions(t *testing.T) {
+	proj := &state.Project{
+		ProjectState: projectSchemas.ProjectState{
+			Phases: map[string]projectSchemas.PhaseState{
+				"implementation": {Status: "pending"},
+				"review":         {Status: "pending"},
+			},
+		},
+	}
+
+	config := NewProjectTypeConfigBuilder("test").
+		WithPhase("implementation",
+			WithStartState(stateMachine.State("planning")),
+			WithEndState(stateMachine.State("executing")),
+		).
+		WithPhase("review",
+			WithStartState(stateMachine.State("reviewing")),
+			WithEndState(stateMachine.State("approved")),
+		).
+		AddTransition(
+			stateMachine.State("init"),
+			stateMachine.State("planning"),
+			stateMachine.Event("start_impl"),
+		).
+		AddTransition(
+			stateMachine.State("executing"),
+			stateMachine.State("reviewing"),
+			stateMachine.Event("start_review"),
+		).
+		Build()
+
+	machine := config.BuildMachine(proj, stateMachine.State("init"))
+
+	// Start implementation phase
+	if err := config.FireWithPhaseUpdates(machine, stateMachine.Event("start_impl"), proj); err != nil {
+		t.Fatalf("FireWithPhaseUpdates(start_impl) failed: %v", err)
+	}
+
+	if proj.Phases["implementation"].Status != "in_progress" {
+		t.Errorf("expected implementation status=in_progress, got %s", proj.Phases["implementation"].Status)
+	}
+
+	if proj.Phases["review"].Status != "pending" {
+		t.Errorf("expected review status=pending, got %s", proj.Phases["review"].Status)
+	}
+
+	// Transition to executing (still in implementation phase)
+	machine = config.BuildMachine(proj, stateMachine.State("executing"))
+
+	// Start review phase (exits implementation end state, enters review start state)
+	if err := config.FireWithPhaseUpdates(machine, stateMachine.Event("start_review"), proj); err != nil {
+		t.Fatalf("FireWithPhaseUpdates(start_review) failed: %v", err)
+	}
+
+	// Verify implementation completed
+	if proj.Phases["implementation"].Status != "completed" {
+		t.Errorf("expected implementation status=completed, got %s", proj.Phases["implementation"].Status)
+	}
+
+	// Verify review started
+	if proj.Phases["review"].Status != "in_progress" {
+		t.Errorf("expected review status=in_progress, got %s", proj.Phases["review"].Status)
+	}
+}
