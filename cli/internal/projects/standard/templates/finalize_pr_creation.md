@@ -88,16 +88,21 @@ WORKFLOW:
   6. Create Pull Request:
      After approval command succeeds, create PR using gh CLI:
 
-     gh pr create \
+     PR_URL=$(gh pr create \
        --title "$(head -1 .sow/project/phases/finalize/pr_body.md | sed 's/^# //')" \
        --body-file .sow/project/phases/finalize/pr_body.md \
-       --base {{.Branch}}
+       --json url -q .url)
 
-     Save PR URL for user reference.
+     Extract PR number from URL:
+     PR_NUMBER=$(echo "$PR_URL" | sed 's/.*\/pull\///')
+
+     Save both to metadata:
+     sow phase set metadata.pr_url "$PR_URL"
+     sow phase set metadata.pr_number "$PR_NUMBER"
 
   7. Complete Phase:
      sow advance
-     → Auto-transitions to cleanup phase
+     → Auto-transitions to PR checks phase
 
 AUTONOMY BOUNDARIES:
 

@@ -175,10 +175,18 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 		).
 		AddTransition(
 			sdkstate.State(FinalizePRCreation),
-			sdkstate.State(FinalizeCleanup),
+			sdkstate.State(FinalizePRChecks),
 			sdkstate.Event(EventPRCreated),
 			project.WithGuard("PR body approved", func(p *state.Project) bool {
 				return prBodyApproved(p)
+			}),
+		).
+		AddTransition(
+			sdkstate.State(FinalizePRChecks),
+			sdkstate.State(FinalizeCleanup),
+			sdkstate.Event(EventPRChecksPass),
+			project.WithGuard("all PR checks passed", func(p *state.Project) bool {
+				return prChecksPassed(p)
 			}),
 		).
 		AddTransition(
@@ -241,6 +249,9 @@ func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *proje
 		OnAdvance(sdkstate.State(FinalizePRCreation), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventPRCreated), nil
 		}).
+		OnAdvance(sdkstate.State(FinalizePRChecks), func(_ *state.Project) (sdkstate.Event, error) {
+			return sdkstate.Event(EventPRChecksPass), nil
+		}).
 		OnAdvance(sdkstate.State(FinalizeCleanup), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventCleanupComplete), nil
 		})
@@ -257,5 +268,6 @@ func configurePrompts(builder *project.ProjectTypeConfigBuilder) *project.Projec
 		WithPrompt(sdkstate.State(ReviewActive), generateReviewPrompt).
 		WithPrompt(sdkstate.State(FinalizeChecks), generateFinalizeChecksPrompt).
 		WithPrompt(sdkstate.State(FinalizePRCreation), generateFinalizePRCreationPrompt).
+		WithPrompt(sdkstate.State(FinalizePRChecks), generateFinalizePRChecksPrompt).
 		WithPrompt(sdkstate.State(FinalizeCleanup), generateFinalizeCleanupPrompt)
 }

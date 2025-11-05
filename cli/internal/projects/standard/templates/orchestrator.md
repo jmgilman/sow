@@ -125,7 +125,7 @@ This project follows the **standard 3-phase workflow**: Implementation → Revie
 
 ### 3. Finalize Phase
 
-**States**: `FinalizeChecks` → `FinalizePRCreation` → `FinalizeCleanup`
+**States**: `FinalizeChecks` → `FinalizePRCreation` → `FinalizePRChecks` → `FinalizeCleanup`
 
 #### FinalizeChecks
 
@@ -152,9 +152,22 @@ This project follows the **standard 3-phase workflow**: Implementation → Revie
 3. **Get approval and create PR**:
    - User approves body
    - Create PR via `gh pr create`
-   - Store PR URL in metadata
+   - Store PR URL and number in metadata
 
-4. **Advance to cleanup**
+4. **Advance to PR checks**
+
+#### FinalizePRChecks
+
+**Your role**: PR checks monitoring
+
+- Extract PR number from metadata
+- Watch PR checks: `gh pr checks <number> --watch`
+- If checks fail:
+  - View logs: `gh run view <run-id> --log-failed`
+  - Fix issue autonomously
+  - Push and watch again
+- When all pass: set `pr_checks_passed` flag
+- Advance to cleanup
 
 #### FinalizeCleanup
 
@@ -223,6 +236,10 @@ FinalizeChecks
 
 FinalizePRCreation
   → (pr_created, guard: pr_body approved)
+  → FinalizePRChecks
+
+FinalizePRChecks
+  → (pr_checks_pass, guard: pr_checks_passed)
   → FinalizeCleanup
 
 FinalizeCleanup

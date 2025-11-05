@@ -116,11 +116,21 @@ func TestFullLifecycle(t *testing.T) {
 			t.Errorf("state = %v, want %v", got, FinalizePRCreation)
 		}
 
-		// FinalizePRCreation → FinalizeCleanup
+		// FinalizePRCreation → FinalizePRChecks
 		addApprovedOutput(t, proj, "finalize", "pr_body", "pr_body.md")
 		err = config.FireWithPhaseUpdates(machine, EventPRCreated, proj)
 		if err != nil {
 			t.Fatalf("Fire(EventPRCreated) failed: %v", err)
+		}
+		if got := machine.State(); got != sdkstate.State(FinalizePRChecks) {
+			t.Errorf("state = %v, want %v", got, FinalizePRChecks)
+		}
+
+		// FinalizePRChecks → FinalizeCleanup
+		setPhaseMetadata(t, proj, "finalize", "pr_checks_passed", true)
+		err = config.FireWithPhaseUpdates(machine, EventPRChecksPass, proj)
+		if err != nil {
+			t.Fatalf("Fire(EventPRChecksPass) failed: %v", err)
 		}
 		if got := machine.State(); got != sdkstate.State(FinalizeCleanup) {
 			t.Errorf("state = %v, want %v", got, FinalizeCleanup)
@@ -330,6 +340,7 @@ func TestPromptGeneration(t *testing.T) {
 		sdkstate.State(ReviewActive),
 		sdkstate.State(FinalizeChecks),
 		sdkstate.State(FinalizePRCreation),
+		sdkstate.State(FinalizePRChecks),
 		sdkstate.State(FinalizeCleanup),
 	}
 
@@ -605,6 +616,8 @@ func getPromptGenerator(st sdkstate.State) PromptGenerator {
 		return generateFinalizeChecksPrompt
 	case sdkstate.State(FinalizePRCreation):
 		return generateFinalizePRCreationPrompt
+	case sdkstate.State(FinalizePRChecks):
+		return generateFinalizePRChecksPrompt
 	case sdkstate.State(FinalizeCleanup):
 		return generateFinalizeCleanupPrompt
 	default:

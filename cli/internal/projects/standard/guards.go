@@ -113,6 +113,11 @@ func prBodyApproved(p *state.Project) bool {
 	return phaseOutputApproved(p, "finalize", "pr_body")
 }
 
+// prChecksPassed checks if the pr_checks_passed flag is set in finalize metadata.
+func prChecksPassed(p *state.Project) bool {
+	return phaseMetadataBool(p, "finalize", "pr_checks_passed")
+}
+
 // projectDeleted checks if the project_deleted flag is set in finalize metadata.
 func projectDeleted(p *state.Project) bool {
 	return phaseMetadataBool(p, "finalize", "project_deleted")

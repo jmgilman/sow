@@ -37,9 +37,14 @@ const (
 	EventChecksDone = state.Event("checks_done")
 
 	// EventPRCreated indicates PR created and approved.
-	// Transition: FinalizePRCreation → FinalizeCleanup.
+	// Transition: FinalizePRCreation → FinalizePRChecks.
 	// Guard: pr_body artifact approved.
 	EventPRCreated = state.Event("pr_created")
+
+	// EventPRChecksPass indicates all PR checks have passed.
+	// Transition: FinalizePRChecks → FinalizeCleanup.
+	// Guard: pr_checks_passed metadata flag.
+	EventPRChecksPass = state.Event("pr_checks_pass")
 
 	// EventCleanupComplete completes project cleanup.
 	// Transition: FinalizeCleanup → NoProject.
