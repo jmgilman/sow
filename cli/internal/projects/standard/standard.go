@@ -133,10 +133,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			project.WithGuard(func(p *state.Project) bool {
 				return latestReviewApproved(p)
 			}),
-			project.WithOnExit(func(p *state.Project) error {
-				// Mark review phase as failed
-				return state.MarkPhaseFailed(p, "review")
-			}),
+			project.WithFailedPhase("review"), // Mark review as failed instead of completed
 			project.WithOnEntry(func(p *state.Project) error {
 				// Only execute rework logic if review phase exists and has failed
 				// (this prevents executing on NoProject → ImplementationPlanning transition)
