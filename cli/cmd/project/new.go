@@ -369,6 +369,7 @@ func generateNewProjectPrompt(ctx *sow.Context, proj *state.Project, initialProm
 		HasProject:     true,
 	}
 
+	//nolint:staticcheck // Using legacy API during transition period
 	baseOrch, err := prompts.Render(prompts.PromptGreetOrchestrator, baseCtx)
 	if err != nil {
 		return "", fmt.Errorf("failed to render base orchestrator prompt: %w", err)

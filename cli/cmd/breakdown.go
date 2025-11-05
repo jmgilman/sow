@@ -270,6 +270,7 @@ func generateBreakdownPrompt(sowCtx *sow.Context, topic, branch, initialPrompt s
 	}
 
 	// Render prompt
+	//nolint:staticcheck // Using legacy API during transition period
 	prompt, err := prompts.Render(prompts.PromptModeBreakdown, ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to render breakdown prompt: %w", err)
