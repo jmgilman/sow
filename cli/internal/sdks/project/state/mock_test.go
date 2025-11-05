@@ -55,3 +55,8 @@ func (m *mockProjectTypeConfig) OrchestratorPrompt(_ *Project) string {
 func (m *mockProjectTypeConfig) GetStatePrompt(_ State, _ *Project) string {
 	return ""
 }
+
+func (m *mockProjectTypeConfig) DetermineEvent(_ *Project) (Event, error) {
+	// Mock event determination - return empty event
+	return "", nil
+}

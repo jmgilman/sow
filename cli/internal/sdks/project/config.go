@@ -218,3 +218,14 @@ func (ptc *ProjectTypeConfig) Validate(project *state.Project) error {
 
 	return nil
 }
+
+// DetermineEvent determines which event to fire from the current state.
+// Returns the event to fire, or an error if no determiner is configured.
+func (ptc *ProjectTypeConfig) DetermineEvent(project *state.Project) (sdkstate.Event, error) {
+	currentState := sdkstate.State(project.Statechart.Current_state)
+	determiner, exists := ptc.onAdvance[currentState]
+	if !exists {
+		return "", fmt.Errorf("no event determiner configured for state %s", currentState)
+	}
+	return determiner(project)
+}

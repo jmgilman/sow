@@ -489,27 +489,6 @@ func setPhaseMetadata(t *testing.T, p *state.Project, phaseName, key string, val
 	p.Phases[phaseName] = phase
 }
 
-// addCompletedTask adds a completed task to a phase.
-func addCompletedTask(t *testing.T, p *state.Project, phaseName, id, name string) {
-	t.Helper()
-
-	phase, exists := p.Phases[phaseName]
-	if !exists {
-		t.Fatalf("phase %s not found", phaseName)
-	}
-
-	task := projschema.TaskState{
-		Id:         id,
-		Name:       name,
-		Phase:      phaseName,
-		Status:     "completed",
-		Created_at: time.Now(),
-		Updated_at: time.Now(),
-	}
-
-	phase.Tasks = append(phase.Tasks, task)
-	p.Phases[phaseName] = phase
-}
 
 // addPendingTask adds a pending task to a phase.
 func addPendingTask(p *state.Project, phaseName, id, name string) {

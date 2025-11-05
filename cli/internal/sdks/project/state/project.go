@@ -54,6 +54,9 @@ type ProjectTypeConfig interface {
 
 	// GetStatePrompt generates the state-specific prompt for a given state
 	GetStatePrompt(state State, project *Project) string
+
+	// DetermineEvent determines which event to fire from the current state
+	DetermineEvent(project *Project) (Event, error)
 }
 
 // Project wraps the CUE-generated ProjectState with runtime behavior.
