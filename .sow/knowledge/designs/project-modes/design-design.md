@@ -1,7 +1,7 @@
 # Design Project Type Design
 
 **Author**: Architecture Team
-**Date**: 2025-10-31
+**Date**: 2025-11-04
 **Status**: Proposed
 **Depends On**: [Core Design](core-design.md)
 
@@ -15,6 +15,7 @@ This document specifies the design project type - a workflow for creating archit
 - **Review workflow**: Draft → needs_review → completed (with auto-approval)
 - **Metadata-driven**: Tasks store document type, target location, artifact path
 - **No GitHub integration**: Pure design workflow, no issue linking
+- **SDK-based implementation**: Built using Project SDK builder pattern
 
 ## Goals and Non-Goals
 
@@ -25,6 +26,7 @@ This document specifies the design project type - a workflow for creating archit
 - Auto-approve artifacts when tasks completed
 - Move approved documents to appropriate knowledge locations
 - Prevent creating artifacts before planning tasks
+- Use Project SDK for consistent, declarative configuration
 
 **Non-Goals**:
 - GitHub issue integration (design is pre-implementation planning)
@@ -32,116 +34,126 @@ This document specifies the design project type - a workflow for creating archit
 - Template enforcement (templates are guidance, not validation)
 - Complex approval chains (single review cycle sufficient)
 
-## Project Schema
+## Project SDK Configuration
 
-### CUE Schema Definition
+The design project type uses the Project SDK builder pattern. All configuration is declarative and registered via the global registry.
 
-**File**: `cli/schemas/projects/design.cue`
+### Package Structure
 
-```cue
-package projects
+```
+cli/internal/projects/design/
+├── design.go          # SDK configuration using builder pattern
+├── states.go          # State constants
+├── events.go          # Event constants
+├── guards.go          # Guard helper functions
+├── prompts.go         # Prompt generator functions
+├── metadata.go        # Embedded CUE metadata schemas
+├── cue/
+│   └── design_metadata.cue  # Phase metadata validation
+└── templates/
+    ├── orchestrator.md      # Orchestrator-level guidance
+    ├── active.md            # Active state prompt template
+    └── finalizing.md        # Finalizing state prompt template
+```
+
+### Registration
+
+**File**: `cli/internal/projects/design/design.go`
+
+```go
+package design
 
 import (
-    "time"
-    p "github.com/jmgilman/sow/cli/schemas/phases"
+	"github.com/jmgilman/sow/cli/internal/sdks/project"
+	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 )
 
-// DesignProjectState defines schema for design project type.
-//
-// Design follows a document creation workflow:
-// Active (plan, draft, review documents) → Finalizing → Completed
-#DesignProjectState: {
-    // Discriminator
-    project: {
-        type: "design"  // Fixed discriminator value
+// init registers the design project type on package load.
+func init() {
+	state.Register("design", NewDesignProjectConfig())
+}
 
-        // Kebab-case project identifier
-        name: string & =~"^[a-z0-9][a-z0-9-]*[a-z0-9]$"
-
-        // Git branch (typically design/* prefix)
-        branch: string & !=""
-
-        // Design focus/scope
-        description: string
-
-        // Timestamps
-        created_at: time.Time
-        updated_at: time.Time
-    }
-
-    // State machine position
-    statechart: {
-        current_state: "Active" | "Finalizing" | "Completed"
-    }
-
-    // 2-phase structure
-    phases: {
-        // Phase 1: Design (plan and create documents)
-        design: p.#Phase & {
-            // Custom status values for design workflow
-            status: "active" | "completed"
-            enabled: true
-
-            // Inputs track sources informing design
-            // (explorations, references, existing docs)
-            inputs?: [...p.#Artifact]
-
-            // Tasks represent documents to create
-            // Task.metadata stores:
-            //   - artifact_path: path to drafted document
-            //   - document_type: "adr", "design", "architecture", etc.
-            //   - target_location: where to move during finalization
-            //   - template: optional template identifier
-
-            // Artifacts are drafted documents
-            // Auto-approved when task marked completed
-        }
-
-        // Phase 2: Finalization (move docs, create PR, cleanup)
-        finalization: p.#Phase & {
-            status: p.#GenericStatus
-            enabled: true
-
-            // Tasks created by orchestrator:
-            // - Move approved documents to target locations
-            // - Create PR with design artifacts
-            // - Delete .sow/project/
-        }
-    }
+// NewDesignProjectConfig creates the complete configuration for design project type.
+func NewDesignProjectConfig() *project.ProjectTypeConfig {
+	builder := project.NewProjectTypeConfigBuilder("design")
+	builder = configurePhases(builder)
+	builder = configureTransitions(builder)
+	builder = configureEventDeterminers(builder)
+	builder = configurePrompts(builder)
+	builder = builder.WithInitializer(initializeDesignProject)
+	return builder.Build()
 }
 ```
 
-### Go Type
+### Phase Configuration
 
-**File**: `cli/schemas/projects/design.go`
+Design has a 2-phase structure:
+1. **design** - Plan outputs, draft documents, iterate through reviews
+2. **finalization** - Move documents, create PR, cleanup
 
 ```go
-package projects
+func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
+	return builder.
+		WithPhase("design",
+			project.WithStartState(sdkstate.State(Active)),
+			project.WithEndState(sdkstate.State(Active)),
+			project.WithOutputs("design", "adr", "architecture", "diagram", "spec"),  // Allowed artifact types
+			project.WithTasks(),  // Phase supports tasks
+			project.WithMetadataSchema(designMetadataSchema),
+		).
+		WithPhase("finalization",
+			project.WithStartState(sdkstate.State(Finalizing)),
+			project.WithEndState(sdkstate.State(Finalizing)),
+			project.WithOutputs("pr"),
+			project.WithMetadataSchema(finalizationMetadataSchema),
+		)
+}
+```
 
-import (
-    "time"
-    "github.com/jmgilman/sow/cli/schemas/phases"
-)
+**Key points**:
+- `design` phase has ONE state (Active) - no intra-phase transitions
+- Both phases support metadata validation via embedded CUE schemas
+- Only `design` phase supports tasks (document planning)
+- Artifact types constrained to document types
 
-// DesignProjectState is the Go representation of #DesignProjectState.
-type DesignProjectState struct {
-    Statechart struct {
-        Current_state string `json:"current_state"`
-    } `json:"statechart"`
+### Phase Initialization
 
-    Project struct {
-        Type        string    `json:"type"`
-        Name        string    `json:"name"`
-        Branch      string    `json:"branch"`
-        Description string    `json:"description"`
-        Created_at  time.Time `json:"created_at"`
-        Updated_at  time.Time `json:"updated_at"`
-    } `json:"project"`
+```go
+// initializeDesignProject creates all phases for a new design project.
+// This is called during project creation to set up the phase structure.
+func initializeDesignProject(p *state.Project, initialInputs map[string][]projschema.ArtifactState) error {
+	now := p.Created_at
+	phaseNames := []string{"design", "finalization"}
 
-    Phases struct {
-        Design       phases.Phase `json:"design"`
-        Finalization phases.Phase `json:"finalization"`
-    } `json:"phases"`
+	for _, phaseName := range phaseNames {
+		// Get initial inputs for this phase (empty slice if none provided)
+		inputs := []projschema.ArtifactState{}
+		if initialInputs != nil {
+			if phaseInputs, exists := initialInputs[phaseName]; exists {
+				inputs = phaseInputs
+			}
+		}
+
+		// Determine initial status based on phase
+		status := "pending"
+		enabled := false
+		if phaseName == "design" {
+			status = "active"  // Design starts immediately in active state
+			enabled = true
+		}
+
+		p.Phases[phaseName] = projschema.PhaseState{
+			Status:     status,
+			Enabled:    enabled,
+			Created_at: now,
+			Inputs:     inputs,
+			Outputs:    []projschema.ArtifactState{},
+			Tasks:      []projschema.TaskState{},
+			Metadata:   make(map[string]interface{}),
+		}
+	}
+
+	return nil
 }
 ```
 
@@ -149,112 +161,552 @@ type DesignProjectState struct {
 
 ### States
 
-**Active** (design phase)
+The design workflow progresses through three states across two phases:
+
+**Active** (design phase, status="active")
 - **Purpose**: Plan outputs, draft documents, iterate through reviews
-- **Phase**: design
-- **Phase status**: `"active"`
 - **Duration**: Majority of design time
-- **Orchestrator focus**: Create document tasks, draft documents, iterate on feedback
+- **Operations**: Create document tasks, draft documents, mark for review, approve
+- **Complete condition**: All tasks completed or abandoned (at least one completed)
 
-**Finalizing** (finalization phase)
+**Finalizing** (finalization phase, status="in_progress")
 - **Purpose**: Move approved documents to targets, create PR, cleanup
-- **Phase**: finalization
-- **Phase status**: `"in_progress"`
-- **Duration**: Short - automated finalization tasks
-- **Orchestrator focus**: Execute finalization checklist
+- **Duration**: Short - automated finalization
+- **Operations**: Execute finalization checklist
+- **Complete condition**: All finalization tasks completed
 
-**Completed** (finalization phase)
-- **Purpose**: Terminal state, design finished
-- **Phase**: finalization
-- **Phase status**: `"completed"`
+**Completed** (terminal state)
+- **Purpose**: Design finished
 - **Duration**: Permanent
-- **Orchestrator focus**: None (project complete)
+- **Operations**: None (project complete)
 
 ### State Transitions
 
 ```
-Active
+Active (design.active)
   │
-  │ sow agent complete
-  │ guard: AllDocumentsApproved
+  │ EventCompleteDesign
+  │ Guard: allDocumentsApproved(p)
   ▼
-Finalizing
+Finalizing (finalization.in_progress)
   │
-  │ sow agent complete
-  │ guard: AllFinalizationTasksComplete
+  │ EventCompleteFinalization
+  │ Guard: allFinalizationTasksComplete(p)
   ▼
-Completed
+Completed (terminal)
 ```
 
-### Transition Details
+### Transition Configuration
 
-#### Active → Finalizing
-
-**Trigger**: `sow agent complete`
-
-**Event**: `EventCompleteDesign`
-
-**Guard**: `AllDocumentsApproved(tasks)`
 ```go
-// All tasks must be completed or abandoned
-// At least one task must be completed (can't complete with all abandoned)
-func AllDocumentsApproved(tasks []phases.Task) bool {
-    if len(tasks) == 0 {
-        return false  // Must have at least one task
-    }
+func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
+	return builder.
+		// Initial state
+		SetInitialState(sdkstate.State(Active)).
 
-    hasCompleted := false
-    for _, task := range tasks {
-        // Check for unresolved tasks
-        if task.Status != "completed" && task.Status != "abandoned" {
-            return false
-        }
-        // Track if we have at least one completed
-        if task.Status == "completed" {
-            hasCompleted = true
-        }
-    }
+		// Active → Finalizing
+		AddTransition(
+			sdkstate.State(Active),
+			sdkstate.State(Finalizing),
+			sdkstate.Event(EventCompleteDesign),
+			project.WithGuard(func(p *state.Project) bool {
+				return allDocumentsApproved(p)
+			}),
+			project.WithOnExit(func(p *state.Project) error {
+				// Mark design phase as completed
+				phase := p.Phases["design"]
+				phase.Status = "completed"
+				phase.Completed_at = time.Now()
+				p.Phases["design"] = phase
+				return nil
+			}),
+			project.WithOnEntry(func(p *state.Project) error {
+				// Enable and activate finalization phase
+				phase := p.Phases["finalization"]
+				phase.Enabled = true
+				phase.Status = "in_progress"
+				phase.Started_at = time.Now()
+				p.Phases["finalization"] = phase
+				return nil
+			}),
+		).
 
-    return hasCompleted
+		// Finalizing → Completed
+		AddTransition(
+			sdkstate.State(Finalizing),
+			sdkstate.State(Completed),
+			sdkstate.Event(EventCompleteFinalization),
+			project.WithGuard(func(p *state.Project) bool {
+				return allFinalizationTasksComplete(p)
+			}),
+			project.WithOnEntry(func(p *state.Project) error {
+				// Mark finalization phase as completed
+				phase := p.Phases["finalization"]
+				phase.Status = "completed"
+				phase.Completed_at = time.Now()
+				p.Phases["finalization"] = phase
+				return nil
+			}),
+		)
 }
 ```
 
-**Phase transition**: design → finalization
+**Key patterns**:
+- Guards are closures that capture project state via SDK binding
+- OnEntry/OnExit actions update phase status and timestamps
+- Only inter-phase transitions (no intra-phase transitions in design)
 
-**Phase status changes**:
-- `design.status = "completed"`
-- `finalization.status = "in_progress"`
+### Event Determiners
 
-**Orchestrator behavior change**:
-- Before: Draft/review documents
-- After: Execute finalization tasks
-
-#### Finalizing → Completed
-
-**Trigger**: `sow agent complete`
-
-**Event**: `EventCompleteFinalization`
-
-**Guard**: `AllFinalizationTasksComplete(tasks)`
 ```go
-// All finalization tasks must be completed
-func AllFinalizationTasksComplete(tasks []phases.Task) bool {
-    if len(tasks) == 0 {
-        return false  // Must have finalization tasks
-    }
-
-    for _, task := range tasks {
-        if task.Status != "completed" {
-            return false
-        }
-    }
-    return true
+func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
+	return builder.
+		OnAdvance(sdkstate.State(Active), func(p *state.Project) (sdkstate.Event, error) {
+			// Active always advances to Finalizing
+			return sdkstate.Event(EventCompleteDesign), nil
+		}).
+		OnAdvance(sdkstate.State(Finalizing), func(p *state.Project) (sdkstate.Event, error) {
+			// Complete finalization phase
+			return sdkstate.Event(EventCompleteFinalization), nil
+		})
 }
 ```
 
-**Phase status change**: `finalization.status = "completed"`
+## States and Events
 
-**State machine**: Terminal state reached
+**File**: `cli/internal/projects/design/states.go`
+
+```go
+package design
+
+import "github.com/jmgilman/sow/cli/internal/sdks/state"
+
+// Design project states
+const (
+	// Active indicates active design phase
+	Active = state.State("Active")
+
+	// Finalizing indicates finalization in progress
+	Finalizing = state.State("Finalizing")
+
+	// Completed indicates design finished
+	Completed = state.State("Completed")
+)
+```
+
+**File**: `cli/internal/projects/design/events.go`
+
+```go
+package design
+
+import "github.com/jmgilman/sow/cli/internal/sdks/state"
+
+// Design project events trigger state transitions
+const (
+	// EventCompleteDesign transitions from Active to Finalizing
+	// Fired when all documents are approved
+	EventCompleteDesign = state.Event("complete_design")
+
+	// EventCompleteFinalization transitions from Finalizing to Completed
+	// Fired when all finalization tasks are completed
+	EventCompleteFinalization = state.Event("complete_finalization")
+)
+```
+
+## Guards
+
+Guards are pure functions that check transition conditions. They operate on `*state.Project` and return boolean results.
+
+**File**: `cli/internal/projects/design/guards.go`
+
+```go
+package design
+
+import (
+	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	projschema "github.com/jmgilman/sow/cli/schemas/project"
+)
+
+// allDocumentsApproved checks if all document tasks are completed or abandoned.
+// Guards Active → Finalizing transition.
+// Returns false if no tasks exist, or if at least one completed task doesn't exist.
+func allDocumentsApproved(p *state.Project) bool {
+	phase, exists := p.Phases["design"]
+	if !exists {
+		return false
+	}
+
+	tasks := phase.Tasks
+	if len(tasks) == 0 {
+		return false // Must have at least one task
+	}
+
+	hasCompleted := false
+	for _, task := range tasks {
+		// Check for unresolved tasks
+		if task.Status != "completed" && task.Status != "abandoned" {
+			return false
+		}
+		// Track if we have at least one completed
+		if task.Status == "completed" {
+			hasCompleted = true
+		}
+	}
+
+	// Must have at least one completed task (can't complete with all abandoned)
+	return hasCompleted
+}
+
+// allFinalizationTasksComplete checks if all finalization tasks are completed.
+// Guards Finalizing → Completed transition.
+func allFinalizationTasksComplete(p *state.Project) bool {
+	phase, exists := p.Phases["finalization"]
+	if !exists {
+		return false
+	}
+
+	tasks := phase.Tasks
+	if len(tasks) == 0 {
+		return false // Must have finalization tasks
+	}
+
+	for _, task := range tasks {
+		if task.Status != "completed" {
+			return false
+		}
+	}
+	return true
+}
+
+// Helper functions for counting (used in prompts and error messages)
+
+func countUnresolvedTasks(p *state.Project) int {
+	phase, exists := p.Phases["design"]
+	if !exists {
+		return 0
+	}
+
+	count := 0
+	for _, task := range phase.Tasks {
+		if task.Status != "completed" && task.Status != "abandoned" {
+			count++
+		}
+	}
+	return count
+}
+
+// validateTaskForCompletion checks if a task can be marked as completed.
+// Returns error if artifact doesn't exist at task.metadata.artifact_path.
+func validateTaskForCompletion(p *state.Project, taskID string) error {
+	phase, exists := p.Phases["design"]
+	if !exists {
+		return fmt.Errorf("design phase not found")
+	}
+
+	// Find task
+	var task *projschema.TaskState
+	for i := range phase.Tasks {
+		if phase.Tasks[i].Id == taskID {
+			task = &phase.Tasks[i]
+			break
+		}
+	}
+
+	if task == nil {
+		return fmt.Errorf("task %s not found", taskID)
+	}
+
+	// Check metadata exists
+	if task.Metadata == nil {
+		return fmt.Errorf("task %s has no metadata - set artifact_path before completing", taskID)
+	}
+
+	// Check artifact_path exists
+	artifactPathRaw, ok := task.Metadata["artifact_path"]
+	if !ok {
+		return fmt.Errorf("task %s has no artifact_path in metadata - link artifact to task before completing", taskID)
+	}
+
+	artifactPath, ok := artifactPathRaw.(string)
+	if !ok {
+		return fmt.Errorf("artifact_path must be a string")
+	}
+
+	// Check artifact exists
+	var foundArtifact *projschema.ArtifactState
+	for i := range phase.Outputs {
+		if phase.Outputs[i].Path == artifactPath {
+			foundArtifact = &phase.Outputs[i]
+			break
+		}
+	}
+
+	if foundArtifact == nil {
+		return fmt.Errorf("artifact not found at %s - add artifact before completing task", artifactPath)
+	}
+
+	return nil
+}
+
+// autoApproveArtifact approves the artifact linked to a task when task is completed.
+// This is called during task status update to "completed".
+func autoApproveArtifact(p *state.Project, taskID string) error {
+	phase, exists := p.Phases["design"]
+	if !exists {
+		return fmt.Errorf("design phase not found")
+	}
+
+	// Find task
+	var task *projschema.TaskState
+	for i := range phase.Tasks {
+		if phase.Tasks[i].Id == taskID {
+			task = &phase.Tasks[i]
+			break
+		}
+	}
+
+	if task == nil {
+		return fmt.Errorf("task %s not found", taskID)
+	}
+
+	// Get artifact path from metadata
+	artifactPath, ok := task.Metadata["artifact_path"].(string)
+	if !ok {
+		return fmt.Errorf("task %s has invalid artifact_path", taskID)
+	}
+
+	// Find and approve artifact
+	phaseData := p.Phases["design"]
+	for i := range phaseData.Outputs {
+		if phaseData.Outputs[i].Path == artifactPath {
+			phaseData.Outputs[i].Approved = true
+			p.Phases["design"] = phaseData
+			return nil
+		}
+	}
+
+	return fmt.Errorf("artifact not found at %s", artifactPath)
+}
+```
+
+**Key patterns**:
+- Guards operate on full `*state.Project`, accessing phases directly
+- Pure functions with no side effects (except helpers that modify state)
+- Used in transition configurations via closures
+- Similar to standard project guards
+
+## Prompt Generation
+
+Prompts provide contextual guidance for each state. The SDK integrates prompts via the `WithPrompt()` builder method.
+
+**File**: `cli/internal/projects/design/prompts.go`
+
+```go
+package design
+
+import (
+	"embed"
+	"fmt"
+	"strings"
+
+	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/cli/internal/sdks/project/templates"
+	projschema "github.com/jmgilman/sow/cli/schemas/project"
+)
+
+//go:embed templates/*.md
+var templatesFS embed.FS
+
+func configurePrompts(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
+	return builder.
+		// Orchestrator-level prompt (how design projects work)
+		WithOrchestratorPrompt(generateOrchestratorPrompt).
+
+		// State-level prompts (what to do in each state)
+		WithPrompt(sdkstate.State(Active), generateActivePrompt).
+		WithPrompt(sdkstate.State(Finalizing), generateFinalizingPrompt)
+}
+
+// generateOrchestratorPrompt generates the orchestrator-level prompt for design projects.
+func generateOrchestratorPrompt(p *state.Project) string {
+	prompt, err := templates.Render(templatesFS, "templates/orchestrator.md", p)
+	if err != nil {
+		return fmt.Sprintf("Error rendering orchestrator prompt: %v", err)
+	}
+	return prompt
+}
+
+// generateActivePrompt generates the prompt for the Active state.
+// Focus: Plan outputs, draft documents, iterate through reviews.
+func generateActivePrompt(p *state.Project) string {
+	var buf strings.Builder
+
+	// Project header
+	buf.WriteString(fmt.Sprintf("# Design: %s\n", p.Name))
+	buf.WriteString(fmt.Sprintf("Branch: %s\n", p.Branch))
+	if p.Description != "" {
+		buf.WriteString(fmt.Sprintf("Description: %s\n", p.Description))
+	}
+	buf.WriteString("\n")
+
+	// Current state
+	buf.WriteString("## Current State: Active Design\n\n")
+
+	// Design phase info
+	phase, exists := p.Phases["design"]
+	if !exists {
+		return "Error: design phase not found"
+	}
+
+	// Show inputs if any
+	if len(phase.Inputs) > 0 {
+		buf.WriteString("### Design Inputs\n\n")
+		buf.WriteString("Sources informing this design:\n\n")
+		for _, input := range phase.Inputs {
+			buf.WriteString(fmt.Sprintf("- %s\n", input.Path))
+			if input.Metadata != nil {
+				if desc, ok := input.Metadata["description"].(string); ok {
+					buf.WriteString(fmt.Sprintf("  %s\n", desc))
+				}
+			}
+		}
+		buf.WriteString("\n")
+	}
+
+	// Document tasks
+	buf.WriteString("### Design Documents\n\n")
+
+	if len(phase.Tasks) == 0 {
+		buf.WriteString("No documents planned yet.\n\n")
+		buf.WriteString("**Important**: Create at least one document task before adding artifacts.\n\n")
+		buf.WriteString("**Next steps**: Plan document tasks\n\n")
+	} else {
+		// Count task statuses
+		pending := 0
+		inProgress := 0
+		needsReview := 0
+		completed := 0
+		abandoned := 0
+
+		for _, task := range phase.Tasks {
+			switch task.Status {
+			case "pending":
+				pending++
+			case "in_progress":
+				inProgress++
+			case "needs_review":
+				needsReview++
+			case "completed":
+				completed++
+			case "abandoned":
+				abandoned++
+			}
+		}
+
+		buf.WriteString(fmt.Sprintf("Total: %d documents\n", len(phase.Tasks)))
+		buf.WriteString(fmt.Sprintf("- Pending: %d\n", pending))
+		buf.WriteString(fmt.Sprintf("- In Progress: %d\n", inProgress))
+		buf.WriteString(fmt.Sprintf("- Needs Review: %d\n", needsReview))
+		buf.WriteString(fmt.Sprintf("- Completed: %d\n", completed))
+		buf.WriteString(fmt.Sprintf("- Abandoned: %d\n\n", abandoned))
+
+		// List documents
+		for _, task := range phase.Tasks {
+			statusIcon := "[ ]"
+			switch task.Status {
+			case "completed":
+				statusIcon = "[✓]"
+			case "abandoned":
+				statusIcon = "[✗]"
+			case "needs_review":
+				statusIcon = "[?]"
+			case "in_progress":
+				statusIcon = "[~]"
+			}
+
+			buf.WriteString(fmt.Sprintf("%s %s - %s (%s)\n", statusIcon, task.Id, task.Name, task.Status))
+
+			// Show artifact if linked
+			if task.Metadata != nil {
+				if artifactPath, ok := task.Metadata["artifact_path"].(string); ok {
+					buf.WriteString(fmt.Sprintf("    Artifact: %s\n", artifactPath))
+				}
+				if docType, ok := task.Metadata["document_type"].(string); ok {
+					buf.WriteString(fmt.Sprintf("    Type: %s\n", docType))
+				}
+			}
+		}
+		buf.WriteString("\n")
+
+		// Advancement readiness
+		if allDocumentsApproved(p) {
+			buf.WriteString("✓ All documents approved!\n\n")
+			buf.WriteString("Ready to finalize. Run: `sow project advance`\n\n")
+		} else {
+			unresolvedCount := countUnresolvedTasks(p)
+			buf.WriteString(fmt.Sprintf("**Next steps**: Continue design work (%d documents remaining)\n\n", unresolvedCount))
+		}
+	}
+
+	// Render additional guidance from template
+	guidance, err := templates.Render(templatesFS, "templates/active.md", p)
+	if err != nil {
+		return buf.String() + fmt.Sprintf("\nError rendering template: %v", err)
+	}
+	buf.WriteString(guidance)
+
+	return buf.String()
+}
+
+// generateFinalizingPrompt generates the prompt for the Finalizing state.
+// Focus: Move documents to targets, create PR, cleanup.
+func generateFinalizingPrompt(p *state.Project) string {
+	var buf strings.Builder
+
+	buf.WriteString(fmt.Sprintf("# Design: %s\n", p.Name))
+	buf.WriteString(fmt.Sprintf("Branch: %s\n\n", p.Branch))
+
+	buf.WriteString("## Current State: Finalizing\n\n")
+	buf.WriteString("All documents approved. Finalizing design by moving artifacts, creating PR, and cleaning up.\n\n")
+
+	// Finalization tasks
+	phase, exists := p.Phases["finalization"]
+	if !exists {
+		return "Error: finalization phase not found"
+	}
+
+	buf.WriteString("### Finalization Tasks\n\n")
+	for _, task := range phase.Tasks {
+		status := "[ ]"
+		if task.Status == "completed" {
+			status = "[✓]"
+		}
+		buf.WriteString(fmt.Sprintf("%s %s\n", status, task.Name))
+	}
+	buf.WriteString("\n")
+
+	// Advancement readiness
+	if allFinalizationTasksComplete(p) {
+		buf.WriteString("✓ All finalization tasks complete!\n\n")
+		buf.WriteString("Ready to complete design. Run: `sow project advance`\n\n")
+	}
+
+	// Render additional guidance from template
+	guidance, err := templates.Render(templatesFS, "templates/finalizing.md", p)
+	if err != nil {
+		return buf.String() + fmt.Sprintf("\nError rendering template: %v", err)
+	}
+	buf.WriteString(guidance)
+
+	return buf.String()
+}
+```
+
+**Key patterns**:
+- Prompt generators are simple functions: `func(*state.Project) string`
+- Registered via `WithPrompt(state, generator)` in configuration
+- Can use embedded templates for complex prompts
+- Provide contextual guidance based on current state
 
 ## Task Lifecycle
 
@@ -262,9 +714,10 @@ func AllFinalizationTasksComplete(tasks []phases.Task) bool {
 
 Each task tracks a document's lifecycle from planning through approval:
 - **Task name**: Document title/description
-- **Task description**: Document purpose, scope
+- **Task inputs** (optional): Input artifacts informing this specific document
+- **Task outputs**: The drafted document artifact
 - **Task status**: Current state of document creation
-- **Task metadata**: Links to artifact, stores document metadata
+- **Task metadata**: Links to artifact, stores document type and target location
 
 ### Task Status Flow
 
@@ -310,45 +763,16 @@ metadata:
 
 **When metadata is set**:
 - `document_type` and `target_location`: Set when task created (planning)
-- `artifact_path`: Set when artifact added (drafting)
+- `artifact_path`: Set when artifact added to task outputs (drafting)
 - `template`: Optional, set when task created
 
 ### Task-to-Artifact Linking
 
+**Via task outputs**: The SDK already supports task outputs, so artifacts are linked by adding them to `task.outputs`.
+
 **Task completion auto-approves artifact**:
 
-1. Task in `needs_review` status
-2. Human reviews document, satisfied
-3. Orchestrator runs: `sow agent task update <id> --status completed`
-4. Design phase detects completion, reads `task.metadata.artifact_path`
-5. Finds artifact at that path, sets `approved = true`
-6. Saves state
-
-**Validation**: When transitioning to `completed`, artifact must exist at `metadata.artifact_path`
-
-### Task Operations by State
-
-#### Active State
-
-**Can perform**:
-- ✅ Create tasks (`sow agent task create`)
-- ✅ Update task status
-- ✅ Update task metadata
-- ✅ Add artifacts (only if at least one task exists)
-- ✅ Delete tasks if needed
-
-**Guards**:
-- Cannot add artifacts until at least one task exists
-
-**Rationale**: Tasks represent planned outputs - must plan before drafting
-
-#### Finalizing State
-
-**Cannot perform**:
-- ❌ Create/update tasks (read-only)
-- ❌ Add artifacts (read-only)
-
-**Rationale**: Finalization only moves existing approved documents
+This logic is implemented in the transition actions or via helper functions called during task status updates. The SDK doesn't enforce this automatically, but the design project type implements it via guards and actions.
 
 ## Input Management
 
@@ -360,19 +784,10 @@ Track sources that inform the design:
 - External references (URLs, papers, etc.)
 - Related code examples
 
-**Adding inputs**:
-```bash
-# Add exploration as input
-sow agent artifact add ../../knowledge/explorations/auth-research.md --input
-
-# Add external reference
-sow agent artifact add https://oauth.net/2/ --input --description "OAuth 2.0 spec"
-```
-
-**Storage**: `design.inputs` array (separate from `design.artifacts`)
+**Storage**: `design.inputs` array (separate from `design.outputs`)
 
 **Rationale**:
-- Clear separation: inputs inform, artifacts are outputs
+- Clear separation: inputs inform, outputs are created
 - Traceable: know what informed each design decision
 - Resumable: new orchestrator can read inputs for context
 
@@ -380,33 +795,68 @@ sow agent artifact add https://oauth.net/2/ --input --description "OAuth 2.0 spe
 
 **Inputs** (`phase.inputs`):
 - Sources that inform design
-- Added with `--input` flag
 - Do not require approval
 - Not moved during finalization
+- Can also be task-specific (task.inputs)
 
-**Outputs** (`phase.artifacts`):
+**Outputs** (`phase.outputs`):
 - Documents being created
-- Linked to tasks via metadata
+- Linked to tasks via task.outputs
 - Require approval (auto-approved on task completion)
 - Moved to target locations during finalization
+
+## Metadata Schemas
+
+**File**: `cli/internal/projects/design/metadata.go`
+
+```go
+package design
+
+import _ "embed"
+
+// Embedded CUE metadata schemas for phase validation
+
+//go:embed cue/design_metadata.cue
+var designMetadataSchema string
+
+//go:embed cue/finalization_metadata.cue
+var finalizationMetadataSchema string
+```
+
+**File**: `cli/internal/projects/design/cue/design_metadata.cue`
+
+```cue
+package design
+
+// Metadata schema for design phase
+{
+	// No required metadata for design phase
+	// Optional metadata can be added as needed
+}
+```
+
+**File**: `cli/internal/projects/design/cue/finalization_metadata.cue`
+
+```cue
+package design
+
+// Metadata schema for finalization phase
+{
+	// pr_url: Optional URL of created pull request
+	pr_url?: string
+
+	// project_deleted: Flag indicating .sow/project/ has been deleted
+	project_deleted?: bool
+}
+```
 
 ## Artifact Management
 
 ### Artifact Guard: Task Existence
 
-**Cannot add artifacts before creating tasks**:
+**Concept**: Cannot add artifacts before creating tasks
 
-```go
-func (p *DesignPhase) AddArtifact(path string, opts ...domain.ArtifactOption) error {
-    if len(p.state.Tasks) == 0 {
-        return fmt.Errorf(
-            "cannot add artifacts before creating document tasks - "+
-            "create at least one task to track document lifecycle first",
-        )
-    }
-    return p.artifacts.Add(path, opts...)
-}
-```
+This is enforced at the orchestrator level or via validation. The SDK doesn't provide built-in guards for artifact addition, but the design workflow should validate this.
 
 **Rationale**:
 - Enforces planning before drafting
@@ -417,718 +867,128 @@ func (p *DesignPhase) AddArtifact(path string, opts ...domain.ArtifactOption) er
 
 **Triggered when task completed**:
 
-```go
-func (p *DesignPhase) UpdateTaskStatus(id string, status string) error {
-    task := p.GetTask(id)
-
-    // Validate artifact exists if moving to completed
-    if status == "completed" {
-        if task.Metadata == nil || task.Metadata["artifact_path"] == nil {
-            return fmt.Errorf("task %s has no artifact_path - cannot mark completed", id)
-        }
-
-        artifactPath := task.Metadata["artifact_path"].(string)
-        artifact := p.findArtifact(artifactPath)
-
-        if artifact == nil {
-            return fmt.Errorf(
-                "artifact not found at %s - add artifact before completing task",
-                artifactPath,
-            )
-        }
-
-        // Auto-approve artifact
-        approved := true
-        artifact.Approved = &approved
-    }
-
-    // Update task status
-    task.Status = status
-    return p.project.Save()
-}
-```
+The auto-approval logic is implemented via helper functions in guards.go (`autoApproveArtifact`) and called during task status updates or transition actions.
 
 **Workflow**:
 1. Task in `needs_review`
-2. `sow agent task update <id> --status completed`
-3. Phase validates artifact exists at `task.metadata.artifact_path`
-4. Phase sets `artifact.approved = true`
+2. Orchestrator updates task status to `completed`
+3. Validation checks artifact exists at `task.metadata.artifact_path` (or in task.outputs)
+4. Helper function sets `artifact.approved = true` on the linked artifact
 5. Task marked completed
-
-## Phase Implementations
-
-### Design Phase
-
-**File**: `cli/internal/project/design/design.go`
-
-```go
-package design
-
-import (
-    "fmt"
-    "github.com/jmgilman/sow/cli/internal/project"
-    "github.com/jmgilman/sow/cli/internal/project/domain"
-    "github.com/jmgilman/sow/cli/schemas/phases"
-)
-
-type DesignPhase struct {
-    state     *phases.Phase
-    artifacts *project.ArtifactCollection
-    tasks     *project.TaskCollection
-    project   *DesignProject
-}
-
-func newDesignPhase(proj *DesignProject) *DesignPhase {
-    return &DesignPhase{
-        state:     &proj.state.Phases.Design,
-        artifacts: project.NewArtifactCollection(&proj.state.Phases.Design, proj.ctx),
-        tasks:     project.NewTaskCollection(&proj.state.Phases.Design, proj, proj.ctx),
-        project:   proj,
-    }
-}
-
-// Advance not supported - design has no internal states
-func (p *DesignPhase) Advance() (*domain.PhaseOperationResult, error) {
-    return nil, project.ErrNotSupported
-}
-
-// Complete handles phase completion (Active → Finalization)
-func (p *DesignPhase) Complete() (*domain.PhaseOperationResult, error) {
-    // Validate all documents approved (guard will also check)
-    if !allDocumentsApproved(p.state.Tasks) {
-        unresolvedCount := countUnresolved(p.state.Tasks)
-        return nil, fmt.Errorf(
-            "cannot complete design: %d tasks are not yet completed or abandoned",
-            unresolvedCount,
-        )
-    }
-
-    // Update phase status
-    p.state.Status = "completed"
-    if err := p.project.Save(); err != nil {
-        return nil, fmt.Errorf("failed to save state: %w", err)
-    }
-
-    // Return event to trigger phase transition
-    return domain.WithEvent(EventCompleteDesign), nil
-}
-
-// AddArtifact enforces task existence guard
-func (p *DesignPhase) AddArtifact(path string, opts ...domain.ArtifactOption) error {
-    if len(p.state.Tasks) == 0 {
-        return fmt.Errorf(
-            "cannot add artifacts before creating document tasks - "+
-            "create at least one task to track document lifecycle first",
-        )
-    }
-    return p.artifacts.Add(path, opts...)
-}
-
-// UpdateTaskStatus handles artifact auto-approval on completion
-func (p *DesignPhase) UpdateTaskStatus(id string, status string) error {
-    task, err := p.tasks.Get(id)
-    if err != nil {
-        return err
-    }
-
-    // Validate artifact exists if moving to completed
-    if status == "completed" {
-        if task.Metadata == nil {
-            return fmt.Errorf(
-                "task %s has no metadata - set artifact_path before completing",
-                id,
-            )
-        }
-
-        artifactPathRaw, ok := task.Metadata["artifact_path"]
-        if !ok {
-            return fmt.Errorf(
-                "task %s has no artifact_path in metadata - "+
-                "link artifact to task before completing",
-                id,
-            )
-        }
-
-        artifactPath, ok := artifactPathRaw.(string)
-        if !ok {
-            return fmt.Errorf("artifact_path must be a string")
-        }
-
-        // Find artifact
-        var targetArtifact *phases.Artifact
-        for i := range p.state.Artifacts {
-            if p.state.Artifacts[i].Path == artifactPath {
-                targetArtifact = &p.state.Artifacts[i]
-                break
-            }
-        }
-
-        if targetArtifact == nil {
-            return fmt.Errorf(
-                "artifact not found at %s - add artifact before completing task",
-                artifactPath,
-            )
-        }
-
-        // Auto-approve artifact
-        approved := true
-        targetArtifact.Approved = &approved
-    }
-
-    // Update task status via collection
-    return p.tasks.UpdateStatus(id, status)
-}
-
-// AddInput adds an input artifact to phase.inputs
-func (p *DesignPhase) AddInput(path string, opts ...domain.ArtifactOption) error {
-    config := &domain.ArtifactConfig{}
-    for _, opt := range opts {
-        opt(config)
-    }
-
-    now := time.Now()
-    input := phases.Artifact{
-        Path:       path,
-        Created_at: now,
-        Metadata:   config.Metadata,
-    }
-
-    if config.Type != nil {
-        input.Type = config.Type
-    }
-
-    if p.state.Inputs == nil {
-        p.state.Inputs = []phases.Artifact{}
-    }
-
-    p.state.Inputs = append(p.state.Inputs, input)
-    return p.project.Save()
-}
-
-// ... other Phase interface methods
-```
-
-### Finalization Phase
-
-**File**: `cli/internal/project/design/finalization.go`
-
-Standard finalization phase (similar to exploration).
-
-```go
-package design
-
-import (
-    "fmt"
-    "github.com/jmgilman/sow/cli/internal/project"
-    "github.com/jmgilman/sow/cli/internal/project/domain"
-    "github.com/jmgilman/sow/cli/schemas/phases"
-)
-
-type FinalizationPhase struct {
-    state   *phases.Phase
-    tasks   *project.TaskCollection
-    project *DesignProject
-}
-
-func newFinalizationPhase(proj *DesignProject) *FinalizationPhase {
-    return &FinalizationPhase{
-        state:   &proj.state.Phases.Finalization,
-        tasks:   project.NewTaskCollection(&proj.state.Phases.Finalization, proj, proj.ctx),
-        project: proj,
-    }
-}
-
-// Advance not supported - finalization has no internal states
-func (p *FinalizationPhase) Advance() (*domain.PhaseOperationResult, error) {
-    return nil, project.ErrNotSupported
-}
-
-// Complete when all finalization tasks done
-func (p *FinalizationPhase) Complete() (*domain.PhaseOperationResult, error) {
-    // Validate all tasks completed
-    for _, task := range p.state.Tasks {
-        if task.Status != "completed" {
-            return nil, fmt.Errorf("all finalization tasks must be completed")
-        }
-    }
-
-    p.state.Status = "completed"
-    if err := p.project.Save(); err != nil {
-        return nil, err
-    }
-
-    return domain.WithEvent(EventCompleteFinalization), nil
-}
-
-// ... other Phase interface methods
-```
-
-## Guards
-
-**File**: `cli/internal/project/design/guards.go`
-
-```go
-package design
-
-import "github.com/jmgilman/sow/cli/schemas/phases"
-
-// AllDocumentsApproved checks if all documents are completed or abandoned.
-// Guards Active → Finalizing transition.
-// Requires at least one completed task.
-func AllDocumentsApproved(tasks []phases.Task) bool {
-    if len(tasks) == 0 {
-        return false  // Must have at least one task
-    }
-
-    hasCompleted := false
-    for _, task := range tasks {
-        // Check for unresolved tasks
-        if task.Status != "completed" && task.Status != "abandoned" {
-            return false
-        }
-        // Track if we have at least one completed
-        if task.Status == "completed" {
-            hasCompleted = true
-        }
-    }
-
-    return hasCompleted
-}
-
-// AllFinalizationTasksComplete checks if all finalization tasks are done.
-// Guards Finalizing → Completed transition.
-func AllFinalizationTasksComplete(tasks []phases.Task) bool {
-    if len(tasks) == 0 {
-        return false  // Must have finalization tasks
-    }
-
-    for _, task := range tasks {
-        if task.Status != "completed" {
-            return false
-        }
-    }
-    return true
-}
-
-// Helper functions
-func allDocumentsApproved(tasks []phases.Task) bool {
-    return AllDocumentsApproved(tasks)
-}
-
-func countUnresolved(tasks []phases.Task) int {
-    count := 0
-    for _, task := range tasks {
-        if task.Status != "completed" && task.Status != "abandoned" {
-            count++
-        }
-    }
-    return count
-}
-```
-
-## States and Events
-
-**File**: `cli/internal/project/design/states.go`
-
-```go
-package design
-
-import "github.com/jmgilman/sow/cli/internal/project/statechart"
-
-// State constants for design workflow
-const (
-    DesignActive     = statechart.State("Active")
-    DesignFinalizing = statechart.State("Finalizing")
-    DesignCompleted  = statechart.State("Completed")
-)
-```
-
-**File**: `cli/internal/project/design/events.go`
-
-```go
-package design
-
-import "github.com/jmgilman/sow/cli/internal/project/statechart"
-
-// Event constants for design transitions
-const (
-    // Active → Finalizing
-    EventCompleteDesign = statechart.Event("complete_design")
-
-    // Finalizing → Completed
-    EventCompleteFinalization = statechart.Event("complete_finalization")
-)
-```
-
-## Prompt Generation
-
-**File**: `cli/internal/project/design/prompts.go`
-
-```go
-package design
-
-import (
-    "fmt"
-    "strings"
-
-    "github.com/jmgilman/sow/cli/internal/project/statechart"
-    "github.com/jmgilman/sow/cli/internal/sow"
-    "github.com/jmgilman/sow/cli/schemas"
-)
-
-type DesignPromptGenerator struct {
-    components *statechart.PromptComponents
-    ctx        *sow.Context
-}
-
-func NewDesignPromptGenerator(ctx *sow.Context) *DesignPromptGenerator {
-    return &DesignPromptGenerator{
-        components: statechart.NewPromptComponents(ctx),
-        ctx:        ctx,
-    }
-}
-
-func (g *DesignPromptGenerator) GeneratePrompt(
-    state statechart.State,
-    projectState *schemas.ProjectState,
-) (string, error) {
-    switch state {
-    case DesignActive:
-        return g.generateActivePrompt(projectState)
-    case DesignFinalizing:
-        return g.generateFinalizingPrompt(projectState)
-    default:
-        return "", fmt.Errorf("unknown design state: %s", state)
-    }
-}
-
-func (g *DesignPromptGenerator) generateActivePrompt(
-    projectState *schemas.ProjectState,
-) (string, error) {
-    var buf strings.Builder
-
-    // Project header
-    buf.WriteString(g.components.ProjectHeader(projectState))
-    buf.WriteString("\n")
-
-    // Current state
-    buf.WriteString("## Current State: Active Design\n\n")
-    buf.WriteString("You are in the Active state of design. ")
-    buf.WriteString("Your focus is planning design outputs, drafting documents, ")
-    buf.WriteString("and iterating through reviews.\n\n")
-
-    phase := projectState.Phases.Design
-
-    // Inputs
-    if phase.Inputs != nil && len(phase.Inputs) > 0 {
-        buf.WriteString("## Design Inputs\n\n")
-        buf.WriteString("Sources informing this design:\n\n")
-        for _, input := range phase.Inputs {
-            buf.WriteString(fmt.Sprintf("- %s\n", input.Path))
-        }
-        buf.WriteString("\n")
-    }
-
-    // Document tasks
-    buf.WriteString("## Design Documents\n\n")
-
-    if len(phase.Tasks) == 0 {
-        buf.WriteString("No documents planned yet. Start by creating document tasks:\n\n")
-        buf.WriteString("```bash\n")
-        buf.WriteString("sow agent task create \"Document name\" \\\n")
-        buf.WriteString("  --metadata '{\"document_type\":\"design\",\"target_location\":\"...\"}'\n")
-        buf.WriteString("```\n\n")
-        buf.WriteString("**Important**: Create at least one task before adding artifacts.\n\n")
-    } else {
-        pending := 0
-        inProgress := 0
-        needsReview := 0
-        completed := 0
-        abandoned := 0
-
-        for _, task := range phase.Tasks {
-            switch task.Status {
-            case "pending":
-                pending++
-            case "in_progress":
-                inProgress++
-            case "needs_review":
-                needsReview++
-            case "completed":
-                completed++
-            case "abandoned":
-                abandoned++
-            }
-        }
-
-        buf.WriteString(fmt.Sprintf("Total: %d documents\n", len(phase.Tasks)))
-        buf.WriteString(fmt.Sprintf("- Pending: %d\n", pending))
-        buf.WriteString(fmt.Sprintf("- In Progress: %d\n", inProgress))
-        buf.WriteString(fmt.Sprintf("- Needs Review: %d\n", needsReview))
-        buf.WriteString(fmt.Sprintf("- Completed: %d\n", completed))
-        buf.WriteString(fmt.Sprintf("- Abandoned: %d\n", abandoned))
-        buf.WriteString("\n")
-
-        // List documents
-        buf.WriteString("### Documents:\n\n")
-        for _, task := range phase.Tasks {
-            statusIcon := "[ ]"
-            switch task.Status {
-            case "completed":
-                statusIcon = "[✓]"
-            case "abandoned":
-                statusIcon = "[✗]"
-            case "needs_review":
-                statusIcon = "[?]"
-            case "in_progress":
-                statusIcon = "[~]"
-            }
-
-            buf.WriteString(fmt.Sprintf("%s %s - %s (%s)\n", statusIcon, task.Id, task.Name, task.Status))
-
-            // Show artifact if linked
-            if task.Metadata != nil {
-                if artifactPath, ok := task.Metadata["artifact_path"].(string); ok {
-                    buf.WriteString(fmt.Sprintf("    Artifact: %s\n", artifactPath))
-                }
-            }
-        }
-        buf.WriteString("\n")
-    }
-
-    // Next steps
-    buf.WriteString("## Next Steps\n\n")
-    if allDocumentsApproved(phase.Tasks) && len(phase.Tasks) > 0 {
-        buf.WriteString("✓ All documents approved!\n\n")
-        buf.WriteString("Ready to finalize. Run:\n\n")
-        buf.WriteString("```bash\n")
-        buf.WriteString("sow agent complete\n")
-        buf.WriteString("```\n\n")
-    } else {
-        buf.WriteString("Continue design work:\n")
-        buf.WriteString("- Plan documents: `sow agent task create \"Document name\"`\n")
-        buf.WriteString("- Add inputs: `sow agent artifact add <path> --input`\n")
-        buf.WriteString("- Draft documents: Create document, then `sow agent artifact add <path>`\n")
-        buf.WriteString("- Link to task: `sow agent task update <id> --metadata '{\"artifact_path\":\"...\"}'`\n")
-        buf.WriteString("- Mark for review: `sow agent task update <id> --status needs_review`\n")
-        buf.WriteString("- Approve: `sow agent task update <id> --status completed`\n\n")
-
-        unresolvedCount := countUnresolved(phase.Tasks)
-        if unresolvedCount > 0 {
-            buf.WriteString(fmt.Sprintf("(%d documents remaining)\n\n", unresolvedCount))
-        }
-    }
-
-    return buf.String(), nil
-}
-
-func (g *DesignPromptGenerator) generateFinalizingPrompt(
-    projectState *schemas.ProjectState,
-) (string, error) {
-    var buf strings.Builder
-
-    buf.WriteString(g.components.ProjectHeader(projectState))
-    buf.WriteString("\n")
-
-    buf.WriteString("## Current State: Finalizing\n\n")
-    buf.WriteString("All documents approved. Finalizing design by moving artifacts, ")
-    buf.WriteString("creating PR, and cleaning up.\n\n")
-
-    // Finalization tasks
-    phase := projectState.Phases.Finalization
-    buf.WriteString("## Finalization Tasks\n\n")
-
-    for _, task := range phase.Tasks {
-        status := "[ ]"
-        if task.Status == "completed" {
-            status = "[✓]"
-        }
-        buf.WriteString(fmt.Sprintf("%s %s\n", status, task.Name))
-    }
-    buf.WriteString("\n")
-
-    allComplete := true
-    for _, task := range phase.Tasks {
-        if task.Status != "completed" {
-            allComplete = false
-            break
-        }
-    }
-
-    if allComplete && len(phase.Tasks) > 0 {
-        buf.WriteString("All finalization tasks complete! Run:\n\n")
-        buf.WriteString("```bash\n")
-        buf.WriteString("sow agent complete\n")
-        buf.WriteString("```\n\n")
-    }
-
-    return buf.String(), nil
-}
-```
 
 ## Orchestrator Workflow
 
 ### Active State Workflow
 
-1. **Initialize design** (via wizard on `design/*` branch)
+1. **Initialize design** (via `sow project new` on `design/*` branch)
 
 2. **Register inputs** (optional):
-   ```bash
-   sow agent artifact add ../../knowledge/explorations/auth-research.md --input
-   sow agent artifact add https://oauth.net/2/ --input
-   ```
+   - Add to `design.inputs` via orchestrator operations
+   - Track sources that inform design decisions
 
 3. **Plan outputs as tasks**:
-   ```bash
-   sow agent task create "Authentication design doc" \
-     --metadata '{"document_type":"design","target_location":".sow/knowledge/designs/auth-design.md"}'
+   - Create task for each document to create
+   - Set metadata: `document_type`, `target_location`, optional `template`
+   - Tasks start in `pending` status
 
-   sow agent task create "ADR: OAuth vs JWT" \
-     --metadata '{"document_type":"adr","target_location":".sow/knowledge/adrs/003-auth-approach.md"}'
-   ```
-
-4. **Draft first document**:
-   ```bash
-   # Mark task in progress
-   sow agent task update 001 --status in_progress
-
-   # Orchestrator drafts document...
-
-   # Add as artifact
-   sow agent artifact add project/auth-design.md
-
-   # Link to task
-   sow agent task update 001 --metadata '{"artifact_path":"project/auth-design.md",...}'
-   ```
+4. **Draft documents**:
+   - Update task status to `in_progress`
+   - Orchestrator drafts document
+   - Add document as artifact to `design.outputs`
+   - Link artifact to task via `task.outputs` or `task.metadata.artifact_path`
 
 5. **Mark ready for review**:
-   ```bash
-   sow agent task update 001 --status needs_review
-   ```
+   - Update task status to `needs_review`
+   - User reviews document
 
 6. **Review iteration**:
-   - User reviews document
-   - If changes needed:
-     ```bash
-     sow agent task update 001 --status in_progress
-     # Orchestrator updates document...
-     sow agent task update 001 --status needs_review
-     ```
+   - If changes needed: update task status to `in_progress`
+   - Orchestrator updates document
+   - Mark `needs_review` again
    - Repeat until satisfied
 
 7. **Approve document**:
-   ```bash
-   sow agent task update 001 --status completed
-   # Artifact automatically approved
-   ```
+   - Update task status to `completed`
+   - Auto-approve linked artifact (via helper function)
 
 8. **Repeat for remaining documents**
 
 9. **Complete design**:
-   ```bash
-   sow agent complete  # Active → Finalizing
-   ```
+   - When all documents approved: `sow project advance`
+   - Transitions to Finalizing
 
 ### Finalizing State Workflow
 
-1. **Transition to Finalizing**: `sow agent complete` from Active
+1. **Transition to Finalizing**: `sow project advance` from Active
 
-2. **Create finalization tasks** (automatic):
+2. **Create finalization tasks** (orchestrator):
    - For each completed task with `target_location`:
-     - Move artifact to target location
-   - Create PR with links to design artifacts
-   - Delete `.sow/project/` directory
+     - Create task to move artifact to target location
+   - Create task to create PR with design artifacts
+   - Create task to delete `.sow/project/` directory
 
 3. **Execute tasks**:
    - Orchestrator completes each task sequentially
    - Updates task status to `completed`
 
-4. **Complete finalization**: `sow agent complete`
+4. **Complete finalization**: `sow project advance`
 
 5. **Design finished**: State machine reaches Completed
-
-## CLI Commands
-
-### Add Input
-
-**New command** (or extend existing artifact add):
-
-```bash
-# Option 1: New dedicated command
-sow agent input add <path> [--description "..."] [--type "..."]
-
-# Option 2: Flag on existing command (preferred)
-sow agent artifact add <path> --input [--description "..."]
-```
-
-**Implementation**: Calls `DesignPhase.AddInput()` which adds to `phase.inputs`
-
-### Link Artifact to Task
-
-**Via metadata update**:
-
-```bash
-sow agent task update 001 --metadata '{"artifact_path":"project/auth-design.md"}'
-```
-
-**Or combined with other metadata**:
-
-```bash
-sow agent task update 001 \
-  --metadata '{
-    "artifact_path":"project/auth-design.md",
-    "document_type":"design",
-    "target_location":".sow/knowledge/designs/auth-design.md"
-  }'
-```
 
 ## Testing Strategy
 
 ### Unit Tests
 
 **Schema validation**:
-- DesignProjectState validates correctly
+- ProjectState validates correctly with type="design"
 - Phase status constraints enforced
 - State machine state constraints enforced
 
-**Guards**:
-- `AllDocumentsApproved` returns false with pending tasks
-- `AllDocumentsApproved` returns true when all completed/abandoned
-- `AllDocumentsApproved` requires at least one completed
-- `AllFinalizationTasksComplete` validates all tasks completed
+**Guards** (`guards_test.go`):
+- `allDocumentsApproved` returns false with pending tasks
+- `allDocumentsApproved` returns true when all completed/abandoned
+- `allDocumentsApproved` requires at least one completed
+- `allFinalizationTasksComplete` validates all tasks completed
+- `validateTaskForCompletion` checks artifact exists
+- `autoApproveArtifact` approves linked artifact
 
-**Phase operations**:
-- `AddArtifact()` fails if no tasks exist
-- `UpdateTaskStatus()` to completed validates artifact exists
-- `UpdateTaskStatus()` to completed auto-approves artifact
-- `Complete()` validates all documents approved
+**Configuration building** (`design_test.go`):
+- Builder creates valid ProjectTypeConfig
+- All transitions configured correctly
+- Guards bound via closures
+- Prompts registered for all states
 
 ### Integration Tests
 
-**Full workflow**:
+**Full workflow** (`integration_test.go`):
 1. Create design project on `design/test` branch
-2. Add 2 inputs
-3. Create 2 document tasks
+2. Add 2 inputs to design phase
+3. Create 2 document tasks with metadata
 4. Draft and approve both documents
-5. Complete design
+5. Advance to Finalizing
 6. Complete finalization
 7. Verify documents moved to target locations
 
 **Edge cases**:
-- Add artifact before creating tasks (should fail)
-- Complete task without artifact_path (should fail)
-- Complete task with non-existent artifact (should fail)
+- Add artifact before creating tasks (orchestrator should prevent)
+- Complete task without artifact_path (should fail validation)
+- Complete task with non-existent artifact (should fail validation)
 - Complete task successfully (should auto-approve artifact)
-- needs_review → in_progress transition (should work)
+- `needs_review` → `in_progress` transition (should work)
 - Complete with all tasks abandoned (should fail - need at least one completed)
 
-### Manual Verification
+### SDK Integration Tests
 
-- Real design workflow on test topic
-- Verify prompts provide useful guidance
-- Verify state transitions feel natural
-- Verify artifact auto-approval works
-- Verify finalization moves documents correctly
+**State machine integration**:
+- BuildMachine creates valid state machine
+- Guards prevent invalid transitions
+- Events fire correctly
+- Prompts generate for all states
+
+**Registry integration**:
+- `state.Register("design", config)` succeeds
+- `state.Get("design")` returns correct config
+- Config validates project state correctly
 
 ## Migration Notes
 
@@ -1140,17 +1000,17 @@ Design sessions are typically short (days to weeks), so breaking change acceptab
 
 1. ✅ Can create design project on `design/*` branch
 2. ✅ Can register inputs to track design sources
-3. ✅ Cannot add artifacts before creating tasks
-4. ✅ Can create document tasks with metadata
-5. ✅ Can link artifacts to tasks via metadata
-6. ✅ Can transition tasks through pending → in_progress → needs_review → completed
-7. ✅ Can go backward from needs_review → in_progress for revisions
-8. ✅ Completing task auto-approves artifact at metadata.artifact_path
-9. ✅ Cannot complete task without artifact existing
-10. ✅ Can complete design when all documents approved (at least one completed)
-11. ✅ Finalization moves documents to target locations
-12. ✅ Zero-context resumability works
-13. ✅ Prompts provide clear guidance at each state
+3. ✅ Can create document tasks with metadata
+4. ✅ Can link artifacts to tasks via task.outputs or metadata
+5. ✅ Can transition tasks through pending → in_progress → needs_review → completed
+6. ✅ Can go backward from needs_review → in_progress for revisions
+7. ✅ Completing task auto-approves linked artifact
+8. ✅ Cannot complete task without artifact existing (validation)
+9. ✅ Can advance to Finalizing when all documents approved (at least one completed)
+10. ✅ Finalization moves documents to target locations
+11. ✅ Zero-context resumability works (project state on disk)
+12. ✅ Prompts provide clear guidance at each state
+13. ✅ SDK configuration is declarative and testable
 
 ## Future Enhancements
 
@@ -1162,3 +1022,10 @@ Design sessions are typically short (days to weeks), so breaking change acceptab
 - Document versioning/iteration tracking
 - Linking designs to implementations (track which projects implement this design)
 - Design impact analysis (which systems affected by this design)
+
+## References
+
+- **Core Design**: [Modes to Project Types](core-design.md)
+- **Project SDK**: `cli/internal/sdks/project/` (builder, config, machine)
+- **Standard Project**: `cli/internal/projects/standard/` (reference implementation)
+- **State Machine SDK**: `cli/internal/sdks/state/` (underlying state machine)
