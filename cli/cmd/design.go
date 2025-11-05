@@ -265,6 +265,7 @@ func generateDesignPrompt(sowCtx *sow.Context, topic, branch, initialPrompt stri
 	}
 
 	// Render prompt
+	//nolint:staticcheck // Using legacy API during transition period
 	prompt, err := prompts.Render(prompts.PromptModeDesign, ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to render design prompt: %w", err)

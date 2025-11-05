@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/templates"
+	"github.com/jmgilman/sow/cli/internal/templates"
 	projschema "github.com/jmgilman/sow/cli/schemas/project"
 )
 

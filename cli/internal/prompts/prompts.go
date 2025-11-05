@@ -1,187 +1,108 @@
+// Package prompts provides embedded shared prompt templates.
+//
+// This is a pure data layer - it only embeds markdown template files.
+// Use the templates package (internal/templates) to render these templates.
+//
+// Example usage:
+//
+//	import (
+//	    "github.com/jmgilman/sow/cli/internal/prompts"
+//	    "github.com/jmgilman/sow/cli/internal/templates"
+//	)
+//
+//	output, err := templates.Render(prompts.FS, "templates/guidance/research.md", nil)
 package prompts
 
 import (
 	"bytes"
 	"embed"
 	"fmt"
-	"strings"
 	"text/template"
 )
 
+// FS contains all shared prompt templates.
+// Templates are organized under templates/ directory:
+//
+//   - templates/guidance/        - On-demand guidance for specific tasks
+//   - templates/guidance/design/ - Design artifact templates
+//   - templates/guidance/implementer/ - Implementation guidance
+//   - templates/guidance/reviewer/    - Code review guidance
+//   - templates/commands/        - Command-specific prompts
+//   - templates/greet/           - Greeting and mode selection prompts
+//   - templates/modes/           - Mode-specific entry prompts
+//
+//go:embed templates
+var FS embed.FS
+
 // PromptID uniquely identifies a shared prompt template.
-// Project-specific prompts are defined in their respective packages.
+// This type is kept for backward compatibility with the legacy rendering system.
+// New code should use the templates package directly with file paths.
 type PromptID string
 
-// Command prompt IDs - Composable greeting system.
+// Legacy prompt IDs for backward compatibility.
 const (
 	PromptGreetBase          PromptID = "greet.base"
 	PromptGreetStateUninit   PromptID = "greet.state.uninitialized"
 	PromptGreetStateOperator PromptID = "greet.state.operator"
 	PromptGreetStateOrch     PromptID = "greet.state.orchestrator"
 	PromptGreetOrchestrator  PromptID = "greet.orchestrator"
+	PromptCommandNew         PromptID = "command.new"
+	PromptCommandContinue    PromptID = "command.continue"
+	PromptModeExplore        PromptID = "mode.explore"
+	PromptModeDesign         PromptID = "mode.design"
+	PromptModeBreakdown      PromptID = "mode.breakdown"
 )
 
-// Command prompt IDs - Entry point prompts for CLI commands.
-const (
-	PromptCommandNew      PromptID = "command.new"
-	PromptCommandContinue PromptID = "command.continue"
-)
-
-// Mode prompt IDs - Entry points for different modes.
-const (
-	PromptModeExplore   PromptID = "mode.explore"
-	PromptModeDesign    PromptID = "mode.design"
-	PromptModeBreakdown PromptID = "mode.breakdown"
-)
-
-// Guidance prompt IDs - On-demand guidance for specific tasks.
-const (
-	PromptGuidanceResearch PromptID = "guidance.research"
-
-	// Design guidance prompts.
-	PromptGuidanceDesignPRD        PromptID = "guidance.design.prd"
-	PromptGuidanceDesignArc42      PromptID = "guidance.design.arc42"
-	PromptGuidanceDesignDoc        PromptID = "guidance.design.design-doc"
-	PromptGuidanceDesignADR        PromptID = "guidance.design.adr"
-	PromptGuidanceDesignC4Diagrams PromptID = "guidance.design.c4-diagrams"
-
-	// Implementer guidance prompts.
-	PromptGuidanceImplementerBase     PromptID = "guidance.implementer.base"
-	PromptGuidanceImplementerTDD      PromptID = "guidance.implementer.tdd"
-	PromptGuidanceImplementerFeature  PromptID = "guidance.implementer.feature"
-	PromptGuidanceImplementerBug      PromptID = "guidance.implementer.bug"
-	PromptGuidanceImplementerRefactor PromptID = "guidance.implementer.refactor"
-
-	// Reviewer guidance prompts.
-	PromptGuidanceReviewerBase PromptID = "guidance.reviewer.base"
-)
-
-// Context represents data needed to render a prompt.
-// Implementations must provide a ToMap method that converts
-// the context into template-compatible data.
+// Context represents data needed to render a prompt (legacy).
 type Context interface {
 	ToMap() map[string]interface{}
 }
 
-// Registry manages prompt templates with generic key type.
-// K must be a comparable type (typically string or a string-based type).
-type Registry[K comparable] struct {
-	templates map[K]*template.Template
-}
-
-// NewRegistry creates a new empty prompt registry with the specified key type.
-func NewRegistry[K comparable]() *Registry[K] {
-	return &Registry[K]{
-		templates: make(map[K]*template.Template),
-	}
-}
-
-// RegisterFromFS loads and parses a template from the provided embedded filesystem.
-// This allows each registry to use its own embed.FS instance.
-func (r *Registry[K]) RegisterFromFS(fs embed.FS, id K, path string) error {
-	content, err := fs.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("failed to read template %s: %w", path, err)
-	}
-
-	// Create template with custom functions
-	tmpl, err := template.New(fmt.Sprint(id)).Funcs(template.FuncMap{
-		"join": func(sep string, elems []string) string {
-			return strings.Join(elems, sep)
-		},
-	}).Parse(string(content))
-	if err != nil {
-		return fmt.Errorf("failed to parse template %s: %w", path, err)
-	}
-
-	r.templates[id] = tmpl
-	return nil
-}
-
-// Register loads and parses a template from the default shared embedded filesystem.
-// This is a convenience method for the shared prompts registry.
-// Project-specific registries should use RegisterFromFS with their own embed.FS.
-func (r *Registry[K]) Register(id K, path string) error {
-	return r.RegisterFromFS(templatesFS, id, path)
-}
-
-// Render renders a prompt template with the given context.
-func (r *Registry[K]) Render(id K, ctx Context) (string, error) {
-	tmpl, ok := r.templates[id]
-	if !ok {
-		return "", fmt.Errorf("unknown prompt ID: %v", id)
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, ctx.ToMap()); err != nil {
-		return "", fmt.Errorf("failed to render prompt %v: %w", id, err)
-	}
-
-	return buf.String(), nil
-}
-
-// Embed shared prompt templates from the templates/ directory.
-// Project-specific templates are embedded in their respective packages.
+// Render is a legacy wrapper that maps PromptIDs to template paths.
+// New code should use templates.Render() directly with file paths.
 //
-//go:embed templates/greet/*.md templates/greet/states/*.md templates/commands/*.md templates/modes/*.md templates/guidance/*.md templates/guidance/design/*.md templates/guidance/implementer/*.md templates/guidance/reviewer/*.md
-var templatesFS embed.FS
-
-// Default registry, initialized at startup.
-// This registry uses PromptID as the key type for shared prompts.
-var defaultRegistry *Registry[PromptID]
-
-func init() {
-	defaultRegistry = NewRegistry[PromptID]()
-
-	// Map shared prompt IDs to their template files.
-	// Project-specific prompts are registered in their own packages.
-	promptFiles := map[PromptID]string{
-		// Composable greeting system
+// Deprecated: Use templates.Render(prompts.FS, path, data) instead.
+func Render(id PromptID, ctx Context) (string, error) {
+	// Map legacy IDs to template paths
+	pathMap := map[PromptID]string{
 		PromptGreetBase:          "templates/greet/base.md",
 		PromptGreetStateUninit:   "templates/greet/states/uninitialized.md",
 		PromptGreetStateOperator: "templates/greet/states/operator.md",
 		PromptGreetStateOrch:     "templates/greet/states/orchestrator.md",
 		PromptGreetOrchestrator:  "templates/greet/orchestrator.md",
-
-		// Entry point command prompts
-		PromptCommandNew:      "templates/commands/new.md",
-		PromptCommandContinue: "templates/commands/continue.md",
-
-		// Mode prompts
-		PromptModeExplore:   "templates/modes/explore.md",
-		PromptModeDesign:    "templates/modes/design.md",
-		PromptModeBreakdown: "templates/modes/breakdown.md",
-
-		// Guidance prompts
-		PromptGuidanceResearch: "templates/guidance/research.md",
-
-		// Design guidance prompts
-		PromptGuidanceDesignPRD:        "templates/guidance/design/prd.md",
-		PromptGuidanceDesignArc42:      "templates/guidance/design/arc42.md",
-		PromptGuidanceDesignDoc:        "templates/guidance/design/design-doc.md",
-		PromptGuidanceDesignADR:        "templates/guidance/design/adr.md",
-		PromptGuidanceDesignC4Diagrams: "templates/guidance/design/c4-diagrams.md",
-
-		// Implementer guidance prompts
-		PromptGuidanceImplementerBase:     "templates/guidance/implementer/base.md",
-		PromptGuidanceImplementerTDD:      "templates/guidance/implementer/tdd.md",
-		PromptGuidanceImplementerFeature:  "templates/guidance/implementer/feature.md",
-		PromptGuidanceImplementerBug:      "templates/guidance/implementer/bug.md",
-		PromptGuidanceImplementerRefactor: "templates/guidance/implementer/refactor.md",
-
-		// Reviewer guidance prompts
-		PromptGuidanceReviewerBase: "templates/guidance/reviewer/base.md",
+		PromptCommandNew:         "templates/commands/new.md",
+		PromptCommandContinue:    "templates/commands/continue.md",
+		PromptModeExplore:        "templates/modes/explore.md",
+		PromptModeDesign:         "templates/modes/design.md",
+		PromptModeBreakdown:      "templates/modes/breakdown.md",
 	}
 
-	// Load and parse all shared templates
-	for id, path := range promptFiles {
-		if err := defaultRegistry.Register(id, path); err != nil {
-			panic(fmt.Sprintf("failed to register shared prompt %s: %v", id, err))
-		}
+	path, ok := pathMap[id]
+	if !ok {
+		return "", fmt.Errorf("unknown prompt ID: %v", id)
 	}
+
+	// Import templates package to use Render
+	// This is done at function scope to avoid import cycles
+	return renderLegacy(FS, path, ctx)
 }
 
-// Render renders a prompt using the default shared prompts registry.
-func Render(id PromptID, ctx Context) (string, error) {
-	return defaultRegistry.Render(id, ctx)
+// renderLegacy handles legacy rendering with Context interface.
+func renderLegacy(embedFS embed.FS, path string, ctx Context) (string, error) {
+	content, err := embedFS.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read template %s: %w", path, err)
+	}
+
+	tmpl, err := template.New(path).Parse(string(content))
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template %s: %w", path, err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, ctx.ToMap()); err != nil {
+		return "", fmt.Errorf("failed to render template %s: %w", path, err)
+	}
+
+	return buf.String(), nil
 }

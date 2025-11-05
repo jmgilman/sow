@@ -239,6 +239,7 @@ func generateExplorationPrompt(sowCtx *sow.Context, topic, branch, initialPrompt
 	}
 
 	// Render prompt
+	//nolint:staticcheck // Using legacy API during transition period
 	prompt, err := prompts.Render(prompts.PromptModeExplore, ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to render exploration prompt: %w", err)
