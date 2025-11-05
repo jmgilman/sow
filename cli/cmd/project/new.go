@@ -39,11 +39,36 @@ Examples:
 Claude Code Flags:
   Use -- to pass additional flags to the Claude Code CLI:
     sow project new "Description" -- --model opus --verbose`,
-		Args: cobra.MaximumNArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			// Allow at most 1 arg before --, unlimited after --
+			dashIndex := cmd.ArgsLenAtDash()
+			if dashIndex < 0 {
+				// No -- separator, check total args
+				if len(args) > 1 {
+					return fmt.Errorf("accepts at most 1 arg(s), received %d", len(args))
+				}
+			} else {
+				// Has -- separator, only validate args before --
+				if dashIndex > 1 {
+					return fmt.Errorf("accepts at most 1 arg before --, received %d", dashIndex)
+				}
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var description string
-			if len(args) > 0 {
-				description = args[0]
+			// Only use args before the -- separator (args after -- are Claude Code flags)
+			dashIndex := cmd.ArgsLenAtDash()
+			if dashIndex < 0 {
+				// No -- separator, use all args
+				if len(args) > 0 {
+					description = args[0]
+				}
+			} else {
+				// Has -- separator, only use args before it
+				if dashIndex > 0 {
+					description = args[0]
+				}
 			}
 			return runNew(cmd, branchName, issueNumber, description, noLaunch)
 		},
@@ -71,7 +96,10 @@ func runNew(cmd *cobra.Command, branchName string, issueNumber int, description 
 	// Extract Claude Code flags (everything after --)
 	var claudeFlags []string
 	if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
-		claudeFlags = cmd.Flags().Args()[dashIndex:]
+		allArgs := cmd.Flags().Args()
+		if dashIndex < len(allArgs) {
+			claudeFlags = allArgs[dashIndex:]
+		}
 	}
 
 	// 2. Check for uncommitted changes BEFORE any branch operations

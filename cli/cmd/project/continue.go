@@ -58,7 +58,10 @@ func runContinue(cmd *cobra.Command, branchName string, noLaunch bool) error {
 	// Extract Claude Code flags (everything after --)
 	var claudeFlags []string
 	if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
-		claudeFlags = cmd.Flags().Args()[dashIndex:]
+		allArgs := cmd.Flags().Args()
+		if dashIndex < len(allArgs) {
+			claudeFlags = allArgs[dashIndex:]
+		}
 	}
 
 	// 2. Determine target branch
@@ -139,10 +142,10 @@ func handleBranchScenarioContinue(ctx *sow.Context, branchName string) (string, 
 		return "", fmt.Errorf("branch %s does not exist - create it first with: sow project new --branch %s \"description\"", branchName, branchName)
 	}
 
-	// Checkout the branch
-	if err := git.CheckoutBranch(branchName); err != nil {
-		return "", fmt.Errorf("failed to checkout branch %s: %w", branchName, err)
-	}
+	// Note: We do NOT checkout the branch in the main repository.
+	// The worktree will be created/accessed separately via EnsureWorktree(),
+	// which handles the branch checkout in its own isolated working directory.
+	// Checking out here would fail if the main repo has uncommitted changes.
 
 	return branchName, nil
 }
