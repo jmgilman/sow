@@ -435,24 +435,6 @@ func addApprovedOutput(t *testing.T, p *state.Project, phaseName, outputType, pa
 	p.Phases[phaseName] = phase
 }
 
-// addUnapprovedOutput adds an unapproved output artifact to a phase.
-func addUnapprovedOutput(p *state.Project, phaseName, outputType, path string) {
-	phase, exists := p.Phases[phaseName]
-	if !exists {
-		return
-	}
-
-	artifact := projschema.ArtifactState{
-		Type:       outputType,
-		Path:       path,
-		Created_at: time.Now(),
-		Approved:   false,
-	}
-
-	phase.Outputs = append(phase.Outputs, artifact)
-	p.Phases[phaseName] = phase
-}
-
 // addApprovedReview adds an approved review artifact with assessment metadata.
 func addApprovedReview(t *testing.T, p *state.Project, assessment, path string) {
 	t.Helper()
