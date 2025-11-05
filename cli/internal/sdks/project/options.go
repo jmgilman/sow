@@ -1,6 +1,7 @@
 package project
 
 import (
+	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
 )
 
@@ -53,9 +54,21 @@ func WithMetadataSchema(schema string) PhaseOpt {
 type TransitionOption func(*TransitionConfig)
 
 // WithGuard sets the guard template function for a transition.
-func WithGuard(guardFunc GuardTemplate) TransitionOption {
+// The description should explain what condition must be met for the transition,
+// and will appear in error messages when the guard fails. This helps orchestrators
+// understand what action is needed.
+//
+// Example:
+//
+//	WithGuard("all tasks complete", func(p *state.Project) bool {
+//	    return allTasksComplete(p)
+//	})
+func WithGuard(description string, guardFunc func(*state.Project) bool) TransitionOption {
 	return func(tc *TransitionConfig) {
-		tc.guardTemplate = guardFunc
+		tc.guardTemplate = GuardTemplate{
+			Description: description,
+			Func:        guardFunc,
+		}
 	}
 }
 

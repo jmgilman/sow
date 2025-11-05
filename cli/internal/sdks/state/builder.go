@@ -15,6 +15,14 @@ type MachineBuilder struct {
 	sm           *stateless.StateMachine
 	projectState *schemas.ProjectState
 	promptFunc   PromptFunc // Optional prompt generator (can be nil)
+	// guardDescriptions maps (from state, event) to guard description
+	guardDescriptions map[transitionKey]string
+}
+
+// transitionKey uniquely identifies a transition by source state and event.
+type transitionKey struct {
+	from  State
+	event Event
 }
 
 // NewBuilder creates a new MachineBuilder starting at the specified initial state.
@@ -43,9 +51,10 @@ func NewBuilder(
 ) *MachineBuilder {
 	sm := stateless.NewStateMachine(initialState)
 	return &MachineBuilder{
-		sm:           sm,
-		projectState: projectState,
-		promptFunc:   promptFunc,
+		sm:                sm,
+		projectState:      projectState,
+		promptFunc:        promptFunc,
+		guardDescriptions: make(map[transitionKey]string),
 	}
 }
 
@@ -54,9 +63,10 @@ type TransitionOption func(*transitionConfig)
 
 // transitionConfig holds configuration for a single transition.
 type transitionConfig struct {
-	guard        GuardFunc
-	entryActions []func(context.Context, ...any) error
-	exitActions  []func(context.Context, ...any) error
+	guard            GuardFunc
+	guardDescription string // Human-readable description for error messages
+	entryActions     []func(context.Context, ...any) error
+	exitActions      []func(context.Context, ...any) error
 }
 
 // GuardFunc is a function that determines if a transition is permitted.
@@ -80,6 +90,27 @@ type GuardFunc func() bool
 func WithGuard(guard GuardFunc) TransitionOption {
 	return func(c *transitionConfig) {
 		c.guard = guard
+	}
+}
+
+// WithGuardDescription adds a guard with a custom description for error messages.
+// The description should explain what condition must be met for the transition.
+// This is useful for providing helpful error messages when guards fail.
+//
+// Example:
+//
+//	builder.AddTransition(
+//	    PlanningActive,
+//	    ImplementationPlanning,
+//	    EventCompletePlanning,
+//	    statechart.WithGuardDescription("planning complete", func() bool {
+//	        return PlanningComplete(project.state.Phases.Planning)
+//	    }),
+//	)
+func WithGuardDescription(description string, guard GuardFunc) TransitionOption {
+	return func(c *transitionConfig) {
+		c.guard = guard
+		c.guardDescription = description
 	}
 }
 
@@ -163,6 +194,12 @@ func (b *MachineBuilder) AddTransition(
 		opt(config)
 	}
 
+	// Save guard description if provided
+	if config.guard != nil && config.guardDescription != "" {
+		key := transitionKey{from: from, event: event}
+		b.guardDescriptions[key] = config.guardDescription
+	}
+
 	// Configure the source state for exit actions
 	cfgFrom := b.sm.Configure(from)
 
@@ -222,10 +259,16 @@ func (b *MachineBuilder) ConfigureState(state State) *stateless.StateConfigurati
 //	    AddTransition(PlanningActive, ImplementationPlanning, EventCompletePlanning, WithGuard(...)).
 //	    Build()
 func (b *MachineBuilder) Build() *Machine {
-	return &Machine{
-		sm:           b.sm,
-		projectState: b.projectState,
+	m := &Machine{
+		sm:                b.sm,
+		projectState:      b.projectState,
+		guardDescriptions: b.guardDescriptions,
 	}
+
+	// Set up custom error handler for unmet guard conditions
+	m.setupUnhandledTriggerHandler()
+
+	return m
 }
 
 // onEntry creates an entry action that generates and prints a contextual prompt.

@@ -143,7 +143,7 @@ func TestAddTransition(t *testing.T) {
 		exitAction := func(_ *state.Project) error { return nil }
 
 		builder.AddTransition(testState1, testState2, testEvent1,
-			WithGuard(guardFunc),
+			WithGuard("test guard", guardFunc),
 			WithOnEntry(entryAction),
 			WithOnExit(exitAction),
 		)

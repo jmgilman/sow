@@ -7,7 +7,12 @@ import (
 
 // GuardTemplate is a template function that gets bound to a project instance
 // via closure. It receives the project and returns whether transition is allowed.
-type GuardTemplate func(*state.Project) bool
+// The Description provides a human-readable explanation of what the guard checks,
+// which appears in error messages when the guard fails.
+type GuardTemplate struct {
+	Description string
+	Func        func(*state.Project) bool
+}
 
 // Action is a function that mutates project state during transitions.
 // Returns error if action fails.
