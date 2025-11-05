@@ -7,50 +7,25 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/templates"
-	"github.com/jmgilman/sow/cli/schemas/project"
+	projschema "github.com/jmgilman/sow/cli/schemas/project"
 )
 
 //go:embed templates/*.md
 var templatesFS embed.FS
 
-// generatePlanningPrompt generates the prompt for the PlanningActive state.
-// This phase focuses on gathering context, confirming requirements, and creating a task list.
-func generatePlanningPrompt(p *state.Project) string {
-	var buf strings.Builder
-
-	// Add project header
-	buf.WriteString(fmt.Sprintf("# Project: %s\n", p.Name))
-	buf.WriteString(fmt.Sprintf("Branch: %s\n", p.Branch))
-	if p.Description != "" {
-		buf.WriteString(fmt.Sprintf("Description: %s\n", p.Description))
-	}
-	buf.WriteString("\n")
-
-	// Render template guidance
-	guidance, err := templates.Render(templatesFS, "templates/planning_active.md", p)
+// generateOrchestratorPrompt generates the orchestrator-level prompt for standard projects.
+// This explains how the standard project type works and how to coordinate work through phases.
+func generateOrchestratorPrompt(p *state.Project) string {
+	// Render orchestrator guidance template
+	prompt, err := templates.Render(templatesFS, "templates/orchestrator.md", p)
 	if err != nil {
-		return fmt.Sprintf("Error rendering template: %v", err)
+		return fmt.Sprintf("Error rendering orchestrator prompt: %v", err)
 	}
-	buf.WriteString(guidance)
-
-	// Show artifacts if any
-	phase, exists := p.Phases["planning"]
-	if exists && len(phase.Outputs) > 0 {
-		buf.WriteString("\n## Planning Artifacts\n\n")
-		for _, artifact := range phase.Outputs {
-			status := "pending"
-			if artifact.Approved {
-				status = "approved"
-			}
-			buf.WriteString(fmt.Sprintf("- %s (%s)\n", artifact.Path, status))
-		}
-	}
-
-	return buf.String()
+	return prompt
 }
 
 // generateImplementationPlanningPrompt generates the prompt for the ImplementationPlanning state.
-// This phase focuses on breaking down the work into concrete implementation tasks.
+// This phase focuses on gathering requirements and creating a high-level task list.
 func generateImplementationPlanningPrompt(p *state.Project) string {
 	var buf strings.Builder
 
@@ -62,14 +37,18 @@ func generateImplementationPlanningPrompt(p *state.Project) string {
 	}
 	buf.WriteString("\n")
 
-	// Include planning phase artifacts as context
-	if planningPhase, exists := p.Phases["planning"]; exists && len(planningPhase.Outputs) > 0 {
-		buf.WriteString("## Planning Context\n\n")
-		buf.WriteString("The following artifacts were created during planning:\n\n")
-		for _, artifact := range planningPhase.Outputs {
-			buf.WriteString(fmt.Sprintf("- %s\n", artifact.Path))
+	// Check if this is a rework iteration
+	implPhase, exists := p.Phases["implementation"]
+	if exists && implPhase.Iteration > 1 {
+		// Show rework iteration number
+		buf.WriteString(fmt.Sprintf("## 🔄 Rework Iteration: %d\n\n", implPhase.Iteration))
+
+		// Show previous review failure context
+		reviewPhase, rExists := p.Phases["review"]
+		if rExists && reviewPhase.Status == "failed" {
+			buf.WriteString("⚠️ **Previous review failed** - tasks must address identified issues.\n\n")
+			addFailedReviewContext(&buf, &reviewPhase)
 		}
-		buf.WriteString("\n")
 	}
 
 	// Render implementation planning guidance template
@@ -81,6 +60,7 @@ func generateImplementationPlanningPrompt(p *state.Project) string {
 
 	return buf.String()
 }
+
 
 // generateImplementationExecutingPrompt generates the prompt for the ImplementationExecuting state.
 // This phase focuses on executing implementation tasks with status tracking.
@@ -94,6 +74,11 @@ func generateImplementationExecutingPrompt(p *state.Project) string {
 		buf.WriteString(fmt.Sprintf("Description: %s\n", p.Description))
 	}
 	buf.WriteString("\n")
+
+	// Show iteration if this is rework
+	if implPhase, exists := p.Phases["implementation"]; exists && implPhase.Iteration > 1 {
+		buf.WriteString(fmt.Sprintf("## Implementation Iteration: %d\n\n", implPhase.Iteration))
+	}
 
 	// Add task summary
 	if implPhase, exists := p.Phases["implementation"]; exists && len(implPhase.Tasks) > 0 {
@@ -141,7 +126,13 @@ func generateReviewPrompt(p *state.Project) string {
 		if prevReview := findPreviousReviewArtifact(p, iteration-1); prevReview != nil {
 			assessment := extractReviewAssessment(prevReview)
 			buf.WriteString(fmt.Sprintf("Assessment: %s\n", assessment))
-			buf.WriteString(fmt.Sprintf("Report: %s\n\n", prevReview.Path))
+			buf.WriteString(fmt.Sprintf("Report: %s\n", prevReview.Path))
+
+			// Show when implementation was marked as failed
+			if implPhase, exists := p.Phases["implementation"]; exists && implPhase.Failed_at.Year() > 1 {
+				buf.WriteString(fmt.Sprintf("Implementation marked failed: %s\n", implPhase.Failed_at.Format("2006-01-02 15:04:05")))
+			}
+			buf.WriteString("\n")
 		}
 	}
 
@@ -221,6 +212,25 @@ func generateFinalizePRCreationPrompt(p *state.Project) string {
 	return buf.String()
 }
 
+// addFailedReviewContext adds failed review context to the buffer.
+func addFailedReviewContext(buf *strings.Builder, reviewPhase *projschema.PhaseState) {
+	// Find latest failed review
+	for i := len(reviewPhase.Outputs) - 1; i >= 0; i-- {
+		artifact := &reviewPhase.Outputs[i]
+		if artifact.Type == "review" && artifact.Approved {
+			assessment, ok := artifact.Metadata["assessment"].(string)
+			if ok && assessment == "fail" {
+				fmt.Fprintf(buf, "Review report: %s\n", artifact.Path)
+				if reviewPhase.Failed_at.Year() > 1 {
+					fmt.Fprintf(buf, "Failed at: %s\n", reviewPhase.Failed_at.Format("2006-01-02 15:04:05"))
+				}
+				buf.WriteString("\n")
+				break
+			}
+		}
+	}
+}
+
 // generateFinalizeCleanupPrompt generates the prompt for the FinalizeCleanup state.
 // This phase focuses on cleaning up the project directory after PR creation.
 func generateFinalizeCleanupPrompt(p *state.Project) string {
@@ -255,7 +265,7 @@ func generateFinalizeCleanupPrompt(p *state.Project) string {
 
 // taskSummary generates a summary of tasks with their status breakdown.
 // Shows total, completed, in-progress, and pending task counts.
-func taskSummary(tasks []project.TaskState) string {
+func taskSummary(tasks []projschema.TaskState) string {
 	var buf strings.Builder
 
 	total := len(tasks)
@@ -295,7 +305,7 @@ func taskSummary(tasks []project.TaskState) string {
 }
 
 // findPreviousReviewArtifact searches for a review artifact from a specific iteration.
-func findPreviousReviewArtifact(p *state.Project, targetIteration int) *project.ArtifactState {
+func findPreviousReviewArtifact(p *state.Project, targetIteration int) *projschema.ArtifactState {
 	reviewPhase, exists := p.Phases["review"]
 	if !exists {
 		return nil
@@ -318,7 +328,7 @@ func findPreviousReviewArtifact(p *state.Project, targetIteration int) *project.
 }
 
 // isReviewArtifact checks if an artifact is a review artifact.
-func isReviewArtifact(artifact *project.ArtifactState) bool {
+func isReviewArtifact(artifact *projschema.ArtifactState) bool {
 	if artifact.Metadata == nil {
 		return false
 	}
@@ -327,7 +337,7 @@ func isReviewArtifact(artifact *project.ArtifactState) bool {
 }
 
 // extractReviewAssessment extracts the assessment string from a review artifact.
-func extractReviewAssessment(artifact *project.ArtifactState) string {
+func extractReviewAssessment(artifact *projschema.ArtifactState) string {
 	if artifact.Metadata == nil {
 		return "unknown"
 	}

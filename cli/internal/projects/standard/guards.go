@@ -2,6 +2,7 @@ package standard
 
 import (
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	projschema "github.com/jmgilman/sow/cli/schemas/project"
 )
 
 // Guard helper functions check transition conditions.
@@ -21,6 +22,38 @@ func phaseOutputApproved(p *state.Project, phaseName, outputType string) bool {
 		}
 	}
 	return false
+}
+
+// allTaskDescriptionsApproved checks if all task description files are approved.
+// Returns false if implementation phase missing or no task description outputs exist.
+// Returns true only when all task_description output artifacts are approved.
+func allTaskDescriptionsApproved(p *state.Project) bool {
+	phase, exists := p.Phases["implementation"]
+	if !exists {
+		return false
+	}
+
+	// Find all task_description outputs
+	var taskDescriptions []projschema.ArtifactState
+	for _, output := range phase.Outputs {
+		if output.Type == "task_description" {
+			taskDescriptions = append(taskDescriptions, output)
+		}
+	}
+
+	// Must have at least one task description
+	if len(taskDescriptions) == 0 {
+		return false
+	}
+
+	// All must be approved
+	for _, desc := range taskDescriptions {
+		if !desc.Approved {
+			return false
+		}
+	}
+
+	return true
 }
 
 // phaseMetadataBool gets a boolean value from phase metadata.

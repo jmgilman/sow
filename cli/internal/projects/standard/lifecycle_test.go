@@ -15,25 +15,11 @@ func TestFullLifecycle(t *testing.T) {
 	// Setup: Create minimal project in NoProject state
 	proj, machine := createTestProject(t, NoProject)
 
-	// NoProject → PlanningActive
-	t.Run("init transitions to PlanningActive", func(t *testing.T) {
+	// NoProject → ImplementationPlanning
+	t.Run("init transitions to ImplementationPlanning", func(t *testing.T) {
 		err := machine.Fire(EventProjectInit)
 		if err != nil {
 			t.Fatalf("Fire(EventProjectInit) failed: %v", err)
-		}
-		if got := machine.State(); got != sdkstate.State(PlanningActive) {
-			t.Errorf("state = %v, want %v", got, PlanningActive)
-		}
-	})
-
-	// PlanningActive → ImplementationPlanning
-	t.Run("planning completion transitions to implementation planning", func(t *testing.T) {
-		// Add and approve task_list output
-		addApprovedOutput(t, proj, "planning", "task_list", "tasks.md")
-
-		err := machine.Fire(EventCompletePlanning)
-		if err != nil {
-			t.Fatalf("Fire(EventCompletePlanning) failed: %v", err)
 		}
 		if got := machine.State(); got != sdkstate.State(ImplementationPlanning) {
 			t.Errorf("state = %v, want %v", got, ImplementationPlanning)
@@ -41,24 +27,29 @@ func TestFullLifecycle(t *testing.T) {
 	})
 
 	// ImplementationPlanning → ImplementationExecuting
-	t.Run("task approval transitions to execution", func(t *testing.T) {
-		// Set tasks_approved metadata
-		setPhaseMetadata(t, proj, "implementation", "tasks_approved", true)
+	t.Run("planning complete transitions to execution", func(t *testing.T) {
+		// Add approved task description outputs
+		addApprovedOutput(t, proj, "implementation", "task_description", ".sow/project/context/tasks/010-task1.md")
+		addApprovedOutput(t, proj, "implementation", "task_description", ".sow/project/context/tasks/020-task2.md")
 
-		err := machine.Fire(EventTasksApproved)
+		err := machine.Fire(EventPlanningComplete)
 		if err != nil {
-			t.Fatalf("Fire(EventTasksApproved) failed: %v", err)
+			t.Fatalf("Fire(EventPlanningComplete) failed: %v", err)
 		}
 		if got := machine.State(); got != sdkstate.State(ImplementationExecuting) {
 			t.Errorf("state = %v, want %v", got, ImplementationExecuting)
 		}
+
+		// Add actual tasks for later test stages
+		addTaskWithApprovedDescription(t, proj, "implementation", "010", "Task 1")
+		addTaskWithApprovedDescription(t, proj, "implementation", "020", "Task 2")
 	})
 
 	// ImplementationExecuting → ReviewActive
 	t.Run("all tasks complete transitions to review", func(t *testing.T) {
-		// Add completed tasks
-		addCompletedTask(t, proj, "implementation", "001", "Task 1")
-		addCompletedTask(t, proj, "implementation", "002", "Task 2")
+		// Mark the existing tasks as completed
+		markTaskAsCompleted(t, proj, "implementation", "010")
+		markTaskAsCompleted(t, proj, "implementation", "020")
 
 		err := machine.Fire(EventAllTasksComplete)
 		if err != nil {
@@ -131,6 +122,102 @@ func TestReviewFailLoop(t *testing.T) {
 	if got := machine.State(); got != sdkstate.State(ImplementationPlanning) {
 		t.Errorf("state = %v, want %v", got, ImplementationPlanning)
 	}
+
+	// Verify review phase marked as failed
+	reviewPhase := proj.Phases["review"]
+	if reviewPhase.Status != "failed" {
+		t.Errorf("review phase status = %v, want failed", reviewPhase.Status)
+	}
+	if reviewPhase.Failed_at.IsZero() {
+		t.Error("review phase failed_at not set")
+	}
+
+	// Verify implementation iteration incremented
+	implPhase := proj.Phases["implementation"]
+	if implPhase.Iteration != 1 {
+		t.Errorf("implementation phase iteration = %v, want 1", implPhase.Iteration)
+	}
+
+	// Verify implementation phase status set to in_progress
+	if implPhase.Status != "in_progress" {
+		t.Errorf("implementation phase status = %v, want in_progress", implPhase.Status)
+	}
+
+	// Verify failed review added as implementation input
+	foundReviewInput := false
+	for _, input := range implPhase.Inputs {
+		if input.Type == "review" {
+			foundReviewInput = true
+			// Verify it's the failed review
+			if assessment, ok := input.Metadata["assessment"].(string); ok {
+				if assessment != "fail" {
+					t.Errorf("review input assessment = %v, want fail", assessment)
+				}
+			} else {
+				t.Error("review input missing assessment metadata")
+			}
+			break
+		}
+	}
+	if !foundReviewInput {
+		t.Error("failed review not added as implementation input")
+	}
+}
+
+// TestMultipleReviewFailures tests iteration increments across multiple review failures.
+func TestMultipleReviewFailures(t *testing.T) {
+	proj, machine := createTestProject(t, ReviewActive)
+
+	// First review failure
+	addApprovedReview(t, proj, "fail", "review-fail-1.md")
+	err := machine.Fire(EventReviewFail)
+	if err != nil {
+		t.Fatalf("Fire(EventReviewFail) #1 failed: %v", err)
+	}
+
+	// Verify iteration = 1 after first failure
+	implPhase := proj.Phases["implementation"]
+	if implPhase.Iteration != 1 {
+		t.Errorf("after first failure: iteration = %v, want 1", implPhase.Iteration)
+	}
+
+	// Simulate completing implementation again and returning to review
+	// (In real workflow, would go through full ImplementationPlanning → ImplementationExecuting → ReviewActive)
+	// For this test, we'll just update machine state and add another review
+	machine = NewStandardProjectConfig().BuildMachine(proj, sdkstate.State(ReviewActive))
+
+	// Second review failure
+	addApprovedReview(t, proj, "fail", "review-fail-2.md")
+	err = machine.Fire(EventReviewFail)
+	if err != nil {
+		t.Fatalf("Fire(EventReviewFail) #2 failed: %v", err)
+	}
+
+	// Verify iteration = 2 after second failure
+	implPhase = proj.Phases["implementation"]
+	if implPhase.Iteration != 2 {
+		t.Errorf("after second failure: iteration = %v, want 2", implPhase.Iteration)
+	}
+
+	// Third review failure
+	machine = NewStandardProjectConfig().BuildMachine(proj, sdkstate.State(ReviewActive))
+	addApprovedReview(t, proj, "fail", "review-fail-3.md")
+	err = machine.Fire(EventReviewFail)
+	if err != nil {
+		t.Fatalf("Fire(EventReviewFail) #3 failed: %v", err)
+	}
+
+	// Verify iteration = 3 after third failure
+	implPhase = proj.Phases["implementation"]
+	if implPhase.Iteration != 3 {
+		t.Errorf("after third failure: iteration = %v, want 3", implPhase.Iteration)
+	}
+
+	// Verify review phase failed_at updated
+	reviewPhase := proj.Phases["review"]
+	if reviewPhase.Status != "failed" {
+		t.Errorf("review phase status = %v, want failed", reviewPhase.Status)
+	}
 }
 
 // TestGuardsBlockInvalidTransitions tests guards prevent invalid transitions.
@@ -143,18 +230,21 @@ func TestGuardsBlockInvalidTransitions(t *testing.T) {
 		shouldBlock  bool
 	}{
 		{
-			name:         "planning without approved task_list blocks",
-			initialState: sdkstate.State(PlanningActive),
-			setupFunc:    func(_ *state.Project) {}, // No task list
-			event:        sdkstate.Event(EventCompletePlanning),
+			name:         "implementation planning without approved task descriptions blocks",
+			initialState: sdkstate.State(ImplementationPlanning),
+			setupFunc:    func(_ *state.Project) {}, // No task descriptions
+			event:        sdkstate.Event(EventPlanningComplete),
 			shouldBlock:  true,
 		},
 		{
-			name:         "implementation planning without tasks_approved blocks",
+			name:         "implementation planning with unapproved descriptions blocks",
 			initialState: sdkstate.State(ImplementationPlanning),
-			setupFunc:    func(_ *state.Project) {}, // No metadata set
-			event:        sdkstate.Event(EventTasksApproved),
-			shouldBlock:  true,
+			setupFunc: func(p *state.Project) {
+				// Add unapproved task description output
+				addUnapprovedOutput(p, "implementation", "task_description", ".sow/project/context/tasks/010-task.md")
+			},
+			event:       sdkstate.Event(EventPlanningComplete),
+			shouldBlock: true,
 		},
 		{
 			name:         "implementation executing without completed tasks blocks",
@@ -191,7 +281,6 @@ func TestGuardsBlockInvalidTransitions(t *testing.T) {
 // TestPromptGeneration tests prompts generate correctly for each state.
 func TestPromptGeneration(t *testing.T) {
 	states := []sdkstate.State{
-		sdkstate.State(PlanningActive),
 		sdkstate.State(ImplementationPlanning),
 		sdkstate.State(ImplementationExecuting),
 		sdkstate.State(ReviewActive),
@@ -276,14 +365,6 @@ func createTestProject(t *testing.T, initialState sdkstate.State) (*state.Projec
 		Created_at:  time.Now(),
 		Updated_at:  time.Now(),
 		Phases: map[string]projschema.PhaseState{
-			"planning": {
-				Status:     "active",
-				Enabled:    true,
-				Created_at: time.Now(),
-				Started_at: time.Now(),
-				Inputs:     []projschema.ArtifactState{},
-				Outputs:    []projschema.ArtifactState{},
-			},
 			"implementation": {
 				Status:     "pending",
 				Enabled:    true,
@@ -350,6 +431,24 @@ func addApprovedOutput(t *testing.T, p *state.Project, phaseName, outputType, pa
 	p.Phases[phaseName] = phase
 }
 
+// addUnapprovedOutput adds an unapproved output artifact to a phase.
+func addUnapprovedOutput(p *state.Project, phaseName, outputType, path string) {
+	phase, exists := p.Phases[phaseName]
+	if !exists {
+		return
+	}
+
+	artifact := projschema.ArtifactState{
+		Type:       outputType,
+		Path:       path,
+		Created_at: time.Now(),
+		Approved:   false,
+	}
+
+	phase.Outputs = append(phase.Outputs, artifact)
+	p.Phases[phaseName] = phase
+}
+
 // addApprovedReview adds an approved review artifact with assessment metadata.
 func addApprovedReview(t *testing.T, p *state.Project, assessment, path string) {
 	t.Helper()
@@ -390,27 +489,6 @@ func setPhaseMetadata(t *testing.T, p *state.Project, phaseName, key string, val
 	p.Phases[phaseName] = phase
 }
 
-// addCompletedTask adds a completed task to a phase.
-func addCompletedTask(t *testing.T, p *state.Project, phaseName, id, name string) {
-	t.Helper()
-
-	phase, exists := p.Phases[phaseName]
-	if !exists {
-		t.Fatalf("phase %s not found", phaseName)
-	}
-
-	task := projschema.TaskState{
-		Id:         id,
-		Name:       name,
-		Phase:      phaseName,
-		Status:     "completed",
-		Created_at: time.Now(),
-		Updated_at: time.Now(),
-	}
-
-	phase.Tasks = append(phase.Tasks, task)
-	p.Phases[phaseName] = phase
-}
 
 // addPendingTask adds a pending task to a phase.
 func addPendingTask(p *state.Project, phaseName, id, name string) {
@@ -426,10 +504,62 @@ func addPendingTask(p *state.Project, phaseName, id, name string) {
 		Status:     "pending",
 		Created_at: time.Now(),
 		Updated_at: time.Now(),
+		Inputs:     []projschema.ArtifactState{},
 	}
 
 	phase.Tasks = append(phase.Tasks, task)
 	p.Phases[phaseName] = phase
+}
+
+// addTaskWithApprovedDescription adds a task with an approved task_description input.
+func addTaskWithApprovedDescription(t *testing.T, p *state.Project, phaseName, id, name string) {
+	t.Helper()
+
+	phase, exists := p.Phases[phaseName]
+	if !exists {
+		t.Fatalf("phase %s not found", phaseName)
+	}
+
+	descriptionArtifact := projschema.ArtifactState{
+		Type:       "task_description",
+		Path:       ".sow/project/phases/implementation/tasks/task-" + id + "/description.md",
+		Created_at: time.Now(),
+		Approved:   true,
+	}
+
+	task := projschema.TaskState{
+		Id:         id,
+		Name:       name,
+		Phase:      phaseName,
+		Status:     "pending",
+		Created_at: time.Now(),
+		Updated_at: time.Now(),
+		Inputs:     []projschema.ArtifactState{descriptionArtifact},
+	}
+
+	phase.Tasks = append(phase.Tasks, task)
+	p.Phases[phaseName] = phase
+}
+
+// markTaskAsCompleted marks an existing task as completed.
+func markTaskAsCompleted(t *testing.T, p *state.Project, phaseName, id string) {
+	t.Helper()
+
+	phase, exists := p.Phases[phaseName]
+	if !exists {
+		t.Fatalf("phase %s not found", phaseName)
+	}
+
+	for i, task := range phase.Tasks {
+		if task.Id == id {
+			phase.Tasks[i].Status = "completed"
+			phase.Tasks[i].Updated_at = time.Now()
+			p.Phases[phaseName] = phase
+			return
+		}
+	}
+
+	t.Fatalf("task %s not found in phase %s", id, phaseName)
 }
 
 // PromptGenerator is a function that creates a contextual prompt for a given state.
@@ -439,8 +569,6 @@ type PromptGenerator func(*state.Project) string
 func getPromptGenerator(st sdkstate.State) PromptGenerator {
 	// Map states to their prompt generators
 	switch st {
-	case sdkstate.State(PlanningActive):
-		return generatePlanningPrompt
 	case sdkstate.State(ImplementationPlanning):
 		return generateImplementationPlanningPrompt
 	case sdkstate.State(ImplementationExecuting):

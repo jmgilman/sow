@@ -270,9 +270,6 @@ func (c *StatechartContext) extractFinalizeDeleteData(data map[string]interface{
 type NewProjectContext struct {
 	RepoRoot        string
 	BranchName      string
-	IssueNumber     *int
-	IssueTitle      string
-	IssueBody       string
 	InitialPrompt   string
 	StatechartState string
 }
@@ -284,12 +281,6 @@ func (c *NewProjectContext) ToMap() map[string]interface{} {
 	data["BranchName"] = c.BranchName
 	data["StatechartState"] = c.StatechartState
 	data["InitialPrompt"] = c.InitialPrompt
-
-	if c.IssueNumber != nil {
-		data["IssueNumber"] = *c.IssueNumber
-		data["IssueTitle"] = c.IssueTitle
-		data["IssueBody"] = c.IssueBody
-	}
 
 	return data
 }

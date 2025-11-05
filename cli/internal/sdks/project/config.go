@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	projschema "github.com/jmgilman/sow/cli/schemas/project"
 )
 
 // PhaseConfig holds configuration for a single phase in a project type.
@@ -77,6 +78,10 @@ type ProjectTypeConfig struct {
 	// These generate contextual prompts for users in each state
 	prompts map[sdkstate.State]PromptGenerator
 
+	// orchestratorPrompt generates project-type-specific orchestrator guidance
+	// This explains how the project type works and how orchestrator coordinates work
+	orchestratorPrompt PromptGenerator
+
 	// initializer is called during Create() to initialize the project
 	// with phases, metadata, and any type-specific initial state
 	initializer state.Initializer
@@ -89,11 +94,31 @@ func (ptc *ProjectTypeConfig) InitialState() sdkstate.State {
 
 // Initialize calls the configured initializer function if present.
 // Returns nil if no initializer is configured.
-func (ptc *ProjectTypeConfig) Initialize(project *state.Project) error {
+func (ptc *ProjectTypeConfig) Initialize(project *state.Project, initialInputs map[string][]projschema.ArtifactState) error {
 	if ptc.initializer == nil {
 		return nil
 	}
-	return ptc.initializer(project)
+	return ptc.initializer(project, initialInputs)
+}
+
+// OrchestratorPrompt returns the orchestrator prompt for this project type.
+// This explains how the project type works and how the orchestrator should coordinate work.
+// Returns empty string if no orchestrator prompt is configured.
+func (ptc *ProjectTypeConfig) OrchestratorPrompt(project *state.Project) string {
+	if ptc.orchestratorPrompt == nil {
+		return ""
+	}
+	return ptc.orchestratorPrompt(project)
+}
+
+// GetStatePrompt returns the prompt for a specific state.
+// Returns empty string if no prompt is configured for the state.
+func (ptc *ProjectTypeConfig) GetStatePrompt(state sdkstate.State, project *state.Project) string {
+	gen, exists := ptc.prompts[state]
+	if !exists {
+		return ""
+	}
+	return gen(project)
 }
 
 // GetTaskSupportingPhases returns the names of all phases that support tasks.
@@ -192,4 +217,15 @@ func (ptc *ProjectTypeConfig) Validate(project *state.Project) error {
 	}
 
 	return nil
+}
+
+// DetermineEvent determines which event to fire from the current state.
+// Returns the event to fire, or an error if no determiner is configured.
+func (ptc *ProjectTypeConfig) DetermineEvent(project *state.Project) (sdkstate.Event, error) {
+	currentState := sdkstate.State(project.Statechart.Current_state)
+	determiner, exists := ptc.onAdvance[currentState]
+	if !exists {
+		return "", fmt.Errorf("no event determiner configured for state %s", currentState)
+	}
+	return determiner(project)
 }

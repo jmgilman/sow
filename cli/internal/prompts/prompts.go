@@ -18,6 +18,7 @@ const (
 	PromptGreetStateUninit   PromptID = "greet.state.uninitialized"
 	PromptGreetStateOperator PromptID = "greet.state.operator"
 	PromptGreetStateOrch     PromptID = "greet.state.orchestrator"
+	PromptGreetOrchestrator  PromptID = "greet.orchestrator"
 )
 
 // Command prompt IDs - Entry point prompts for CLI commands.
@@ -50,6 +51,9 @@ const (
 	PromptGuidanceImplementerFeature  PromptID = "guidance.implementer.feature"
 	PromptGuidanceImplementerBug      PromptID = "guidance.implementer.bug"
 	PromptGuidanceImplementerRefactor PromptID = "guidance.implementer.refactor"
+
+	// Reviewer guidance prompts.
+	PromptGuidanceReviewerBase PromptID = "guidance.reviewer.base"
 )
 
 // Context represents data needed to render a prompt.
@@ -119,7 +123,7 @@ func (r *Registry[K]) Render(id K, ctx Context) (string, error) {
 // Embed shared prompt templates from the templates/ directory.
 // Project-specific templates are embedded in their respective packages.
 //
-//go:embed templates/greet/*.md templates/greet/states/*.md templates/commands/*.md templates/modes/*.md templates/guidance/*.md templates/guidance/design/*.md templates/guidance/implementer/*.md
+//go:embed templates/greet/*.md templates/greet/states/*.md templates/commands/*.md templates/modes/*.md templates/guidance/*.md templates/guidance/design/*.md templates/guidance/implementer/*.md templates/guidance/reviewer/*.md
 var templatesFS embed.FS
 
 // Default registry, initialized at startup.
@@ -137,6 +141,7 @@ func init() {
 		PromptGreetStateUninit:   "templates/greet/states/uninitialized.md",
 		PromptGreetStateOperator: "templates/greet/states/operator.md",
 		PromptGreetStateOrch:     "templates/greet/states/orchestrator.md",
+		PromptGreetOrchestrator:  "templates/greet/orchestrator.md",
 
 		// Entry point command prompts
 		PromptCommandNew:      "templates/commands/new.md",
@@ -163,6 +168,9 @@ func init() {
 		PromptGuidanceImplementerFeature:  "templates/guidance/implementer/feature.md",
 		PromptGuidanceImplementerBug:      "templates/guidance/implementer/bug.md",
 		PromptGuidanceImplementerRefactor: "templates/guidance/implementer/refactor.md",
+
+		// Reviewer guidance prompts
+		PromptGuidanceReviewerBase: "templates/guidance/reviewer/base.md",
 	}
 
 	// Load and parse all shared templates

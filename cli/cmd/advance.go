@@ -53,14 +53,17 @@ Example:
 			currentState := project.Statechart.Current_state
 			fmt.Printf("Current state: %s\n", currentState)
 
-			// Advance (calls OnAdvance determiner, evaluates guards, fires event)
-			if err := project.Advance(); err != nil {
+			// Determine which event to fire from current state
+			event, err := project.Config().DetermineEvent(project)
+			if err != nil {
+				return fmt.Errorf("cannot advance from state %s: %w\n\nThis may be a terminal state", currentState, err)
+			}
+
+			// Fire the event (evaluates guards, executes actions, transitions state)
+			if err := project.Machine().Fire(event); err != nil {
 				// Provide helpful error messages based on error type
 				if strings.Contains(err.Error(), "cannot fire event") {
 					return fmt.Errorf("transition blocked: %w\n\nCheck that all prerequisites for this state transition are met", err)
-				}
-				if strings.Contains(err.Error(), "no event determiner") {
-					return fmt.Errorf("cannot advance from state %s: no transition configured\n\nThis may be a terminal state", currentState)
 				}
 				return fmt.Errorf("failed to advance: %w", err)
 			}

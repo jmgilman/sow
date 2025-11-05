@@ -9,18 +9,13 @@ import (
 
 const (
 	// EventProjectInit creates new project.
-	// Transition: NoProject → PlanningActive.
+	// Transition: NoProject → ImplementationPlanning.
 	EventProjectInit = state.Event("project_init")
 
-	// EventCompletePlanning completes planning phase.
-	// Transition: PlanningActive → ImplementationPlanning.
-	// Guard: task_list artifact approved.
-	EventCompletePlanning = state.Event("complete_planning")
-
-	// EventTasksApproved approves implementation tasks.
+	// EventPlanningComplete completes planning and task breakdown.
 	// Transition: ImplementationPlanning → ImplementationExecuting.
-	// Guard: tasks_approved metadata flag.
-	EventTasksApproved = state.Event("tasks_approved")
+	// Guard: all task description files approved.
+	EventPlanningComplete = state.Event("planning_complete")
 
 	// EventAllTasksComplete indicates all tasks done.
 	// Transition: ImplementationExecuting → ReviewActive.

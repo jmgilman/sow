@@ -79,8 +79,12 @@ func runPrompt(cmd *cobra.Command, args []string) error {
 	case "guidance/implementer/refactor":
 		promptID = prompts.PromptGuidanceImplementerRefactor
 
+	// Reviewer guidance prompts
+	case "guidance/reviewer/base":
+		promptID = prompts.PromptGuidanceReviewerBase
+
 	default:
-		return fmt.Errorf("unknown prompt type: %s\n\nAvailable types:\n  research\n  design/prd\n  design/arc42\n  design/design-doc\n  design/adr\n  design/c4-diagrams\n  guidance/implementer/base\n  guidance/implementer/tdd\n  guidance/implementer/feature\n  guidance/implementer/bug\n  guidance/implementer/refactor", promptType)
+		return fmt.Errorf("unknown prompt type: %s\n\nAvailable types:\n  research\n  design/prd\n  design/arc42\n  design/design-doc\n  design/adr\n  design/c4-diagrams\n  guidance/implementer/base\n  guidance/implementer/tdd\n  guidance/implementer/feature\n  guidance/implementer/bug\n  guidance/implementer/refactor\n  guidance/reviewer/base", promptType)
 	}
 
 	// Create context (guidance prompts currently don't need context)

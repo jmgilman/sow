@@ -135,8 +135,14 @@ func (p *Project) Save() error {
 //  5. Build state machine with config's initial state
 //  6. Save to disk
 //
+// Parameters:
+//   - ctx: sow context
+//   - branch: branch name (used to detect project type)
+//   - description: project description
+//   - initialInputs: optional map of phase name to initial input artifacts (can be nil)
+//
 // Returns a fully initialized Project ready for use.
-func Create(ctx *sow.Context, branch string, description string) (*Project, error) {
+func Create(ctx *sow.Context, branch string, description string, initialInputs map[string][]project.ArtifactState) (*Project, error) {
 	// 1. Validate branch provided
 	if branch == "" {
 		return nil, fmt.Errorf("branch name required")
@@ -178,8 +184,8 @@ func Create(ctx *sow.Context, branch string, description string) (*Project, erro
 		config:       config,
 	}
 
-	// 7. Let project type initialize its phases and state
-	if err := config.Initialize(proj); err != nil {
+	// 7. Let project type initialize its phases and state with initial inputs
+	if err := config.Initialize(proj, initialInputs); err != nil {
 		return nil, fmt.Errorf("failed to initialize project: %w", err)
 	}
 

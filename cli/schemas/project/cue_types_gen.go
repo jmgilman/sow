@@ -39,7 +39,7 @@ type ArtifactState struct {
 // of artifacts and tasks.
 type PhaseState struct {
 	// status indicates the current status of the phase.
-	// Must be non-empty. Common values: "pending", "in_progress", "completed"
+	// Must be non-empty. Common values: "pending", "in_progress", "completed", "failed"
 	// Actual valid statuses are defined by the project type.
 	Status string `json:"status"`
 
@@ -57,6 +57,15 @@ type PhaseState struct {
 	// completed_at is the optional timestamp when this phase finished.
 	// Only set when the phase transitions to a completed state.
 	Completed_at time.Time `json:"completed_at,omitempty"`
+
+	// failed_at is the optional timestamp when this phase failed.
+	// Only set when the phase transitions to a failed state.
+	Failed_at time.Time `json:"failed_at,omitempty"`
+
+	// iteration tracks how many times this phase has been entered.
+	// Starts at 1, increments on re-entry after failure.
+	// Example: implementation iteration 2 = rework after review failure
+	Iteration int64 `json:"iteration,omitempty"`
 
 	// metadata holds project-type-specific data for this phase.
 	// Structure and validation are defined by the project type.

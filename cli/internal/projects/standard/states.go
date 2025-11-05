@@ -10,10 +10,7 @@ const (
 	// NoProject indicates no active project (initial and final state).
 	NoProject = state.State("NoProject")
 
-	// PlanningActive indicates planning phase in progress.
-	PlanningActive = state.State("PlanningActive")
-
-	// ImplementationPlanning indicates implementation planning step.
+	// ImplementationPlanning indicates planning and task breakdown creation.
 	ImplementationPlanning = state.State("ImplementationPlanning")
 
 	// ImplementationExecuting indicates task execution.

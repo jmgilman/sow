@@ -27,16 +27,28 @@ func NewStandardProjectConfig() *project.ProjectTypeConfig {
 
 // initializeStandardProject creates all phases for a new standard project.
 // This is called during project creation to set up the phase structure.
-func initializeStandardProject(p *state.Project) error {
+//
+// Parameters:
+//   - p: The project being initialized
+//   - initialInputs: Optional map of phase name to initial input artifacts (can be nil)
+func initializeStandardProject(p *state.Project, initialInputs map[string][]projschema.ArtifactState) error {
 	now := p.Created_at
-	phaseNames := []string{"planning", "implementation", "review", "finalize"}
+	phaseNames := []string{"implementation", "review", "finalize"}
 
 	for _, phaseName := range phaseNames {
+		// Get initial inputs for this phase (empty slice if none provided)
+		inputs := []projschema.ArtifactState{}
+		if initialInputs != nil {
+			if phaseInputs, exists := initialInputs[phaseName]; exists {
+				inputs = phaseInputs
+			}
+		}
+
 		p.Phases[phaseName] = projschema.PhaseState{
 			Status:     "pending",
 			Enabled:    false,
 			Created_at: now,
-			Inputs:     []projschema.ArtifactState{},
+			Inputs:     inputs, // Use provided initial inputs
 			Outputs:    []projschema.ArtifactState{},
 			Tasks:      []projschema.TaskState{},
 			Metadata:   make(map[string]interface{}),
@@ -48,15 +60,10 @@ func initializeStandardProject(p *state.Project) error {
 
 func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
-		WithPhase("planning",
-			project.WithStartState(sdkstate.State(PlanningActive)),
-			project.WithEndState(sdkstate.State(PlanningActive)),
-			project.WithInputs("context"),
-			project.WithOutputs("task_list"),
-		).
 		WithPhase("implementation",
 			project.WithStartState(sdkstate.State(ImplementationPlanning)),
 			project.WithEndState(sdkstate.State(ImplementationExecuting)),
+			project.WithOutputs("task_list"),
 			project.WithTasks(),
 			project.WithMetadataSchema(implementationMetadataSchema),
 		).
@@ -79,32 +86,22 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 
 		// ===== STATE MACHINE =====
 
-		SetInitialState(sdkstate.State(PlanningActive)).
+		SetInitialState(sdkstate.State(ImplementationPlanning)).
 
 		// Project initialization
 		AddTransition(
 			sdkstate.State(NoProject),
-			sdkstate.State(PlanningActive),
-			sdkstate.Event(EventProjectInit),
-		).
-
-		// Planning → Implementation
-		AddTransition(
-			sdkstate.State(PlanningActive),
 			sdkstate.State(ImplementationPlanning),
-			sdkstate.Event(EventCompletePlanning),
-			project.WithGuard(func(p *state.Project) bool {
-				return phaseOutputApproved(p, "planning", "task_list")
-			}),
+			sdkstate.Event(EventProjectInit),
 		).
 
 		// Implementation planning → execution
 		AddTransition(
 			sdkstate.State(ImplementationPlanning),
 			sdkstate.State(ImplementationExecuting),
-			sdkstate.Event(EventTasksApproved),
+			sdkstate.Event(EventPlanningComplete),
 			project.WithGuard(func(p *state.Project) bool {
-				return phaseMetadataBool(p, "implementation", "tasks_approved")
+				return allTaskDescriptionsApproved(p)
 			}),
 		).
 
@@ -136,6 +133,41 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			project.WithGuard(func(p *state.Project) bool {
 				return latestReviewApproved(p)
 			}),
+			project.WithOnExit(func(p *state.Project) error {
+				// Mark review phase as failed
+				return state.MarkPhaseFailed(p, "review")
+			}),
+			project.WithOnEntry(func(p *state.Project) error {
+				// Only execute rework logic if review phase exists and has failed
+				// (this prevents executing on NoProject → ImplementationPlanning transition)
+				reviewPhase, hasReview := p.Phases["review"]
+				if !hasReview || len(reviewPhase.Outputs) == 0 {
+					// First time entering implementation - no rework needed
+					return nil
+				}
+
+				// Increment implementation iteration for rework
+				if err := state.IncrementPhaseIteration(p, "implementation"); err != nil {
+					return fmt.Errorf("failed to increment implementation iteration: %w", err)
+				}
+
+				// Reopen implementation phase
+				phase := p.Phases["implementation"]
+				phase.Status = "in_progress"
+				p.Phases["implementation"] = phase
+
+				// Add failed review as implementation input
+				return state.AddPhaseInputFromOutput(
+					p,
+					"review",
+					"implementation",
+					"review",
+					func(a *projschema.ArtifactState) bool {
+						assessment, ok := a.Metadata["assessment"].(string)
+						return ok && assessment == "fail" && a.Approved
+					},
+				)
+			}),
 		).
 
 		// Finalize substates
@@ -164,11 +196,8 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 
 func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
-		OnAdvance(sdkstate.State(PlanningActive), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventCompletePlanning), nil
-		}).
 		OnAdvance(sdkstate.State(ImplementationPlanning), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventTasksApproved), nil
+			return sdkstate.Event(EventPlanningComplete), nil
 		}).
 		OnAdvance(sdkstate.State(ImplementationExecuting), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventAllTasksComplete), nil
@@ -222,7 +251,10 @@ func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *proje
 
 func configurePrompts(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
-		WithPrompt(sdkstate.State(PlanningActive), generatePlanningPrompt).
+		// Orchestrator-level prompt (how standard projects work)
+		WithOrchestratorPrompt(generateOrchestratorPrompt).
+
+		// State-level prompts (what to do in each state)
 		WithPrompt(sdkstate.State(ImplementationPlanning), generateImplementationPlanningPrompt).
 		WithPrompt(sdkstate.State(ImplementationExecuting), generateImplementationExecutingPrompt).
 		WithPrompt(sdkstate.State(ReviewActive), generateReviewPrompt).

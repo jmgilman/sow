@@ -26,6 +26,12 @@ type Phase struct {
 
 	Completed_at *time.Time `json:"completed_at,omitempty"`
 
+	Failed_at *time.Time `json:"failed_at,omitempty"`
+
+	// Iteration tracking for phases that go through multiple cycles
+	// Starts at 1, increments on re-entry after failure
+	Iteration *int `json:"iteration,omitempty"`
+
 	// Generic collections (used by phases that need them)
 	Artifacts []Artifact `json:"artifacts"`
 

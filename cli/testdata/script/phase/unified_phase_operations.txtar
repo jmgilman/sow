@@ -19,16 +19,16 @@ exec sow project new --branch feat/test --no-launch 'Test phase commands'
 # Change into worktree for remaining commands
 cd .sow/worktrees/feat/test
 
-# Verify project was created (initial state is PlanningActive)
+# Verify project was created (initial state is ImplementationPlanning)
 exec cat .sow/project/state.yaml
-stdout 'current_state: PlanningActive'
+stdout 'current_state: ImplementationPlanning'
 
 # =====================================
 # Test: Set Direct Field - Status
 # =====================================
 
 # Set phase status with explicit phase flag
-exec sow phase set status in_progress --phase planning
+exec sow phase set status in_progress --phase implementation
 exec cat .sow/project/state.yaml
 stdout 'status: in_progress'
 
@@ -37,7 +37,7 @@ stdout 'status: in_progress'
 # =====================================
 
 # Set phase enabled (direct field)
-exec sow phase set enabled false --phase planning
+exec sow phase set enabled false --phase implementation
 exec cat .sow/project/state.yaml
 stdout 'enabled: false'
 
@@ -46,29 +46,81 @@ stdout 'enabled: false'
 # =====================================
 
 # Set phase metadata with explicit phase
-exec sow phase set metadata.tasks_approved true --phase implementation
+exec sow phase set metadata.custom_metadata true --phase implementation
 exec cat .sow/project/state.yaml
-stdout 'tasks_approved: "?true"?'
+stdout 'custom_metadata: "?true"?'
 
 # =====================================
 # Test: Default to Active Phase
 # =====================================
 
-# Set metadata without --phase flag (should default to planning)
+# Set metadata without --phase flag (should default to implementation)
 exec sow phase set metadata.custom_field test_value
 exec cat .sow/project/state.yaml
 stdout 'custom_field: test_value'
 
-# Verify it was set on planning phase (the active phase)
-# The planning phase should now have both enabled=false and custom_field
+# Verify it was set on implementation phase (the active phase)
+# The implementation phase should now have both enabled=false and custom_field
 exec cat .sow/project/state.yaml
-stdout '(?s)planning:.*enabled: false.*custom_field: test_value'
+stdout '(?s)implementation:.*enabled: false.*custom_field: test_value'
 
 # =====================================
 # Test: Set Nested Metadata
 # =====================================
 
 # Set nested metadata field
-exec sow phase set metadata.complexity.level high --phase planning
+exec sow phase set metadata.complexity.level high --phase implementation
 exec cat .sow/project/state.yaml
 stdout 'level: high'
+
+# =====================================
+# Test: Set Failed Status
+# =====================================
+
+# Set phase status to failed
+exec sow phase set status failed --phase implementation
+exec cat .sow/project/state.yaml
+stdout 'status: failed'
+
+# Verify failed status persists
+exec cat .sow/project/state.yaml
+stdout '(?s)implementation:.*status: failed'
+
+# =====================================
+# Test: Set Iteration Field
+# =====================================
+
+# Set iteration field (simulating rework cycle)
+exec sow phase set iteration 2 --phase implementation
+exec cat .sow/project/state.yaml
+stdout 'iteration: 2'
+
+# Set iteration to higher value
+exec sow phase set iteration 3 --phase implementation
+exec cat .sow/project/state.yaml
+stdout 'iteration: 3'
+
+# =====================================
+# Test: Status Transitions
+# =====================================
+
+# Test valid status transitions
+exec sow phase set status pending --phase implementation
+exec cat .sow/project/state.yaml
+stdout '(?s)implementation:.*status: pending'
+
+exec sow phase set status in_progress --phase implementation
+exec cat .sow/project/state.yaml
+stdout '(?s)implementation:.*status: in_progress'
+
+exec sow phase set status completed --phase implementation
+exec cat .sow/project/state.yaml
+stdout '(?s)implementation:.*status: completed'
+
+exec sow phase set status failed --phase implementation
+exec cat .sow/project/state.yaml
+stdout '(?s)implementation:.*status: failed'
+
+exec sow phase set status skipped --phase implementation
+exec cat .sow/project/state.yaml
+stdout '(?s)implementation:.*status: skipped'

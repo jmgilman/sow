@@ -8,7 +8,7 @@ import "time"
 // of artifacts and tasks.
 #PhaseState: {
 	// status indicates the current status of the phase.
-	// Must be non-empty. Common values: "pending", "in_progress", "completed"
+	// Must be non-empty. Common values: "pending", "in_progress", "completed", "failed"
 	// Actual valid statuses are defined by the project type.
 	status: string & !=""
 
@@ -26,6 +26,15 @@ import "time"
 	// completed_at is the optional timestamp when this phase finished.
 	// Only set when the phase transitions to a completed state.
 	completed_at?: time.Time
+
+	// failed_at is the optional timestamp when this phase failed.
+	// Only set when the phase transitions to a failed state.
+	failed_at?: time.Time
+
+	// iteration tracks how many times this phase has been entered.
+	// Starts at 1, increments on re-entry after failure.
+	// Example: implementation iteration 2 = rework after review failure
+	iteration?: int
 
 	// metadata holds project-type-specific data for this phase.
 	// Structure and validation are defined by the project type.
