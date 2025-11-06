@@ -110,7 +110,7 @@ WORKFLOW:
    e. Copy description to task directory:
       ```bash
       cp .sow/project/context/tasks/{id}-{name}.md \
-         .sow/project/phases/implementation/tasks/task-{id}/description.md
+         .sow/project/phases/implementation/tasks/{id}/description.md
       ```
 
    f. Register each relevant input as task input:

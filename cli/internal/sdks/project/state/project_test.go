@@ -46,7 +46,7 @@ func TestProject_RuntimeFieldsNotSerialized(t *testing.T) {
 			Created_at: now,
 			Updated_at: now,
 		},
-		config:  newMockProjectTypeConfig(),
+		config: newMockProjectTypeConfig(),
 	}
 
 	// Act - serialize to JSON

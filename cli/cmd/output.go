@@ -124,7 +124,7 @@ Examples:
 
   # Remove from active phase
   sow output remove --index 1`,
-		RunE: func(cmd *cobra.Command, _  []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runOutputRemove(cmd, phaseName, index)
 		},
 	}

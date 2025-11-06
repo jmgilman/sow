@@ -527,7 +527,6 @@ func setPhaseMetadata(t *testing.T, p *state.Project, phaseName, key string, val
 	p.Phases[phaseName] = phase
 }
 
-
 // addPendingTask adds a pending task to a phase.
 func addPendingTask(p *state.Project, phaseName, id, name string) {
 	phase, exists := p.Phases[phaseName]
