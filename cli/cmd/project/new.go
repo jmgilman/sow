@@ -199,7 +199,7 @@ func runNew(cmd *cobra.Command, branchName string, issueNumber int, description 
 	fmt.Fprintf(os.Stderr, "✓ Initialized project '%s' on branch %s\n", proj.Name, selectedBranch)
 
 	// 12. Generate new project prompt
-	prompt, err := generateNewProjectPrompt(worktreeCtx, proj, description)
+	prompt, err := generateNewProjectPrompt(proj, description)
 	if err != nil {
 		return fmt.Errorf("failed to generate new project prompt: %w", err)
 	}
@@ -362,7 +362,7 @@ func handleCurrentBranchScenarioNew(ctx *sow.Context) (string, error) {
 
 // generateNewProjectPrompt creates the custom prompt for new projects.
 // Uses 3-layer structure: Base Orchestrator + Project Type Orchestrator + Initial State.
-func generateNewProjectPrompt(ctx *sow.Context, proj *state.Project, initialPrompt string) (string, error) {
+func generateNewProjectPrompt(proj *state.Project, initialPrompt string) (string, error) {
 	var buf strings.Builder
 
 	// Layer 1: Base Orchestrator Introduction

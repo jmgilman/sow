@@ -108,7 +108,7 @@ func runContinue(cmd *cobra.Command, branchName string, noLaunch bool) error {
 	fmt.Fprintf(os.Stderr, "✓ Continuing project '%s' on branch %s\n", proj.Name, selectedBranch)
 
 	// 7. Generate continue prompt
-	prompt, err := generateContinuePrompt(worktreeCtx, proj)
+	prompt, err := generateContinuePrompt(proj)
 	if err != nil {
 		return fmt.Errorf("failed to generate continue prompt: %w", err)
 	}
@@ -166,7 +166,7 @@ func handleCurrentBranchScenarioContinue(ctx *sow.Context) (string, error) {
 
 // generateContinuePrompt creates the custom prompt for continuing projects.
 // Uses 3-layer structure: Base Orchestrator + Project Type Orchestrator + Current State.
-func generateContinuePrompt(ctx *sow.Context, proj *state.Project) (string, error) {
+func generateContinuePrompt(proj *state.Project) (string, error) {
 	var buf strings.Builder
 
 	// Layer 1: Base Orchestrator Introduction
