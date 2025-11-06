@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	// Register built-in project types.
+	_ "github.com/jmgilman/sow/cli/internal/projects/exploration"
 	_ "github.com/jmgilman/sow/cli/internal/projects/standard"
 )
 

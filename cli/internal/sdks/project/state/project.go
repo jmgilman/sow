@@ -3,9 +3,9 @@ package state
 import (
 	"fmt"
 
+	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/schemas/project"
-	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
 )
 
 // Initializer is a function that initializes a newly created project.

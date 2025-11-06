@@ -117,11 +117,11 @@ func TestPhaseSupportsTasks(t *testing.T) {
 
 func TestGetDefaultTaskPhase(t *testing.T) {
 	const (
-		StateStart           = sdkstate.State("StateStart")
-		StateImplPlanning    = sdkstate.State("StateImplPlanning")
-		StateImplExecuting   = sdkstate.State("StateImplExecuting")
-		StateReview          = sdkstate.State("StateReview")
-		StateUnknown         = sdkstate.State("StateUnknown")
+		StateStart         = sdkstate.State("StateStart")
+		StateImplPlanning  = sdkstate.State("StateImplPlanning")
+		StateImplExecuting = sdkstate.State("StateImplExecuting")
+		StateReview        = sdkstate.State("StateReview")
+		StateUnknown       = sdkstate.State("StateUnknown")
 	)
 
 	tests := []struct {

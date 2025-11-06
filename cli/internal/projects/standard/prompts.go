@@ -61,7 +61,6 @@ func generateImplementationPlanningPrompt(p *state.Project) string {
 	return buf.String()
 }
 
-
 // generateImplementationExecutingPrompt generates the prompt for the ImplementationExecuting state.
 // This phase focuses on executing implementation tasks with status tracking.
 func generateImplementationExecutingPrompt(p *state.Project) string {

@@ -133,12 +133,12 @@ func TestPhaseMetadataBool(t *testing.T) {
 
 //nolint:funlen // Test data generation function
 func getPhaseMetadataBoolTests() []struct {
-		name      string
-		project   *state.Project
-		phaseName string
-		key       string
-		want      bool
-	} {
+	name      string
+	project   *state.Project
+	phaseName string
+	key       string
+	want      bool
+} {
 	return []struct {
 		name      string
 		project   *state.Project
@@ -274,10 +274,10 @@ func TestAllTasksComplete(t *testing.T) {
 
 //nolint:funlen // Test data generation function
 func getAllTasksCompleteTests() []struct {
-		name    string
-		project *state.Project
-		want    bool
-	} {
+	name    string
+	project *state.Project
+	want    bool
+} {
 	now := time.Now()
 	return []struct {
 		name    string
@@ -434,10 +434,10 @@ func TestLatestReviewApproved(t *testing.T) {
 
 //nolint:funlen // Test data generation function
 func getLatestReviewApprovedTests() []struct {
-		name    string
-		project *state.Project
-		want    bool
-	} {
+	name    string
+	project *state.Project
+	want    bool
+} {
 	now := time.Now()
 	return []struct {
 		name    string
