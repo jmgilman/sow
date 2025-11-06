@@ -23,7 +23,7 @@ Breakdown projects are for decomposing complex features or design documents into
    - Create tasks for each implementable unit of work
    - Each task represents one future GitHub issue
    ```bash
-   sow task add "Work unit name" --id <3-digit-id>
+   sow task add "Work unit name" --id <3-digit-id> --agent decomposer
    ```
 
 2. **Specify work units**:

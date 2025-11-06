@@ -24,7 +24,7 @@ Review the approved discovery document and identify work units. Each work unit s
 Create tasks for each work unit:
 
 ```bash
-sow task add "Work unit name" --id <3-digit-id>
+sow task add "Work unit name" --id <3-digit-id> --agent decomposer
 ```
 
 Examples (project-sized):
