@@ -32,7 +32,7 @@ func TestCompleteProjectTypeWorkflow(t *testing.T) {
 			sdkstate.State("Working"),
 			sdkstate.State("Done"),
 			sdkstate.Event("Complete"),
-			WithGuard(func(p *state.Project) bool {
+			WithGuard("result approved", func(p *state.Project) bool {
 				return p.PhaseOutputApproved("work", "result")
 			}),
 		).
@@ -302,7 +302,7 @@ func TestMultiplePhaseWorkflow(t *testing.T) {
 			sdkstate.State("Planning"),
 			sdkstate.State("Implementation"),
 			sdkstate.Event("StartWork"),
-			WithGuard(func(p *state.Project) bool {
+			WithGuard("task list approved", func(p *state.Project) bool {
 				return p.PhaseOutputApproved("planning", "task_list")
 			}),
 		).
@@ -310,7 +310,7 @@ func TestMultiplePhaseWorkflow(t *testing.T) {
 			sdkstate.State("Implementation"),
 			sdkstate.State("Review"),
 			sdkstate.Event("RequestReview"),
-			WithGuard(func(p *state.Project) bool {
+			WithGuard("all tasks complete", func(p *state.Project) bool {
 				return p.AllTasksComplete()
 			}),
 		).
@@ -318,7 +318,7 @@ func TestMultiplePhaseWorkflow(t *testing.T) {
 			sdkstate.State("Review"),
 			sdkstate.State("Complete"),
 			sdkstate.Event("Approve"),
-			WithGuard(func(p *state.Project) bool {
+			WithGuard("review approved", func(p *state.Project) bool {
 				return p.PhaseOutputApproved("review", "approval")
 			}),
 		).
@@ -427,7 +427,7 @@ func TestGuardBlocksAndAllows(t *testing.T) {
 				sdkstate.State("Start"),
 				sdkstate.State("End"),
 				sdkstate.Event("Go"),
-				WithGuard(func(_ *state.Project) bool {
+				WithGuard("always blocked", func(_ *state.Project) bool {
 					return false // Always block
 				}),
 			).
@@ -464,7 +464,7 @@ func TestGuardBlocksAndAllows(t *testing.T) {
 				sdkstate.State("Start"),
 				sdkstate.State("End"),
 				sdkstate.Event("Go"),
-				WithGuard(func(_ *state.Project) bool {
+				WithGuard("always allowed", func(_ *state.Project) bool {
 					return true // Always allow
 				}),
 			).

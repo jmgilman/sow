@@ -25,6 +25,9 @@ const (
 	// FinalizePRCreation indicates PR creation and approval step.
 	FinalizePRCreation = state.State("FinalizePRCreation")
 
+	// FinalizePRChecks indicates PR checks monitoring and fixing.
+	FinalizePRChecks = state.State("FinalizePRChecks")
+
 	// FinalizeCleanup indicates project cleanup step.
 	FinalizeCleanup = state.State("FinalizeCleanup")
 )

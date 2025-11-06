@@ -156,15 +156,19 @@ func TestWithGuard(t *testing.T) {
 		return true
 	}
 
-	opt := WithGuard(guardFunc)
+	opt := WithGuard("test guard", guardFunc)
 	opt(config)
 
-	if config.guardTemplate == nil {
-		t.Error("expected guardTemplate to be set")
+	if config.guardTemplate.Func == nil {
+		t.Error("expected guardTemplate.Func to be set")
+	}
+
+	if config.guardTemplate.Description != "test guard" {
+		t.Errorf("expected description 'test guard', got %q", config.guardTemplate.Description)
 	}
 
 	// Test that the guard function works
-	if !config.guardTemplate(nil) {
+	if !config.guardTemplate.Func(nil) {
 		t.Error("expected guard function to return true")
 	}
 }
@@ -238,13 +242,13 @@ func TestMultipleTransitionOptions(t *testing.T) {
 	}
 
 	// Apply multiple options
-	WithGuard(guardFunc)(config)
+	WithGuard("test guard", guardFunc)(config)
 	WithOnEntry(entryAction)(config)
 	WithOnExit(exitAction)(config)
 
 	// Verify all options were applied
-	if config.guardTemplate == nil {
-		t.Error("expected guardTemplate to be set")
+	if config.guardTemplate.Func == nil {
+		t.Error("expected guardTemplate.Func to be set")
 	}
 	if config.onEntry == nil {
 		t.Error("expected onEntry to be set")
@@ -254,7 +258,7 @@ func TestMultipleTransitionOptions(t *testing.T) {
 	}
 
 	// Test that all functions work
-	config.guardTemplate(nil)
+	config.guardTemplate.Func(nil)
 	_ = config.onEntry(nil)
 	_ = config.onExit(nil)
 

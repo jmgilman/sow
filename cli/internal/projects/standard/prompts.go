@@ -212,6 +212,36 @@ func generateFinalizePRCreationPrompt(p *state.Project) string {
 	return buf.String()
 }
 
+// generateFinalizePRChecksPrompt generates the prompt for the FinalizePRChecks state.
+// This phase focuses on monitoring PR checks and fixing failures.
+func generateFinalizePRChecksPrompt(p *state.Project) string {
+	var buf strings.Builder
+
+	// Add project header
+	buf.WriteString(fmt.Sprintf("# Project: %s\n", p.Name))
+	buf.WriteString(fmt.Sprintf("Branch: %s\n", p.Branch))
+	if p.Description != "" {
+		buf.WriteString(fmt.Sprintf("Description: %s\n", p.Description))
+	}
+	buf.WriteString("\n")
+
+	// Show PR URL if available
+	if finalizePhase, exists := p.Phases["finalize"]; exists && finalizePhase.Metadata != nil {
+		if prURL, ok := finalizePhase.Metadata["pr_url"].(string); ok && prURL != "" {
+			buf.WriteString(fmt.Sprintf("## Pull Request\n\n%s\n\n", prURL))
+		}
+	}
+
+	// Render PR checks guidance template
+	guidance, err := templates.Render(templatesFS, "templates/finalize_pr_checks.md", p)
+	if err != nil {
+		return fmt.Sprintf("Error rendering template: %v", err)
+	}
+	buf.WriteString(guidance)
+
+	return buf.String()
+}
+
 // addFailedReviewContext adds failed review context to the buffer.
 func addFailedReviewContext(buf *strings.Builder, reviewPhase *projschema.PhaseState) {
 	// Find latest failed review

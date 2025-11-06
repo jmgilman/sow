@@ -69,10 +69,18 @@ func (ptc *ProjectTypeConfig) BuildMachine(
 		var opts []stateMachine.TransitionOption
 
 		// Bind guard template to project instance via closure
-		if tc.guardTemplate != nil {
-			opts = append(opts, stateMachine.WithGuard(func() bool {
-				return tc.guardTemplate(project)
-			}))
+		if tc.guardTemplate.Func != nil {
+			if tc.guardTemplate.Description != "" {
+				// Use WithGuardDescription if description is provided
+				opts = append(opts, stateMachine.WithGuardDescription(tc.guardTemplate.Description, func() bool {
+					return tc.guardTemplate.Func(project)
+				}))
+			} else {
+				// Fallback to WithGuard without description
+				opts = append(opts, stateMachine.WithGuard(func() bool {
+					return tc.guardTemplate.Func(project)
+				}))
+			}
 		}
 
 		// Bind onExit action to project instance via closure

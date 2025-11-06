@@ -100,7 +100,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(ImplementationPlanning),
 			sdkstate.State(ImplementationExecuting),
 			sdkstate.Event(EventPlanningComplete),
-			project.WithGuard(func(p *state.Project) bool {
+			project.WithGuard("task descriptions approved", func(p *state.Project) bool {
 				return allTaskDescriptionsApproved(p)
 			}),
 		).
@@ -110,7 +110,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(ImplementationExecuting),
 			sdkstate.State(ReviewActive),
 			sdkstate.Event(EventAllTasksComplete),
-			project.WithGuard(func(p *state.Project) bool {
+			project.WithGuard("all tasks complete", func(p *state.Project) bool {
 				return allTasksComplete(p)
 			}),
 		).
@@ -120,7 +120,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(ReviewActive),
 			sdkstate.State(FinalizeChecks),
 			sdkstate.Event(EventReviewPass),
-			project.WithGuard(func(p *state.Project) bool {
+			project.WithGuard("latest review approved", func(p *state.Project) bool {
 				return latestReviewApproved(p)
 			}),
 		).
@@ -130,7 +130,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(ReviewActive),
 			sdkstate.State(ImplementationPlanning),
 			sdkstate.Event(EventReviewFail),
-			project.WithGuard(func(p *state.Project) bool {
+			project.WithGuard("latest review approved", func(p *state.Project) bool {
 				return latestReviewApproved(p)
 			}),
 			project.WithFailedPhase("review"), // Mark review as failed instead of completed
@@ -175,17 +175,25 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 		).
 		AddTransition(
 			sdkstate.State(FinalizePRCreation),
-			sdkstate.State(FinalizeCleanup),
+			sdkstate.State(FinalizePRChecks),
 			sdkstate.Event(EventPRCreated),
-			project.WithGuard(func(p *state.Project) bool {
+			project.WithGuard("PR body approved", func(p *state.Project) bool {
 				return prBodyApproved(p)
+			}),
+		).
+		AddTransition(
+			sdkstate.State(FinalizePRChecks),
+			sdkstate.State(FinalizeCleanup),
+			sdkstate.Event(EventPRChecksPass),
+			project.WithGuard("all PR checks passed", func(p *state.Project) bool {
+				return prChecksPassed(p)
 			}),
 		).
 		AddTransition(
 			sdkstate.State(FinalizeCleanup),
 			sdkstate.State(NoProject),
 			sdkstate.Event(EventCleanupComplete),
-			project.WithGuard(func(p *state.Project) bool {
+			project.WithGuard("project deleted", func(p *state.Project) bool {
 				return projectDeleted(p)
 			}),
 		)
@@ -241,6 +249,9 @@ func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *proje
 		OnAdvance(sdkstate.State(FinalizePRCreation), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventPRCreated), nil
 		}).
+		OnAdvance(sdkstate.State(FinalizePRChecks), func(_ *state.Project) (sdkstate.Event, error) {
+			return sdkstate.Event(EventPRChecksPass), nil
+		}).
 		OnAdvance(sdkstate.State(FinalizeCleanup), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventCleanupComplete), nil
 		})
@@ -257,5 +268,6 @@ func configurePrompts(builder *project.ProjectTypeConfigBuilder) *project.Projec
 		WithPrompt(sdkstate.State(ReviewActive), generateReviewPrompt).
 		WithPrompt(sdkstate.State(FinalizeChecks), generateFinalizeChecksPrompt).
 		WithPrompt(sdkstate.State(FinalizePRCreation), generateFinalizePRCreationPrompt).
+		WithPrompt(sdkstate.State(FinalizePRChecks), generateFinalizePRChecksPrompt).
 		WithPrompt(sdkstate.State(FinalizeCleanup), generateFinalizeCleanupPrompt)
 }
