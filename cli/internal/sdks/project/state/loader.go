@@ -192,12 +192,61 @@ func Create(ctx *sow.Context, branch string, description string, initialInputs m
 	// 8. Build state machine with config's initial state
 	proj.machine = config.BuildMachine(proj, config.InitialState())
 
-	// 9. Save to disk
+	// 9. Set initial phase status to in_progress
+	// When a project is created, we need to mark the phase that owns the initial state as in_progress.
+	// This is normally handled by FireWithPhaseUpdates during transitions, but project creation
+	// doesn't fire any transitions, so we need to do it manually here.
+	if err := markInitialPhaseInProgress(proj); err != nil {
+		return nil, fmt.Errorf("failed to set initial phase status: %w", err)
+	}
+
+	// 10. Save to disk
 	if err := proj.Save(); err != nil {
 		return nil, fmt.Errorf("failed to save new project: %w", err)
 	}
 
 	return proj, nil
+}
+
+// markInitialPhaseInProgress sets the initial phase status to in_progress.
+// This is called during Create() to ensure the phase that owns the initial state
+// is marked as in_progress, since no transition is fired during initialization.
+func markInitialPhaseInProgress(proj *Project) error {
+	// This interface exposes the phase <-> state mapping methods we need
+	type phaseMapper interface {
+		GetPhaseForState(State) string
+		IsPhaseStartState(string, State) bool
+	}
+
+	// Type assert to access phase mapping methods
+	mapper, ok := proj.config.(phaseMapper)
+	if !ok {
+		// Config doesn't support phase mapping - skip (shouldn't happen with SDK-built configs)
+		return nil
+	}
+
+	// Get current state from machine
+	currentState := State(proj.machine.State().String())
+
+	// Find which phase owns this state
+	phaseName := mapper.GetPhaseForState(currentState)
+	if phaseName == "" {
+		// State doesn't belong to any phase - skip
+		return nil
+	}
+
+	// Check if this is the phase's start state
+	if !mapper.IsPhaseStartState(phaseName, currentState) {
+		// Not a start state - skip
+		return nil
+	}
+
+	// Mark phase as in_progress (using the helper which only updates if pending)
+	if err := MarkPhaseInProgress(proj, phaseName); err != nil {
+		return fmt.Errorf("failed to mark phase %s in_progress: %w", phaseName, err)
+	}
+
+	return nil
 }
 
 // detectProjectType determines project type from branch name.
