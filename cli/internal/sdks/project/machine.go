@@ -62,7 +62,7 @@ func (ptc *ProjectTypeConfig) BuildMachine(
 	// to bind project state to guards and actions. The state machine builder's
 	// projectState parameter is optional and only needed for legacy code that
 	// doesn't use closures. Since we bind state via closures, we pass nil here.
-	builder := stateMachine.NewBuilder(initialState, nil, promptFunc)
+	builder := stateMachine.NewBuilder(initialState, promptFunc)
 
 	// Add all transitions with guards and actions bound to project instance
 	for _, tc := range ptc.transitions {

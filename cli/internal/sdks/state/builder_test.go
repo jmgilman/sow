@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,23 +17,19 @@ const (
 )
 
 func TestNewBuilder(t *testing.T) {
-	projectState := &schemas.ProjectState{}
 	promptFunc := func(_ State) string {
 		return "test prompt"
 	}
 
-	builder := NewBuilder(testStatePlanning, projectState, promptFunc)
+	builder := NewBuilder(testStatePlanning, promptFunc)
 
 	assert.NotNil(t, builder)
 	assert.NotNil(t, builder.sm)
-	assert.Equal(t, projectState, builder.projectState)
 	assert.NotNil(t, builder.promptFunc)
 }
 
 func TestMachineBuilder_AddTransition_Unconditional(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
-	builder := NewBuilder(NoProject, projectState, nil)
+	builder := NewBuilder(NoProject, nil)
 	builder.AddTransition(NoProject, testStatePlanning, testEventInit)
 
 	machine := builder.Build()
@@ -49,12 +44,10 @@ func TestMachineBuilder_AddTransition_Unconditional(t *testing.T) {
 }
 
 func TestMachineBuilder_AddTransition_WithGuard(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	guardCalled := false
 	guardResult := false
 
-	builder := NewBuilder(testStatePlanning, projectState, nil)
+	builder := NewBuilder(testStatePlanning, nil)
 	builder.AddTransition(
 		testStatePlanning,
 		testStateImplementing,
@@ -83,9 +76,7 @@ func TestMachineBuilder_AddTransition_WithGuard(t *testing.T) {
 }
 
 func TestMachineBuilder_NilPromptFunc(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
-	builder := NewBuilder(NoProject, projectState, nil)
+	builder := NewBuilder(NoProject, nil)
 	builder.AddTransition(NoProject, testStatePlanning, testEventInit)
 
 	machine := builder.Build()
@@ -97,23 +88,18 @@ func TestMachineBuilder_NilPromptFunc(t *testing.T) {
 }
 
 func TestMachineBuilder_Build(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
-	builder := NewBuilder(NoProject, projectState, nil)
+	builder := NewBuilder(NoProject, nil)
 	builder.AddTransition(NoProject, testStatePlanning, testEventInit)
 
 	machine := builder.Build()
 
 	assert.NotNil(t, machine)
 	assert.NotNil(t, machine.sm)
-	assert.Equal(t, projectState, machine.projectState)
 	assert.Equal(t, NoProject, machine.State())
 }
 
 func TestMachineBuilder_ConfigureState(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
-	builder := NewBuilder(NoProject, projectState, nil)
+	builder := NewBuilder(NoProject, nil)
 
 	// ConfigureState should return a valid StateConfiguration
 	cfg := builder.ConfigureState(NoProject)
@@ -151,8 +137,6 @@ func TestWithGuard(t *testing.T) {
 
 // TestMachineBuilder_ChainedTransitions verifies that multiple transitions can be added fluently.
 func TestMachineBuilder_ChainedTransitions(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	stateC := State("C")
@@ -160,7 +144,7 @@ func TestMachineBuilder_ChainedTransitions(t *testing.T) {
 	eventBC := Event("b_to_c")
 
 	// Chain multiple AddTransition calls
-	machine := NewBuilder(stateA, projectState, nil).
+	machine := NewBuilder(stateA, nil).
 		AddTransition(stateA, stateB, eventAB).
 		AddTransition(stateB, stateC, eventBC).
 		Build()
@@ -179,15 +163,13 @@ func TestMachineBuilder_ChainedTransitions(t *testing.T) {
 // TestMachineBuilder_MultipleTransitionsFromSameState verifies that multiple transitions
 // can originate from the same state.
 func TestMachineBuilder_MultipleTransitionsFromSameState(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	stateC := State("C")
 	eventToB := Event("to_b")
 	eventToC := Event("to_c")
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventToB)
 	builder.AddTransition(stateA, stateC, eventToC)
 	machine := builder.Build()
@@ -249,8 +231,6 @@ func TestWithOnExit(t *testing.T) {
 
 // TestMachineBuilder_WithEntryAndExitActions verifies that entry and exit actions execute.
 func TestMachineBuilder_WithEntryAndExitActions(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	eventGo := Event("go")
@@ -258,7 +238,7 @@ func TestMachineBuilder_WithEntryAndExitActions(t *testing.T) {
 	exitCalled := false
 	entryCalled := false
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(
 		stateA,
 		stateB,
@@ -285,15 +265,13 @@ func TestMachineBuilder_WithEntryAndExitActions(t *testing.T) {
 
 // TestMachineBuilder_MultipleOnEntryActions verifies that multiple entry actions execute in order.
 func TestMachineBuilder_MultipleOnEntryActions(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	eventGo := Event("go")
 
 	var executionOrder []int
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(
 		stateA,
 		stateB,
@@ -314,19 +292,4 @@ func TestMachineBuilder_MultipleOnEntryActions(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, []int{1, 2}, executionOrder, "Entry actions should execute in order")
-}
-
-// TestMachineBuilder_BuildReturnsCorrectProjectState verifies that the built machine
-// retains the project state.
-func TestMachineBuilder_BuildReturnsCorrectProjectState(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-	projectState.Project.Name = "test-project"
-	projectState.Project.Type = "feature"
-
-	builder := NewBuilder(NoProject, projectState, nil)
-	machine := builder.Build()
-
-	assert.Equal(t, projectState, machine.ProjectState())
-	assert.Equal(t, "test-project", machine.ProjectState().Project.Name)
-	assert.Equal(t, "feature", machine.ProjectState().Project.Type)
 }
