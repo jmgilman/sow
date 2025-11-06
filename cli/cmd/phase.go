@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	"github.com/jmgilman/sow/cli/internal/projects/standard"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/spf13/cobra"
 )
@@ -122,22 +121,16 @@ func runPhaseSet(cmd *cobra.Command, args []string, phaseName string) error {
 	return nil
 }
 
-// getActivePhase determines the active phase based on the current state machine state.
-// Returns the phase name corresponding to the current state, or empty string if unknown.
+// getActivePhase determines the active phase by finding the phase with status="in_progress".
+// This works for all project types (standard, breakdown, design, exploration).
+// Returns the phase name, or empty string if no phase is in progress.
 func getActivePhase(project *state.Project) string {
-	currentState := project.Statechart.Current_state
-
-	// Map state machine states to phases
-	// Using standard project states from internal/projects/standard/states.go
-	switch currentState {
-	case string(standard.ImplementationPlanning), string(standard.ImplementationExecuting):
-		return "implementation"
-	case string(standard.ReviewActive):
-		return "review"
-	case string(standard.FinalizeChecks), string(standard.FinalizePRCreation), string(standard.FinalizeCleanup):
-		return "finalize"
-	default:
-		// Unknown state - return empty string
-		return ""
+	// Find the phase with status="in_progress"
+	// The state machine design ensures only one phase is in_progress at a time
+	for phaseName, phase := range project.Phases {
+		if phase.Status == "in_progress" {
+			return phaseName
+		}
 	}
+	return ""
 }
