@@ -22,7 +22,7 @@ func TestBreakdownLifecycle_HappyPath(t *testing.T) {
 	t.Run("discovery phase", func(t *testing.T) {
 		// Verify initial state is Discovery
 		assert.Equal(t, sdkstate.State(Discovery), machine.State(), "initial state should be Discovery")
-		verifyPhaseStatus(t, proj, "discovery")
+		verifyPhaseStatus(t, proj, "in_progress")
 
 		// Add and approve discovery document
 		addDiscoveryArtifact(t, proj, "project/discovery/analysis.md")
@@ -784,8 +784,8 @@ func TestStateValidation(t *testing.T) {
 	t.Run("breakdown phase status updates correctly", func(t *testing.T) {
 		proj, machine := setupBreakdownProject(t)
 
-		// Initial: discovery
-		verifyPhaseStatus(t, proj, "discovery")
+		// Initial: in_progress (state machine is in Discovery state)
+		verifyPhaseStatus(t, proj, "in_progress")
 
 		// After transitioning to Active: active
 		// Add discovery artifact and approve it

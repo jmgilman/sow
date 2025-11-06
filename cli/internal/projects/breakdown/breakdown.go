@@ -181,11 +181,12 @@ func initializeBreakdownProject(p *state.Project, initialInputs map[string][]pro
 		}
 	}
 
-	// Create breakdown phase (starts in discovery)
+	// Create breakdown phase (starts in_progress, state machine starts in Discovery state)
 	p.Phases["breakdown"] = projschema.PhaseState{
-		Status:     "discovery",
+		Status:     "in_progress",
 		Enabled:    true,
 		Created_at: now,
+		Started_at: now,
 		Inputs:     inputs,
 		Outputs:    []projschema.ArtifactState{},
 		Tasks:      []projschema.TaskState{},

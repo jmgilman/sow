@@ -136,18 +136,19 @@ func TestInitializeBreakdownProject_CreatesBreakdownPhase(t *testing.T) {
 	require.NoError(t, err)
 	phase, exists := proj.Phases["breakdown"]
 	assert.True(t, exists, "breakdown phase should exist")
-	assert.Equal(t, "discovery", phase.Status)
+	assert.Equal(t, "in_progress", phase.Status)
 	assert.True(t, phase.Enabled)
 	assert.Equal(t, now, phase.Created_at)
+	assert.Equal(t, now, phase.Started_at, "started_at should be set since phase is in_progress")
 	assert.NotNil(t, phase.Inputs)
 	assert.NotNil(t, phase.Outputs)
 	assert.NotNil(t, phase.Tasks)
 	assert.NotNil(t, phase.Metadata)
 }
 
-// TestInitializeBreakdownProject_DiscoveryStatus verifies that breakdown
-// phase starts in "discovery" status (not "pending" or "active").
-func TestInitializeBreakdownProject_DiscoveryStatus(t *testing.T) {
+// TestInitializeBreakdownProject_InProgressStatus verifies that breakdown
+// phase starts in "in_progress" status (state machine starts in Discovery state).
+func TestInitializeBreakdownProject_InProgressStatus(t *testing.T) {
 	proj := &state.Project{
 		ProjectState: projschema.ProjectState{
 			Type:       "breakdown",
@@ -160,7 +161,7 @@ func TestInitializeBreakdownProject_DiscoveryStatus(t *testing.T) {
 	require.NoError(t, err)
 
 	phase := proj.Phases["breakdown"]
-	assert.Equal(t, "discovery", phase.Status, "breakdown phase should start in discovery status")
+	assert.Equal(t, "in_progress", phase.Status, "breakdown phase should start in in_progress status")
 }
 
 // TestInitializeBreakdownProject_EnabledTrue verifies that breakdown
@@ -546,7 +547,7 @@ func TestBreakdownLifecycle_FullWorkflow(t *testing.T) {
 	// Verify initial state is Discovery
 	assert.Equal(t, sdkstate.State(Discovery), machine.State())
 	phase := proj.Phases["breakdown"]
-	assert.Equal(t, "discovery", phase.Status)
+	assert.Equal(t, "in_progress", phase.Status)
 
 	// Transition to Active
 	transitionToActive(t, proj, machine)
