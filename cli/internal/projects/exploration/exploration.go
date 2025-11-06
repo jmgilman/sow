@@ -114,7 +114,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(Active),
 			sdkstate.State(Summarizing),
 			sdkstate.Event(EventBeginSummarizing),
-			project.WithGuard(func(p *state.Project) bool {
+			project.WithGuard("all tasks resolved", func(p *state.Project) bool {
 				return allTasksResolved(p)
 			}),
 			project.WithOnEntry(func(p *state.Project) error {
@@ -131,7 +131,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(Summarizing),
 			sdkstate.State(Finalizing),
 			sdkstate.Event(EventCompleteSummarizing),
-			project.WithGuard(func(p *state.Project) bool {
+			project.WithGuard("all summaries approved", func(p *state.Project) bool {
 				return allSummariesApproved(p)
 			}),
 			project.WithOnExit(func(p *state.Project) error {
@@ -158,7 +158,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(Finalizing),
 			sdkstate.State(Completed),
 			sdkstate.Event(EventCompleteFinalization),
-			project.WithGuard(func(p *state.Project) bool {
+			project.WithGuard("all finalization tasks complete", func(p *state.Project) bool {
 				return allFinalizationTasksComplete(p)
 			}),
 			project.WithOnEntry(func(p *state.Project) error {

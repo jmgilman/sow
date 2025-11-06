@@ -3,7 +3,7 @@ type: standard
 branch: 36-exploration-project-type-implementation
 description: Exploration Project Type Implementation
 created_at: 2025-11-05T11:13:19.041251-08:00
-updated_at: 2025-11-05T16:05:45.914918-08:00
+updated_at: 2025-11-05T16:08:37.002545-08:00
 phases:
     finalize:
         status: pending
@@ -13,9 +13,16 @@ phases:
         completed_at: 0001-01-01T00:00:00Z
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
-        metadata: {}
+        metadata:
+            pr_number: 63
+            pr_url: https://github.com/jmgilman/sow/pull/63
         inputs: []
-        outputs: []
+        outputs:
+            - type: pr_body
+              path: phases/finalize/pr_body.md
+              approved: true
+              created_at: 2025-11-05T16:06:59.482744-08:00
+              metadata: {}
         tasks: []
     implementation:
         status: pending
@@ -460,5 +467,5 @@ phases:
                 assessment: pass
         tasks: []
 statechart:
-    current_state: FinalizePRCreation
-    updated_at: 2025-11-05T16:05:45.914918-08:00
+    current_state: FinalizePRChecks
+    updated_at: 2025-11-05T16:08:37.002545-08:00
