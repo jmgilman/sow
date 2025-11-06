@@ -6,7 +6,7 @@ import (
 	"github.com/jmgilman/sow/cli/internal/sdks/state"
 )
 
-// TestEventsAreCorrectType verifies all event constants use state.Event type
+// TestEventsAreCorrectType verifies all event constants use state.Event type.
 func TestEventsAreCorrectType(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -20,7 +20,7 @@ func TestEventsAreCorrectType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Verify the constant can be assigned to state.Event type
-			var e state.Event = tt.event
+			e := tt.event
 			if e == "" {
 				t.Errorf("Event %s should not be empty", tt.name)
 			}
@@ -28,7 +28,7 @@ func TestEventsAreCorrectType(t *testing.T) {
 	}
 }
 
-// TestEventValues verifies event constants have correct string values
+// TestEventValues verifies event constants have correct string values.
 func TestEventValues(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -49,7 +49,7 @@ func TestEventValues(t *testing.T) {
 	}
 }
 
-// TestAllEventsAreDifferent verifies no duplicate event values
+// TestAllEventsAreDifferent verifies no duplicate event values.
 func TestAllEventsAreDifferent(t *testing.T) {
 	events := []state.Event{
 		EventBeginSummarizing,
@@ -70,7 +70,7 @@ func TestAllEventsAreDifferent(t *testing.T) {
 	}
 }
 
-// TestEventNamingConvention verifies events use snake_case
+// TestEventNamingConvention verifies events use snake_case.
 func TestEventNamingConvention(t *testing.T) {
 	tests := []struct {
 		name  string

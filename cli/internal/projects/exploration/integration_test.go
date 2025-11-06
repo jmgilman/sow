@@ -10,6 +10,7 @@ import (
 )
 
 // TestExplorationLifecycle_SingleSummary tests complete workflow with one summary document.
+//nolint:funlen // Test contains multiple subtests for lifecycle verification
 func TestExplorationLifecycle_SingleSummary(t *testing.T) {
 	// Setup: Create project and state machine
 	proj, machine := setupExplorationProject(t)
@@ -249,6 +250,7 @@ func TestExplorationLifecycle_MultipleSummaries(t *testing.T) {
 }
 
 // TestGuardFailures tests that guards properly block invalid transitions.
+//nolint:funlen // Test contains multiple guard validation subtests
 func TestGuardFailures(t *testing.T) {
 	t.Run("Active to Summarizing blocked with pending tasks", func(t *testing.T) {
 		proj, machine := setupExplorationProject(t)
@@ -610,11 +612,17 @@ func TestStateValidation(t *testing.T) {
 
 		// Complete full lifecycle
 		addResearchTopic(t, proj, "010", "Topic", "completed")
-		machine.Fire(sdkstate.Event(EventBeginSummarizing))
+		if err := machine.Fire(sdkstate.Event(EventBeginSummarizing)); err != nil {
+			t.Fatalf("Failed to fire EventBeginSummarizing: %v", err)
+		}
 		addSummaryArtifact(t, proj, "summary.md", true)
-		machine.Fire(sdkstate.Event(EventCompleteSummarizing))
+		if err := machine.Fire(sdkstate.Event(EventCompleteSummarizing)); err != nil {
+			t.Fatalf("Failed to fire EventCompleteSummarizing: %v", err)
+		}
 		addFinalizationTask(t, proj, "100", "PR", "completed")
-		machine.Fire(sdkstate.Event(EventCompleteFinalization))
+		if err := machine.Fire(sdkstate.Event(EventCompleteFinalization)); err != nil {
+			t.Fatalf("Failed to fire EventCompleteFinalization: %v", err)
+		}
 
 		// Both phases should be marked completed
 		expPhase := proj.Phases["exploration"]
@@ -712,7 +720,7 @@ func addSummaryArtifact(t *testing.T, p *state.Project, path string, approved bo
 }
 
 // addFinalizationTask adds a task to finalization phase.
-func addFinalizationTask(t *testing.T, p *state.Project, id, name, status string) {
+func addFinalizationTask(t *testing.T, p *state.Project, _ /* id */, name, status string) {
 	t.Helper()
 
 	phase, exists := p.Phases["finalization"]
@@ -721,7 +729,7 @@ func addFinalizationTask(t *testing.T, p *state.Project, id, name, status string
 	}
 
 	task := projschema.TaskState{
-		Id:         id,
+		Id:         "100", // Always use 100 for finalization tasks in tests
 		Name:       name,
 		Phase:      "finalization",
 		Status:     status,

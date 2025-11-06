@@ -80,8 +80,8 @@ func initializeExplorationProject(p *state.Project, initialInputs map[string][]p
 // configurePhases adds phase definitions to the builder.
 //
 // The exploration project type has two phases:
-// 1. exploration - Contains research tasks, produces summary and findings
-// 2. finalization - Single-state phase for PR creation, no tasks
+// 1. exploration - Contains research tasks, produces summary and findings.
+// 2. finalization - Single-state phase for PR creation, no tasks.
 func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
 		WithPhase("exploration",
@@ -101,9 +101,9 @@ func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.Project
 
 // configureTransitions adds state machine transitions to the builder.
 // Configures all 3 transitions for the exploration project type:
-// - Active → Summarizing (when all tasks resolved)
-// - Summarizing → Finalizing (when summaries approved, crosses phase boundary)
-// - Finalizing → Completed (when finalization tasks complete)
+// - Active → Summarizing (when all tasks resolved).
+// - Summarizing → Finalizing (when summaries approved, crosses phase boundary).
+// - Finalizing → Completed (when finalization tasks complete).
 func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
 		// Set initial state to Active
@@ -114,7 +114,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(Active),
 			sdkstate.State(Summarizing),
 			sdkstate.Event(EventBeginSummarizing),
-			project.WithGuard("all tasks resolved", func(p *state.Project) bool {
+			project.WithGuard(func(p *state.Project) bool {
 				return allTasksResolved(p)
 			}),
 			project.WithOnEntry(func(p *state.Project) error {
@@ -131,7 +131,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(Summarizing),
 			sdkstate.State(Finalizing),
 			sdkstate.Event(EventCompleteSummarizing),
-			project.WithGuard("all summaries approved", func(p *state.Project) bool {
+			project.WithGuard(func(p *state.Project) bool {
 				return allSummariesApproved(p)
 			}),
 			project.WithOnExit(func(p *state.Project) error {
@@ -158,7 +158,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(Finalizing),
 			sdkstate.State(Completed),
 			sdkstate.Event(EventCompleteFinalization),
-			project.WithGuard("all finalization tasks complete", func(p *state.Project) bool {
+			project.WithGuard(func(p *state.Project) bool {
 				return allFinalizationTasksComplete(p)
 			}),
 			project.WithOnEntry(func(p *state.Project) error {
@@ -175,18 +175,18 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 // configureEventDeterminers adds event determination logic to the builder.
 // Maps each advanceable state to its corresponding advance event.
 // For exploration project type, the mapping is straightforward:
-// - Active → EventBeginSummarizing
-// - Summarizing → EventCompleteSummarizing
-// - Finalizing → EventCompleteFinalization
+// - Active → EventBeginSummarizing.
+// - Summarizing → EventCompleteSummarizing.
+// - Finalizing → EventCompleteFinalization.
 func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
-		OnAdvance(sdkstate.State(Active), func(p *state.Project) (sdkstate.Event, error) {
+		OnAdvance(sdkstate.State(Active), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventBeginSummarizing), nil
 		}).
-		OnAdvance(sdkstate.State(Summarizing), func(p *state.Project) (sdkstate.Event, error) {
+		OnAdvance(sdkstate.State(Summarizing), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventCompleteSummarizing), nil
 		}).
-		OnAdvance(sdkstate.State(Finalizing), func(p *state.Project) (sdkstate.Event, error) {
+		OnAdvance(sdkstate.State(Finalizing), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventCompleteFinalization), nil
 		})
 }

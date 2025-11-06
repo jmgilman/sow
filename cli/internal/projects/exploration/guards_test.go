@@ -8,7 +8,7 @@ import (
 	projschema "github.com/jmgilman/sow/cli/schemas/project"
 )
 
-// Helper to create a minimal project for testing
+// Helper to create a minimal project for testing.
 func newTestProject() *state.Project {
 	return &state.Project{
 		ProjectState: projschema.ProjectState{
@@ -21,7 +21,7 @@ func newTestProject() *state.Project {
 	}
 }
 
-// Helper to create a task with given status
+// Helper to create a task with given status.
 func newTask(id, status string) projschema.TaskState {
 	return projschema.TaskState{
 		Id:             id,
@@ -37,7 +37,7 @@ func newTask(id, status string) projschema.TaskState {
 	}
 }
 
-// Helper to create an artifact with given type and approval status
+// Helper to create an artifact with given type and approval status.
 func newArtifact(artifactType string, approved bool) projschema.ArtifactState {
 	return projschema.ArtifactState{
 		Type:       artifactType,

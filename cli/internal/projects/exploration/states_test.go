@@ -6,7 +6,7 @@ import (
 	"github.com/jmgilman/sow/cli/internal/sdks/state"
 )
 
-// TestStatesAreCorrectType verifies all state constants use state.State type
+// TestStatesAreCorrectType verifies all state constants use state.State type.
 func TestStatesAreCorrectType(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -21,7 +21,7 @@ func TestStatesAreCorrectType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Verify the constant can be assigned to state.State type
-			var s state.State = tt.state
+			s := tt.state
 			if s == "" {
 				t.Errorf("State %s should not be empty", tt.name)
 			}
@@ -29,7 +29,7 @@ func TestStatesAreCorrectType(t *testing.T) {
 	}
 }
 
-// TestStateValues verifies state constants have correct string values
+// TestStateValues verifies state constants have correct string values.
 func TestStateValues(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -51,7 +51,7 @@ func TestStateValues(t *testing.T) {
 	}
 }
 
-// TestAllStatesAreDifferent verifies no duplicate state values
+// TestAllStatesAreDifferent verifies no duplicate state values.
 func TestAllStatesAreDifferent(t *testing.T) {
 	states := []state.State{Active, Summarizing, Finalizing, Completed}
 	seen := make(map[state.State]bool)

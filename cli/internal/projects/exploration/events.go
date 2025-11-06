@@ -1,3 +1,5 @@
+// Package exploration provides the exploration project type implementation.
+// This package defines states, events, guards, and configuration for exploration projects.
 package exploration
 
 import (
@@ -7,15 +9,15 @@ import (
 // Exploration project events trigger state transitions.
 
 const (
-	// EventBeginSummarizing transitions from Active to Summarizing
-	// Fired when all research topics are resolved
+	// EventBeginSummarizing transitions from Active to Summarizing.
+	// Fired when all research topics are resolved.
 	EventBeginSummarizing = state.Event("begin_summarizing")
 
-	// EventCompleteSummarizing transitions from Summarizing to Finalizing
-	// Fired when all summary artifacts are approved
+	// EventCompleteSummarizing transitions from Summarizing to Finalizing.
+	// Fired when all summary artifacts are approved.
 	EventCompleteSummarizing = state.Event("complete_summarizing")
 
-	// EventCompleteFinalization transitions from Finalizing to Completed
-	// Fired when all finalization tasks are completed
+	// EventCompleteFinalization transitions from Finalizing to Completed.
+	// Fired when all finalization tasks are completed.
 	EventCompleteFinalization = state.Event("complete_finalization")
 )

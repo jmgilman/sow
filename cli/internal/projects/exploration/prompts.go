@@ -132,9 +132,10 @@ func generateSummarizingPrompt(p *state.Project) string {
 	abandoned := []projschema.TaskState{}
 
 	for _, task := range phase.Tasks {
-		if task.Status == "completed" {
+		switch task.Status {
+		case "completed":
 			completed = append(completed, task)
-		} else if task.Status == "abandoned" {
+		case "abandoned":
 			abandoned = append(abandoned, task)
 		}
 	}
@@ -162,37 +163,7 @@ func generateSummarizingPrompt(p *state.Project) string {
 	}
 
 	buf.WriteString("### Summary Artifacts\n\n")
-	if len(summaries) == 0 {
-		buf.WriteString("No summaries created yet.\n\n")
-		buf.WriteString("**Next steps**: Create summary document(s) synthesizing findings.\n\n")
-	} else {
-		approvedCount := 0
-		for _, s := range summaries {
-			if s.Approved {
-				approvedCount++
-			}
-		}
-
-		buf.WriteString(fmt.Sprintf("Total: %d | Approved: %d\n\n", len(summaries), approvedCount))
-
-		for _, s := range summaries {
-			status := "Pending approval"
-			if s.Approved {
-				status = "✓ Approved"
-			}
-			buf.WriteString(fmt.Sprintf("- %s (%s)\n", s.Path, status))
-		}
-		buf.WriteString("\n")
-
-		// Advancement readiness
-		if allSummariesApproved(p) {
-			buf.WriteString("✓ All summaries approved!\n\n")
-			buf.WriteString("Ready to finalize. Run: `sow project advance`\n\n")
-		} else {
-			unapprovedCount := countUnapprovedSummaries(p)
-			buf.WriteString(fmt.Sprintf("**Next steps**: Review and approve %d summary document(s)\n\n", unapprovedCount))
-		}
-	}
+	writeSummaryArtifactsSection(&buf, summaries, p)
 
 	// Render additional guidance from template
 	guidance, err := templates.Render(templatesFS, "templates/summarizing.md", p)
@@ -202,6 +173,42 @@ func generateSummarizingPrompt(p *state.Project) string {
 	buf.WriteString(guidance)
 
 	return buf.String()
+}
+
+// writeSummaryArtifactsSection writes the summary artifacts section to the buffer.
+func writeSummaryArtifactsSection(buf *strings.Builder, summaries []projschema.ArtifactState, p *state.Project) {
+	if len(summaries) == 0 {
+		buf.WriteString("No summaries created yet.\n\n")
+		buf.WriteString("**Next steps**: Create summary document(s) synthesizing findings.\n\n")
+		return
+	}
+
+	approvedCount := 0
+	for _, s := range summaries {
+		if s.Approved {
+			approvedCount++
+		}
+	}
+
+	fmt.Fprintf(buf, "Total: %d | Approved: %d\n\n", len(summaries), approvedCount)
+
+	for _, s := range summaries {
+		status := "Pending approval"
+		if s.Approved {
+			status = "✓ Approved"
+		}
+		fmt.Fprintf(buf, "- %s (%s)\n", s.Path, status)
+	}
+	buf.WriteString("\n")
+
+	// Advancement readiness
+	if allSummariesApproved(p) {
+		buf.WriteString("✓ All summaries approved!\n\n")
+		buf.WriteString("Ready to finalize. Run: `sow project advance`\n\n")
+	} else {
+		unapprovedCount := countUnapprovedSummaries(p)
+		fmt.Fprintf(buf, "**Next steps**: Review and approve %d summary document(s)\n\n", unapprovedCount)
+	}
 }
 
 // generateFinalizingPrompt generates the prompt for the Finalizing state.
