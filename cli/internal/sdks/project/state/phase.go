@@ -59,7 +59,7 @@ func MarkPhaseFailed(p *Project, phaseName string) error {
 	return nil
 }
 
-// MarkPhaseInProgress sets a phase's status to "in_progress".
+// MarkPhaseInProgress sets a phase's status to "in_progress" and records the started_at timestamp.
 // This only modifies the status if the current status is "pending", to preserve
 // manual status changes during rework loops.
 // This is typically called automatically by the SDK when entering a phase's start state.
@@ -77,7 +77,9 @@ func MarkPhaseInProgress(p *Project, phaseName string) error {
 
 	// Only update if currently pending (preserve manual changes for rework)
 	if phase.Status == "pending" {
+		now := time.Now()
 		phase.Status = "in_progress"
+		phase.Started_at = now
 		p.Phases[phaseName] = phase
 	}
 	return nil

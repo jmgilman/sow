@@ -315,10 +315,7 @@ func handleBranchScenarioNew(ctx *sow.Context, branchName string) (string, error
 	}
 
 	if branchExists {
-		// Branch exists - checkout
-		if err := git.CheckoutBranch(branchName); err != nil {
-			return "", fmt.Errorf("failed to checkout branch %s: %w", branchName, err)
-		}
+		// Branch exists - return it (worktree will handle the checkout)
 		return branchName, nil
 	}
 

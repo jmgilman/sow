@@ -581,3 +581,46 @@ func TestBuildMachineMultiplePhaseTransitions(t *testing.T) {
 		t.Errorf("expected review status=in_progress, got %s", proj.Phases["review"].Status)
 	}
 }
+
+// TestBuildMachineAutomaticPhaseFailed tests that when a transition is configured
+// with WithFailedPhase, the phase is marked as "failed" instead of "completed" when
+// exiting the phase's end state.
+func TestBuildMachineAutomaticPhaseFailed(t *testing.T) {
+	proj := &state.Project{
+		ProjectState: projectSchemas.ProjectState{
+			Phases: map[string]projectSchemas.PhaseState{
+				"review": {Status: "in_progress"},
+			},
+		},
+	}
+
+	config := NewProjectTypeConfigBuilder("test").
+		WithPhase("review",
+			WithStartState(stateMachine.State("reviewing")),
+			WithEndState(stateMachine.State("completed")),
+		).
+		AddTransition(
+			stateMachine.State("completed"),
+			stateMachine.State("rework"),
+			stateMachine.Event("fail"),
+			WithFailedPhase("review"),
+		).
+		Build()
+
+	machine := config.BuildMachine(proj, stateMachine.State("completed"))
+
+	// Fire transition with phase updates to exit phase's end state
+	if err := config.FireWithPhaseUpdates(machine, stateMachine.Event("fail"), proj); err != nil {
+		t.Fatalf("FireWithPhaseUpdates failed: %v", err)
+	}
+
+	// Verify phase was automatically marked failed (not completed)
+	if proj.Phases["review"].Status != "failed" {
+		t.Errorf("expected automatic status=failed, got %s", proj.Phases["review"].Status)
+	}
+
+	// Verify completed_at timestamp was NOT set (since it failed)
+	if !proj.Phases["review"].Completed_at.IsZero() {
+		t.Error("expected completed_at timestamp to not be set for failed phase")
+	}
+}

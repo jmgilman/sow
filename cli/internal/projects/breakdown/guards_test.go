@@ -52,6 +52,110 @@ func newArtifact(path string) projschema.ArtifactState {
 	}
 }
 
+// Tests for hasApprovedDiscoveryDocument
+
+func TestHasApprovedDiscoveryDocument_MissingBreakdownPhase(t *testing.T) {
+	p := newTestProject()
+	// No breakdown phase exists
+
+	result := hasApprovedDiscoveryDocument(p)
+
+	if result {
+		t.Error("Expected false when breakdown phase is missing, got true")
+	}
+}
+
+func TestHasApprovedDiscoveryDocument_NoDiscoveryArtifact(t *testing.T) {
+	p := newTestProject()
+	p.Phases["breakdown"] = projschema.PhaseState{
+		Status:     "discovery",
+		Enabled:    true,
+		Created_at: time.Now(),
+		Outputs:    []projschema.ArtifactState{},
+	}
+
+	result := hasApprovedDiscoveryDocument(p)
+
+	if result {
+		t.Error("Expected false when no discovery artifact exists, got true")
+	}
+}
+
+func TestHasApprovedDiscoveryDocument_UnapprovedDiscoveryArtifact(t *testing.T) {
+	p := newTestProject()
+	p.Phases["breakdown"] = projschema.PhaseState{
+		Status:     "discovery",
+		Enabled:    true,
+		Created_at: time.Now(),
+		Outputs: []projschema.ArtifactState{
+			{
+				Type:       "discovery",
+				Path:       "project/discovery/analysis.md",
+				Approved:   false,
+				Created_at: time.Now(),
+			},
+		},
+	}
+
+	result := hasApprovedDiscoveryDocument(p)
+
+	if result {
+		t.Error("Expected false when discovery artifact is not approved, got true")
+	}
+}
+
+func TestHasApprovedDiscoveryDocument_ApprovedDiscoveryArtifact(t *testing.T) {
+	p := newTestProject()
+	p.Phases["breakdown"] = projschema.PhaseState{
+		Status:     "discovery",
+		Enabled:    true,
+		Created_at: time.Now(),
+		Outputs: []projschema.ArtifactState{
+			{
+				Type:       "discovery",
+				Path:       "project/discovery/analysis.md",
+				Approved:   true,
+				Created_at: time.Now(),
+			},
+		},
+	}
+
+	result := hasApprovedDiscoveryDocument(p)
+
+	if !result {
+		t.Error("Expected true when discovery artifact is approved, got false")
+	}
+}
+
+func TestHasApprovedDiscoveryDocument_MultipleArtifactsOneApproved(t *testing.T) {
+	p := newTestProject()
+	p.Phases["breakdown"] = projschema.PhaseState{
+		Status:     "discovery",
+		Enabled:    true,
+		Created_at: time.Now(),
+		Outputs: []projschema.ArtifactState{
+			{
+				Type:       "work_unit_spec",
+				Path:       "project/work-units/001.md",
+				Approved:   false,
+				Created_at: time.Now(),
+			},
+			{
+				Type:       "discovery",
+				Path:       "project/discovery/analysis.md",
+				Approved:   true,
+				Created_at: time.Now(),
+			},
+		},
+	}
+
+	result := hasApprovedDiscoveryDocument(p)
+
+	if !result {
+		t.Error("Expected true when at least one discovery artifact is approved, got false")
+	}
+}
+
 // Tests for allWorkUnitsApproved
 
 func TestAllWorkUnitsApproved_MissingBreakdownPhase(t *testing.T) {

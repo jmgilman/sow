@@ -5,6 +5,9 @@ import "github.com/jmgilman/sow/cli/internal/sdks/state"
 // Breakdown project states for the breakdown workflow.
 
 const (
+	// Discovery indicates initial exploration phase where codebase/design context is gathered.
+	Discovery = state.State("Discovery")
+
 	// Active indicates active breakdown phase where work units are decomposed, specified, and reviewed.
 	Active = state.State("Active")
 

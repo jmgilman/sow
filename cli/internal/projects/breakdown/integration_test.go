@@ -12,17 +12,32 @@ import (
 )
 
 // TestBreakdownLifecycle_HappyPath tests the complete breakdown workflow from creation to completion.
-// This is the primary happy path test covering all states: Active → Publishing → Completed.
+// This is the primary happy path test covering all states: Discovery → Active → Publishing → Completed.
 //nolint:funlen // Test contains multiple subtests for lifecycle verification
 func TestBreakdownLifecycle_HappyPath(t *testing.T) {
 	// Setup: Create project and state machine
 	proj, machine := setupBreakdownProject(t)
 
+	// Phase 0: Discovery - Add discovery document and transition to Active
+	t.Run("discovery phase", func(t *testing.T) {
+		// Verify initial state is Discovery
+		assert.Equal(t, sdkstate.State(Discovery), machine.State(), "initial state should be Discovery")
+		verifyPhaseStatus(t, proj, "in_progress")
+
+		// Add and approve discovery document
+		addDiscoveryArtifact(t, proj, "project/discovery/analysis.md")
+
+		// Transition to Active
+		err := machine.Fire(sdkstate.Event(EventBeginActive))
+		require.NoError(t, err, "transition to Active should succeed")
+		assert.Equal(t, sdkstate.State(Active), machine.State(), "state should be Active")
+		verifyPhaseStatus(t, proj, "active")
+	})
+
 	// Phase 1: Active - Create and specify work units
 	t.Run("create and specify work units", func(t *testing.T) {
-		// Verify initial state
-		assert.Equal(t, sdkstate.State(Active), machine.State(), "initial state should be Active")
-		verifyPhaseStatus(t, proj, "active")
+		// Verify we're in Active state
+		assert.Equal(t, sdkstate.State(Active), machine.State(), "state should be Active")
 		verifyPhaseEnabled(t, proj, "breakdown", true)
 
 		// Create work unit tasks
@@ -127,6 +142,7 @@ func TestBreakdownLifecycle_HappyPath(t *testing.T) {
 //nolint:funlen // Test contains multiple subtests for review workflow verification
 func TestReviewWorkflow_BackAndForth(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	t.Run("create and draft work unit", func(t *testing.T) {
 		addWorkUnit(t, proj, "001", "Feature A", "pending")
@@ -192,6 +208,7 @@ func TestReviewWorkflow_BackAndForth(t *testing.T) {
 // TestDependencyValidation_Cycles tests that cyclic dependencies block advancement.
 func TestDependencyValidation_Cycles(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	t.Run("create tasks with cyclic dependencies", func(t *testing.T) {
 		// Create cycle: 001 → 002 → 003 → 001
@@ -222,6 +239,7 @@ func TestDependencyValidation_Cycles(t *testing.T) {
 // TestDependencyValidation_InvalidRefs tests that invalid dependency references block advancement.
 func TestDependencyValidation_InvalidRefs(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	t.Run("create tasks with invalid dependency references", func(t *testing.T) {
 		// Create task that references non-existent task
@@ -246,6 +264,7 @@ func TestDependencyValidation_InvalidRefs(t *testing.T) {
 // TestDependencyValidation_ValidChain tests that valid dependency chains work correctly.
 func TestDependencyValidation_ValidChain(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	t.Run("create tasks with valid dependency chain", func(t *testing.T) {
 		// Create valid chain: 001 → 002 → 003
@@ -279,6 +298,7 @@ func TestDependencyValidation_ValidChain(t *testing.T) {
 //nolint:funlen // Test contains multiple subtests for resumability verification
 func TestPublishing_Resumability(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	t.Run("setup work units", func(t *testing.T) {
 		// Create 3 work units
@@ -344,6 +364,7 @@ func TestPublishing_Resumability(t *testing.T) {
 //nolint:funlen // Test contains multiple subtests for dependency verification
 func TestBreakdownIntegration_DiamondDependencies(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	t.Run("create work units with diamond dependency", func(t *testing.T) {
 		// Diamond: 001 → 002, 003 → 004
@@ -392,6 +413,7 @@ func TestBreakdownIntegration_DiamondDependencies(t *testing.T) {
 // TestBreakdownLifecycle_WithAbandoned tests mix of completed and abandoned tasks.
 func TestBreakdownLifecycle_WithAbandoned(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	t.Run("create and complete some tasks, abandon others", func(t *testing.T) {
 		// Complete first two tasks
@@ -449,6 +471,7 @@ func TestBreakdownLifecycle_WithAbandoned(t *testing.T) {
 // TestBreakdownLifecycle_AllAbandoned tests that advancement blocked when all tasks abandoned.
 func TestBreakdownLifecycle_AllAbandoned(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	t.Run("create and abandon all tasks", func(t *testing.T) {
 		// Abandon all tasks
@@ -480,6 +503,7 @@ func TestBreakdownLifecycle_AllAbandoned(t *testing.T) {
 // TestBreakdownLifecycle_NoTasks tests that advancement blocked when no tasks exist.
 func TestBreakdownLifecycle_NoTasks(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	t.Run("cannot advance without tasks", func(t *testing.T) {
 		// No tasks created
@@ -528,8 +552,8 @@ func TestBreakdownLifecycle_WithInputs(t *testing.T) {
 		err := config.Initialize(proj, initialInputs)
 		require.NoError(t, err)
 
-		// Build state machine
-		machine := config.BuildMachine(proj, sdkstate.State(Active))
+		// Build state machine (starts in Discovery)
+		machine := config.BuildMachine(proj, sdkstate.State(Discovery))
 		require.NotNil(t, machine)
 
 		// Verify inputs are tracked separately
@@ -537,6 +561,9 @@ func TestBreakdownLifecycle_WithInputs(t *testing.T) {
 		assert.Len(t, phase.Inputs, 1, "should have 1 input")
 		assert.Equal(t, "design", phase.Inputs[0].Type)
 		assert.Empty(t, phase.Outputs, "outputs should be empty initially")
+
+		// Transition to Active
+		transitionToActive(t, proj, machine)
 
 		// Complete workflow
 		addWorkUnit(t, proj, "001", "Implementation", "completed")
@@ -637,6 +664,7 @@ func TestAutoApproval(t *testing.T) {
 func TestGuardFailures(t *testing.T) {
 	t.Run("Active to Publishing blocked with pending tasks", func(t *testing.T) {
 		proj, machine := setupBreakdownProject(t)
+		transitionToActive(t, proj, machine)
 
 		// Add pending task
 		addWorkUnit(t, proj, "001", "Feature A", "pending")
@@ -649,6 +677,7 @@ func TestGuardFailures(t *testing.T) {
 
 	t.Run("Active to Publishing blocked with in_progress tasks", func(t *testing.T) {
 		proj, machine := setupBreakdownProject(t)
+		transitionToActive(t, proj, machine)
 
 		// Add in_progress task
 		addWorkUnit(t, proj, "001", "Feature A", "in_progress")
@@ -661,6 +690,7 @@ func TestGuardFailures(t *testing.T) {
 
 	t.Run("Active to Publishing blocked with needs_review tasks", func(t *testing.T) {
 		proj, machine := setupBreakdownProject(t)
+		transitionToActive(t, proj, machine)
 
 		// Add needs_review task
 		addWorkUnit(t, proj, "001", "Feature A", "needs_review")
@@ -675,6 +705,7 @@ func TestGuardFailures(t *testing.T) {
 
 	t.Run("Active to Publishing allowed with completed tasks", func(t *testing.T) {
 		proj, machine := setupBreakdownProject(t)
+		transitionToActive(t, proj, machine)
 
 		// Add completed task
 		addWorkUnit(t, proj, "001", "Feature A", "completed")
@@ -689,6 +720,7 @@ func TestGuardFailures(t *testing.T) {
 
 	t.Run("Active to Publishing allowed with mix of completed and abandoned", func(t *testing.T) {
 		proj, machine := setupBreakdownProject(t)
+		transitionToActive(t, proj, machine)
 
 		// Add completed task
 		addWorkUnit(t, proj, "001", "Feature A", "completed")
@@ -706,6 +738,7 @@ func TestGuardFailures(t *testing.T) {
 
 	t.Run("Publishing to Completed blocked with unpublished tasks", func(t *testing.T) {
 		proj, machine := setupBreakdownProject(t)
+		transitionToActive(t, proj, machine)
 
 		// Setup: advance to Publishing
 		addWorkUnit(t, proj, "001", "Feature A", "completed")
@@ -722,6 +755,7 @@ func TestGuardFailures(t *testing.T) {
 
 	t.Run("Publishing to Completed allowed after publishing all", func(t *testing.T) {
 		proj, machine := setupBreakdownProject(t)
+		transitionToActive(t, proj, machine)
 
 		// Setup: advance to Publishing
 		addWorkUnit(t, proj, "001", "Feature A", "completed")
@@ -750,7 +784,14 @@ func TestStateValidation(t *testing.T) {
 	t.Run("breakdown phase status updates correctly", func(t *testing.T) {
 		proj, machine := setupBreakdownProject(t)
 
-		// Initial: active
+		// Initial: in_progress (state machine is in Discovery state)
+		verifyPhaseStatus(t, proj, "in_progress")
+
+		// After transitioning to Active: active
+		// Add discovery artifact and approve it
+		addDiscoveryArtifact(t, proj, "project/discovery/analysis.md")
+		err := machine.Fire(sdkstate.Event(EventBeginActive))
+		require.NoError(t, err)
 		verifyPhaseStatus(t, proj, "active")
 
 		// After advancing to Publishing: publishing
@@ -758,7 +799,7 @@ func TestStateValidation(t *testing.T) {
 		artifact := addWorkUnitArtifact(t, proj, "project/spec.md")
 		linkArtifactToTask(t, proj, "001", artifact)
 
-		err := machine.Fire(sdkstate.Event(EventBeginPublishing))
+		err = machine.Fire(sdkstate.Event(EventBeginPublishing))
 		require.NoError(t, err)
 
 		verifyPhaseStatus(t, proj, "publishing")
@@ -773,6 +814,7 @@ func TestStateValidation(t *testing.T) {
 
 	t.Run("timestamps set correctly", func(t *testing.T) {
 		proj, machine := setupBreakdownProject(t)
+		transitionToActive(t, proj, machine)
 
 		// Breakdown created_at should be set
 		phase := proj.Phases["breakdown"]
@@ -797,6 +839,7 @@ func TestStateValidation(t *testing.T) {
 
 	t.Run("phase completion markers", func(t *testing.T) {
 		proj, machine := setupBreakdownProject(t)
+		transitionToActive(t, proj, machine)
 
 		// Complete full lifecycle
 		addWorkUnit(t, proj, "001", "Feature", "completed")
@@ -818,6 +861,26 @@ func TestStateValidation(t *testing.T) {
 // Helper functions (integration test specific)
 
 // addWorkUnitArtifact adds a work unit specification artifact to breakdown outputs.
+// addDiscoveryArtifact adds an approved discovery artifact to the breakdown phase.
+func addDiscoveryArtifact(t *testing.T, p *state.Project, path string) {
+	t.Helper()
+
+	phase, exists := p.Phases["breakdown"]
+	if !exists {
+		t.Fatal("breakdown phase not found")
+	}
+
+	artifact := projschema.ArtifactState{
+		Type:       "discovery",
+		Path:       path,
+		Created_at: time.Now(),
+		Approved:   true, // Discovery artifacts are approved for testing
+	}
+
+	phase.Outputs = append(phase.Outputs, artifact)
+	p.Phases["breakdown"] = phase
+}
+
 func addWorkUnitArtifact(t *testing.T, p *state.Project, path string) string {
 	t.Helper()
 

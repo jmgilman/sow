@@ -98,21 +98,25 @@ func TestConfigurePhases_CorrectStartEndStates(t *testing.T) {
 	builder = configurePhases(builder)
 	config := builder.Build()
 
-	// Verify breakdown phase is associated with Active state
-	assert.True(t, config.IsPhaseStartState("breakdown", sdkstate.State(Active)), "Active should be start state")
+	// Verify breakdown phase is associated with Discovery state
+	assert.True(t, config.IsPhaseStartState("breakdown", sdkstate.State(Discovery)), "Discovery should be start state")
 	assert.True(t, config.IsPhaseEndState("breakdown", sdkstate.State(Publishing)), "Publishing should be end state")
 }
 
 // TestConfigurePhases_GetDefaultTaskPhase verifies that breakdown is returned
-// as the default task phase when in Active state.
+// as the default task phase when in Discovery or Active state.
 func TestConfigurePhases_GetDefaultTaskPhase(t *testing.T) {
 	builder := project.NewProjectTypeConfigBuilder("breakdown")
 	builder = configurePhases(builder)
 	config := builder.Build()
 
+	// When in Discovery state, should return breakdown as default
+	defaultPhase := config.GetDefaultTaskPhase(sdkstate.State(Discovery))
+	assert.Equal(t, "breakdown", defaultPhase, "default task phase should be breakdown in Discovery state")
+
 	// When in Active state, should return breakdown as default
-	defaultPhase := config.GetDefaultTaskPhase(sdkstate.State(Active))
-	assert.Equal(t, "breakdown", defaultPhase, "default task phase should be breakdown")
+	defaultPhase = config.GetDefaultTaskPhase(sdkstate.State(Active))
+	assert.Equal(t, "breakdown", defaultPhase, "default task phase should be breakdown in Active state")
 }
 
 // TestInitializeBreakdownProject_CreatesBreakdownPhase verifies that
@@ -132,18 +136,19 @@ func TestInitializeBreakdownProject_CreatesBreakdownPhase(t *testing.T) {
 	require.NoError(t, err)
 	phase, exists := proj.Phases["breakdown"]
 	assert.True(t, exists, "breakdown phase should exist")
-	assert.Equal(t, "active", phase.Status)
+	assert.Equal(t, "in_progress", phase.Status)
 	assert.True(t, phase.Enabled)
 	assert.Equal(t, now, phase.Created_at)
+	assert.Equal(t, now, phase.Started_at, "started_at should be set since phase is in_progress")
 	assert.NotNil(t, phase.Inputs)
 	assert.NotNil(t, phase.Outputs)
 	assert.NotNil(t, phase.Tasks)
 	assert.NotNil(t, phase.Metadata)
 }
 
-// TestInitializeBreakdownProject_ActiveStatus verifies that breakdown
-// phase starts in "active" status (not "pending").
-func TestInitializeBreakdownProject_ActiveStatus(t *testing.T) {
+// TestInitializeBreakdownProject_InProgressStatus verifies that breakdown
+// phase starts in "in_progress" status (state machine starts in Discovery state).
+func TestInitializeBreakdownProject_InProgressStatus(t *testing.T) {
 	proj := &state.Project{
 		ProjectState: projschema.ProjectState{
 			Type:       "breakdown",
@@ -156,7 +161,7 @@ func TestInitializeBreakdownProject_ActiveStatus(t *testing.T) {
 	require.NoError(t, err)
 
 	phase := proj.Phases["breakdown"]
-	assert.Equal(t, "active", phase.Status, "breakdown phase should start active, not pending")
+	assert.Equal(t, "in_progress", phase.Status, "breakdown phase should start in in_progress status")
 }
 
 // TestInitializeBreakdownProject_EnabledTrue verifies that breakdown
@@ -334,17 +339,18 @@ func TestInitializeBreakdownProject_UsesProjectCreatedAt(t *testing.T) {
 // ========== Transition Configuration Tests ==========
 
 // TestConfigureTransitions_SetsInitialState verifies that configureTransitions
-// sets the initial state to Active.
+// sets the initial state to Discovery.
 func TestConfigureTransitions_SetsInitialState(t *testing.T) {
 	config := NewBreakdownProjectConfig()
 
-	assert.Equal(t, sdkstate.State(Active), config.InitialState(), "initial state should be Active")
+	assert.Equal(t, sdkstate.State(Discovery), config.InitialState(), "initial state should be Discovery")
 }
 
 // TestActiveToPublishing_GuardBlocksWhenTasksPending verifies that the guard
 // blocks the Active → Publishing transition when work units are not approved.
 func TestActiveToPublishing_GuardBlocksWhenTasksPending(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	// Add a pending work unit task
 	addWorkUnit(t, proj, "001", "Feature A", "pending")
@@ -364,6 +370,7 @@ func TestActiveToPublishing_GuardBlocksWhenTasksPending(t *testing.T) {
 // allows the transition when all work units are approved and dependencies valid.
 func TestActiveToPublishing_GuardAllowsWhenAllApproved(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	// Add completed work units
 	addWorkUnit(t, proj, "001", "Feature A", "completed")
@@ -379,6 +386,7 @@ func TestActiveToPublishing_GuardAllowsWhenAllApproved(t *testing.T) {
 // action updates the breakdown phase status to "publishing".
 func TestActiveToPublishing_OnEntryUpdatesPhaseStatus(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	// Add completed work unit
 	addWorkUnit(t, proj, "001", "Feature A", "completed")
@@ -400,6 +408,7 @@ func TestActiveToPublishing_OnEntryUpdatesPhaseStatus(t *testing.T) {
 // are not published.
 func TestPublishingToCompleted_GuardBlocksWhenTasksUnpublished(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	// Setup: Get to Publishing state
 	addWorkUnit(t, proj, "001", "Feature A", "completed")
@@ -421,6 +430,7 @@ func TestPublishingToCompleted_GuardBlocksWhenTasksUnpublished(t *testing.T) {
 // guard allows the transition when all work units are published.
 func TestPublishingToCompleted_GuardAllowsWhenAllPublished(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	// Setup: Get to Publishing state
 	addWorkUnit(t, proj, "001", "Feature A", "completed")
@@ -440,6 +450,7 @@ func TestPublishingToCompleted_GuardAllowsWhenAllPublished(t *testing.T) {
 // OnEntry action marks the breakdown phase as completed.
 func TestPublishingToCompleted_OnEntrySetsCompletedStatus(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	// Setup: Get to Publishing state
 	addWorkUnit(t, proj, "001", "Feature A", "completed")
@@ -465,6 +476,7 @@ func TestPublishingToCompleted_OnEntrySetsCompletedStatus(t *testing.T) {
 // action sets the Completed_at timestamp.
 func TestPublishingToCompleted_OnEntrySetsTimestamp(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	// Setup: Get to Publishing state
 	addWorkUnit(t, proj, "001", "Feature A", "completed")
@@ -528,13 +540,19 @@ func TestEventDeterminers_PublishingState(t *testing.T) {
 // ========== Full Lifecycle Integration Tests ==========
 
 // TestBreakdownLifecycle_FullWorkflow verifies the complete breakdown workflow
-// from Active through Publishing to Completed.
+// from Discovery through Active, Publishing to Completed.
 func TestBreakdownLifecycle_FullWorkflow(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
 
-	// Verify initial state
-	assert.Equal(t, sdkstate.State(Active), machine.State())
+	// Verify initial state is Discovery
+	assert.Equal(t, sdkstate.State(Discovery), machine.State())
 	phase := proj.Phases["breakdown"]
+	assert.Equal(t, "in_progress", phase.Status)
+
+	// Transition to Active
+	transitionToActive(t, proj, machine)
+	assert.Equal(t, sdkstate.State(Active), machine.State())
+	phase = proj.Phases["breakdown"]
 	assert.Equal(t, "active", phase.Status)
 
 	// Add and complete work units
@@ -576,6 +594,7 @@ func TestBreakdownLifecycle_FullWorkflow(t *testing.T) {
 // guards properly block transitions when conditions are not met.
 func TestBreakdownLifecycle_GuardsPreventInvalidTransitions(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	// Cannot transition to Publishing without work units
 	can, err := machine.CanFire(sdkstate.Event(EventBeginPublishing))
@@ -620,6 +639,7 @@ func TestBreakdownLifecycle_GuardsPreventInvalidTransitions(t *testing.T) {
 // don't block transitions (as long as there's at least one completed task).
 func TestBreakdownLifecycle_WithAbandonedTasks(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	// Add mix of completed and abandoned tasks
 	addWorkUnit(t, proj, "001", "Feature A", "completed")
@@ -648,6 +668,7 @@ func TestBreakdownLifecycle_WithAbandonedTasks(t *testing.T) {
 // dependencies before allowing transition to Publishing.
 func TestBreakdownLifecycle_WithDependencies(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	// Add tasks with dependencies
 	addWorkUnitWithDeps(t, proj, "001", "Foundation", "completed", []string{})
@@ -664,6 +685,7 @@ func TestBreakdownLifecycle_WithDependencies(t *testing.T) {
 // dependencies prevent transition to Publishing.
 func TestBreakdownLifecycle_CyclicDependenciesBlock(t *testing.T) {
 	proj, machine := setupBreakdownProject(t)
+	transitionToActive(t, proj, machine)
 
 	// Add tasks with cyclic dependency
 	addWorkUnitWithDeps(t, proj, "001", "Feature A", "completed", []string{"002"})
@@ -693,7 +715,7 @@ func setupBreakdownProject(t *testing.T) (*state.Project, *sdkstate.Machine) {
 			Updated_at:  now,
 			Phases:      make(map[string]projschema.PhaseState),
 			Statechart: projschema.StatechartState{
-				Current_state: string(Active),
+				Current_state: string(Discovery),
 				Updated_at:    now,
 			},
 		},
@@ -707,12 +729,46 @@ func setupBreakdownProject(t *testing.T) (*state.Project, *sdkstate.Machine) {
 	}
 
 	// Build state machine
-	machine := config.BuildMachine(proj, sdkstate.State(Active))
+	machine := config.BuildMachine(proj, sdkstate.State(Discovery))
 	if machine == nil {
 		t.Fatal("BuildMachine returned nil")
 	}
 
 	return proj, machine
+}
+
+// transitionToActive transitions the project from Discovery to Active state.
+// Adds an approved discovery artifact and fires EventBeginActive.
+// This is used by tests that need to start in Active state.
+func transitionToActive(t *testing.T, proj *state.Project, machine *sdkstate.Machine) {
+	t.Helper()
+
+	// Add approved discovery artifact
+	phase, exists := proj.Phases["breakdown"]
+	if !exists {
+		t.Fatal("breakdown phase not found")
+	}
+
+	artifact := projschema.ArtifactState{
+		Type:       "discovery",
+		Path:       "project/discovery/analysis.md",
+		Created_at: time.Now(),
+		Approved:   true,
+	}
+
+	phase.Outputs = append(phase.Outputs, artifact)
+	proj.Phases["breakdown"] = phase
+
+	// Fire EventBeginActive to transition to Active
+	err := machine.Fire(sdkstate.Event(EventBeginActive))
+	if err != nil {
+		t.Fatalf("failed to transition to Active: %v", err)
+	}
+
+	// Verify we're in Active state
+	if machine.State() != sdkstate.State(Active) {
+		t.Fatalf("expected Active state, got %s", machine.State())
+	}
 }
 
 // addWorkUnit adds a work unit task to the breakdown phase.

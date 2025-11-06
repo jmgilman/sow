@@ -11,6 +11,31 @@ import (
 // Guards are pure functions that examine project state and return boolean values
 // indicating whether a transition is allowed.
 
+// hasApprovedDiscoveryDocument checks if an approved discovery document exists.
+// Guards Discovery → Active transition.
+// Returns false if:
+//   - Breakdown phase doesn't exist
+//   - No discovery artifact exists in phase outputs
+//   - Discovery artifact exists but is not approved
+//
+// Returns true if at least one discovery artifact is approved.
+// This ensures codebase/design context is gathered and validated before work unit identification.
+func hasApprovedDiscoveryDocument(p *state.Project) bool {
+	phase, exists := p.Phases["breakdown"]
+	if !exists {
+		return false
+	}
+
+	// Check for approved discovery artifact
+	for _, artifact := range phase.Outputs {
+		if artifact.Type == "discovery" && artifact.Approved {
+			return true
+		}
+	}
+
+	return false
+}
+
 // allWorkUnitsApproved checks if all work unit tasks are completed or abandoned,
 // with at least one completed.
 // Guards Active → Publishing transition (combined with dependenciesValid).
