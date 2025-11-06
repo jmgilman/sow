@@ -1,0 +1,296 @@
+name: design-project-type-implementation
+type: standard
+branch: 37-design-project-type-implementation
+description: Design Project Type Implementation
+created_at: 2025-11-05T17:40:09.812938-08:00
+updated_at: 2025-11-05T18:50:31.147489-08:00
+phases:
+    finalize:
+        status: pending
+        enabled: false
+        created_at: 2025-11-05T17:40:09.812938-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+    implementation:
+        status: pending
+        enabled: false
+        created_at: 2025-11-05T17:40:09.812938-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata:
+            planning_approved: true
+        inputs:
+            - type: github_issue
+              path: context/issue-37.md
+              approved: true
+              created_at: 2025-11-05T17:40:09.81293-08:00
+              metadata:
+                issue_number: 37
+                issue_title: Design Project Type Implementation
+                issue_url: https://github.com/jmgilman/sow/issues/37
+        outputs: []
+        tasks:
+            - id: "010"
+              name: Core Structure and Constants
+              phase: implementation
+              status: completed
+              created_at: 2025-11-05T17:57:09.576586-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-05T18:03:13.524608-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: .sow/project/context/issue-37.md
+                  approved: false
+                  created_at: 2025-11-05T17:57:19.972862-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/project-modes/design-design.md
+                  approved: false
+                  created_at: 2025-11-05T17:57:19.982583-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/exploration/states.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:19.990854-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/exploration/events.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:19.998558-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/exploration/metadata.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:20.006159-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/exploration/cue/exploration_metadata.cue
+                  approved: false
+                  created_at: 2025-11-05T17:57:20.013048-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/exploration/cue/finalization_metadata.cue
+                  approved: false
+                  created_at: 2025-11-05T17:57:20.020224-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/010/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-05T18:03:12.333959-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "020"
+              name: Guard Functions and Helpers
+              phase: implementation
+              status: completed
+              created_at: 2025-11-05T17:57:29.419651-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-05T18:08:20.676278-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: .sow/project/context/issue-37.md
+                  approved: false
+                  created_at: 2025-11-05T17:57:31.588269-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/project-modes/design-design.md
+                  approved: false
+                  created_at: 2025-11-05T17:57:31.598253-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/exploration/guards.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:31.607231-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/exploration/guards_test.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:31.615323-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/project/project.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:31.622852-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/020/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-05T18:08:20.658655-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "030"
+              name: Prompt Templates and Generators
+              phase: implementation
+              status: completed
+              created_at: 2025-11-05T17:57:39.298947-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-05T18:18:14.18755-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: .sow/knowledge/designs/project-modes/design-design.md
+                  approved: false
+                  created_at: 2025-11-05T17:57:41.667598-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/exploration/prompts.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:41.676958-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/exploration/templates/active.md
+                  approved: false
+                  created_at: 2025-11-05T17:57:41.685571-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/exploration/templates/orchestrator.md
+                  approved: false
+                  created_at: 2025-11-05T17:57:41.693094-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/templates/templates.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:41.700408-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/030/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-05T18:18:14.170273-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "040"
+              name: Project Configuration and SDK Integration
+              phase: implementation
+              status: completed
+              created_at: 2025-11-05T17:57:49.096949-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-05T18:27:02.026038-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: .sow/knowledge/designs/project-modes/design-design.md
+                  approved: false
+                  created_at: 2025-11-05T17:57:51.086179-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/exploration/exploration.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:51.096603-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/exploration/exploration_test.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:51.105458-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/standard/standard.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:51.113578-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/builder.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:51.121393-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/options.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:51.129212-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/040/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-05T18:27:02.012219-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: cli/internal/projects/design/design.go
+                  approved: false
+                  created_at: 2025-11-05T18:24:54.470704-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/projects/design/design_test.go
+                  approved: false
+                  created_at: 2025-11-05T18:25:02.177194-08:00
+                  metadata: {}
+              metadata: {}
+            - id: "050"
+              name: Integration Testing and Validation
+              phase: implementation
+              status: completed
+              created_at: 2025-11-05T17:57:57.939306-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-05T18:37:19.616592-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: .sow/knowledge/designs/project-modes/design-design.md
+                  approved: false
+                  created_at: 2025-11-05T17:57:59.913234-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/exploration/integration_test.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:59.923927-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/integration_test.go
+                  approved: false
+                  created_at: 2025-11-05T17:57:59.933921-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-37.md
+                  approved: false
+                  created_at: 2025-11-05T17:57:59.942723-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/050/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-05T18:37:19.605132-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+    review:
+        status: pending
+        enabled: false
+        created_at: 2025-11-05T17:40:09.812938-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs:
+            - type: review
+              path: phases/review/reports/001.md
+              approved: true
+              created_at: 2025-11-05T18:40:18.886452-08:00
+              metadata:
+                assessment: pass
+        tasks: []
+statechart:
+    current_state: FinalizePRCreation
+    updated_at: 2025-11-05T18:50:31.147489-08:00
