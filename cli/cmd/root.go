@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jmgilman/sow/cli/cmd/exploration"
 	"github.com/jmgilman/sow/cli/cmd/issue"
 	"github.com/jmgilman/sow/cli/cmd/project"
 	"github.com/jmgilman/sow/cli/cmd/refs"
@@ -79,11 +78,7 @@ orchestrating multiple AI agents across a 5-phase development workflow.`,
 	cmd.AddCommand(NewInputCmd())
 	cmd.AddCommand(NewOutputCmd())
 	cmd.AddCommand(NewAdvanceCmd())
-	cmd.AddCommand(NewExploreCmd())
-	cmd.AddCommand(NewDesignCmd())
-	cmd.AddCommand(NewBreakdownCmd())
 	cmd.AddCommand(NewPromptCmd())
-	cmd.AddCommand(exploration.NewExplorationCmd())
 	cmd.AddCommand(issue.NewIssueCmd())
 	cmd.AddCommand(refs.NewRefsCmd())
 	cmd.AddCommand(NewWorktreeCmd())

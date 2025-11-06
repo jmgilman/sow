@@ -3,7 +3,6 @@ package state
 import (
 	"testing"
 
-	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/jmgilman/sow/cli/schemas/phases"
 	"github.com/stretchr/testify/assert"
 )
@@ -295,8 +294,6 @@ func TestAnyTaskInProgress(t *testing.T) {
 
 // TestGuard_ClosureCapture_SimpleBool verifies that guards capture simple boolean values.
 func TestGuard_ClosureCapture_SimpleBool(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("Pending")
 	stateB := State("Approved")
 	eventApprove := Event("approve")
@@ -304,7 +301,7 @@ func TestGuard_ClosureCapture_SimpleBool(t *testing.T) {
 	// Variable to be captured
 	approved := false
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventApprove, WithGuard(func() bool {
 		return approved
 	}))
@@ -334,8 +331,6 @@ func TestGuard_ClosureCapture_SimpleBool(t *testing.T) {
 
 // TestGuard_ClosureCapture_Integer verifies that guards can capture integer values.
 func TestGuard_ClosureCapture_Integer(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("InProgress")
 	stateB := State("Complete")
 	eventComplete := Event("complete")
@@ -344,7 +339,7 @@ func TestGuard_ClosureCapture_Integer(t *testing.T) {
 	taskCount := 0
 	requiredTasks := 5
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventComplete, WithGuard(func() bool {
 		return taskCount >= requiredTasks
 	}))
@@ -366,8 +361,6 @@ func TestGuard_ClosureCapture_Integer(t *testing.T) {
 
 // TestGuard_ClosureCapture_Struct verifies that guards can capture complex structs.
 func TestGuard_ClosureCapture_Struct(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	type ReviewStatus struct {
 		Approved     bool
 		ReviewerName string
@@ -385,7 +378,7 @@ func TestGuard_ClosureCapture_Struct(t *testing.T) {
 		Score:        0,
 	}
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventMerge, WithGuard(func() bool {
 		return review.Approved && review.Score >= 3
 	}))
@@ -415,8 +408,6 @@ func TestGuard_ClosureCapture_Struct(t *testing.T) {
 // TestGuard_ClosureCapture_MultipleGuards verifies that multiple guards can capture
 // the same variables independently.
 func TestGuard_ClosureCapture_MultipleGuards(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	stateC := State("C")
@@ -426,7 +417,7 @@ func TestGuard_ClosureCapture_MultipleGuards(t *testing.T) {
 	// Shared captured variable
 	threshold := 5
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventToB, WithGuard(func() bool {
 		return threshold > 3
 	}))
@@ -460,8 +451,6 @@ func TestGuard_ClosureCapture_MultipleGuards(t *testing.T) {
 // TestGuard_EvaluationTiming verifies that guards are evaluated when CanFire/Fire is called,
 // not at registration time.
 func TestGuard_EvaluationTiming(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	eventGo := Event("go")
@@ -470,7 +459,7 @@ func TestGuard_EvaluationTiming(t *testing.T) {
 	condition := false
 
 	// Register transition with guard
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventGo, WithGuard(func() bool {
 		return condition
 	}))
@@ -492,8 +481,6 @@ func TestGuard_EvaluationTiming(t *testing.T) {
 
 // TestGuard_ClosureCapture_TaskList verifies guards work with domain objects like task lists.
 func TestGuard_ClosureCapture_TaskList(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("Implementation")
 	stateB := State("Review")
 	eventComplete := Event("complete")
@@ -504,7 +491,7 @@ func TestGuard_ClosureCapture_TaskList(t *testing.T) {
 		{Status: "in_progress"},
 	}
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventComplete, WithGuard(func() bool {
 		return TasksComplete(tasks)
 	}))

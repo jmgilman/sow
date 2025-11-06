@@ -4,7 +4,6 @@ package schemas
 
 import (
 	"github.com/jmgilman/sow/cli/schemas/phases"
-	"github.com/jmgilman/sow/cli/schemas/projects"
 	"time"
 )
 
@@ -299,9 +298,10 @@ type ArtifactReference struct {
 	Tags []string `json:"tags"`
 }
 
-// Re-export project types for backward compatibility
-// This ensures existing code importing schemas.ProjectState continues to work
-type ProjectState projects.ProjectState
+// Re-export common types
+type Phase phases.Phase
+
+type Artifact phases.Artifact
 
 // RefsCacheIndex defines the schema for ~/.cache/sow/index.json
 //
@@ -458,13 +458,6 @@ type RefsLocalIndex struct {
 	// Uses same structure as committed refs
 	Refs []Ref `json:"refs"`
 }
-
-type StandardProjectState projects.StandardProjectState
-
-// Re-export common types
-type Phase phases.Phase
-
-type Artifact phases.Artifact
 
 type Task phases.Task
 

@@ -8,11 +8,13 @@ import (
 	"strings"
 	"time"
 
+	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	sowexec "github.com/jmgilman/sow/cli/internal/exec"
-	"github.com/jmgilman/sow/cli/internal/modes"
 	"github.com/jmgilman/sow/cli/internal/prompts"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/cli/internal/sdks/project/templates"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	projschema "github.com/jmgilman/sow/cli/schemas/project"
 	"github.com/spf13/cobra"
@@ -333,7 +335,7 @@ func handleBranchScenarioNew(ctx *sow.Context, branchName string) (string, error
 	}
 
 	// Create and checkout new branch
-	if err := modes.CreateBranch(git, branchName); err != nil {
+	if err := createBranch(git, branchName); err != nil {
 		return "", fmt.Errorf("failed to create branch %s: %w", branchName, err)
 	}
 
@@ -364,13 +366,7 @@ func generateNewProjectPrompt(ctx *sow.Context, proj *state.Project, initialProm
 	var buf strings.Builder
 
 	// Layer 1: Base Orchestrator Introduction
-	baseCtx := &prompts.GreetContext{
-		SowInitialized: ctx.IsInitialized(),
-		HasProject:     true,
-	}
-
-	//nolint:staticcheck // Using legacy API during transition period
-	baseOrch, err := prompts.Render(prompts.PromptGreetOrchestrator, baseCtx)
+	baseOrch, err := templates.Render(prompts.FS, "templates/greet/orchestrator.md", nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to render base orchestrator prompt: %w", err)
 	}
@@ -423,4 +419,35 @@ func launchClaudeCode(cmd *cobra.Command, ctx *sow.Context, prompt string, claud
 	claudeCmd.Dir = ctx.RepoRoot()
 
 	return claudeCmd.Run()
+}
+
+func createBranch(git *sow.Git, branchName string) error {
+	// Use underlying go-git to create branch
+	wt, err := git.Repository().Underlying().Worktree()
+	if err != nil {
+		return fmt.Errorf("failed to get worktree: %w", err)
+	}
+
+	// Get current HEAD
+	head, err := git.Repository().Underlying().Head()
+	if err != nil {
+		return fmt.Errorf("failed to get HEAD: %w", err)
+	}
+
+	// Create branch reference
+	branchRef := "refs/heads/" + branchName
+	if err := git.Repository().Underlying().Storer.SetReference(
+		plumbing.NewHashReference(plumbing.ReferenceName(branchRef), head.Hash()),
+	); err != nil {
+		return fmt.Errorf("failed to create branch reference: %w", err)
+	}
+
+	// Checkout the new branch
+	if err := wt.Checkout(&gogit.CheckoutOptions{
+		Branch: plumbing.ReferenceName(branchRef),
+	}); err != nil {
+		return fmt.Errorf("failed to checkout new branch: %w", err)
+	}
+
+	return nil
 }

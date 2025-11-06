@@ -5,26 +5,14 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/qmuntal/stateless"
 )
 
 // Machine wraps the stateless state machine with project-specific context.
 type Machine struct {
 	sm                *stateless.StateMachine
-	projectState      *schemas.ProjectState
 	fs                sow.FS // Optional filesystem for testability
 	guardDescriptions map[transitionKey]string
-}
-
-// ProjectState returns the machine's project state for modification.
-func (m *Machine) ProjectState() *schemas.ProjectState {
-	return m.projectState
-}
-
-// SetProjectState sets the machine's project state.
-func (m *Machine) SetProjectState(state *schemas.ProjectState) {
-	m.projectState = state
 }
 
 // SetFilesystem sets the filesystem for persistence operations.

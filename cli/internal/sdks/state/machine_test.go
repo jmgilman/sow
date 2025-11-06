@@ -3,17 +3,14 @@ package state
 import (
 	"testing"
 
-	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestMachine_InitialState verifies that a machine starts in the correct initial state.
 func TestMachine_InitialState(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	initialState := State("InitialState")
-	builder := NewBuilder(initialState, projectState, nil)
+	builder := NewBuilder(initialState, nil)
 	machine := builder.Build()
 
 	assert.Equal(t, initialState, machine.State())
@@ -21,13 +18,11 @@ func TestMachine_InitialState(t *testing.T) {
 
 // TestMachine_State_UnchangedByCanFire verifies that CanFire doesn't mutate state.
 func TestMachine_State_UnchangedByCanFire(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	eventGo := Event("go")
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventGo)
 	machine := builder.Build()
 
@@ -40,13 +35,11 @@ func TestMachine_State_UnchangedByCanFire(t *testing.T) {
 
 // TestMachine_Fire_UpdatesState verifies that Fire transitions to the correct state.
 func TestMachine_Fire_UpdatesState(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	eventAdvance := Event("advance")
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventAdvance)
 	machine := builder.Build()
 
@@ -60,12 +53,10 @@ func TestMachine_Fire_UpdatesState(t *testing.T) {
 
 // TestMachine_Fire_InvalidEvent verifies that firing an invalid event returns an error.
 func TestMachine_Fire_InvalidEvent(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	invalidEvent := Event("invalid")
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	machine := builder.Build()
 
 	// Try to fire invalid event
@@ -79,15 +70,13 @@ func TestMachine_Fire_InvalidEvent(t *testing.T) {
 
 // TestMachine_Fire_WithFailingGuard verifies that failing guards block transitions.
 func TestMachine_Fire_WithFailingGuard(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	eventGo := Event("go")
 
 	// Guard that always fails
 	guardPassed := false
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventGo, WithGuard(func() bool {
 		return guardPassed
 	}))
@@ -103,14 +92,12 @@ func TestMachine_Fire_WithFailingGuard(t *testing.T) {
 
 // TestMachine_Fire_WithPassingGuard verifies that passing guards allow transitions.
 func TestMachine_Fire_WithPassingGuard(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	eventGo := Event("go")
 
 	// Guard that always passes
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventGo, WithGuard(func() bool {
 		return true
 	}))
@@ -127,15 +114,13 @@ func TestMachine_Fire_WithPassingGuard(t *testing.T) {
 // TestMachine_MultipleSequentialTransitions verifies that a machine can handle
 // multiple transitions in sequence.
 func TestMachine_MultipleSequentialTransitions(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	stateC := State("C")
 	event1 := Event("to_b")
 	event2 := Event("to_c")
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, event1)
 	builder.AddTransition(stateB, stateC, event2)
 	machine := builder.Build()
@@ -153,13 +138,11 @@ func TestMachine_MultipleSequentialTransitions(t *testing.T) {
 
 // TestMachine_CanFire_WithNilGuard verifies that nil guards always allow transitions.
 func TestMachine_CanFire_WithNilGuard(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	eventGo := Event("go")
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventGo) // No guard = nil guard
 	machine := builder.Build()
 
@@ -170,13 +153,11 @@ func TestMachine_CanFire_WithNilGuard(t *testing.T) {
 
 // TestMachine_CanFire_WithPassingGuard verifies that CanFire returns true for passing guards.
 func TestMachine_CanFire_WithPassingGuard(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	eventGo := Event("go")
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventGo, WithGuard(func() bool {
 		return true
 	}))
@@ -189,13 +170,11 @@ func TestMachine_CanFire_WithPassingGuard(t *testing.T) {
 
 // TestMachine_CanFire_WithFailingGuard verifies that CanFire returns false for failing guards.
 func TestMachine_CanFire_WithFailingGuard(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	eventGo := Event("go")
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventGo, WithGuard(func() bool {
 		return false
 	}))
@@ -208,12 +187,10 @@ func TestMachine_CanFire_WithFailingGuard(t *testing.T) {
 
 // TestMachine_CanFire_InvalidEvent verifies that CanFire returns false for invalid events.
 func TestMachine_CanFire_InvalidEvent(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	invalidEvent := Event("invalid")
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	machine := builder.Build()
 
 	can, err := machine.CanFire(invalidEvent)
@@ -224,14 +201,12 @@ func TestMachine_CanFire_InvalidEvent(t *testing.T) {
 
 // TestMachine_Cycles verifies that machines can handle cyclic transitions (A -> B -> A).
 func TestMachine_Cycles(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	eventToB := Event("to_b")
 	eventToA := Event("to_a")
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventToB)
 	builder.AddTransition(stateB, stateA, eventToA)
 	machine := builder.Build()
@@ -253,8 +228,6 @@ func TestMachine_Cycles(t *testing.T) {
 
 // TestMachine_Branching verifies that machines handle branching based on guards.
 func TestMachine_Branching(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	stateC := State("C")
@@ -263,7 +236,7 @@ func TestMachine_Branching(t *testing.T) {
 	// Shared guard condition
 	goToB := true
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	// A -> B if goToB is true
 	builder.AddTransition(stateA, stateB, eventBranch, WithGuard(func() bool {
 		return goToB
@@ -280,7 +253,7 @@ func TestMachine_Branching(t *testing.T) {
 	assert.Equal(t, stateB, machine.State())
 
 	// Reset to A for second branch
-	builder2 := NewBuilder(stateA, projectState, nil)
+	builder2 := NewBuilder(stateA, nil)
 	builder2.AddTransition(stateA, stateB, eventBranch, WithGuard(func() bool {
 		return goToB
 	}))
@@ -297,8 +270,6 @@ func TestMachine_Branching(t *testing.T) {
 
 // TestMachine_DiamondPattern verifies that machines handle diamond patterns (A -> B -> D, A -> C -> D).
 func TestMachine_DiamondPattern(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	stateC := State("C")
@@ -308,7 +279,7 @@ func TestMachine_DiamondPattern(t *testing.T) {
 	eventToD := Event("to_d")
 
 	// Path 1: A -> B -> D
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventToB)
 	builder.AddTransition(stateA, stateC, eventToC)
 	builder.AddTransition(stateB, stateD, eventToD)
@@ -324,7 +295,7 @@ func TestMachine_DiamondPattern(t *testing.T) {
 	assert.Equal(t, stateD, machine.State())
 
 	// Path 2: A -> C -> D (need a new machine starting from A)
-	builder2 := NewBuilder(stateA, &schemas.ProjectState{}, nil)
+	builder2 := NewBuilder(stateA, nil)
 	builder2.AddTransition(stateA, stateB, eventToB)
 	builder2.AddTransition(stateA, stateC, eventToC)
 	builder2.AddTransition(stateB, stateD, eventToD)
@@ -342,15 +313,13 @@ func TestMachine_DiamondPattern(t *testing.T) {
 
 // TestMachine_PermittedTriggers verifies that PermittedTriggers returns available events.
 func TestMachine_PermittedTriggers(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	stateA := State("A")
 	stateB := State("B")
 	stateC := State("C")
 	eventToB := Event("to_b")
 	eventToC := Event("to_c")
 
-	builder := NewBuilder(stateA, projectState, nil)
+	builder := NewBuilder(stateA, nil)
 	builder.AddTransition(stateA, stateB, eventToB)
 	builder.AddTransition(stateA, stateC, eventToC)
 	machine := builder.Build()
@@ -365,7 +334,6 @@ func TestMachine_PermittedTriggers(t *testing.T) {
 // buildComplexWorkflowMachine creates a state machine with 12 states and 20+ transitions
 // for testing complex workflows. It returns the machine and all guard variables.
 func buildComplexWorkflowMachine(
-	projectState *schemas.ProjectState,
 	guards *complexWorkflowGuards,
 ) *Machine {
 	// Define states (12 states)
@@ -402,7 +370,7 @@ func buildComplexWorkflowMachine(
 	eventSkipTesting := Event("skip_testing")
 	eventAbort := Event("abort")
 
-	builder := NewBuilder(stateNoProject, projectState, nil)
+	builder := NewBuilder(stateNoProject, nil)
 
 	// Build complex state machine (20+ transitions)
 	builder.AddTransition(stateNoProject, statePlanningActive, eventInit)
@@ -480,10 +448,8 @@ type complexWorkflowGuards struct {
 //
 //nolint:funlen // Test intentionally long to demonstrate complete workflow sequence
 func TestMachine_ComplexWorkflow(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	guards := &complexWorkflowGuards{}
-	machine := buildComplexWorkflowMachine(projectState, guards)
+	machine := buildComplexWorkflowMachine(guards)
 
 	// Define state and event constants for test assertions
 	stateNoProject := State("NoProject")
@@ -598,8 +564,6 @@ func TestMachine_ComplexWorkflow(t *testing.T) {
 
 // TestMachine_ComplexWorkflow_AlternatePath tests the complex workflow with design and testing skipped.
 func TestMachine_ComplexWorkflow_AlternatePath(t *testing.T) {
-	projectState := &schemas.ProjectState{}
-
 	// Define states
 	stateNoProject := State("NoProject")
 	statePlanningActive := State("PlanningActive")
@@ -626,7 +590,7 @@ func TestMachine_ComplexWorkflow_AlternatePath(t *testing.T) {
 	skipDesignPhase := false
 	skipTestingPhase := false
 
-	builder := NewBuilder(stateNoProject, projectState, nil)
+	builder := NewBuilder(stateNoProject, nil)
 	builder.AddTransition(stateNoProject, statePlanningActive, eventInit)
 	builder.AddTransition(statePlanningActive, statePlanningReview, eventCompletePlanning, WithGuard(func() bool {
 		return planningComplete

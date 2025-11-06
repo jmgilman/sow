@@ -30,7 +30,7 @@ type Phase struct {
 
 	// Iteration tracking for phases that go through multiple cycles
 	// Starts at 1, increments on re-entry after failure
-	Iteration *int `json:"iteration,omitempty"`
+	Iteration *int64 `json:"iteration,omitempty"`
 
 	// Generic collections (used by phases that need them)
 	Artifacts []Artifact `json:"artifacts"`

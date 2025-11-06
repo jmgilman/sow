@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/qmuntal/stateless"
 )
 
@@ -12,9 +11,8 @@ import (
 // It enables project types to define their own state machines without duplicating
 // common infrastructure patterns.
 type MachineBuilder struct {
-	sm           *stateless.StateMachine
-	projectState *schemas.ProjectState
-	promptFunc   PromptFunc // Optional prompt generator (can be nil)
+	sm         *stateless.StateMachine
+	promptFunc PromptFunc // Optional prompt generator (can be nil)
 	// guardDescriptions maps (from state, event) to guard description
 	guardDescriptions map[transitionKey]string
 }
@@ -46,13 +44,11 @@ type transitionKey struct {
 //	builder := NewBuilder(PlanningActive, projectState, nil)
 func NewBuilder(
 	initialState State,
-	projectState *schemas.ProjectState,
 	promptFunc PromptFunc,
 ) *MachineBuilder {
 	sm := stateless.NewStateMachine(initialState)
 	return &MachineBuilder{
 		sm:                sm,
-		projectState:      projectState,
 		promptFunc:        promptFunc,
 		guardDescriptions: make(map[transitionKey]string),
 	}
@@ -261,7 +257,6 @@ func (b *MachineBuilder) ConfigureState(state State) *stateless.StateConfigurati
 func (b *MachineBuilder) Build() *Machine {
 	m := &Machine{
 		sm:                b.sm,
-		projectState:      b.projectState,
 		guardDescriptions: b.guardDescriptions,
 	}
 

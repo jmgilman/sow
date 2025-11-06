@@ -10,6 +10,7 @@ import (
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/prompts"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/cli/internal/sdks/project/templates"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
@@ -169,13 +170,7 @@ func generateContinuePrompt(ctx *sow.Context, proj *state.Project) (string, erro
 	var buf strings.Builder
 
 	// Layer 1: Base Orchestrator Introduction
-	baseCtx := &prompts.GreetContext{
-		SowInitialized: ctx.IsInitialized(),
-		HasProject:     true,
-	}
-
-	//nolint:staticcheck // Using legacy API during transition period
-	baseOrch, err := prompts.Render(prompts.PromptGreetOrchestrator, baseCtx)
+	baseOrch, err := templates.Render(prompts.FS, "templates/greet/orchestrator.md", nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to render base orchestrator prompt: %w", err)
 	}

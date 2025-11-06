@@ -105,6 +105,7 @@ type TaskState struct {
 
 	// status indicates the current state of the task.
 	// Must be one of: "pending" (not started), "in_progress" (actively working),
+	// "needs_review" (worker finished, awaiting orchestrator review),
 	// "completed" (successfully finished), "abandoned" (cancelled/obsolete).
 	Status string `json:"status"`
 
