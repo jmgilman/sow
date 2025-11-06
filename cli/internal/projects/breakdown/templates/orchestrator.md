@@ -34,14 +34,14 @@ Breakdown projects are for decomposing complex features or design documents into
    sow task start <id>
    # Write specification file
    sow output add --type work_unit_spec --path "project/work-units/<id>-name.md"
-   sow task set <id> artifact_path "project/work-units/<id>-name.md"
+   sow task set <id> metadata.artifact_path "project/work-units/<id>-name.md"
    ```
 
 3. **Declare dependencies**:
    - Set dependencies using task IDs
    - Dependencies must form a directed acyclic graph (no cycles)
    ```bash
-   sow task set <id> dependencies "001,002"
+   sow task set <id> metadata.dependencies "001,002"
    ```
 
 4. **Request review**:

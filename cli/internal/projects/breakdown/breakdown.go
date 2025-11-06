@@ -2,12 +2,14 @@
 // large features or design documents into implementable work units.
 //
 // The breakdown project type enables users to:
+//   - Gather codebase/design context through discovery
 //   - Decompose complex features into discrete, implementable tasks
 //   - Specify requirements and acceptance criteria for each work unit
 //   - Review and approve work units before publication
 //   - Publish approved work units as GitHub issues with proper dependency tracking
 //
 // Workflow States:
+//   - Discovery: Gathering codebase and design context
 //   - Active: Decomposing, specifying, and reviewing work units
 //   - Publishing: Creating GitHub issues from approved work units
 //   - Completed: All work units successfully published
@@ -43,7 +45,8 @@ func NewBreakdownProjectConfig() *project.ProjectTypeConfig {
 // configurePhases adds phase definitions to the builder.
 //
 // The breakdown project type has a single phase:
-// 1. breakdown - Contains decomposition, specification, and review tasks, produces work_unit_spec artifacts.
+// 1. breakdown - Contains discovery, decomposition, specification, and review tasks,
+//    produces discovery and work_unit_spec artifacts.
 //
 // Unlike design/exploration projects, there is NO finalization phase.
 // The breakdown phase completes after all work units are published as GitHub issues.
@@ -52,9 +55,9 @@ func NewBreakdownProjectConfig() *project.ProjectTypeConfig {
 func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
 		WithPhase("breakdown",
-			project.WithStartState(sdkstate.State(Active)),
+			project.WithStartState(sdkstate.State(Discovery)),
 			project.WithEndState(sdkstate.State(Publishing)),
-			project.WithOutputs("work_unit_spec"),
+			project.WithOutputs("discovery", "work_unit_spec"),
 			project.WithTasks(),
 			project.WithMetadataSchema(breakdownMetadataSchema),
 		)
@@ -62,17 +65,35 @@ func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.Project
 
 // configureTransitions adds state machine transitions to the builder.
 //
-// Configures two transitions:
-// 1. Active → Publishing - When all work units approved and dependencies valid
-// 2. Publishing → Completed - When all work units published to GitHub
+// Configures three transitions:
+// 1. Discovery → Active - When discovery document is approved
+// 2. Active → Publishing - When all work units approved and dependencies valid
+// 3. Publishing → Completed - When all work units published to GitHub
 //
 // Returns the builder to enable method chaining.
 func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
-		// Set initial state to Active
-		SetInitialState(sdkstate.State(Active)).
+		// Set initial state to Discovery
+		SetInitialState(sdkstate.State(Discovery)).
 
-		// Transition 1: Active → Publishing (intra-phase transition)
+		// Transition 1: Discovery → Active (discovery complete)
+		AddTransition(
+			sdkstate.State(Discovery),
+			sdkstate.State(Active),
+			sdkstate.Event(EventBeginActive),
+			project.WithGuard("discovery document approved", func(p *state.Project) bool {
+				return hasApprovedDiscoveryDocument(p)
+			}),
+			project.WithOnEntry(func(p *state.Project) error {
+				// Update breakdown phase status to "active"
+				phase := p.Phases["breakdown"]
+				phase.Status = "active"
+				p.Phases["breakdown"] = phase
+				return nil
+			}),
+		).
+
+		// Transition 2: Active → Publishing (intra-phase transition)
 		AddTransition(
 			sdkstate.State(Active),
 			sdkstate.State(Publishing),
@@ -89,7 +110,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			}),
 		).
 
-		// Transition 2: Publishing → Completed (terminal transition)
+		// Transition 3: Publishing → Completed (terminal transition)
 		AddTransition(
 			sdkstate.State(Publishing),
 			sdkstate.State(Completed),
@@ -111,12 +132,16 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 // configureEventDeterminers adds event determination logic to the builder.
 //
 // Maps each advanceable state to its corresponding advance event:
+// - Discovery → EventBeginActive
 // - Active → EventBeginPublishing
 // - Publishing → EventCompleteBreakdown
 //
 // Returns the builder to enable method chaining.
 func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
+		OnAdvance(sdkstate.State(Discovery), func(_ *state.Project) (sdkstate.Event, error) {
+			return sdkstate.Event(EventBeginActive), nil
+		}).
 		OnAdvance(sdkstate.State(Active), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventBeginPublishing), nil
 		}).
@@ -126,11 +151,12 @@ func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *proje
 }
 
 // configurePrompts adds prompt generators to the builder.
-// Registers orchestrator, active, and publishing prompt generators.
+// Registers orchestrator, discovery, active, and publishing prompt generators.
 // Returns the builder to enable method chaining.
 func configurePrompts(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
 		WithOrchestratorPrompt(generateOrchestratorPrompt).
+		WithPrompt(sdkstate.State(Discovery), generateDiscoveryPrompt).
 		WithPrompt(sdkstate.State(Active), generateActivePrompt).
 		WithPrompt(sdkstate.State(Publishing), generatePublishingPrompt)
 }
@@ -139,7 +165,7 @@ func configurePrompts(builder *project.ProjectTypeConfigBuilder) *project.Projec
 // Unlike design/exploration projects, breakdown has only ONE phase (no finalization phase).
 //
 // The breakdown project type has a single phase:
-// - breakdown: Starts immediately in "active" status with enabled=true
+// - breakdown: Starts in "discovery" status with enabled=true
 //
 // Parameters:
 //   - p: The project being initialized
@@ -155,9 +181,9 @@ func initializeBreakdownProject(p *state.Project, initialInputs map[string][]pro
 		}
 	}
 
-	// Create breakdown phase (starts active immediately)
+	// Create breakdown phase (starts in discovery)
 	p.Phases["breakdown"] = projschema.PhaseState{
-		Status:     "active",
+		Status:     "discovery",
 		Enabled:    true,
 		Created_at: now,
 		Inputs:     inputs,
