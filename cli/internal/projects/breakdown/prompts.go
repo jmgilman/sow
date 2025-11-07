@@ -55,8 +55,12 @@ func generateDiscoveryPrompt(p *state.Project) string {
 	// Discovery status and readiness
 	writeDiscoveryStatus(&buf, p, phase)
 
-	// Static guidance
-	writeDiscoveryGuidance(&buf)
+	// Render guidance from template
+	guidance, err := templates.Render(templatesFS, "templates/discovery.md", p)
+	if err != nil {
+		return buf.String() + fmt.Sprintf("\nError rendering template: %v", err)
+	}
+	buf.WriteString(guidance)
 
 	return buf.String()
 }
@@ -111,65 +115,11 @@ func writeDiscoveryStatus(buf *strings.Builder, p *state.Project, phase projsche
 	}
 }
 
-// writeDiscoveryGuidance writes the static guidance section for Discovery phase.
-func writeDiscoveryGuidance(buf *strings.Builder) {
-	buf.WriteString("---\n\n")
-	buf.WriteString("## Discovery Phase Guidance\n\n")
-	buf.WriteString("### Purpose\n\n")
-	buf.WriteString("Gather codebase and design context to inform work unit identification. This ensures work units reference existing code and avoid duplicate work.\n\n")
-
-	buf.WriteString("### Approach Options\n\n")
-	buf.WriteString("**Option A: Orchestrator-led (simple breakdowns)**\n")
-	buf.WriteString("- Suitable when: Breaking down small features or familiar code areas\n")
-	buf.WriteString("- Process: Create task assigned to self, write discovery doc directly\n\n")
-
-	buf.WriteString("**Option B: Explorer-led (complex breakdowns)**\n")
-	buf.WriteString("- Suitable when: Large features, unfamiliar code, high risk of duplicates\n")
-	buf.WriteString("- Process: Create task, spawn explorer agent to investigate codebase\n\n")
-
-	buf.WriteString("### Discovery Document Contents\n\n")
-	buf.WriteString("Create a discovery artifact that includes:\n\n")
-	buf.WriteString("1. **Existing Code Context**\n")
-	buf.WriteString("   - Relevant files, classes, functions that will be extended/modified\n")
-	buf.WriteString("   - Third-party libraries already in use\n")
-	buf.WriteString("   - Patterns and conventions to follow\n\n")
-
-	buf.WriteString("2. **Existing Documentation**\n")
-	buf.WriteString("   - ADRs that provide architectural decisions\n")
-	buf.WriteString("   - Design docs that inform implementation approach\n")
-	buf.WriteString("   - Exploratory findings from previous work\n\n")
-
-	buf.WriteString("3. **Scope Boundaries**\n")
-	buf.WriteString("   - What's in scope for this breakdown\n")
-	buf.WriteString("   - What already exists and should be reused\n")
-	buf.WriteString("   - What's explicitly out of scope\n\n")
-
-	buf.WriteString("### Workflow\n\n")
-	buf.WriteString("```bash\n")
-	buf.WriteString("# Create discovery task\n")
-	buf.WriteString("sow task add \"Codebase Discovery\" --id discovery-001\n\n")
-
-	buf.WriteString("# Option A: Do it yourself\n")
-	buf.WriteString("sow task start discovery-001\n")
-	buf.WriteString("# Write project/discovery/analysis.md\n")
-	buf.WriteString("sow output add --type discovery --path project/discovery/analysis.md\n")
-	buf.WriteString("sow task complete discovery-001\n\n")
-
-	buf.WriteString("# Option B: Spawn explorer\n")
-	buf.WriteString("# (spawn explorer agent with discovery-001 task context)\n")
-	buf.WriteString("# Explorer writes discovery doc and completes task\n\n")
-
-	buf.WriteString("# Approve discovery document\n")
-	buf.WriteString("sow output approve discovery project/discovery/analysis.md\n\n")
-
-	buf.WriteString("# Advance to Active state\n")
-	buf.WriteString("sow project advance\n")
-	buf.WriteString("```\n")
-}
-
 // generateActivePrompt generates the prompt for the Active state.
 // Focus: Identify work units, spawn decomposer per unit, review specifications.
 // Returns a formatted prompt combining dynamic project state with static guidance.
+//
+//nolint:funlen // Complex but readable prompt generation logic
 func generateActivePrompt(p *state.Project) string {
 	var buf strings.Builder
 
@@ -211,12 +161,15 @@ func generateActivePrompt(p *state.Project) string {
 	//nolint:nestif // Complex but readable prompt generation logic
 	if len(phase.Tasks) == 0 {
 		buf.WriteString("No work units identified yet.\n\n")
-		buf.WriteString("**Important**: Review the approved discovery document to identify work units.\n\n")
-		buf.WriteString("**Next steps**:\n")
-		buf.WriteString("1. Review approved discovery document\n")
-		buf.WriteString("2. Identify work units (2-3 days each minimum)\n")
-		buf.WriteString("3. Create one task per work unit\n")
-		buf.WriteString("4. Spawn decomposer agent per task to write specifications\n\n")
+		buf.WriteString("**Let's start by reviewing the discovery document together.**\n\n")
+		buf.WriteString("I suggest we:\n")
+		buf.WriteString("1. Review the approved discovery document to understand existing code\n")
+		buf.WriteString("2. Identify project-sized work units (4-5 days each minimum)\n")
+		buf.WriteString("3. Discuss and refine the decomposition until you're satisfied\n")
+		buf.WriteString("4. Create tasks for approved work units\n")
+		buf.WriteString("5. Prepare context and spawn decomposer agents to write specifications\n\n")
+		buf.WriteString("**Remember**: Each work unit should include tests via TDD. No separate testing work units.\n\n")
+		buf.WriteString("Ready to review the discovery and propose a breakdown?\n\n")
 	} else {
 		// Count task statuses
 		pending := 0
@@ -279,13 +232,16 @@ func generateActivePrompt(p *state.Project) string {
 		// Advancement readiness
 		if allWorkUnitsApproved(p) && dependenciesValid(p) {
 			buf.WriteString("✓ All work units approved and dependencies validated!\n\n")
-			buf.WriteString("Ready to publish GitHub issues. Run: `sow project advance`\n\n")
+			buf.WriteString("We're ready to move to the Publishing phase to create GitHub issues.\n\n")
+			buf.WriteString("Should I advance to Publishing? This will let us create GitHub issues for these work units.\n\n")
 		} else {
 			if !allWorkUnitsApproved(p) {
 				unresolvedCount := countUnresolvedTasks(p)
-				buf.WriteString(fmt.Sprintf("**Next steps**: Continue breakdown work (%d work units remaining)\n\n", unresolvedCount))
+				buf.WriteString(fmt.Sprintf("**Status**: %d work units still need attention.\n\n", unresolvedCount))
+				buf.WriteString("Which work unit would you like to focus on next?\n\n")
 			} else {
-				buf.WriteString("**Next steps**: Dependency validation failed - check for cycles or invalid references\n\n")
+				buf.WriteString("**Issue**: Dependency validation failed - there may be cycles or invalid references in the dependency graph.\n\n")
+				buf.WriteString("Should I review the dependencies and identify the issue?\n\n")
 			}
 		}
 	}
@@ -310,7 +266,8 @@ func generatePublishingPrompt(p *state.Project) string {
 	buf.WriteString(fmt.Sprintf("Branch: %s\n\n", p.Branch))
 
 	buf.WriteString("## Current State: Publishing\n\n")
-	buf.WriteString("All work units approved. Creating GitHub issues in dependency order.\n\n")
+	buf.WriteString("All work units are approved and ready to be published as GitHub issues.\n\n")
+	buf.WriteString("**Let's review the publishing plan together before proceeding.**\n\n")
 
 	// Breakdown phase info
 	phase, exists := p.Phases["breakdown"]
@@ -373,10 +330,19 @@ func generatePublishingPrompt(p *state.Project) string {
 
 	// Advancement readiness
 	if allWorkUnitsPublished(p) {
-		buf.WriteString("✓ All work units published!\n\n")
-		buf.WriteString("Breakdown complete. Run: `sow project advance`\n\n")
+		buf.WriteString("✓ All work units published successfully!\n\n")
+		buf.WriteString("The breakdown is complete. All GitHub issues have been created with the 'sow' label.\n\n")
+		buf.WriteString("Should I mark the project as completed?\n\n")
 	} else {
-		buf.WriteString(fmt.Sprintf("**Next steps**: Publish remaining %d work units\n\n", unpublished))
+		if unpublished == len(completed) {
+			// None published yet
+			buf.WriteString(fmt.Sprintf("Ready to publish %d work units as GitHub issues.\n\n", unpublished))
+			buf.WriteString("Should I review the publishing plan with you before proceeding?\n\n")
+		} else {
+			// Some published, some remaining
+			buf.WriteString(fmt.Sprintf("**Progress**: %d of %d work units published. %d remaining.\n\n", published, len(completed), unpublished))
+			buf.WriteString("Should I continue publishing the remaining work units?\n\n")
+		}
 	}
 
 	// Render additional guidance from template

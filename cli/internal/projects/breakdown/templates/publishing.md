@@ -2,20 +2,47 @@
 
 ## Guidance: Publishing Work Units
 
-You are in the **Publishing** state of a breakdown project. Your role is to publish approved work units as GitHub issues in dependency order.
+You are in the **Publishing** state of a breakdown project. Your role is to help the user publish approved work units as GitHub issues in dependency order.
 
-**Critical**: You must publish work units in topological order to respect dependencies. Parent work units must be published before children.
+**Remember**: You are a **coordinator**. Get confirmation before publishing, and keep the user informed throughout.
 
-### Overview
+---
 
-Publishing workflow:
-1. Determine publishing order via topological sort
-2. For each work unit in order:
+## Overview
+
+Publishing workflow (with user approval):
+1. Review work units with user and confirm publishing plan
+2. Determine publishing order via topological sort
+3. For each work unit in order:
    - Check if already published (resumability)
    - Create GitHub issue with specification
    - Update task metadata with issue details
-3. Verify all work units published
-4. Advance to Completed
+   - Report result to user
+4. Verify all work units published
+5. Confirm with user before advancing to Completed
+
+### Step 0: Confirm Publishing Plan with User
+
+**Before starting, confirm with user:**
+
+```
+We have 3 work units ready to publish as GitHub issues:
+
+✓ 001: OAuth2 Authentication Flow
+✓ 002: User Profile API (depends on: 001)
+✓ 003: Admin Dashboard Authorization (depends on: 001, 002)
+
+Publishing order (respecting dependencies): 001 → 002 → 003
+
+This will create 3 GitHub issues with the sow label. Each issue will contain
+the full specification from the work unit.
+
+Ready to proceed with publishing?
+```
+
+**Wait for user confirmation** before proceeding.
+
+---
 
 ### Step 1: Determine Publishing Order
 
@@ -88,9 +115,9 @@ sow task status
 
 Then manually construct the dependency graph and determine order.
 
-### Step 2: Publish Each Work Unit
+### Step 2: Publish Each Work Unit (With Progress Updates)
 
-For each task in topological order:
+For each task in topological order, keep the user informed:
 
 **1. Check if already published** (resumability):
 ```bash
@@ -103,7 +130,12 @@ If `metadata.published == true`, **skip to next task**. This work unit was alrea
 **2. Read work unit specification**:
 The specification path is in `task.metadata.artifact_path`. Read this file to use as issue body.
 
-**3. Create GitHub issue**:
+**3. Inform user before publishing:**
+```
+Publishing work unit 001: OAuth2 Authentication Flow...
+```
+
+**4. Create GitHub issue**:
 ```bash
 gh issue create \
   --title "<task-name>" \
@@ -113,12 +145,12 @@ gh issue create \
 
 The `gh issue create` command returns the issue URL on the last line of output.
 
-**4. Parse issue number from URL**:
+**5. Parse issue number from URL**:
 Extract the issue number from the URL. Format: `https://github.com/owner/repo/issues/NUMBER`
 
 Example: `https://github.com/org/repo/issues/123` → issue number is `123`
 
-**5. Update task metadata**:
+**6. Update task metadata**:
 ```bash
 sow task set --id <task-id> metadata.published true
 sow task set --id <task-id> metadata.github_issue_number <number>
@@ -127,7 +159,13 @@ sow task set --id <task-id> metadata.github_issue_url <url>
 
 These commands update the task metadata to record the publishing details.
 
-**6. State saves automatically**:
+**7. Report success to user:**
+```
+✓ Published work unit 001 as issue #123
+  https://github.com/org/repo/issues/123
+```
+
+**8. State saves automatically**:
 The `sow task set` commands automatically save project state. No manual save needed.
 
 ### Step 3: Verify Completion
@@ -139,9 +177,23 @@ sow task status
 # Check that all completed tasks have metadata.published: true
 ```
 
-### Step 4: Advance to Completed
+### Step 4: Confirm Completion with User
 
-When all work units published:
+When all work units published, summarize and confirm:
+
+```
+All work units have been published! Here's the summary:
+
+✓ 001: OAuth2 Authentication Flow → Issue #123
+✓ 002: User Profile API → Issue #124
+✓ 003: Admin Dashboard Authorization → Issue #125
+
+All GitHub issues are available with the 'sow' label.
+
+The breakdown is complete. Should I mark the project as completed?
+```
+
+**Wait for user confirmation**, then:
 
 ```bash
 sow project advance
