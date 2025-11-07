@@ -647,3 +647,90 @@ func getPromptGenerator(st sdkstate.State) PromptGenerator {
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
+
+// TestStandardProjectDescriptions verifies all transitions have descriptions.
+func TestStandardProjectDescriptions(t *testing.T) {
+	config := NewStandardProjectConfig()
+
+	// Define all 10 transitions in the standard project
+	transitions := []struct {
+		from  sdkstate.State
+		event sdkstate.Event
+		name  string
+	}{
+		{sdkstate.State(NoProject), sdkstate.Event(EventProjectInit), "project init"},
+		{sdkstate.State(ImplementationPlanning), sdkstate.Event(EventPlanningComplete), "planning complete"},
+		{sdkstate.State(ImplementationDraftPRCreation), sdkstate.Event(EventDraftPRCreated), "draft PR created"},
+		{sdkstate.State(ImplementationExecuting), sdkstate.Event(EventAllTasksComplete), "all tasks complete"},
+		{sdkstate.State(ReviewActive), sdkstate.Event(EventReviewPass), "review pass"},
+		{sdkstate.State(ReviewActive), sdkstate.Event(EventReviewFail), "review fail"},
+		{sdkstate.State(FinalizeChecks), sdkstate.Event(EventChecksDone), "checks done"},
+		{sdkstate.State(FinalizePRReady), sdkstate.Event(EventPRReady), "PR ready"},
+		{sdkstate.State(FinalizePRChecks), sdkstate.Event(EventPRChecksPass), "PR checks pass"},
+		{sdkstate.State(FinalizeCleanup), sdkstate.Event(EventCleanupComplete), "cleanup complete"},
+	}
+
+	for _, tt := range transitions {
+		t.Run(tt.name, func(t *testing.T) {
+			desc := config.GetTransitionDescription(tt.from, tt.event)
+
+			// Verify description exists
+			if desc == "" {
+				t.Errorf("transition %s->%s has no description", tt.from, tt.event)
+			}
+
+			// Verify description is concise (under 100 characters)
+			if len(desc) > 100 {
+				t.Errorf("description too long (%d chars): %s", len(desc), desc)
+			}
+
+			// Verify description doesn't just repeat event name
+			eventLower := strings.ToLower(string(tt.event))
+			descLower := strings.ToLower(desc)
+			if descLower == eventLower {
+				t.Errorf("description is just the event name: %s", desc)
+			}
+
+			// Verify description doesn't contain placeholder text
+			if strings.Contains(descLower, "todo") || strings.Contains(descLower, "fixme") {
+				t.Errorf("description contains placeholder text: %s", desc)
+			}
+		})
+	}
+}
+
+// TestDescriptionQuality verifies description quality across all transitions.
+func TestDescriptionQuality(t *testing.T) {
+	config := NewStandardProjectConfig()
+
+	// Collect all descriptions
+	transitions := []struct {
+		from  sdkstate.State
+		event sdkstate.Event
+	}{
+		{sdkstate.State(NoProject), sdkstate.Event(EventProjectInit)},
+		{sdkstate.State(ImplementationPlanning), sdkstate.Event(EventPlanningComplete)},
+		{sdkstate.State(ImplementationDraftPRCreation), sdkstate.Event(EventDraftPRCreated)},
+		{sdkstate.State(ImplementationExecuting), sdkstate.Event(EventAllTasksComplete)},
+		{sdkstate.State(ReviewActive), sdkstate.Event(EventReviewPass)},
+		{sdkstate.State(ReviewActive), sdkstate.Event(EventReviewFail)},
+		{sdkstate.State(FinalizeChecks), sdkstate.Event(EventChecksDone)},
+		{sdkstate.State(FinalizePRReady), sdkstate.Event(EventPRReady)},
+		{sdkstate.State(FinalizePRChecks), sdkstate.Event(EventPRChecksPass)},
+		{sdkstate.State(FinalizeCleanup), sdkstate.Event(EventCleanupComplete)},
+	}
+
+	descriptions := make(map[string]bool)
+	for _, tt := range transitions {
+		desc := config.GetTransitionDescription(tt.from, tt.event)
+		if desc != "" {
+			descriptions[desc] = true
+		}
+	}
+
+	// Verify all descriptions are unique (no copy-paste errors)
+	if len(descriptions) < len(transitions) {
+		t.Errorf("found duplicate descriptions: expected %d unique descriptions, got %d",
+			len(transitions), len(descriptions))
+	}
+}

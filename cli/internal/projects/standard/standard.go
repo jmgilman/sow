@@ -93,6 +93,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(NoProject),
 			sdkstate.State(ImplementationPlanning),
 			sdkstate.Event(EventProjectInit),
+			project.WithDescription("Initialize project and begin implementation planning"),
 		).
 
 		// Implementation planning → draft PR creation
@@ -100,6 +101,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(ImplementationPlanning),
 			sdkstate.State(ImplementationDraftPRCreation),
 			sdkstate.Event(EventPlanningComplete),
+			project.WithDescription("Task descriptions approved, create draft PR"),
 			project.WithGuard("task descriptions approved", func(p *state.Project) bool {
 				return allTaskDescriptionsApproved(p)
 			}),
@@ -110,6 +112,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(ImplementationDraftPRCreation),
 			sdkstate.State(ImplementationExecuting),
 			sdkstate.Event(EventDraftPRCreated),
+			project.WithDescription("Draft PR created, begin task execution"),
 			project.WithGuard("draft PR created", func(p *state.Project) bool {
 				return draftPRCreated(p)
 			}),
@@ -120,6 +123,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(ImplementationExecuting),
 			sdkstate.State(ReviewActive),
 			sdkstate.Event(EventAllTasksComplete),
+			project.WithDescription("All implementation tasks completed, ready for review"),
 			project.WithGuard("all tasks complete", func(p *state.Project) bool {
 				return allTasksComplete(p)
 			}),
@@ -130,6 +134,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(ReviewActive),
 			sdkstate.State(FinalizeChecks),
 			sdkstate.Event(EventReviewPass),
+			project.WithDescription("Review approved, proceed to finalization checks"),
 			project.WithGuard("latest review approved", func(p *state.Project) bool {
 				return latestReviewApproved(p)
 			}),
@@ -140,6 +145,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(ReviewActive),
 			sdkstate.State(ImplementationPlanning),
 			sdkstate.Event(EventReviewFail),
+			project.WithDescription("Review failed, return to implementation planning for rework"),
 			project.WithGuard("latest review approved", func(p *state.Project) bool {
 				return latestReviewApproved(p)
 			}),
@@ -179,11 +185,13 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(FinalizeChecks),
 			sdkstate.State(FinalizePRReady),
 			sdkstate.Event(EventChecksDone),
+			project.WithDescription("Checks completed, prepare PR for final review"),
 		).
 		AddTransition(
 			sdkstate.State(FinalizePRReady),
 			sdkstate.State(FinalizePRChecks),
 			sdkstate.Event(EventPRReady),
+			project.WithDescription("PR body approved, monitoring PR checks"),
 			project.WithGuard("PR body approved", func(p *state.Project) bool {
 				return prBodyApproved(p)
 			}),
@@ -192,6 +200,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(FinalizePRChecks),
 			sdkstate.State(FinalizeCleanup),
 			sdkstate.Event(EventPRChecksPass),
+			project.WithDescription("All PR checks passed, begin cleanup"),
 			project.WithGuard("all PR checks passed", func(p *state.Project) bool {
 				return prChecksPassed(p)
 			}),
@@ -200,6 +209,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.State(FinalizeCleanup),
 			sdkstate.State(NoProject),
 			sdkstate.Event(EventCleanupComplete),
+			project.WithDescription("Cleanup complete, project finalized"),
 			project.WithGuard("project deleted", func(p *state.Project) bool {
 				return projectDeleted(p)
 			}),
