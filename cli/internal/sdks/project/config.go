@@ -58,6 +58,10 @@ type TransitionConfig struct {
 	// failedPhase optionally specifies a phase to mark as "failed" instead of "completed"
 	// when exiting its end state on this transition. Used for error/failure paths.
 	failedPhase string
+
+	// description is a human-readable explanation of what this transition does.
+	// Context-specific: same event from different states can have different meanings.
+	description string
 }
 
 // ProjectTypeConfig holds the complete configuration for a project type.
