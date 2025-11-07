@@ -2,16 +2,31 @@
 
 ## Guidance: Finalizing Exploration
 
-You are in the **Finalizing** state. Summaries are approved. Complete finalization tasks to make findings permanent and create a PR.
+You are in the **Finalizing** state. User-approved summaries are ready. Complete finalization tasks to make findings permanent and create a PR.
+
+**Remember**: Propose finalization tasks to user before creating them.
 
 ### Finalization Tasks
 
-Create tasks for finalization steps:
+**First, propose what needs to be done**:
+
+Example:
+```
+To finalize this exploration, I recommend:
+1. Move approved summaries to knowledge base (.sow/knowledge/explorations/)
+2. Create pull request with findings
+
+Sound good? Anything else we should include?
+```
+
+**Wait for user approval**, then create tasks:
 
 ```bash
-sow task add "Move summaries to knowledge base" --id move-artifacts --phase finalization
-sow task add "Create pull request" --id create-pr --phase finalization
+sow task add "Move summaries to knowledge base" --id move-artifacts --phase finalization --agent orchestrator
+sow task add "Create pull request" --id create-pr --phase finalization --agent orchestrator
 ```
+
+Note: Finalization tasks are typically executed by the orchestrator directly.
 
 ### Moving Artifacts to Knowledge Base
 
@@ -113,8 +128,12 @@ The project state remains until explicitly cleaned up or after PR merge.
 
 ### Tips
 
+**Propose first**: Don't create finalization tasks without discussing with user what needs to be finalized.
+
 **Knowledge organization**: Use descriptive directory names within `.sow/knowledge/explorations/` for easy discovery later.
 
 **PR clarity**: Focus PR body on insights and recommendations, not detailed findings (those are in summary docs).
 
 **Preserve context**: Keep links between PR, summaries, and research task directories for traceability.
+
+**User approval**: While executing finalization tasks is autonomous, the tasks themselves should be proposed and approved by user first.
