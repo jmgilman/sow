@@ -338,6 +338,7 @@ func (ptc *ProjectTypeConfig) GetAvailableTransitions(from sdkstate.State) []Tra
 	// Add direct transitions (from AddTransition calls)
 	// Skip transitions that are part of a branch configuration (they're already included above)
 	for _, tc := range ptc.transitions {
+		//nolint:nestif // Deduplication logic requires nesting
 		if tc.From == from {
 			// Skip if this transition is part of a branch
 			if isBranching {

@@ -15,7 +15,7 @@ import (
 func TestBranchOn(t *testing.T) {
 	t.Run("sets discriminator function", func(t *testing.T) {
 		bc := &BranchConfig{}
-		discriminator := func(p *state.Project) string {
+		discriminator := func(_ *state.Project) string {
 			return "test_value"
 		}
 
@@ -55,6 +55,7 @@ func TestBranchOn(t *testing.T) {
 	})
 }
 
+//nolint:funlen // Test comprehensiveness requires length
 func TestWhen(t *testing.T) {
 	t.Run("creates branch path with value, event, and target state", func(t *testing.T) {
 		bc := &BranchConfig{}
@@ -117,7 +118,7 @@ func TestWhen(t *testing.T) {
 
 	t.Run("forwards WithGuard option", func(t *testing.T) {
 		bc := &BranchConfig{}
-		guardFunc := func(p *state.Project) bool {
+		guardFunc := func(_ *state.Project) bool {
 			return true
 		}
 
@@ -253,7 +254,7 @@ func TestBranchConfigIntegration(t *testing.T) {
 	t.Run("BranchOn and When work together", func(t *testing.T) {
 		bc := &BranchConfig{}
 
-		discriminator := func(p *state.Project) string {
+		discriminator := func(_ *state.Project) string {
 			return "test_value"
 		}
 		BranchOn(discriminator)(bc)
@@ -342,7 +343,7 @@ func TestBranchConfigIntegration(t *testing.T) {
 	t.Run("N-way branch configuration", func(t *testing.T) {
 		bc := &BranchConfig{}
 
-		BranchOn(func(p *state.Project) string {
+		BranchOn(func(_ *state.Project) string {
 			return "staging" // Simplified for test
 		})(bc)
 
@@ -402,9 +403,9 @@ func TestAddBranchGeneratesTransitions(t *testing.T) {
 	t.Run("forwards transition options correctly", func(t *testing.T) {
 		builder := NewProjectTypeConfigBuilder("test")
 
-		guardFunc := func(p *state.Project) bool { return true }
-		onEntryFunc := func(p *state.Project) error { return nil }
-		onExitFunc := func(p *state.Project) error { return nil }
+		guardFunc := func(_ *state.Project) bool { return true }
+		onEntryFunc := func(_ *state.Project) error { return nil }
+		onExitFunc := func(_ *state.Project) error { return nil }
 
 		builder.AddBranch(
 			sdkstate.State("BranchState"),
@@ -437,7 +438,7 @@ func TestAddBranchGeneratesOnAdvance(t *testing.T) {
 	t.Run("creates event determiner using discriminator", func(t *testing.T) {
 		builder := NewProjectTypeConfigBuilder("test")
 
-		discriminator := func(p *state.Project) string {
+		discriminator := func(_ *state.Project) string {
 			return "test_value"
 		}
 
@@ -525,7 +526,7 @@ func TestAddBranchGeneratesOnAdvance(t *testing.T) {
 
 		builder.AddBranch(
 			sdkstate.State("BranchState"),
-			BranchOn(func(p *state.Project) string {
+			BranchOn(func(_ *state.Project) string {
 				return "unmapped_value"
 			}),
 			When("value1", sdkstate.Event("Event1"), sdkstate.State("State1")),
@@ -704,7 +705,7 @@ func TestAddBranchValidation(t *testing.T) {
 		assert.Panics(t, func() {
 			builder.AddBranch(
 				sdkstate.State("BranchState"),
-				BranchOn(func(p *state.Project) string { return "test" }),
+				BranchOn(func(_ *state.Project) string { return "test" }),
 				// No When calls
 			)
 		})
@@ -717,7 +718,7 @@ func TestAddBranchStoresBranchConfig(t *testing.T) {
 
 		builder.AddBranch(
 			sdkstate.State("BranchState"),
-			BranchOn(func(p *state.Project) string { return "value1" }),
+			BranchOn(func(_ *state.Project) string { return "value1" }),
 			When("value1", sdkstate.Event("Event1"), sdkstate.State("State1")),
 		)
 
@@ -731,7 +732,7 @@ func TestAddBranchStoresBranchConfig(t *testing.T) {
 
 		builder.AddBranch(
 			sdkstate.State("BranchState"),
-			BranchOn(func(p *state.Project) string { return "value1" }),
+			BranchOn(func(_ *state.Project) string { return "value1" }),
 			When("value1", sdkstate.Event("Event1"), sdkstate.State("State1")),
 		)
 
@@ -749,7 +750,7 @@ func TestAddBranchChaining(t *testing.T) {
 
 		result := builder.AddBranch(
 			sdkstate.State("BranchState"),
-			BranchOn(func(p *state.Project) string { return "value1" }),
+			BranchOn(func(_ *state.Project) string { return "value1" }),
 			When("value1", sdkstate.Event("Event1"), sdkstate.State("State1")),
 		)
 
@@ -760,12 +761,12 @@ func TestAddBranchChaining(t *testing.T) {
 		config := NewProjectTypeConfigBuilder("test").
 			AddBranch(
 				sdkstate.State("Branch1"),
-				BranchOn(func(p *state.Project) string { return "v1" }),
+				BranchOn(func(_ *state.Project) string { return "v1" }),
 				When("v1", sdkstate.Event("E1"), sdkstate.State("S1")),
 			).
 			AddBranch(
 				sdkstate.State("Branch2"),
-				BranchOn(func(p *state.Project) string { return "v2" }),
+				BranchOn(func(_ *state.Project) string { return "v2" }),
 				When("v2", sdkstate.Event("E2"), sdkstate.State("S2")),
 			).
 			Build()
@@ -776,7 +777,7 @@ func TestAddBranchChaining(t *testing.T) {
 	})
 }
 
-// createMinimalTestProject creates a minimal project for testing
+// createMinimalTestProject creates a minimal project for testing.
 func createMinimalTestProject(t *testing.T) *state.Project {
 	t.Helper()
 
@@ -801,7 +802,7 @@ func TestDiscriminatorNoMatch(t *testing.T) {
 
 		builder.AddBranch(
 			sdkstate.State("TestState"),
-			BranchOn(func(p *state.Project) string {
+			BranchOn(func(_ *state.Project) string {
 				// Return value that has no When clause
 				return "unmapped_value"
 			}),
@@ -830,7 +831,7 @@ func TestDiscriminatorNoMatch(t *testing.T) {
 
 		builder.AddBranch(
 			sdkstate.State("TestState"),
-			BranchOn(func(p *state.Project) string { return "invalid" }),
+			BranchOn(func(_ *state.Project) string { return "invalid" }),
 			When("value1", sdkstate.Event("E1"), sdkstate.State("S1")),
 			When("value2", sdkstate.Event("E2"), sdkstate.State("S2")),
 			When("value3", sdkstate.Event("E3"), sdkstate.State("S3")),
@@ -999,7 +1000,7 @@ func TestDiscriminatorReturnsEmptyString(t *testing.T) {
 
 		builder.AddBranch(
 			sdkstate.State("TestState"),
-			BranchOn(func(p *state.Project) string {
+			BranchOn(func(_ *state.Project) string {
 				// Return empty string (e.g., data not ready)
 				return ""
 			}),

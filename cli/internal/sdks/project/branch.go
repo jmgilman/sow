@@ -20,7 +20,7 @@ type BranchConfig struct {
 // BranchPath represents one possible branch destination.
 // Each path maps a discriminator value to a transition configuration.
 //
-// Example: discriminator returns "pass" → fire EventReviewPass → go to FinalizeChecks
+// Example: discriminator returns "pass" → fire EventReviewPass → go to FinalizeChecks.
 type BranchPath struct {
 	value       string              // Discriminator value that triggers this path
 	event       sdkstate.Event      // Event to fire

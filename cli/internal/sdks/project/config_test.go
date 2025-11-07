@@ -222,6 +222,7 @@ func TestGetDefaultTaskPhase(t *testing.T) {
 	}
 }
 
+//nolint:funlen // Test comprehensiveness requires length
 func TestGetAvailableTransitions(t *testing.T) {
 	t.Run("returns transitions from branching state", func(t *testing.T) {
 		config := NewProjectTypeConfigBuilder("test").
