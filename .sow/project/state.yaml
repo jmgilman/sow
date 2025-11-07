@@ -1,0 +1,329 @@
+name: cli-enhanced-advance-command-and-standard-project
+type: standard
+branch: 78-cli-enhanced-advance-command-and-standard-project-refactoring
+description: CLI Enhanced Advance Command and Standard Project Refactoring
+created_at: 2025-11-07T14:05:38.142929-08:00
+updated_at: 2025-11-07T14:27:44.724937-08:00
+phases:
+    finalize:
+        status: pending
+        enabled: false
+        created_at: 2025-11-07T14:05:38.142929-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+    implementation:
+        status: in_progress
+        enabled: false
+        created_at: 2025-11-07T14:05:38.142929-08:00
+        started_at: 2025-11-07T14:05:38.142974-08:00
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata:
+            planning_approved: true
+        inputs:
+            - type: github_issue
+              path: context/issue-78.md
+              approved: true
+              created_at: 2025-11-07T14:05:38.142918-08:00
+              metadata:
+                issue_number: 78
+                issue_title: CLI Enhanced Advance Command and Standard Project Refactoring
+                issue_url: https://github.com/jmgilman/sow/issues/78
+        outputs: []
+        tasks:
+            - id: "010"
+              name: CLI Command Infrastructure and Flag Validation
+              phase: implementation
+              status: pending
+              created_at: 2025-11-07T14:27:04.037449-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T14:27:06.630029-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/cmd/advance.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:06.612505-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-78.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:06.621815-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/cli-enhanced-advance.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:06.630028-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "020"
+              name: Auto-Determination Mode (Enhanced)
+              phase: implementation
+              status: pending
+              created_at: 2025-11-07T14:27:19.926139-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T14:27:19.960151-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/cmd/advance.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:19.937314-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/config.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:19.945641-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-78.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:19.95315-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/cli-enhanced-advance.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:19.960151-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "030"
+              name: List Mode Implementation
+              phase: implementation
+              status: pending
+              created_at: 2025-11-07T14:27:21.741496-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T14:27:21.776802-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/sdks/project/config.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:21.753405-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/state/machine.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:21.761724-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-78.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:21.769463-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/cli-enhanced-advance.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:21.776802-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "040"
+              name: Dry-Run Mode Implementation
+              phase: implementation
+              status: pending
+              created_at: 2025-11-07T14:27:23.081786-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T14:27:23.112521-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/sdks/state/machine.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:23.0914-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/config.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:23.098974-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-78.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:23.105814-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/cli-enhanced-advance.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:23.112521-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "050"
+              name: Explicit Event Mode Implementation
+              phase: implementation
+              status: pending
+              created_at: 2025-11-07T14:27:24.925225-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T14:27:24.968628-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/sdks/project/machine.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:24.937225-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/config.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:24.945512-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/state/machine.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:24.953364-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-78.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:24.961148-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/cli-enhanced-advance.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:24.968627-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "060"
+              name: Add Descriptions to All Standard Project Transitions
+              phase: implementation
+              status: pending
+              created_at: 2025-11-07T14:27:36.801273-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T14:27:36.839592-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/projects/standard/standard.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:36.814219-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/standard/lifecycle_test.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:36.823758-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/builder.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:36.831903-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-78.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:36.839592-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "070"
+              name: Refactor ReviewActive with AddBranch API
+              phase: implementation
+              status: pending
+              created_at: 2025-11-07T14:27:38.220967-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T14:27:38.274353-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/projects/standard/standard.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:38.234065-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/standard/guards.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:38.243481-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/builder.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:38.251832-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/branch.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:38.259376-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/sdk-addbranch-api.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:38.266894-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-78.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:38.274353-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "080"
+              name: Integration Testing and Final Validation
+              phase: implementation
+              status: pending
+              created_at: 2025-11-07T14:27:39.24211-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T14:27:39.282928-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/cmd/advance.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:39.25563-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/standard/standard.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:39.265799-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/projects/standard/lifecycle_test.go
+                  approved: false
+                  created_at: 2025-11-07T14:27:39.274646-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-78.md
+                  approved: false
+                  created_at: 2025-11-07T14:27:39.282928-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+    review:
+        status: pending
+        enabled: false
+        created_at: 2025-11-07T14:05:38.142929-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+statechart:
+    current_state: ImplementationDraftPRCreation
+    updated_at: 2025-11-07T14:27:44.724937-08:00
