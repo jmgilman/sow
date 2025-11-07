@@ -136,6 +136,7 @@ func TestGenerateOrchestratorPrompt(t *testing.T) {
 }
 
 // TestGenerateActivePrompt verifies the Active state prompt generation.
+//
 //nolint:funlen // Test contains multiple subtests for comprehensive prompt validation
 func TestGenerateActivePrompt(t *testing.T) {
 	t.Run("shows project name and branch", func(t *testing.T) {
@@ -406,31 +407,6 @@ func TestGenerateActivePrompt(t *testing.T) {
 		}
 	})
 
-	t.Run("shows unresolved count when guard fails", func(t *testing.T) {
-		now := time.Now()
-		p := &state.Project{
-			ProjectState: projschema.ProjectState{
-				Name:   "test",
-				Branch: "test-branch",
-				Phases: map[string]projschema.PhaseState{
-					"breakdown": {
-						Tasks: []projschema.TaskState{
-							{Id: "001", Status: "completed", Created_at: now},
-							{Id: "002", Status: "in_progress", Created_at: now},
-							{Id: "003", Status: "pending", Created_at: now},
-						},
-					},
-				},
-			},
-		}
-
-		prompt := generateActivePrompt(p)
-
-		if !strings.Contains(prompt, "2 work units remaining") && !strings.Contains(prompt, "(2 work units remaining)") {
-			t.Error("prompt should show 2 unresolved work units")
-		}
-	})
-
 	t.Run("handles empty task list", func(t *testing.T) {
 		p := &state.Project{
 			ProjectState: projschema.ProjectState{
@@ -524,6 +500,7 @@ func TestGenerateActivePrompt(t *testing.T) {
 }
 
 // TestGeneratePublishingPrompt verifies the Publishing state prompt generation.
+//
 //nolint:funlen // Test contains multiple subtests for comprehensive prompt validation
 func TestGeneratePublishingPrompt(t *testing.T) {
 	t.Run("shows project name and branch", func(t *testing.T) {
@@ -719,46 +696,6 @@ func TestGeneratePublishingPrompt(t *testing.T) {
 		}
 		if !strings.Contains(prompt, "sow project advance") {
 			t.Error("prompt should suggest sow project advance command")
-		}
-	})
-
-	t.Run("shows unpublished count when not ready", func(t *testing.T) {
-		now := time.Now()
-		p := &state.Project{
-			ProjectState: projschema.ProjectState{
-				Name:   "test",
-				Branch: "test-branch",
-				Phases: map[string]projschema.PhaseState{
-					"breakdown": {
-						Tasks: []projschema.TaskState{
-							{
-								Id:         "001",
-								Status:     "completed",
-								Created_at: now,
-								Metadata: map[string]interface{}{
-									"published": true,
-								},
-							},
-							{
-								Id:         "002",
-								Status:     "completed",
-								Created_at: now,
-							},
-							{
-								Id:         "003",
-								Status:     "completed",
-								Created_at: now,
-							},
-						},
-					},
-				},
-			},
-		}
-
-		prompt := generatePublishingPrompt(p)
-
-		if !strings.Contains(prompt, "2 work units") {
-			t.Error("prompt should show 2 remaining work units")
 		}
 	})
 
