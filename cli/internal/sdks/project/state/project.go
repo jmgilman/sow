@@ -57,6 +57,9 @@ type ProjectTypeConfig interface {
 
 	// DetermineEvent determines which event to fire from the current state
 	DetermineEvent(project *Project) (Event, error)
+
+	// FireWithPhaseUpdates fires an event and automatically updates phase status
+	FireWithPhaseUpdates(machine *sdkstate.Machine, event Event, project *Project) error
 }
 
 // Project wraps the CUE-generated ProjectState with runtime behavior.

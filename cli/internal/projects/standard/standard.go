@@ -148,12 +148,9 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 					return fmt.Errorf("failed to increment implementation iteration: %w", err)
 				}
 
-				// Reopen implementation phase
-				phase := p.Phases["implementation"]
-				phase.Status = "in_progress"
-				p.Phases["implementation"] = phase
-
 				// Add failed review as implementation input
+				// Note: Implementation phase status will be automatically set to "in_progress"
+				// by FireWithPhaseUpdates when entering ImplementationPlanning state
 				return state.AddPhaseInputFromOutput(
 					p,
 					"review",

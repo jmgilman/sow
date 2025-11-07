@@ -1,6 +1,8 @@
 package state
 
 import (
+	"fmt"
+
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
 	"github.com/jmgilman/sow/cli/schemas/project"
 )
@@ -59,4 +61,12 @@ func (m *mockProjectTypeConfig) GetStatePrompt(_ State, _ *Project) string {
 func (m *mockProjectTypeConfig) DetermineEvent(_ *Project) (Event, error) {
 	// Mock event determination - return empty event
 	return "", nil
+}
+
+func (m *mockProjectTypeConfig) FireWithPhaseUpdates(machine *sdkstate.Machine, event Event, _ *Project) error {
+	// Mock implementation - just fire the event without phase updates
+	if err := machine.Fire(sdkstate.Event(event)); err != nil {
+		return fmt.Errorf("mock fire event failed: %w", err)
+	}
+	return nil
 }

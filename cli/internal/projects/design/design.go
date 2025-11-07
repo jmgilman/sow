@@ -1,8 +1,6 @@
 package design
 
 import (
-	"time"
-
 	"github.com/jmgilman/sow/cli/internal/sdks/project"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
@@ -123,20 +121,11 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			project.WithGuard("all documents approved", func(p *state.Project) bool {
 				return allDocumentsApproved(p)
 			}),
-			project.WithOnExit(func(p *state.Project) error {
-				// Mark design phase as completed
-				phase := p.Phases["design"]
-				phase.Status = "completed"
-				phase.Completed_at = time.Now()
-				p.Phases["design"] = phase
-				return nil
-			}),
 			project.WithOnEntry(func(p *state.Project) error {
-				// Enable and activate finalization phase
+				// Enable finalization phase
+				// Note: Phase status and timestamps are automatically managed by FireWithPhaseUpdates
 				phase := p.Phases["finalization"]
 				phase.Enabled = true
-				phase.Status = "in_progress"
-				phase.Started_at = time.Now()
 				p.Phases["finalization"] = phase
 				return nil
 			}),
@@ -150,14 +139,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			project.WithGuard("all finalization tasks complete", func(p *state.Project) bool {
 				return allFinalizationTasksComplete(p)
 			}),
-			project.WithOnEntry(func(p *state.Project) error {
-				// Mark finalization phase as completed
-				phase := p.Phases["finalization"]
-				phase.Status = "completed"
-				phase.Completed_at = time.Now()
-				p.Phases["finalization"] = phase
-				return nil
-			}),
+			// Note: Finalization phase completion is automatically managed by FireWithPhaseUpdates
 		)
 }
 
