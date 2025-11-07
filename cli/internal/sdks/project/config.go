@@ -93,6 +93,10 @@ type ProjectTypeConfig struct {
 	// initializer is called during Create() to initialize the project
 	// with phases, metadata, and any type-specific initial state
 	initializer state.Initializer
+
+	// branches are branch configurations mapped by state
+	// Stored for introspection and debugging
+	branches map[sdkstate.State]*BranchConfig
 }
 
 // InitialState returns the configured initial state for this project type.
