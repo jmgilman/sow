@@ -33,14 +33,28 @@ func TestFullLifecycle(t *testing.T) {
 		}
 	})
 
-	// ImplementationPlanning → ImplementationExecuting
-	t.Run("planning complete transitions to execution", func(t *testing.T) {
+	// ImplementationPlanning → ImplementationDraftPRCreation
+	t.Run("planning complete transitions to draft PR creation", func(t *testing.T) {
 		// Set planning approved metadata flag
 		setPhaseMetadata(t, proj, "implementation", "planning_approved", true)
 
 		err := config.FireWithPhaseUpdates(machine, EventPlanningComplete, proj)
 		if err != nil {
 			t.Fatalf("Fire(EventPlanningComplete) failed: %v", err)
+		}
+		if got := machine.State(); got != sdkstate.State(ImplementationDraftPRCreation) {
+			t.Errorf("state = %v, want %v", got, ImplementationDraftPRCreation)
+		}
+	})
+
+	// ImplementationDraftPRCreation → ImplementationExecuting
+	t.Run("draft PR created transitions to execution", func(t *testing.T) {
+		// Set draft_pr_created metadata flag
+		setPhaseMetadata(t, proj, "implementation", "draft_pr_created", true)
+
+		err := config.FireWithPhaseUpdates(machine, EventDraftPRCreated, proj)
+		if err != nil {
+			t.Fatalf("Fire(EventDraftPRCreated) failed: %v", err)
 		}
 		if got := machine.State(); got != sdkstate.State(ImplementationExecuting) {
 			t.Errorf("state = %v, want %v", got, ImplementationExecuting)
@@ -108,20 +122,20 @@ func TestFullLifecycle(t *testing.T) {
 
 	// Finalize substates
 	t.Run("finalize substates progress correctly", func(t *testing.T) {
-		// FinalizeChecks → FinalizePRCreation
+		// FinalizeChecks → FinalizePRReady
 		err := config.FireWithPhaseUpdates(machine, EventChecksDone, proj)
 		if err != nil {
 			t.Fatalf("Fire(EventChecksDone) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(FinalizePRCreation) {
-			t.Errorf("state = %v, want %v", got, FinalizePRCreation)
+		if got := machine.State(); got != sdkstate.State(FinalizePRReady) {
+			t.Errorf("state = %v, want %v", got, FinalizePRReady)
 		}
 
-		// FinalizePRCreation → FinalizePRChecks
+		// FinalizePRReady → FinalizePRChecks
 		addApprovedOutput(t, proj, "finalize", "pr_body", "pr_body.md")
-		err = config.FireWithPhaseUpdates(machine, EventPRCreated, proj)
+		err = config.FireWithPhaseUpdates(machine, EventPRReady, proj)
 		if err != nil {
-			t.Fatalf("Fire(EventPRCreated) failed: %v", err)
+			t.Fatalf("Fire(EventPRReady) failed: %v", err)
 		}
 		if got := machine.State(); got != sdkstate.State(FinalizePRChecks) {
 			t.Errorf("state = %v, want %v", got, FinalizePRChecks)
@@ -337,10 +351,11 @@ func TestGuardsBlockInvalidTransitions(t *testing.T) {
 func TestPromptGeneration(t *testing.T) {
 	states := []sdkstate.State{
 		sdkstate.State(ImplementationPlanning),
+		sdkstate.State(ImplementationDraftPRCreation),
 		sdkstate.State(ImplementationExecuting),
 		sdkstate.State(ReviewActive),
 		sdkstate.State(FinalizeChecks),
-		sdkstate.State(FinalizePRCreation),
+		sdkstate.State(FinalizePRReady),
 		sdkstate.State(FinalizePRChecks),
 		sdkstate.State(FinalizeCleanup),
 	}
@@ -608,14 +623,16 @@ func getPromptGenerator(st sdkstate.State) PromptGenerator {
 	switch st {
 	case sdkstate.State(ImplementationPlanning):
 		return generateImplementationPlanningPrompt
+	case sdkstate.State(ImplementationDraftPRCreation):
+		return generateImplementationDraftPRCreationPrompt
 	case sdkstate.State(ImplementationExecuting):
 		return generateImplementationExecutingPrompt
 	case sdkstate.State(ReviewActive):
 		return generateReviewPrompt
 	case sdkstate.State(FinalizeChecks):
 		return generateFinalizeChecksPrompt
-	case sdkstate.State(FinalizePRCreation):
-		return generateFinalizePRCreationPrompt
+	case sdkstate.State(FinalizePRReady):
+		return generateFinalizePRReadyPrompt
 	case sdkstate.State(FinalizePRChecks):
 		return generateFinalizePRChecksPrompt
 	case sdkstate.State(FinalizeCleanup):
