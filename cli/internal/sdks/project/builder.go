@@ -4,6 +4,8 @@ package project
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
@@ -147,17 +149,47 @@ func (b *ProjectTypeConfigBuilder) AddBranch(
 		opt(bc)
 	}
 
-	// Validate configuration
+	// Validation 1: Discriminator is required
 	if bc.discriminator == nil {
-		// Panic here because this is a programming error at config time
-		panic(fmt.Sprintf("AddBranch for state %s: no discriminator provided (use BranchOn)", from))
+		panic(fmt.Sprintf(
+			"AddBranch for state %s: no discriminator provided - use BranchOn() to specify discriminator function",
+			from))
 	}
+
+	// Validation 2: At least one branch path is required
 	if len(bc.branches) == 0 {
-		panic(fmt.Sprintf("AddBranch for state %s: no branch paths provided (use When)", from))
+		panic(fmt.Sprintf(
+			"AddBranch for state %s: no branch paths provided - use When() to define at least one branch path",
+			from))
+	}
+
+	// Validation 3: Warn if state already has OnAdvance
+	if _, exists := b.onAdvance[from]; exists {
+		panic(fmt.Sprintf(
+			"AddBranch for state %s: state already has OnAdvance determiner - cannot use both AddBranch and OnAdvance on the same state",
+			from))
+	}
+
+	// Validation 4: Empty discriminator values not allowed
+	for value := range bc.branches {
+		if value == "" {
+			panic(fmt.Sprintf(
+				"AddBranch for state %s: empty string is not allowed as a discriminator value",
+				from))
+		}
 	}
 
 	// Generate AddTransition calls for each branch path
-	for _, path := range bc.branches {
+	// Sort by value for deterministic transition order
+	values := make([]string, 0, len(bc.branches))
+	for value := range bc.branches {
+		values = append(values, value)
+	}
+	sort.Strings(values)
+
+	for _, value := range values {
+		path := bc.branches[value]
+
 		// Collect transition options from branch path
 		var transOpts []TransitionOption
 
@@ -194,9 +226,13 @@ func (b *ProjectTypeConfigBuilder) AddBranch(
 			for v := range bc.branches {
 				availableValues = append(availableValues, fmt.Sprintf("%q", v))
 			}
+
+			// Sort for deterministic output
+			sort.Strings(availableValues)
+
 			return "", fmt.Errorf(
-				"no branch defined for discriminator value %q from state %s (available: %v)",
-				value, from, availableValues)
+				"no branch defined for discriminator value %q from state %s (available values: %s)",
+				value, from, strings.Join(availableValues, ", "))
 		}
 
 		// Return the event for this branch

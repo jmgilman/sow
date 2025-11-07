@@ -1,7 +1,9 @@
 package project
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	projectschema "github.com/jmgilman/sow/cli/schemas/project"
@@ -537,7 +539,7 @@ func TestAddBranchGeneratesOnAdvance(t *testing.T) {
 		_, err := determiner(project)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no branch defined for discriminator value \"unmapped_value\"")
-		assert.Contains(t, err.Error(), "available:")
+		assert.Contains(t, err.Error(), "available values:")
 		assert.Contains(t, err.Error(), "\"value1\"")
 		assert.Contains(t, err.Error(), "\"value2\"")
 	})
@@ -771,5 +773,247 @@ func TestAddBranchChaining(t *testing.T) {
 		// Should have transitions from both branches
 		assert.Len(t, config.transitions, 2)
 		assert.Len(t, config.branches, 2)
+	})
+}
+
+// createMinimalTestProject creates a minimal project for testing
+func createMinimalTestProject(t *testing.T) *state.Project {
+	t.Helper()
+
+	return &state.Project{
+		ProjectState: projectschema.ProjectState{
+			Name:   "test-project",
+			Type:   "test",
+			Branch: "test-branch",
+			Phases: map[string]projectschema.PhaseState{},
+			Statechart: projectschema.StatechartState{
+				Current_state: "TestState",
+				Updated_at:    time.Now(),
+			},
+		},
+	}
+}
+
+func TestDiscriminatorNoMatch(t *testing.T) {
+	t.Run("returns error when discriminator returns unmapped value", func(t *testing.T) {
+		// Create config with AddBranch
+		builder := NewProjectTypeConfigBuilder("test")
+
+		builder.AddBranch(
+			sdkstate.State("TestState"),
+			BranchOn(func(p *state.Project) string {
+				// Return value that has no When clause
+				return "unmapped_value"
+			}),
+			When("expected_value",
+				sdkstate.Event("TestEvent"),
+				sdkstate.State("NextState"),
+			),
+		)
+
+		config := builder.Build()
+		proj := createMinimalTestProject(t)
+
+		// Try to determine event - should fail
+		event, err := config.DetermineEvent(proj)
+
+		require.Error(t, err)
+		assert.Empty(t, event)
+		assert.Contains(t, err.Error(), "no branch defined")
+		assert.Contains(t, err.Error(), "unmapped_value")
+		assert.Contains(t, err.Error(), "expected_value")  // Shows available values
+	})
+
+	t.Run("error message lists all available values", func(t *testing.T) {
+		// Test with multiple branches to ensure all are listed
+		builder := NewProjectTypeConfigBuilder("test")
+
+		builder.AddBranch(
+			sdkstate.State("TestState"),
+			BranchOn(func(p *state.Project) string { return "invalid" }),
+			When("value1", sdkstate.Event("E1"), sdkstate.State("S1")),
+			When("value2", sdkstate.Event("E2"), sdkstate.State("S2")),
+			When("value3", sdkstate.Event("E3"), sdkstate.State("S3")),
+		)
+
+		config := builder.Build()
+		proj := createMinimalTestProject(t)
+
+		_, err := config.DetermineEvent(proj)
+
+		require.Error(t, err)
+		// Should list all three values
+		assert.Contains(t, err.Error(), "value1")
+		assert.Contains(t, err.Error(), "value2")
+		assert.Contains(t, err.Error(), "value3")
+	})
+}
+
+func TestAddBranchNoDiscriminator(t *testing.T) {
+	t.Run("panics when BranchOn not provided", func(t *testing.T) {
+		builder := NewProjectTypeConfigBuilder("test")
+
+		assert.Panics(t, func() {
+			builder.AddBranch(
+				sdkstate.State("TestState"),
+				// Missing BranchOn!
+				When("value", sdkstate.Event("E"), sdkstate.State("S")),
+			)
+		})
+	})
+
+	t.Run("panic message explains how to fix", func(t *testing.T) {
+		builder := NewProjectTypeConfigBuilder("test")
+
+		defer func() {
+			r := recover()
+			require.NotNil(t, r)
+			msg := fmt.Sprintf("%v", r)
+			assert.Contains(t, msg, "no discriminator provided")
+			assert.Contains(t, msg, "BranchOn()")
+		}()
+
+		builder.AddBranch(
+			sdkstate.State("TestState"),
+			When("value", sdkstate.Event("E"), sdkstate.State("S")),
+		)
+	})
+}
+
+func TestAddBranchNoBranches(t *testing.T) {
+	t.Run("panics when no When clauses provided", func(t *testing.T) {
+		builder := NewProjectTypeConfigBuilder("test")
+
+		assert.Panics(t, func() {
+			builder.AddBranch(
+				sdkstate.State("TestState"),
+				BranchOn(func(_ *state.Project) string { return "test" }),
+				// Missing When!
+			)
+		})
+	})
+
+	t.Run("panic message explains how to fix", func(t *testing.T) {
+		builder := NewProjectTypeConfigBuilder("test")
+
+		defer func() {
+			r := recover()
+			require.NotNil(t, r)
+			msg := fmt.Sprintf("%v", r)
+			assert.Contains(t, msg, "no branch paths provided")
+			assert.Contains(t, msg, "When()")
+		}()
+
+		builder.AddBranch(
+			sdkstate.State("TestState"),
+			BranchOn(func(_ *state.Project) string { return "test" }),
+		)
+	})
+}
+
+func TestAddBranchConflictWithOnAdvance(t *testing.T) {
+	t.Run("panics when state already has OnAdvance", func(t *testing.T) {
+		builder := NewProjectTypeConfigBuilder("test")
+
+		// Add OnAdvance first
+		builder.OnAdvance(
+			sdkstate.State("TestState"),
+			func(_ *state.Project) (sdkstate.Event, error) {
+				return sdkstate.Event("TestEvent"), nil
+			},
+		)
+
+		// Try to add AddBranch for same state
+		assert.Panics(t, func() {
+			builder.AddBranch(
+				sdkstate.State("TestState"),
+				BranchOn(func(_ *state.Project) string { return "test" }),
+				When("test", sdkstate.Event("E"), sdkstate.State("S")),
+			)
+		})
+	})
+
+	t.Run("panic message explains conflict", func(t *testing.T) {
+		builder := NewProjectTypeConfigBuilder("test")
+
+		builder.OnAdvance(
+			sdkstate.State("TestState"),
+			func(_ *state.Project) (sdkstate.Event, error) {
+				return sdkstate.Event("TestEvent"), nil
+			},
+		)
+
+		defer func() {
+			r := recover()
+			require.NotNil(t, r)
+			msg := fmt.Sprintf("%v", r)
+			assert.Contains(t, msg, "already has OnAdvance")
+			assert.Contains(t, msg, "cannot use both")
+		}()
+
+		builder.AddBranch(
+			sdkstate.State("TestState"),
+			BranchOn(func(_ *state.Project) string { return "test" }),
+			When("test", sdkstate.Event("E"), sdkstate.State("S")),
+		)
+	})
+}
+
+func TestAddBranchEmptyDiscriminatorValue(t *testing.T) {
+	t.Run("panics when When uses empty string as value", func(t *testing.T) {
+		builder := NewProjectTypeConfigBuilder("test")
+
+		assert.Panics(t, func() {
+			builder.AddBranch(
+				sdkstate.State("TestState"),
+				BranchOn(func(_ *state.Project) string { return "" }),
+				When("", sdkstate.Event("E"), sdkstate.State("S")),
+			)
+		})
+	})
+
+	t.Run("panic message explains issue", func(t *testing.T) {
+		builder := NewProjectTypeConfigBuilder("test")
+
+		defer func() {
+			r := recover()
+			require.NotNil(t, r)
+			msg := fmt.Sprintf("%v", r)
+			assert.Contains(t, msg, "empty string")
+			assert.Contains(t, msg, "not allowed")
+		}()
+
+		builder.AddBranch(
+			sdkstate.State("TestState"),
+			BranchOn(func(_ *state.Project) string { return "" }),
+			When("", sdkstate.Event("E"), sdkstate.State("S")),
+		)
+	})
+}
+
+func TestDiscriminatorReturnsEmptyString(t *testing.T) {
+	t.Run("returns helpful error when discriminator returns empty string", func(t *testing.T) {
+		// This is different from validation - discriminator might legitimately
+		// return empty string at runtime (e.g., no data available yet)
+		builder := NewProjectTypeConfigBuilder("test")
+
+		builder.AddBranch(
+			sdkstate.State("TestState"),
+			BranchOn(func(p *state.Project) string {
+				// Return empty string (e.g., data not ready)
+				return ""
+			}),
+			When("ready", sdkstate.Event("E"), sdkstate.State("S")),
+		)
+
+		config := builder.Build()
+		proj := createMinimalTestProject(t)
+
+		_, err := config.DetermineEvent(proj)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no branch defined")
+		// Empty string should be quoted for clarity
+		assert.Contains(t, err.Error(), `""`)
 	})
 }

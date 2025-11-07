@@ -690,7 +690,7 @@ func TestReviewBranchingWorkflow(t *testing.T) {
 		expectedSubstrings := []string{
 			"no branch defined",
 			"\"unknown\"",
-			"available:",
+			"available values:",
 		}
 		for _, substr := range expectedSubstrings {
 			if !contains(err.Error(), substr) {
