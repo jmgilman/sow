@@ -13,22 +13,30 @@ import (
 //
 // Usage:
 //
-//	sow advance
+//	sow advance                    # Auto-determine next event
+//	sow advance [event]            # Fire explicit event
+//	sow advance --list             # List available transitions
+//	sow advance --dry-run [event]  # Validate without executing
 //
 // This command examines the current phase and state, determines the appropriate
 // transition event, validates prerequisites via guards, and advances the state
 // machine if all conditions are met.
 func NewAdvanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "advance",
+		Use:   "advance [event]",
 		Short: "Progress project to next state",
 		Long: `Progress the project through its state machine.
 
 The advance command:
-1. Determines the next event based on current state
-2. Evaluates guards to ensure transition is allowed
-3. Fires the event if guards pass
-4. Saves the updated state
+1. Determines the next event based on current state (auto mode)
+2. Or fires an explicitly specified event (explicit mode)
+3. Evaluates guards to ensure transition is allowed
+4. Fires the event if guards pass
+5. Saves the updated state
+
+Flags:
+  --list     List available transitions without executing
+  --dry-run  Validate transition without executing (requires event argument)
 
 Guards may prevent transitions. Common guard failures:
 - Planning → Implementation: task_list output not approved
@@ -36,10 +44,18 @@ Guards may prevent transitions. Common guard failures:
 - Implementation Executing → Review: not all tasks completed
 - Review → Finalize: review not approved or assessment not set
 
-Example:
-  sow advance`,
-		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+Examples:
+  sow advance                    # Auto-determine next event
+  sow advance finalize           # Fire explicit event
+  sow advance --list             # Show available transitions
+  sow advance --dry-run finalize # Validate before executing`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate flags and arguments
+			if err := validateAdvanceFlags(cmd, args); err != nil {
+				return err
+			}
+
 			// Get context
 			ctx := cmdutil.GetContext(cmd.Context())
 
@@ -82,5 +98,37 @@ Example:
 		},
 	}
 
+	// Add flags
+	cmd.Flags().Bool("list", false, "List available transitions without executing")
+	cmd.Flags().Bool("dry-run", false, "Validate transition without executing")
+
 	return cmd
+}
+
+// validateAdvanceFlags checks mutual exclusivity rules for flags and arguments.
+// Returns an error if invalid flag/argument combinations are detected.
+func validateAdvanceFlags(cmd *cobra.Command, args []string) error {
+	listFlag, _ := cmd.Flags().GetBool("list")
+	dryRunFlag, _ := cmd.Flags().GetBool("dry-run")
+
+	// Get event argument if provided
+	var event string
+	if len(args) > 0 {
+		event = args[0]
+	}
+
+	// Validate flag combinations (order matters - check conflicting flags first)
+	if listFlag && dryRunFlag {
+		return fmt.Errorf("cannot use --list and --dry-run together")
+	}
+
+	if listFlag && event != "" {
+		return fmt.Errorf("cannot specify event argument with --list flag")
+	}
+
+	if dryRunFlag && event == "" {
+		return fmt.Errorf("--dry-run requires an event argument")
+	}
+
+	return nil
 }

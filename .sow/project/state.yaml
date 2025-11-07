@@ -3,7 +3,7 @@ type: standard
 branch: 78-cli-enhanced-advance-command-and-standard-project-refactoring
 description: CLI Enhanced Advance Command and Standard Project Refactoring
 created_at: 2025-11-07T14:05:38.142929-08:00
-updated_at: 2025-11-07T14:27:44.724937-08:00
+updated_at: 2025-11-07T14:33:27.093307-08:00
 phases:
     finalize:
         status: pending
@@ -26,7 +26,10 @@ phases:
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata:
+            draft_pr_created: true
             planning_approved: true
+            pr_number: 81
+            pr_url: https://github.com/jmgilman/sow/pull/81
         inputs:
             - type: github_issue
               path: context/issue-78.md
@@ -41,10 +44,10 @@ phases:
             - id: "010"
               name: CLI Command Infrastructure and Flag Validation
               phase: implementation
-              status: pending
+              status: completed
               created_at: 2025-11-07T14:27:04.037449-08:00
               started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-11-07T14:27:06.630029-08:00
+              updated_at: 2025-11-07T14:33:27.093306-08:00
               completed_at: 0001-01-01T00:00:00Z
               iteration: 1
               assigned_agent: implementer
@@ -64,7 +67,22 @@ phases:
                   approved: false
                   created_at: 2025-11-07T14:27:06.630028-08:00
                   metadata: {}
-              outputs: []
+                - type: feedback
+                  path: project/phases/implementation/tasks/010/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-07T14:33:26.241713-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: cli/cmd/advance.go
+                  approved: false
+                  created_at: 2025-11-07T14:31:50.090475-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/cmd/advance_test.go
+                  approved: false
+                  created_at: 2025-11-07T14:31:50.104357-08:00
+                  metadata: {}
               metadata: {}
             - id: "020"
               name: Auto-Determination Mode (Enhanced)
@@ -325,5 +343,5 @@ phases:
         outputs: []
         tasks: []
 statechart:
-    current_state: ImplementationDraftPRCreation
-    updated_at: 2025-11-07T14:27:44.724937-08:00
+    current_state: ImplementationExecuting
+    updated_at: 2025-11-07T14:33:27.093307-08:00
