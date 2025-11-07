@@ -3,6 +3,10 @@
 package project
 
 import (
+	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
 )
@@ -19,6 +23,7 @@ type ProjectTypeConfigBuilder struct {
 	prompts            map[sdkstate.State]PromptGenerator
 	orchestratorPrompt PromptGenerator
 	initializer        state.Initializer
+	branches           map[sdkstate.State]*BranchConfig
 }
 
 // NewProjectTypeConfigBuilder creates a new builder for a project type config.
@@ -31,6 +36,7 @@ func NewProjectTypeConfigBuilder(name string) *ProjectTypeConfigBuilder {
 		transitions:  make([]TransitionConfig, 0),
 		onAdvance:    make(map[sdkstate.State]EventDeterminer),
 		prompts:      make(map[sdkstate.State]PromptGenerator),
+		branches:     make(map[sdkstate.State]*BranchConfig),
 	}
 }
 
@@ -89,6 +95,153 @@ func (b *ProjectTypeConfigBuilder) OnAdvance(
 	determiner EventDeterminer,
 ) *ProjectTypeConfigBuilder {
 	b.onAdvance[state] = determiner
+	return b
+}
+
+// AddBranch configures state-determined branching from a state.
+//
+// This method provides a declarative API for defining multi-way branches where
+// the next state can be determined by examining project state. It auto-generates:
+//   1. Transitions for each When clause
+//   2. Event determiner using the discriminator function
+//
+// The discriminator examines project state and returns a string value. This value
+// is matched against the values defined in When() clauses to determine which
+// event to fire and which state to transition to.
+//
+// Example (binary branch):
+//   AddBranch(
+//       sdkstate.State(ReviewActive),
+//       project.BranchOn(func(p *state.Project) string {
+//           // Get review assessment from latest approved review
+//           assessment := getReviewAssessment(p)
+//           return assessment  // "pass" or "fail"
+//       }),
+//       project.When("pass",
+//           sdkstate.Event(EventReviewPass),
+//           sdkstate.State(FinalizeChecks),
+//           project.WithDescription("Review approved - proceed to finalization"),
+//       ),
+//       project.When("fail",
+//           sdkstate.Event(EventReviewFail),
+//           sdkstate.State(ImplementationPlanning),
+//           project.WithDescription("Review failed - return to planning for rework"),
+//           project.WithFailedPhase("review"),
+//       ),
+//   )
+//
+// This auto-generates:
+//   - Two AddTransition calls (one per When clause)
+//   - One OnAdvance determiner that calls discriminator and maps value to event
+//
+// Returns the builder for method chaining.
+func (b *ProjectTypeConfigBuilder) AddBranch(
+	from sdkstate.State,
+	opts ...BranchOption,
+) *ProjectTypeConfigBuilder {
+	// Create BranchConfig from options
+	bc := &BranchConfig{
+		from: from,
+	}
+
+	// Apply all options to build the branch config
+	for _, opt := range opts {
+		opt(bc)
+	}
+
+	// Validation 1: Discriminator is required
+	if bc.discriminator == nil {
+		panic(fmt.Sprintf(
+			"AddBranch for state %s: no discriminator provided - use BranchOn() to specify discriminator function",
+			from))
+	}
+
+	// Validation 2: At least one branch path is required
+	if len(bc.branches) == 0 {
+		panic(fmt.Sprintf(
+			"AddBranch for state %s: no branch paths provided - use When() to define at least one branch path",
+			from))
+	}
+
+	// Validation 3: Warn if state already has OnAdvance
+	if _, exists := b.onAdvance[from]; exists {
+		panic(fmt.Sprintf(
+			"AddBranch for state %s: state already has OnAdvance determiner - cannot use both AddBranch and OnAdvance on the same state",
+			from))
+	}
+
+	// Validation 4: Empty discriminator values not allowed
+	for value := range bc.branches {
+		if value == "" {
+			panic(fmt.Sprintf(
+				"AddBranch for state %s: empty string is not allowed as a discriminator value",
+				from))
+		}
+	}
+
+	// Generate AddTransition calls for each branch path
+	// Sort by value for deterministic transition order
+	values := make([]string, 0, len(bc.branches))
+	for value := range bc.branches {
+		values = append(values, value)
+	}
+	sort.Strings(values)
+
+	for _, value := range values {
+		path := bc.branches[value]
+
+		// Collect transition options from branch path
+		var transOpts []TransitionOption
+
+		if path.description != "" {
+			transOpts = append(transOpts, WithDescription(path.description))
+		}
+		if path.guardTemplate.Func != nil {
+			transOpts = append(transOpts, WithGuard(path.guardTemplate.Description, path.guardTemplate.Func))
+		}
+		if path.onEntry != nil {
+			transOpts = append(transOpts, WithOnEntry(path.onEntry))
+		}
+		if path.onExit != nil {
+			transOpts = append(transOpts, WithOnExit(path.onExit))
+		}
+		if path.failedPhase != "" {
+			transOpts = append(transOpts, WithFailedPhase(path.failedPhase))
+		}
+
+		// Generate transition
+		b.AddTransition(from, path.to, path.event, transOpts...)
+	}
+
+	// Generate OnAdvance determiner
+	b.OnAdvance(from, func(p *state.Project) (sdkstate.Event, error) {
+		// Call discriminator to get branch value
+		value := bc.discriminator(p)
+
+		// Look up branch path for this value
+		path, exists := bc.branches[value]
+		if !exists {
+			// Build helpful error message with available values
+			availableValues := make([]string, 0, len(bc.branches))
+			for v := range bc.branches {
+				availableValues = append(availableValues, fmt.Sprintf("%q", v))
+			}
+
+			// Sort for deterministic output
+			sort.Strings(availableValues)
+
+			return "", fmt.Errorf(
+				"no branch defined for discriminator value %q from state %s (available values: %s)",
+				value, from, strings.Join(availableValues, ", "))
+		}
+
+		// Return the event for this branch
+		return path.event, nil
+	})
+
+	// Store branch config for introspection
+	b.branches[from] = bc
+
 	return b
 }
 
@@ -157,6 +310,12 @@ func (b *ProjectTypeConfigBuilder) Build() *ProjectTypeConfig {
 		prompts[k] = v
 	}
 
+	// Copy branches map
+	branches := make(map[sdkstate.State]*BranchConfig, len(b.branches))
+	for k, v := range b.branches {
+		branches[k] = v
+	}
+
 	return &ProjectTypeConfig{
 		name:               b.name,
 		phaseConfigs:       phaseConfigs,
@@ -166,5 +325,6 @@ func (b *ProjectTypeConfigBuilder) Build() *ProjectTypeConfig {
 		prompts:            prompts,
 		orchestratorPrompt: b.orchestratorPrompt,
 		initializer:        b.initializer,
+		branches:           branches,
 	}
 }

@@ -174,6 +174,16 @@ func TestAddTransition(t *testing.T) {
 
 		assert.Len(t, builder.transitions, 2)
 	})
+
+	t.Run("stores description in transition config", func(t *testing.T) {
+		builder := NewProjectTypeConfigBuilder(testProjectName)
+
+		builder.AddTransition(testState1, testState2, testEvent1,
+			WithDescription("Test transition description"))
+
+		require.Len(t, builder.transitions, 1)
+		assert.Equal(t, "Test transition description", builder.transitions[0].description)
+	})
 }
 
 // TestOnAdvance tests event determiner configuration.

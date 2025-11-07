@@ -504,6 +504,216 @@ func TestGuardBlocksAndAllows(t *testing.T) {
 	})
 }
 
+// TestReviewBranchingWorkflow demonstrates complete branching workflow using AddBranch.
+// This tests the auto-generation of transitions and event determiners for state-determined branching.
+func TestReviewBranchingWorkflow(t *testing.T) {
+	// Create complete project type with AddBranch
+	config := NewProjectTypeConfigBuilder("review-test").
+		WithPhase("review",
+			WithOutputs("review"),
+		).
+		SetInitialState(sdkstate.State("ReviewActive")).
+		AddBranch(
+			sdkstate.State("ReviewActive"),
+			BranchOn(func(p *state.Project) string {
+				// Get review assessment from latest approved review artifact
+				phase := p.Phases["review"]
+				for i := len(phase.Outputs) - 1; i >= 0; i-- {
+					artifact := phase.Outputs[i]
+					if artifact.Type == "review" && artifact.Approved {
+						if assessment, ok := artifact.Metadata["assessment"].(string); ok {
+							return assessment
+						}
+					}
+				}
+				return ""
+			}),
+			When("pass",
+				sdkstate.Event("ReviewPass"),
+				sdkstate.State("FinalizeState"),
+				WithDescription("Review approved - proceed to finalization"),
+			),
+			When("fail",
+				sdkstate.Event("ReviewFail"),
+				sdkstate.State("ReworkState"),
+				WithDescription("Review failed - return to planning for rework"),
+			),
+		).
+		Build()
+
+	// Test 1: Review passes
+	t.Run("review passes", func(t *testing.T) {
+		// Create test project with pass assessment
+		proj := &state.Project{
+			ProjectState: projectschema.ProjectState{
+				Name:   "review-test",
+				Type:   "review-test",
+				Branch: "test-branch",
+				Phases: map[string]projectschema.PhaseState{
+					"review": {
+						Status:  "active",
+						Enabled: true,
+						Outputs: []projectschema.ArtifactState{
+							{
+								Type:     "review",
+								Approved: true,
+								Path:     "review.md",
+								Metadata: map[string]interface{}{
+									"assessment": "pass",
+								},
+								Created_at: time.Now(),
+							},
+						},
+					},
+				},
+				Statechart: projectschema.StatechartState{
+					Current_state: "ReviewActive",
+					Updated_at:    time.Now(),
+				},
+			},
+		}
+
+		// Build machine starting in ReviewActive
+		machine := config.BuildMachine(proj, sdkstate.State("ReviewActive"))
+
+		// Determine event (should return ReviewPass)
+		event, err := config.DetermineEvent(proj)
+		if err != nil {
+			t.Fatalf("DetermineEvent failed: %v", err)
+		}
+		if event != sdkstate.Event("ReviewPass") {
+			t.Errorf("expected ReviewPass event, got %s", event)
+		}
+
+		// Fire event (should transition to FinalizeState)
+		err = machine.Fire(event)
+		if err != nil {
+			t.Fatalf("Fire(ReviewPass) failed: %v", err)
+		}
+		if machine.State() != sdkstate.State("FinalizeState") {
+			t.Errorf("expected FinalizeState, got %s", machine.State())
+		}
+	})
+
+	// Test 2: Review fails
+	t.Run("review fails", func(t *testing.T) {
+		// Create test project with fail assessment
+		proj := &state.Project{
+			ProjectState: projectschema.ProjectState{
+				Name:   "review-test",
+				Type:   "review-test",
+				Branch: "test-branch",
+				Phases: map[string]projectschema.PhaseState{
+					"review": {
+						Status:  "active",
+						Enabled: true,
+						Outputs: []projectschema.ArtifactState{
+							{
+								Type:     "review",
+								Approved: true,
+								Path:     "review.md",
+								Metadata: map[string]interface{}{
+									"assessment": "fail",
+								},
+								Created_at: time.Now(),
+							},
+						},
+					},
+				},
+				Statechart: projectschema.StatechartState{
+					Current_state: "ReviewActive",
+					Updated_at:    time.Now(),
+				},
+			},
+		}
+
+		// Build machine starting in ReviewActive
+		machine := config.BuildMachine(proj, sdkstate.State("ReviewActive"))
+
+		// Determine event (should return ReviewFail)
+		event, err := config.DetermineEvent(proj)
+		if err != nil {
+			t.Fatalf("DetermineEvent failed: %v", err)
+		}
+		if event != sdkstate.Event("ReviewFail") {
+			t.Errorf("expected ReviewFail event, got %s", event)
+		}
+
+		// Fire event (should transition to ReworkState)
+		err = machine.Fire(event)
+		if err != nil {
+			t.Fatalf("Fire(ReviewFail) failed: %v", err)
+		}
+		if machine.State() != sdkstate.State("ReworkState") {
+			t.Errorf("expected ReworkState, got %s", machine.State())
+		}
+	})
+
+	// Test 3: Error on unmapped value
+	t.Run("error on unmapped assessment", func(t *testing.T) {
+		// Create test project with unknown assessment
+		proj := &state.Project{
+			ProjectState: projectschema.ProjectState{
+				Name:   "review-test",
+				Type:   "review-test",
+				Branch: "test-branch",
+				Phases: map[string]projectschema.PhaseState{
+					"review": {
+						Status:  "active",
+						Enabled: true,
+						Outputs: []projectschema.ArtifactState{
+							{
+								Type:     "review",
+								Approved: true,
+								Path:     "review.md",
+								Metadata: map[string]interface{}{
+									"assessment": "unknown",
+								},
+								Created_at: time.Now(),
+							},
+						},
+					},
+				},
+				Statechart: projectschema.StatechartState{
+					Current_state: "ReviewActive",
+					Updated_at:    time.Now(),
+				},
+			},
+		}
+
+		// Determine event should return error
+		_, err := config.DetermineEvent(proj)
+		if err == nil {
+			t.Error("expected error for unmapped assessment value")
+		}
+		// Verify error message is helpful
+		expectedSubstrings := []string{
+			"no branch defined",
+			"\"unknown\"",
+			"available values:",
+		}
+		for _, substr := range expectedSubstrings {
+			if !contains(err.Error(), substr) {
+				t.Errorf("error message should contain %q, got: %s", substr, err.Error())
+			}
+		}
+	})
+}
+
+// contains checks if a string contains a substring.
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && stringContains(s, substr))
+}
+
+func stringContains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 // createTestProject creates a minimal project state for testing.
 func createTestProject(_ *testing.T, typeName string) *state.Project {
 	return &state.Project{

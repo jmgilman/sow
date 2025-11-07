@@ -9,6 +9,17 @@ import (
 	projschema "github.com/jmgilman/sow/cli/schemas/project"
 )
 
+// TransitionInfo describes a single available transition from a state.
+// Used by introspection methods to provide structured information about
+// state machine configuration without exposing internal implementation details.
+type TransitionInfo struct {
+	Event       sdkstate.Event // Event that triggers this transition
+	From        sdkstate.State // Source state
+	To          sdkstate.State // Target state
+	Description string         // Human-readable description (empty if not provided)
+	GuardDesc   string         // Guard description (empty if no guard)
+}
+
 // PhaseConfig holds configuration for a single phase in a project type.
 type PhaseConfig struct {
 	// name is the phase identifier
@@ -58,6 +69,10 @@ type TransitionConfig struct {
 	// failedPhase optionally specifies a phase to mark as "failed" instead of "completed"
 	// when exiting its end state on this transition. Used for error/failure paths.
 	failedPhase string
+
+	// description is a human-readable explanation of what this transition does.
+	// Context-specific: same event from different states can have different meanings.
+	description string
 }
 
 // ProjectTypeConfig holds the complete configuration for a project type.
@@ -89,6 +104,10 @@ type ProjectTypeConfig struct {
 	// initializer is called during Create() to initialize the project
 	// with phases, metadata, and any type-specific initial state
 	initializer state.Initializer
+
+	// branches are branch configurations mapped by state
+	// Stored for introspection and debugging
+	branches map[sdkstate.State]*BranchConfig
 }
 
 // InitialState returns the configured initial state for this project type.
@@ -277,4 +296,211 @@ func (ptc *ProjectTypeConfig) GetTransition(from, to sdkstate.State, event sdkst
 		}
 	}
 	return nil
+}
+
+// GetAvailableTransitions returns all configured transitions from a state.
+//
+// This returns the transitions defined in the project type configuration,
+// not filtered by guards. To check if a transition is currently allowed,
+// use machine.CanFire(event) or machine.PermittedTriggers().
+//
+// Transitions are returned in a deterministic order:
+//   1. First, transitions from branches (if state is a branching state)
+//   2. Then, direct AddTransition calls
+//   Both sorted by event name for consistency
+//
+// Returns empty slice if no transitions are defined from the state.
+//
+// Example:
+//   transitions := config.GetAvailableTransitions(sdkstate.State(ReviewActive))
+//   for _, t := range transitions {
+//       fmt.Printf("%s -> %s: %s\n", t.Event, t.To, t.Description)
+//   }
+//
+func (ptc *ProjectTypeConfig) GetAvailableTransitions(from sdkstate.State) []TransitionInfo {
+	var result []TransitionInfo
+
+	// Check if this is a branching state
+	branchConfig, isBranching := ptc.branches[from]
+	if isBranching {
+		// Add transitions from branch paths
+		for _, path := range branchConfig.branches {
+			result = append(result, TransitionInfo{
+				Event:       path.event,
+				From:        from,
+				To:          path.to,
+				Description: path.description,
+				GuardDesc:   path.guardTemplate.Description,
+			})
+		}
+	}
+
+	// Add direct transitions (from AddTransition calls)
+	// Skip transitions that are part of a branch configuration (they're already included above)
+	for _, tc := range ptc.transitions {
+		//nolint:nestif // Deduplication logic requires nesting
+		if tc.From == from {
+			// Skip if this transition is part of a branch
+			if isBranching {
+				// Check if this transition matches any branch path
+				isBranchTransition := false
+				for _, path := range branchConfig.branches {
+					if tc.Event == path.event && tc.To == path.to {
+						isBranchTransition = true
+						break
+					}
+				}
+				if isBranchTransition {
+					continue
+				}
+			}
+
+			result = append(result, TransitionInfo{
+				Event:       tc.Event,
+				From:        tc.From,
+				To:          tc.To,
+				Description: tc.description,
+				GuardDesc:   tc.guardTemplate.Description,
+			})
+		}
+	}
+
+	// Sort by event name for deterministic output
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Event < result[j].Event
+	})
+
+	return result
+}
+
+// GetTransitionDescription returns the human-readable description for a transition.
+//
+// Searches both branch paths and direct transitions for the specified from-state
+// and event combination. Returns the first matching description found.
+//
+// Returns empty string if:
+//   - No transition exists for the from/event combination
+//   - The transition exists but has no description
+//
+// Note: This searches by from-state and event, not by to-state, since that's
+// how transitions are triggered. The same event from different states can have
+// different descriptions (context-specific).
+//
+// Example:
+//   desc := config.GetTransitionDescription(
+//       sdkstate.State(ReviewActive),
+//       sdkstate.Event(EventReviewPass))
+//   // Returns: "Review approved - proceed to finalization"
+//
+func (ptc *ProjectTypeConfig) GetTransitionDescription(from sdkstate.State, event sdkstate.Event) string {
+	// Check branch paths first
+	if branchConfig, exists := ptc.branches[from]; exists {
+		for _, path := range branchConfig.branches {
+			if path.event == event {
+				return path.description
+			}
+		}
+	}
+
+	// Check direct transitions
+	for _, tc := range ptc.transitions {
+		if tc.From == from && tc.Event == event {
+			return tc.description
+		}
+	}
+
+	return ""
+}
+
+// GetTargetState returns the target state for a transition.
+//
+// Searches both branch paths and direct transitions for the specified from-state
+// and event combination. Returns the target state of the first matching transition.
+//
+// Returns empty State if no transition exists for the from/event combination.
+//
+// Example:
+//   target := config.GetTargetState(
+//       sdkstate.State(ReviewActive),
+//       sdkstate.Event(EventReviewPass))
+//   // Returns: sdkstate.State(FinalizeChecks)
+//
+func (ptc *ProjectTypeConfig) GetTargetState(from sdkstate.State, event sdkstate.Event) sdkstate.State {
+	// Check branch paths first
+	if branchConfig, exists := ptc.branches[from]; exists {
+		for _, path := range branchConfig.branches {
+			if path.event == event {
+				return path.to
+			}
+		}
+	}
+
+	// Check direct transitions
+	for _, tc := range ptc.transitions {
+		if tc.From == from && tc.Event == event {
+			return tc.To
+		}
+	}
+
+	return ""
+}
+
+// GetGuardDescription returns the guard description for a transition.
+//
+// Searches both branch paths and direct transitions for the specified from-state
+// and event combination. Returns the guard description if a guard exists.
+//
+// Returns empty string if:
+//   - No transition exists for the from/event combination
+//   - The transition exists but has no guard
+//   - The guard exists but has no description
+//
+// Example:
+//   desc := config.GetGuardDescription(
+//       sdkstate.State(ImplementationExecuting),
+//       sdkstate.Event(EventAllTasksComplete))
+//   // Returns: "all tasks complete"
+//
+func (ptc *ProjectTypeConfig) GetGuardDescription(from sdkstate.State, event sdkstate.Event) string {
+	// Check branch paths first
+	if branchConfig, exists := ptc.branches[from]; exists {
+		for _, path := range branchConfig.branches {
+			if path.event == event {
+				return path.guardTemplate.Description
+			}
+		}
+	}
+
+	// Check direct transitions
+	for _, tc := range ptc.transitions {
+		if tc.From == from && tc.Event == event {
+			return tc.guardTemplate.Description
+		}
+	}
+
+	return ""
+}
+
+// IsBranchingState checks if a state has branches configured via AddBranch.
+//
+// Returns true if the state was configured with AddBranch (state-determined branching).
+// Returns false if the state:
+//   - Has no transitions
+//   - Has only direct transitions (via AddTransition)
+//   - Has multiple transitions but no AddBranch configuration
+//
+// This distinction is useful for UI/CLI to:
+//   - Show different help text for branching vs non-branching states
+//   - Indicate that transition choice is automatic vs manual
+//   - Highlight states where discriminator logic determines the path
+//
+// Example:
+//   if config.IsBranchingState(sdkstate.State(ReviewActive)) {
+//       fmt.Println("This is a branching state - the system will automatically")
+//       fmt.Println("determine which transition to take based on project state")
+//   }
+//
+func (ptc *ProjectTypeConfig) IsBranchingState(state sdkstate.State) bool {
+	_, exists := ptc.branches[state]
+	return exists
 }

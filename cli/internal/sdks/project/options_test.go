@@ -267,6 +267,62 @@ func TestMultipleTransitionOptions(t *testing.T) {
 	}
 }
 
+func TestWithFailedPhase(t *testing.T) {
+	config := &TransitionConfig{}
+
+	opt := WithFailedPhase("review")
+	opt(config)
+
+	if config.failedPhase != "review" {
+		t.Errorf("expected failedPhase 'review', got %q", config.failedPhase)
+	}
+}
+
+func TestWithDescription(t *testing.T) {
+	t.Run("sets description on transition config", func(t *testing.T) {
+		config := &TransitionConfig{}
+		opt := WithDescription("Test transition description")
+
+		opt(config)
+
+		if config.description != "Test transition description" {
+			t.Errorf("expected description 'Test transition description', got %q", config.description)
+		}
+	})
+
+	t.Run("works with other options", func(t *testing.T) {
+		config := &TransitionConfig{}
+		guardFunc := func(_ *state.Project) bool { return true }
+
+		// Apply multiple options
+		WithGuard("test guard", guardFunc)(config)
+		WithDescription("Test description")(config)
+
+		// Verify both options were applied
+		if config.guardTemplate.Description != "test guard" {
+			t.Errorf("expected guard description 'test guard', got %q", config.guardTemplate.Description)
+		}
+		if config.description != "Test description" {
+			t.Errorf("expected description 'Test description', got %q", config.description)
+		}
+		if config.guardTemplate.Func == nil {
+			t.Error("expected guardTemplate.Func to be set")
+		}
+	})
+
+	t.Run("empty description is allowed", func(t *testing.T) {
+		config := &TransitionConfig{}
+		opt := WithDescription("")
+
+		opt(config)
+
+		// Empty string should be set without error
+		if config.description != "" {
+			t.Errorf("expected empty description, got %q", config.description)
+		}
+	})
+}
+
 // Test that options can be applied in any order.
 func TestOptionsCanBeAppliedInAnyOrder(t *testing.T) {
 	// Test phase options in different order

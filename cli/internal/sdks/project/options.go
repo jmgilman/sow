@@ -103,3 +103,22 @@ func WithFailedPhase(phaseName string) TransitionOption {
 		tc.failedPhase = phaseName
 	}
 }
+
+// WithDescription adds a human-readable description to a transition.
+//
+// Descriptions are:
+// - Context-specific (same event from different states can have different meanings)
+// - Co-located with guards and actions
+// - Used by CLI --list to show what each transition does
+// - Visible to orchestrators for decision-making
+//
+// Best practice: Always add descriptions for transitions, especially in branching states.
+//
+// Example:
+//
+//	WithDescription("Review approved - proceed to finalization")
+func WithDescription(description string) TransitionOption {
+	return func(tc *TransitionConfig) {
+		tc.description = description
+	}
+}
