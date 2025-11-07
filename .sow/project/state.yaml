@@ -3,7 +3,7 @@ type: standard
 branch: 78-cli-enhanced-advance-command-and-standard-project-refactoring
 description: CLI Enhanced Advance Command and Standard Project Refactoring
 created_at: 2025-11-07T14:05:38.142929-08:00
-updated_at: 2025-11-07T15:27:59.204974-08:00
+updated_at: 2025-11-07T15:51:44.318257-08:00
 phases:
     finalize:
         status: pending
@@ -18,13 +18,13 @@ phases:
         outputs: []
         tasks: []
     implementation:
-        status: in_progress
+        status: completed
         enabled: false
         created_at: 2025-11-07T14:05:38.142929-08:00
         started_at: 2025-11-07T14:05:38.142974-08:00
-        completed_at: 0001-01-01T00:00:00Z
+        completed_at: 2025-11-07T15:28:06.224442-08:00
         failed_at: 0001-01-01T00:00:00Z
-        iteration: 0
+        iteration: 1
         metadata:
             draft_pr_created: true
             planning_approved: true
@@ -39,6 +39,13 @@ phases:
                 issue_number: 78
                 issue_title: CLI Enhanced Advance Command and Standard Project Refactoring
                 issue_url: https://github.com/jmgilman/sow/issues/78
+            - type: review
+              path: phases/review/reports/001.md
+              approved: true
+              created_at: 2025-11-07T15:33:27.145115-08:00
+              metadata:
+                assessment: fail
+                iteration: 1
         outputs: []
         tasks:
             - id: "010"
@@ -440,18 +447,108 @@ phases:
                   created_at: 2025-11-07T15:25:12.617492-08:00
                   metadata: {}
               metadata: {}
+            - id: "090"
+              name: Replace Non-Standard Unit Tests with Script-Based Integration Tests
+              phase: implementation
+              status: completed
+              created_at: 2025-11-07T15:44:00.613324-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T15:51:44.318257-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/testdata/script/integration
+                  approved: false
+                  created_at: 2025-11-07T15:44:00.629321-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/testdata/script/project
+                  approved: false
+                  created_at: 2025-11-07T15:44:00.640568-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/advance.go
+                  approved: false
+                  created_at: 2025-11-07T15:44:00.650651-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/phases/review/reports/001.md
+                  approved: false
+                  created_at: 2025-11-07T15:44:00.660743-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/090/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-07T15:51:44.304077-08:00
+                  metadata: {}
+              outputs:
+                - type: deleted
+                  path: cli/cmd/advance_test.go
+                  approved: false
+                  created_at: 2025-11-07T15:48:59.872061-08:00
+                  metadata: {}
+                - type: deleted
+                  path: cli/cmd/advance_integration_test.go
+                  approved: false
+                  created_at: 2025-11-07T15:49:00.79325-08:00
+                  metadata: {}
+                - type: deleted
+                  path: cli/cmd/advance_compatibility_test.go
+                  approved: false
+                  created_at: 2025-11-07T15:49:01.539157-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/testdata/script/integration/advance_auto.txtar
+                  approved: false
+                  created_at: 2025-11-07T15:49:02.472052-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/testdata/script/integration/advance_list.txtar
+                  approved: false
+                  created_at: 2025-11-07T15:49:03.2656-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/testdata/script/integration/advance_dryrun.txtar
+                  approved: false
+                  created_at: 2025-11-07T15:49:04.012012-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/testdata/script/integration/advance_explicit.txtar
+                  approved: false
+                  created_at: 2025-11-07T15:49:05.092149-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/testdata/script/integration/advance_flags.txtar
+                  approved: false
+                  created_at: 2025-11-07T15:49:05.744096-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/testdata/script/integration/advance_standard_lifecycle.txtar
+                  approved: false
+                  created_at: 2025-11-07T15:49:06.682-08:00
+                  metadata: {}
+              metadata: {}
     review:
-        status: pending
+        status: failed
         enabled: false
         created_at: 2025-11-07T14:05:38.142929-08:00
-        started_at: 0001-01-01T00:00:00Z
+        started_at: 2025-11-07T15:28:06.224443-08:00
         completed_at: 0001-01-01T00:00:00Z
-        failed_at: 0001-01-01T00:00:00Z
+        failed_at: 2025-11-07T15:42:48.282897-08:00
         iteration: 0
         metadata: {}
         inputs: []
-        outputs: []
+        outputs:
+            - type: review
+              path: phases/review/reports/001.md
+              approved: true
+              created_at: 2025-11-07T15:33:27.145115-08:00
+              metadata:
+                assessment: fail
+                iteration: 1
         tasks: []
 statechart:
     current_state: ImplementationExecuting
-    updated_at: 2025-11-07T15:27:59.204974-08:00
+    updated_at: 2025-11-07T15:51:44.318257-08:00
