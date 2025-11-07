@@ -59,8 +59,9 @@ Example:
 				return fmt.Errorf("cannot advance from state %s: %w\n\nThis may be a terminal state", currentState, err)
 			}
 
-			// Fire the event (evaluates guards, executes actions, transitions state)
-			if err := project.Machine().Fire(event); err != nil {
+			// Fire the event with automatic phase status updates
+			// (evaluates guards, executes actions, transitions state, updates phase status)
+			if err := project.Config().FireWithPhaseUpdates(project.Machine(), event, project); err != nil {
 				// Provide helpful error messages based on error type
 				if strings.Contains(err.Error(), "cannot fire event") {
 					return fmt.Errorf("transition blocked: %w\n\nCheck that all prerequisites for this state transition are met", err)

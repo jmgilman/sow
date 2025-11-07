@@ -133,6 +133,10 @@ stdout 'Advanced to: ImplementationPlanning'
 exec cat .sow/project/state.yaml
 stdout 'current_state: ImplementationPlanning'
 
+# Verify review phase marked as failed (WithFailedPhase behavior)
+stdout 'review:'
+stdout '(?s)review:.*status: failed'
+
 # =====================================
 # Verify Can Iterate on Existing Task
 # =====================================

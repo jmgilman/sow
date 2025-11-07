@@ -16,8 +16,6 @@
 package breakdown
 
 import (
-	"time"
-
 	"github.com/jmgilman/sow/cli/internal/sdks/project"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
@@ -118,14 +116,7 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			project.WithGuard("all work units published", func(p *state.Project) bool {
 				return allWorkUnitsPublished(p)
 			}),
-			project.WithOnEntry(func(p *state.Project) error {
-				// Mark breakdown phase as completed
-				phase := p.Phases["breakdown"]
-				phase.Status = "completed"
-				phase.Completed_at = time.Now()
-				p.Phases["breakdown"] = phase
-				return nil
-			}),
+			// Note: Breakdown phase completion is automatically managed by FireWithPhaseUpdates
 		)
 }
 

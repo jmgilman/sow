@@ -113,6 +113,15 @@ stdout 'Advanced to: ImplementationPlanning'
 exec cat .sow/project/state.yaml
 stdout 'current_state: ImplementationPlanning'
 
+# Verify planning phase marked as completed
+stdout 'planning:'
+stdout '(?s)planning:.*status: completed'
+
+# Verify implementation phase now in progress
+stdout 'implementation:'
+stdout '(?s)implementation:.*status: in_progress'
+stdout '(?s)implementation:.*enabled: true'
+
 # =====================================
 # Implementation Planning
 # =====================================
@@ -170,6 +179,15 @@ stdout 'Advanced to: ReviewActive'
 exec cat .sow/project/state.yaml
 stdout 'current_state: ReviewActive'
 
+# Verify implementation phase marked as completed
+stdout 'implementation:'
+stdout '(?s)implementation:.*status: completed'
+
+# Verify review phase now in progress
+stdout 'review:'
+stdout '(?s)review:.*status: in_progress'
+stdout '(?s)review:.*enabled: true'
+
 # =====================================
 # Review Phase - Pass Assessment
 # =====================================
@@ -192,6 +210,15 @@ exec sow advance
 stdout 'Advanced to: FinalizeChecks'
 exec cat .sow/project/state.yaml
 stdout 'current_state: FinalizeChecks'
+
+# Verify review phase marked as completed (pass assessment)
+stdout 'review:'
+stdout '(?s)review:.*status: completed'
+
+# Verify finalize phase now in progress
+stdout 'finalize:'
+stdout '(?s)finalize:.*status: in_progress'
+stdout '(?s)finalize:.*enabled: true'
 
 # =====================================
 # Finalize Phase - Advance through states

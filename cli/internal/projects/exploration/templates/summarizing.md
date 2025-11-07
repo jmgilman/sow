@@ -2,7 +2,9 @@
 
 ## Guidance: Summarizing Findings
 
-You are in the **Summarizing** state. All research topics are resolved. Now synthesize findings into comprehensive summary document(s).
+You are in the **Summarizing** state. All research topics are resolved. Now synthesize the **user-approved findings** into comprehensive summary document(s).
+
+**Remember**: You're drafting summaries based on investigations the user already reviewed and approved. Your job is to synthesize insights, not make new research decisions.
 
 ### Creating Summaries
 
@@ -49,10 +51,11 @@ Links to:
 
 ### Workflow
 
-1. **Review all research outputs**:
+1. **Review all user-approved research outputs**:
    - Read task logs: `.sow/project/phases/exploration/tasks/*/log.md`
-   - Review any artifacts created during research
-   - Identify patterns and insights
+   - Review artifacts created during research
+   - These represent findings the user already reviewed and approved
+   - Identify patterns and insights across topics
 
 2. **Write summary document(s)**:
    - Save to: `.sow/project/phases/exploration/outputs/`
@@ -63,14 +66,19 @@ Links to:
    sow output add --type summary --path "phases/exploration/outputs/findings.md"
    ```
 
-4. **Present to user**:
-   - User reviews summary quality
-   - User approves when satisfied:
-     ```bash
-     sow output set --index <N> approved true
-     ```
+4. **Present draft to user for review**:
+   - Show the summary you've created
+   - User reviews summary quality and completeness
+   - User either:
+     - **Approves**: `sow output set --index <N> approved true`
+     - **Requests revisions**: Provides feedback on what to change
 
-5. **Advance when approved**:
+5. **Iterate based on feedback**:
+   - If user requests changes, revise summary accordingly
+   - Re-present updated summary
+   - Continue until user approves
+
+6. **Advance when approved**:
    ```bash
    sow project advance  # Guard: at least one summary approved
    ```
@@ -89,12 +97,18 @@ Links to:
 
 ### Approval Process
 
+**You draft, user approves**:
+- Draft summaries based on user-approved research
+- Present draft to user
+- User reviews for comprehensiveness, accuracy, clarity
+- Revise based on feedback until user approves
+
 User approval means:
 - Summary is comprehensive and accurate
 - Insights are clearly communicated
 - Ready to become permanent knowledge artifact
 
-If summary needs revision:
-- User provides feedback
-- Update document based on feedback
-- Re-register if path changed, or user re-approves same artifact
+**Do not**:
+- Advance to Finalizing without user approval
+- Make assumptions about whether summary is sufficient
+- Skip user review

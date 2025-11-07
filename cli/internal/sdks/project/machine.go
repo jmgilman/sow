@@ -58,10 +58,6 @@ func (ptc *ProjectTypeConfig) BuildMachine(
 		}
 	}
 
-	// NOTE: We pass nil for projectState because the Project SDK uses closures
-	// to bind project state to guards and actions. The state machine builder's
-	// projectState parameter is optional and only needed for legacy code that
-	// doesn't use closures. Since we bind state via closures, we pass nil here.
 	builder := stateMachine.NewBuilder(initialState, promptFunc)
 
 	// Add all transitions with guards and actions bound to project instance
