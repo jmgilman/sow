@@ -69,6 +69,12 @@ Examples:
 			// Get current state
 			currentState := state.State(project.Statechart.Current_state)
 
+			// Check for list mode
+			listFlag, _ := cmd.Flags().GetBool("list")
+			if listFlag {
+				return listAvailableTransitions(project, currentState)
+			}
+
 			// Auto-determination mode: no flags, no event argument
 			return executeAutoTransition(project, currentState)
 		},
@@ -149,6 +155,80 @@ func executeAutoTransition(
 	// Display new state
 	newState := proj.Statechart.Current_state
 	fmt.Printf("Advanced to: %s\n", newState)
+
+	return nil
+}
+
+// listAvailableTransitions displays all available transitions from the current state.
+// Shows both permitted and blocked transitions with guard status.
+func listAvailableTransitions(
+	proj *state.Project,
+	currentState state.State,
+) error {
+	fmt.Printf("Current state: %s\n\n", currentState)
+
+	// Type assert to get access to introspection methods
+	config, ok := proj.Config().(*project.ProjectTypeConfig)
+	if !ok {
+		return fmt.Errorf("cannot list transitions: invalid project configuration")
+	}
+
+	// Get all configured transitions
+	allTransitions := config.GetAvailableTransitions(currentState)
+	if len(allTransitions) == 0 {
+		fmt.Println("No transitions available from current state.")
+		fmt.Println("This may be a terminal state.")
+		return nil
+	}
+
+	// Get guard-filtered events (what can fire now)
+	machine := proj.Machine()
+	permittedEvents, err := machine.PermittedTriggers()
+	if err != nil {
+		return fmt.Errorf("failed to get permitted triggers: %w", err)
+	}
+
+	// Build set of permitted events for quick lookup
+	permitted := make(map[state.Event]bool)
+	for _, event := range permittedEvents {
+		permitted[event] = true
+	}
+
+	// Display transitions
+	fmt.Println("Available transitions:")
+
+	if len(permittedEvents) == 0 {
+		fmt.Println()
+		fmt.Println("(All configured transitions are currently blocked by guard conditions)")
+		fmt.Println()
+	} else {
+		fmt.Println()
+	}
+
+	for _, transition := range allTransitions {
+		// Check if permitted
+		blocked := !permitted[transition.Event]
+		blockedMarker := ""
+		if blocked {
+			blockedMarker = "  [BLOCKED]"
+		}
+
+		// Display event and target
+		fmt.Printf("  sow advance %s%s\n", transition.Event, blockedMarker)
+		fmt.Printf("    → %s\n", transition.To)
+
+		// Display description if present
+		if transition.Description != "" {
+			fmt.Printf("    %s\n", transition.Description)
+		}
+
+		// Display guard description if present
+		if transition.GuardDesc != "" {
+			fmt.Printf("    Requires: %s\n", transition.GuardDesc)
+		}
+
+		fmt.Println()
+	}
 
 	return nil
 }
