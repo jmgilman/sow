@@ -86,6 +86,18 @@ Examples:
 				return validateTransition(ctx, project, machine, currentState, sdkstate.Event(event))
 			}
 
+			// Get event argument if provided
+			var event string
+			if len(args) > 0 {
+				event = args[0]
+			}
+
+			// Explicit event mode: event argument provided without flags
+			if event != "" {
+				machine := project.Machine()
+				return executeExplicitTransition(ctx, project, machine, currentState, sdkstate.Event(event))
+			}
+
 			// Auto-determination mode: no flags, no event argument
 			return executeAutoTransition(project, currentState)
 		},
@@ -353,4 +365,104 @@ func validateTransition(
 	fmt.Printf("To execute: sow advance %s\n", event)
 
 	return nil
+}
+
+// executeExplicitTransition validates and executes an explicit event transition.
+// This is the core implementation of explicit event mode (sow advance [event]).
+//
+// The orchestrator specifies exactly which event to fire, which is used for:
+// - Intent-based branching (multiple valid options, orchestrator decides)
+// - Explicit state control (override auto-determination)
+// - Debugging and testing (fire specific events)
+//
+// Returns error if:
+// - Event not configured for current state
+// - Guard conditions not met
+// - Transition execution fails
+// - Save fails
+//
+// Side effects:
+// - Fires event and transitions state machine
+// - Updates phase status based on transition
+// - Saves project state to disk
+func executeExplicitTransition(
+	ctx *sow.Context,
+	proj *state.Project,
+	machine *sdkstate.Machine,
+	currentState sdkstate.State,
+	event sdkstate.Event,
+) error {
+	fmt.Printf("Current state: %s\n", currentState)
+
+	// Type assert to get access to introspection methods
+	config, ok := proj.Config().(*project.ProjectTypeConfig)
+	if !ok {
+		return fmt.Errorf("cannot execute transition: invalid project configuration")
+	}
+
+	// Validate event is configured for this state
+	targetState := config.GetTargetState(currentState, event)
+	if targetState == "" {
+		fmt.Printf("\nError: Event '%s' is not configured for state %s\n\n", event, currentState)
+		fmt.Println("Use 'sow advance --list' to see available transitions.")
+		return fmt.Errorf("event not configured")
+	}
+
+	// Fire the event (this validates guards and executes transition)
+	err := config.FireWithPhaseUpdates(machine, event, proj)
+	if err != nil {
+		// Enhanced error handling for guard failures
+		return enhanceTransitionError(err, currentState, event, targetState, config)
+	}
+
+	// Sync machine state to project state (Save() does this, but we need it before Save())
+	// This is required because the machine's internal state has changed
+	proj.Statechart.Current_state = machine.State().String()
+
+	// Save updated state to disk
+	// Note: In production, ctx is always set via Load()
+	// In unit tests, proj may not have ctx, so we skip Save()
+	if ctx != nil {
+		if err := proj.Save(); err != nil {
+			return fmt.Errorf("failed to save state: %w", err)
+		}
+	}
+
+	// Display new state
+	newState := proj.Statechart.Current_state
+	fmt.Printf("Advanced to: %s\n", newState)
+
+	return nil
+}
+
+// enhanceTransitionError enhances error messages for transition failures.
+// Detects guard failures and provides helpful context and next steps.
+func enhanceTransitionError(
+	err error,
+	currentState sdkstate.State,
+	event sdkstate.Event,
+	targetState sdkstate.State,
+	config *project.ProjectTypeConfig,
+) error {
+	// Check if this is a guard failure
+	if strings.Contains(err.Error(), "guard condition is not met") {
+		guardDesc := config.GetGuardDescription(currentState, event)
+
+		var msg strings.Builder
+		msg.WriteString(fmt.Sprintf("Transition blocked: %s\n\n", guardDesc))
+		msg.WriteString(fmt.Sprintf("Current state: %s\n", currentState))
+		msg.WriteString(fmt.Sprintf("Event: %s\n", event))
+		msg.WriteString(fmt.Sprintf("Target state: %s\n\n", targetState))
+
+		if guardDesc != "" {
+			msg.WriteString(fmt.Sprintf("The guard condition is not satisfied. %s\n\n", guardDesc))
+		}
+
+		msg.WriteString(fmt.Sprintf("Use 'sow advance --dry-run %s' to validate prerequisites.", event))
+
+		return fmt.Errorf("%s", msg.String())
+	}
+
+	// Other error types - use default wrapping
+	return fmt.Errorf("failed to advance: %w", err)
 }

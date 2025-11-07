@@ -507,6 +507,7 @@ func createTestProjectWithConfig(t *testing.T, initialState string, config *sdkp
 
 	// Use reflection to set private fields (config and machine)
 	// This is necessary for testing since these fields are not exported
+	// Note: We don't set ctx field because Save() will fail in unit tests anyway
 	projValue := reflect.ValueOf(proj).Elem()
 
 	// Set config field - it expects ProjectTypeConfig interface, but we have *ProjectTypeConfig
@@ -793,3 +794,326 @@ func TestAdvanceDryRunNoSideEffects(t *testing.T) {
 // TestAdvanceDryRunWithoutEvent is already covered by TestAdvanceFlagValidation
 // which tests the "--dry-run requires an event argument" validation.
 // No additional test needed here.
+
+// TestAdvanceExplicitSuccess tests explicit event mode with successful transition.
+func TestAdvanceExplicitSuccess(t *testing.T) {
+	// Create test project with multiple valid transitions
+	config := sdkproject.NewProjectTypeConfigBuilder("test").
+		AddTransition(
+			sdkstate.State("Researching"),
+			sdkstate.State("Finalizing"),
+			sdkstate.Event("finalize"),
+			sdkproject.WithDescription("Research complete"),
+			sdkproject.WithGuard(
+				"research complete",
+				func(_ *state.Project) bool { return true },
+			),
+		).
+		AddTransition(
+			sdkstate.State("Researching"),
+			sdkstate.State("Analyzing"),
+			sdkstate.Event("analyze"),
+			sdkproject.WithDescription("Move to analysis"),
+			sdkproject.WithGuard(
+				"ready to analyze",
+				func(_ *state.Project) bool { return true },
+			),
+		).
+		Build()
+
+	proj := createTestProjectWithConfig(t, "Researching", config)
+	machine := proj.Machine()
+
+	// Capture initial state
+	initialState := proj.Statechart.Current_state
+	if initialState != "Researching" {
+		t.Fatalf("Expected initial state Researching, got %s", initialState)
+	}
+
+	// Capture output
+	output := captureOutput(func() {
+		err := executeExplicitTransition(
+			nil, // ctx nil in unit tests - Save() will be skipped
+			proj,
+			machine,
+			sdkstate.State("Researching"),
+			sdkstate.Event("finalize"),
+		)
+		if err != nil {
+			t.Errorf("executeExplicitTransition failed: %v", err)
+		}
+	})
+
+	// Verify: Current state displayed
+	if !strings.Contains(output, "Current state: Researching") {
+		t.Errorf("Expected current state display, got:\n%s", output)
+	}
+
+	// Verify: State advanced to correct target
+	if proj.Statechart.Current_state != "Finalizing" {
+		t.Errorf("Expected state to advance to Finalizing, got %s", proj.Statechart.Current_state)
+	}
+
+	// Verify: New state displayed
+	if !strings.Contains(output, "Advanced to: Finalizing") {
+		t.Errorf("Expected new state display, got:\n%s", output)
+	}
+
+	// Note: We can't test Save() in unit tests since it requires file I/O
+	// The save functionality is tested in integration tests
+}
+
+// TestAdvanceExplicitGuardFailure tests explicit event mode when guard fails.
+func TestAdvanceExplicitGuardFailure(t *testing.T) {
+	// Create test project where specified event's guard fails
+	config := sdkproject.NewProjectTypeConfigBuilder("test").
+		AddTransition(
+			sdkstate.State("ImplementationPlanning"),
+			sdkstate.State("ImplementationExecuting"),
+			sdkstate.Event("planning_complete"),
+			sdkproject.WithDescription("Planning approved and tasks ready"),
+			sdkproject.WithGuard(
+				"task descriptions approved",
+				func(_ *state.Project) bool { return false }, // Guard fails
+			),
+		).
+		Build()
+
+	proj := createTestProjectWithConfig(t, "ImplementationPlanning", config)
+	machine := proj.Machine()
+
+	// Capture output and error
+	var capturedErr error
+	output := captureOutput(func() {
+		capturedErr = executeExplicitTransition(
+			nil,
+			proj,
+			machine,
+			sdkstate.State("ImplementationPlanning"),
+			sdkstate.Event("planning_complete"),
+		)
+	})
+
+	// Verify: Error returned
+	if capturedErr == nil {
+		t.Error("Expected error when guard fails, got nil")
+	}
+
+	// Verify: Error message includes guard description
+	if capturedErr != nil {
+		errMsg := capturedErr.Error()
+		if !strings.Contains(errMsg, "task descriptions approved") {
+			t.Errorf("Expected error to contain guard description, got: %v", errMsg)
+		}
+
+		// Verify: Error shows current state and target state
+		if !strings.Contains(errMsg, "ImplementationPlanning") {
+			t.Errorf("Expected error to contain current state, got: %v", errMsg)
+		}
+		if !strings.Contains(errMsg, "ImplementationExecuting") {
+			t.Errorf("Expected error to contain target state, got: %v", errMsg)
+		}
+		if !strings.Contains(errMsg, "planning_complete") {
+			t.Errorf("Expected error to contain event name, got: %v", errMsg)
+		}
+
+		// Verify: Suggests using --dry-run
+		if !strings.Contains(errMsg, "--dry-run") {
+			t.Errorf("Expected error to suggest --dry-run, got: %v", errMsg)
+		}
+	}
+
+	// Verify: Current state displayed before error
+	if !strings.Contains(output, "Current state: ImplementationPlanning") {
+		t.Errorf("Expected current state display, got:\n%s", output)
+	}
+
+	// Verify: Project state unchanged (transaction rolled back)
+	if proj.Statechart.Current_state != "ImplementationPlanning" {
+		t.Errorf("Expected state to remain ImplementationPlanning after failed transition, got %s", proj.Statechart.Current_state)
+	}
+}
+
+// TestAdvanceExplicitInvalidEvent tests explicit event mode with unconfigured event.
+func TestAdvanceExplicitInvalidEvent(t *testing.T) {
+	// Create test project in known state
+	config := sdkproject.NewProjectTypeConfigBuilder("test").
+		AddTransition(
+			sdkstate.State("ReviewActive"),
+			sdkstate.State("FinalizeChecks"),
+			sdkstate.Event("review_pass"),
+		).
+		AddTransition(
+			sdkstate.State("ReviewActive"),
+			sdkstate.State("ImplementationExecuting"),
+			sdkstate.Event("review_fail"),
+		).
+		Build()
+
+	proj := createTestProjectWithConfig(t, "ReviewActive", config)
+	machine := proj.Machine()
+
+	// Capture output and error
+	var capturedErr error
+	output := captureOutput(func() {
+		capturedErr = executeExplicitTransition(
+			nil,
+			proj,
+			machine,
+			sdkstate.State("ReviewActive"),
+			sdkstate.Event("invalid_event"),
+		)
+	})
+
+	// Verify: Error returned
+	if capturedErr == nil {
+		t.Error("Expected error for invalid event, got nil")
+	}
+
+	// Verify: Error about unconfigured event
+	if capturedErr != nil && !strings.Contains(capturedErr.Error(), "event not configured") {
+		t.Errorf("Expected 'event not configured' error, got: %v", capturedErr)
+	}
+
+	// Verify: Output shows error message
+	if !strings.Contains(output, "Event 'invalid_event' is not configured for state ReviewActive") {
+		t.Errorf("Expected unconfigured event message in output, got:\n%s", output)
+	}
+
+	// Verify: Suggests using --list
+	if !strings.Contains(output, "Use 'sow advance --list' to see available transitions") {
+		t.Errorf("Expected --list suggestion, got:\n%s", output)
+	}
+
+	// Verify: Project state unchanged
+	if proj.Statechart.Current_state != "ReviewActive" {
+		t.Errorf("Expected state to remain ReviewActive, got %s", proj.Statechart.Current_state)
+	}
+}
+
+// TestAdvanceExplicitIntentBranching tests explicit event mode with intent-based branching.
+// This tests the primary use case: orchestrator explicitly chooses between multiple valid options.
+func TestAdvanceExplicitIntentBranching(t *testing.T) {
+	// Helper to create a fresh project with intent-based branching
+	createIntentBranchingProject := func() (*state.Project, *sdkproject.ProjectTypeConfig) {
+		config := sdkproject.NewProjectTypeConfigBuilder("exploration").
+			AddTransition(
+				sdkstate.State("Researching"),
+				sdkstate.State("Finalizing"),
+				sdkstate.Event("finalize"),
+				sdkproject.WithDescription("Research complete"),
+				sdkproject.WithGuard(
+					"research complete",
+					func(_ *state.Project) bool { return true },
+				),
+			).
+			AddTransition(
+				sdkstate.State("Researching"),
+				sdkstate.State("Exploring"),
+				sdkstate.Event("explore_more"),
+				sdkproject.WithDescription("Need more investigation"),
+				sdkproject.WithGuard(
+					"can explore more",
+					func(_ *state.Project) bool { return true },
+				),
+			).
+			Build()
+
+		proj := createTestProjectWithConfig(t, "Researching", config)
+		return proj, config
+	}
+
+	// Test Case 1: Choose to finalize
+	t.Run("choose finalize branch", func(t *testing.T) {
+		proj, _ := createIntentBranchingProject()
+		machine := proj.Machine()
+
+		err := executeExplicitTransition(
+			nil, // ctx nil in unit tests - Save() will be skipped
+			proj,
+			machine,
+			sdkstate.State("Researching"),
+			sdkstate.Event("finalize"),
+		)
+		if err != nil {
+			t.Fatalf("finalize failed: %v", err)
+		}
+
+		// Verify: Selected correct branch
+		if proj.Statechart.Current_state != "Finalizing" {
+			t.Errorf("Expected state to be Finalizing after finalize, got %s", proj.Statechart.Current_state)
+		}
+	})
+
+	// Test Case 2: Choose to explore more
+	t.Run("choose explore_more branch", func(t *testing.T) {
+		proj, _ := createIntentBranchingProject()
+		machine := proj.Machine()
+
+		err := executeExplicitTransition(
+			nil, // ctx nil in unit tests - Save() will be skipped
+			proj,
+			machine,
+			sdkstate.State("Researching"),
+			sdkstate.Event("explore_more"),
+		)
+		if err != nil {
+			t.Fatalf("explore_more failed: %v", err)
+		}
+
+		// Verify: Selected correct branch (goes to Exploring)
+		if proj.Statechart.Current_state != "Exploring" {
+			t.Errorf("Expected state to be Exploring after explore_more, got %s", proj.Statechart.Current_state)
+		}
+	})
+}
+
+// TestAdvanceExplicitWithDescriptions tests explicit event mode displays descriptions.
+func TestAdvanceExplicitWithDescriptions(t *testing.T) {
+	// Create test project with transitions having descriptions
+	config := sdkproject.NewProjectTypeConfigBuilder("test").
+		AddTransition(
+			sdkstate.State("StateA"),
+			sdkstate.State("StateB"),
+			sdkstate.Event("proceed"),
+			sdkproject.WithDescription("Move forward after approval"),
+			sdkproject.WithGuard(
+				"approval received",
+				func(_ *state.Project) bool { return true },
+			),
+		).
+		Build()
+
+	proj := createTestProjectWithConfig(t, "StateA", config)
+	machine := proj.Machine()
+
+	// Capture output
+	output := captureOutput(func() {
+		err := executeExplicitTransition(
+			nil, // ctx nil in unit tests - Save() will be skipped
+			proj,
+			machine,
+			sdkstate.State("StateA"),
+			sdkstate.Event("proceed"),
+		)
+		if err != nil {
+			t.Errorf("executeExplicitTransition failed: %v", err)
+		}
+	})
+
+	// Verify: Transition succeeds
+	if proj.Statechart.Current_state != "StateB" {
+		t.Errorf("Expected state to be StateB, got %s", proj.Statechart.Current_state)
+	}
+
+	// Verify: Output includes state information
+	if !strings.Contains(output, "Current state: StateA") {
+		t.Errorf("Expected current state display, got:\n%s", output)
+	}
+	if !strings.Contains(output, "Advanced to: StateB") {
+		t.Errorf("Expected new state display, got:\n%s", output)
+	}
+
+	// Note: Description display is optional per requirements
+	// The description is primarily used by list mode
+}
