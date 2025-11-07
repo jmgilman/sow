@@ -13,9 +13,14 @@ const (
 	EventProjectInit = state.Event("project_init")
 
 	// EventPlanningComplete completes planning and task breakdown.
-	// Transition: ImplementationPlanning → ImplementationExecuting.
+	// Transition: ImplementationPlanning → ImplementationDraftPRCreation.
 	// Guard: all task description files approved.
 	EventPlanningComplete = state.Event("planning_complete")
+
+	// EventDraftPRCreated indicates draft PR has been created.
+	// Transition: ImplementationDraftPRCreation → ImplementationExecuting.
+	// Guard: draft PR created and metadata stored.
+	EventDraftPRCreated = state.Event("draft_pr_created")
 
 	// EventAllTasksComplete indicates all tasks done.
 	// Transition: ImplementationExecuting → ReviewActive.
@@ -33,13 +38,13 @@ const (
 	EventReviewFail = state.Event("review_fail")
 
 	// EventChecksDone completes final checks.
-	// Transition: FinalizeChecks → FinalizePRCreation.
+	// Transition: FinalizeChecks → FinalizePRReady.
 	EventChecksDone = state.Event("checks_done")
 
-	// EventPRCreated indicates PR created and approved.
-	// Transition: FinalizePRCreation → FinalizePRChecks.
+	// EventPRReady indicates PR body updated and marked ready for review.
+	// Transition: FinalizePRReady → FinalizePRChecks.
 	// Guard: pr_body artifact approved.
-	EventPRCreated = state.Event("pr_created")
+	EventPRReady = state.Event("pr_ready")
 
 	// EventPRChecksPass indicates all PR checks have passed.
 	// Transition: FinalizePRChecks → FinalizeCleanup.

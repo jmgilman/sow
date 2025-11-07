@@ -1,49 +1,31 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-FINALIZE: PR CREATION (Requires Approval)
+FINALIZE: PR READY (Requires Approval)
 
 PROJECT: {{.Name}}
 
-Create pull request with comprehensive summary and documentation.
+Update PR body with comprehensive summary and mark ready for review.
 
 RESPONSIBILITIES:
-  - Verify git working directory is clean
-  - Ensure local branch is synced with remote
   - Create comprehensive PR body document
   - Present PR body for user approval
-  - Create PR via gh CLI after approval
+  - Update existing draft PR with new body
+  - Mark PR as ready for review
 
 WORKFLOW:
 
-  1. Verify Repository State:
-     git status                # Must be clean
-     git fetch origin
-     git status                # Check if ahead/behind remote
-
-     If behind remote:
-       → Issue: Local branch not synced
-       → Action: Inform user to sync before continuing
-
-     If ahead but not pushed:
-       → Action: Push local commits
-       → Command: git push origin HEAD
-
-     If working directory not clean:
-       → Issue: Uncommitted changes exist
-       → Action: Review what's uncommitted, create commit if needed
-
-  2. Gather PR Information:
+  1. Gather PR Information:
      Review project history to understand complete change set:
      - git log origin/{{.Branch}}..HEAD          # Review all commits
      - git diff origin/{{.Branch}}...HEAD        # Review all changes
      - Read .sow/project/context/*                # Review project decisions
      - Read .sow/project/phases/*/tasks/*/log.md  # Review task work logs
 
-  3. Create PR Body Document:
+  2. Create Comprehensive PR Body Document:
      Create: .sow/project/phases/finalize/pr_body.md
 
      Include:
-     - Clear title summarizing the change
+     - Clear title summarizing the change (conventional commit format)
      - High-level summary (2-3 paragraphs)
      - Detailed changes (organized by task or component)
      - Testing performed
@@ -52,7 +34,7 @@ WORKFLOW:
 
      Structure:
      ```markdown
-     # [Title]
+     # [Title in conventional commit format]
 
      ## Summary
      [High-level overview of what this PR accomplishes]
@@ -65,40 +47,49 @@ WORKFLOW:
 
      ## Notes
      [Any additional context, breaking changes, migration steps]
+
+     🤖 Generated with [sow](https://github.com/jmgilman/sow)
      ```
 
-  4. Register PR Body as Output:
+  3. Register PR Body as Output:
      sow output add --type pr_body --path "project/phases/finalize/pr_body.md"
 
-  5. Wait for Verbal Approval:
+  4. Wait for Verbal Approval:
      Present the PR body to the user:
-     "I've created a PR body document. Please review:
+     "I've created an updated PR body document. Please review:
       .sow/project/phases/finalize/pr_body.md
 
       Do you approve this PR description?"
 
      If user approves:
        → Run: sow output set --index 0 approved true
-       → Proceed to step 6
+       → Proceed to step 5
 
      If user requests changes:
        → Update pr_body.md based on feedback
-       → Return to step 5 (ask for approval again)
+       → Return to step 4 (ask for approval again)
 
-  6. Create Pull Request:
-     After approval command succeeds, create PR using gh CLI:
+  5. Update PR Description:
+     After approval, update the existing draft PR:
 
-     PR_URL=$(gh pr create \
-       --title "$(head -1 .sow/project/phases/finalize/pr_body.md | sed 's/^# //')" \
-       --body-file .sow/project/phases/finalize/pr_body.md \
-       --json url -q .url)
+     Extract PR number from implementation metadata:
+     ```bash
+     PR_NUMBER=$(sow phase get metadata.pr_number --phase implementation)
+     ```
 
-     Extract PR number from URL:
-     PR_NUMBER=$(echo "$PR_URL" | sed 's/.*\/pull\///')
+     Update PR body:
+     ```bash
+     gh pr edit $PR_NUMBER --body-file .sow/project/phases/finalize/pr_body.md
+     ```
 
-     Save both to metadata:
-     sow phase set metadata.pr_url "$PR_URL"
-     sow phase set metadata.pr_number "$PR_NUMBER"
+  6. Mark PR Ready for Review:
+     Remove draft status:
+
+     ```bash
+     gh pr ready $PR_NUMBER
+     ```
+
+     This marks the PR as ready for review, triggering notifications to reviewers.
 
   7. Complete Phase:
      sow advance
@@ -107,30 +98,31 @@ WORKFLOW:
 AUTONOMY BOUNDARIES:
 
   Full Autonomy (no approval needed):
-    • Verifying git status
-    • Pushing local commits to remote
     • Reading project history and context
     • Creating PR body document
     • Registering output artifact
-    • Running gh pr create command (after approval)
+    • Running gh pr edit command (after approval)
+    • Running gh pr ready command (after approval)
 
   Human Approval Required:
     • PR body content (must present and get verbal approval)
-    • Any git operations if working tree has unexpected state
 
 IMPORTANT NOTES:
 
-  - PR body document lives in .sow/project/ which will be deleted in next phase
-  - This is expected: PR is created WITH project folder, then immediately cleaned up
-  - Do not push the cleanup commit until next phase
+  - PR was created as draft in ImplementationDraftPRCreation state
+  - PR number is stored in implementation phase metadata
+  - This step updates the existing PR (doesn't create new one)
+  - Marking PR ready triggers GitHub notifications
+  - Draft → Ready transition is a signal that work is complete
   - If gh CLI not authenticated, inform user to run: gh auth login
 
 NEXT ACTIONS:
-  1. Verify repository state (clean, synced)
+  1. Gather project context and commit history
   2. Create comprehensive PR body document
   3. Register as output and request approval
-  4. After approval: create PR via gh CLI
-  5. When PR created: sow advance
+  4. After approval: update PR body via gh pr edit
+  5. Mark PR ready: gh pr ready <number>
+  6. When complete: sow advance
 
 Reference: PHASES/FINALIZE.md
 

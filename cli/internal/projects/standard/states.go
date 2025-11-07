@@ -13,6 +13,9 @@ const (
 	// ImplementationPlanning indicates planning and task breakdown creation.
 	ImplementationPlanning = state.State("ImplementationPlanning")
 
+	// ImplementationDraftPRCreation indicates draft PR creation before task execution.
+	ImplementationDraftPRCreation = state.State("ImplementationDraftPRCreation")
+
 	// ImplementationExecuting indicates task execution.
 	ImplementationExecuting = state.State("ImplementationExecuting")
 
@@ -22,8 +25,8 @@ const (
 	// FinalizeChecks indicates final validation checks.
 	FinalizeChecks = state.State("FinalizeChecks")
 
-	// FinalizePRCreation indicates PR creation and approval step.
-	FinalizePRCreation = state.State("FinalizePRCreation")
+	// FinalizePRReady indicates updating PR body and marking ready for review.
+	FinalizePRReady = state.State("FinalizePRReady")
 
 	// FinalizePRChecks indicates PR checks monitoring and fixing.
 	FinalizePRChecks = state.State("FinalizePRChecks")

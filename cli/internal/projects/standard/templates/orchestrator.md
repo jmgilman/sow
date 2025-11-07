@@ -6,7 +6,12 @@
 {{if .Description}}**Description**: {{.Description}}
 {{end}}
 
-This project follows the **standard 3-phase workflow**: Implementation → Review → Finalize.
+This project follows the **standard 3-phase workflow with incremental commits**: Implementation → Review → Finalize.
+
+**Key workflow changes:**
+- Draft PR created early (after planning, before execution)
+- Commits pushed after each completed task (or group of tasks)
+- PR marked ready for review at the end (not created at the end)
 
 ---
 
@@ -14,7 +19,7 @@ This project follows the **standard 3-phase workflow**: Implementation → Revie
 
 ### 1. Implementation Phase
 
-**States**: `ImplementationPlanning` → `ImplementationExecuting`
+**States**: `ImplementationPlanning` → `ImplementationDraftPRCreation` → `ImplementationExecuting`
 
 #### ImplementationPlanning
 
@@ -50,6 +55,37 @@ This project follows the **standard 3-phase workflow**: Implementation → Revie
    sow advance  # Guard: metadata.planning_approved == true
    ```
 
+#### ImplementationDraftPRCreation
+
+**Your role**: Create draft PR (fully autonomous)
+
+**Workflow**:
+1. **Create initial PR body**:
+   - Simple template explaining project intent
+   - Status: Draft - Implementation in progress
+   - File: `.sow/project/context/draft_pr_body.md`
+
+2. **Generate PR title**:
+   - Use conventional commit format: `<type>(<scope>): <description>`
+   - Examples: `feat(auth): add JWT authentication system`
+
+3. **Create draft PR**:
+   ```bash
+   gh pr create --draft --title "feat(scope): description" --body-file draft_pr_body.md --json url,number
+   ```
+
+4. **Store PR metadata**:
+   ```bash
+   sow phase set metadata.pr_url "<url>" --phase implementation
+   sow phase set metadata.pr_number <number> --phase implementation
+   sow phase set metadata.draft_pr_created true --phase implementation
+   ```
+
+5. **Advance automatically**:
+   ```bash
+   sow advance  # No user approval needed
+   ```
+
 #### ImplementationExecuting
 
 **Your role**: Coordinate task execution
@@ -66,12 +102,41 @@ This project follows the **standard 3-phase workflow**: Implementation → Revie
    - Review log.md, git diff, and outputs
    - **ALWAYS write feedback file** (feedback/<iteration>.md)
    - **ALWAYS register feedback as input** (even if passed)
-   - If passed: mark completed (only after feedback registered)
+   - If passed:
+     1. Mark completed (only after feedback registered)
+     2. **CREATE COMMIT AND PUSH** (see below)
    - If failed/blocked: increment iteration, set in_progress, re-spawn implementer
 
    **Critical**: Feedback must be written and registered before marking complete.
 
-3. **Advance when all tasks done**:
+3. **Git workflow after task completion**:
+   After marking task(s) as completed, commit and push:
+
+   ```bash
+   # Collect modified files from task outputs
+   git add <modified-files>
+
+   # Create conventional commit
+   git commit -m "feat(scope): implement feature
+
+   Detailed description of changes.
+
+   Task ID: 010
+
+   🤖 Generated with [sow](https://github.com/jmgilman/sow)
+   Co-Authored-By: Claude <noreply@anthropic.com>"
+
+   # Push to update draft PR
+   git push origin HEAD
+   ```
+
+   **Commit strategy**:
+   - One commit per task (default)
+   - OR one commit per group of parallel tasks
+   - Always use conventional commit format
+   - Always include task ID(s) in body
+
+4. **Advance when all tasks done**:
    ```bash
    sow advance  # Guard: all tasks completed or abandoned
    ```
@@ -125,7 +190,7 @@ This project follows the **standard 3-phase workflow**: Implementation → Revie
 
 ### 3. Finalize Phase
 
-**States**: `FinalizeChecks` → `FinalizePRCreation` → `FinalizePRChecks` → `FinalizeCleanup`
+**States**: `FinalizeChecks` → `FinalizePRReady` → `FinalizePRChecks` → `FinalizeCleanup`
 
 #### FinalizeChecks
 
@@ -135,26 +200,37 @@ This project follows the **standard 3-phase workflow**: Implementation → Revie
 - Verify everything passes
 - Advance when ready
 
-#### FinalizePRCreation
+#### FinalizePRReady
 
-**Your role**: PR creation
+**Your role**: Update PR and mark ready for review
 
-1. **Create PR body document**:
-   - Summarize changes
+1. **Create comprehensive PR body document**:
+   - Summarize ALL changes from entire project
    - Include test plan
-   - Generated with Claude Code attribution
+   - Review all commits and task logs
+   - Generated with sow attribution
 
 2. **Register PR body**:
    ```bash
-   sow output add --type pr_body --path "phases/finalize/pr-body.md"
+   sow output add --type pr_body --path "phases/finalize/pr_body.md"
    ```
 
-3. **Get approval and create PR**:
-   - User approves body
-   - Create PR via `gh pr create`
-   - Store PR URL and number in metadata
+3. **Get approval**:
+   - User approves updated body
 
-4. **Advance to PR checks**
+4. **Update draft PR and mark ready**:
+   ```bash
+   # Get PR number from implementation metadata
+   PR_NUMBER=$(sow phase get metadata.pr_number --phase implementation)
+
+   # Update PR body
+   gh pr edit $PR_NUMBER --body-file pr_body.md
+
+   # Mark PR ready for review
+   gh pr ready $PR_NUMBER
+   ```
+
+5. **Advance to PR checks**
 
 #### FinalizePRChecks
 
@@ -214,7 +290,11 @@ NoProject
   → (project_init) → ImplementationPlanning
 
 ImplementationPlanning
-  → (planning_complete, guard: all task descriptions approved)
+  → (planning_complete, guard: task descriptions approved)
+  → ImplementationDraftPRCreation
+
+ImplementationDraftPRCreation
+  → (draft_pr_created, guard: draft PR created and metadata stored)
   → ImplementationExecuting
 
 ImplementationExecuting
@@ -232,10 +312,10 @@ ReviewActive
 
 FinalizeChecks
   → (checks_done)
-  → FinalizePRCreation
+  → FinalizePRReady
 
-FinalizePRCreation
-  → (pr_created, guard: pr_body approved)
+FinalizePRReady
+  → (pr_ready, guard: updated pr_body approved)
   → FinalizePRChecks
 
 FinalizePRChecks

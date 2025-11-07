@@ -174,9 +174,32 @@ func generateFinalizeChecksPrompt(p *state.Project) string {
 	return buf.String()
 }
 
-// generateFinalizePRCreationPrompt generates the prompt for the FinalizePRCreation state.
-// This phase focuses on creating PR body document and getting approval to create PR.
-func generateFinalizePRCreationPrompt(p *state.Project) string {
+// generateImplementationDraftPRCreationPrompt generates the prompt for the ImplementationDraftPRCreation state.
+// This phase focuses on creating a draft PR early to track incremental progress.
+func generateImplementationDraftPRCreationPrompt(p *state.Project) string {
+	var buf strings.Builder
+
+	// Add project header
+	buf.WriteString(fmt.Sprintf("# Project: %s\n", p.Name))
+	buf.WriteString(fmt.Sprintf("Branch: %s\n", p.Branch))
+	if p.Description != "" {
+		buf.WriteString(fmt.Sprintf("Description: %s\n", p.Description))
+	}
+	buf.WriteString("\n")
+
+	// Render draft PR creation guidance template
+	guidance, err := templates.Render(templatesFS, "templates/implementation_draft_pr_creation.md", p)
+	if err != nil {
+		return fmt.Sprintf("Error rendering template: %v", err)
+	}
+	buf.WriteString(guidance)
+
+	return buf.String()
+}
+
+// generateFinalizePRReadyPrompt generates the prompt for the FinalizePRReady state.
+// This phase focuses on updating PR body and marking PR ready for review.
+func generateFinalizePRReadyPrompt(p *state.Project) string {
 	var buf strings.Builder
 
 	// Add project header
@@ -201,8 +224,18 @@ func generateFinalizePRCreationPrompt(p *state.Project) string {
 		}
 	}
 
-	// Render finalize PR creation guidance template
-	guidance, err := templates.Render(templatesFS, "templates/finalize_pr_creation.md", p)
+	// Show PR info from implementation metadata
+	if implPhase, exists := p.Phases["implementation"]; exists && implPhase.Metadata != nil {
+		if prURL, ok := implPhase.Metadata["pr_url"].(string); ok && prURL != "" {
+			buf.WriteString(fmt.Sprintf("## Draft PR\n\n%s\n\n", prURL))
+		}
+		if prNum, ok := implPhase.Metadata["pr_number"].(int); ok {
+			buf.WriteString(fmt.Sprintf("PR Number: %d\n\n", prNum))
+		}
+	}
+
+	// Render finalize PR ready guidance template
+	guidance, err := templates.Render(templatesFS, "templates/finalize_pr_ready.md", p)
 	if err != nil {
 		return fmt.Sprintf("Error rendering template: %v", err)
 	}

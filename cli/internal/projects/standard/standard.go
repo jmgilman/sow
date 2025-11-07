@@ -95,13 +95,23 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			sdkstate.Event(EventProjectInit),
 		).
 
-		// Implementation planning → execution
+		// Implementation planning → draft PR creation
 		AddTransition(
 			sdkstate.State(ImplementationPlanning),
-			sdkstate.State(ImplementationExecuting),
+			sdkstate.State(ImplementationDraftPRCreation),
 			sdkstate.Event(EventPlanningComplete),
 			project.WithGuard("task descriptions approved", func(p *state.Project) bool {
 				return allTaskDescriptionsApproved(p)
+			}),
+		).
+
+		// Draft PR creation → execution
+		AddTransition(
+			sdkstate.State(ImplementationDraftPRCreation),
+			sdkstate.State(ImplementationExecuting),
+			sdkstate.Event(EventDraftPRCreated),
+			project.WithGuard("draft PR created", func(p *state.Project) bool {
+				return draftPRCreated(p)
 			}),
 		).
 
@@ -167,13 +177,13 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 		// Finalize substates
 		AddTransition(
 			sdkstate.State(FinalizeChecks),
-			sdkstate.State(FinalizePRCreation),
+			sdkstate.State(FinalizePRReady),
 			sdkstate.Event(EventChecksDone),
 		).
 		AddTransition(
-			sdkstate.State(FinalizePRCreation),
+			sdkstate.State(FinalizePRReady),
 			sdkstate.State(FinalizePRChecks),
-			sdkstate.Event(EventPRCreated),
+			sdkstate.Event(EventPRReady),
 			project.WithGuard("PR body approved", func(p *state.Project) bool {
 				return prBodyApproved(p)
 			}),
@@ -200,6 +210,9 @@ func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *proje
 	return builder.
 		OnAdvance(sdkstate.State(ImplementationPlanning), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventPlanningComplete), nil
+		}).
+		OnAdvance(sdkstate.State(ImplementationDraftPRCreation), func(_ *state.Project) (sdkstate.Event, error) {
+			return sdkstate.Event(EventDraftPRCreated), nil
 		}).
 		OnAdvance(sdkstate.State(ImplementationExecuting), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventAllTasksComplete), nil
@@ -243,8 +256,8 @@ func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *proje
 		OnAdvance(sdkstate.State(FinalizeChecks), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventChecksDone), nil
 		}).
-		OnAdvance(sdkstate.State(FinalizePRCreation), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventPRCreated), nil
+		OnAdvance(sdkstate.State(FinalizePRReady), func(_ *state.Project) (sdkstate.Event, error) {
+			return sdkstate.Event(EventPRReady), nil
 		}).
 		OnAdvance(sdkstate.State(FinalizePRChecks), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventPRChecksPass), nil
@@ -261,10 +274,11 @@ func configurePrompts(builder *project.ProjectTypeConfigBuilder) *project.Projec
 
 		// State-level prompts (what to do in each state)
 		WithPrompt(sdkstate.State(ImplementationPlanning), generateImplementationPlanningPrompt).
+		WithPrompt(sdkstate.State(ImplementationDraftPRCreation), generateImplementationDraftPRCreationPrompt).
 		WithPrompt(sdkstate.State(ImplementationExecuting), generateImplementationExecutingPrompt).
 		WithPrompt(sdkstate.State(ReviewActive), generateReviewPrompt).
 		WithPrompt(sdkstate.State(FinalizeChecks), generateFinalizeChecksPrompt).
-		WithPrompt(sdkstate.State(FinalizePRCreation), generateFinalizePRCreationPrompt).
+		WithPrompt(sdkstate.State(FinalizePRReady), generateFinalizePRReadyPrompt).
 		WithPrompt(sdkstate.State(FinalizePRChecks), generateFinalizePRChecksPrompt).
 		WithPrompt(sdkstate.State(FinalizeCleanup), generateFinalizeCleanupPrompt)
 }
