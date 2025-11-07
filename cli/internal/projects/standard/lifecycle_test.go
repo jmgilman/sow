@@ -12,6 +12,7 @@ import (
 )
 
 // TestFullLifecycle tests complete project lifecycle from start to finish.
+//
 //nolint:funlen // Test is comprehensive and needs to cover full lifecycle
 func TestFullLifecycle(t *testing.T) {
 	// Setup: Create minimal project in NoProject state
