@@ -115,10 +115,11 @@ func writeDiscoveryStatus(buf *strings.Builder, p *state.Project, phase projsche
 	}
 }
 
-
 // generateActivePrompt generates the prompt for the Active state.
 // Focus: Identify work units, spawn decomposer per unit, review specifications.
 // Returns a formatted prompt combining dynamic project state with static guidance.
+//
+//nolint:funlen // Complex but readable prompt generation logic
 func generateActivePrompt(p *state.Project) string {
 	var buf strings.Builder
 
