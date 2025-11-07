@@ -542,3 +542,254 @@ func captureOutput(f func()) string {
 	io.Copy(&buf, r)
 	return buf.String()
 }
+
+// TestAdvanceDryRunValid tests dry-run mode with a valid transition (guards pass).
+func TestAdvanceDryRunValid(t *testing.T) {
+	// Create test project where transition would succeed (guard passes)
+	config := sdkproject.NewProjectTypeConfigBuilder("test").
+		AddTransition(
+			sdkstate.State("StateA"),
+			sdkstate.State("StateB"),
+			sdkstate.Event("proceed"),
+			sdkproject.WithDescription("Move to StateB"),
+			sdkproject.WithGuard(
+				"no prerequisites",
+				func(_ *state.Project) bool { return true },
+			),
+		).
+		Build()
+
+	proj := createTestProjectWithConfig(t, "StateA", config)
+	machine := proj.Machine()
+
+	// Capture output
+	output := captureOutput(func() {
+		err := validateTransition(
+			nil, // ctx not used in validation
+			proj,
+			machine,
+			sdkstate.State("StateA"),
+			sdkstate.Event("proceed"),
+		)
+		if err != nil {
+			t.Errorf("validateTransition failed: %v", err)
+		}
+	})
+
+	// Verify output shows validation header
+	if !strings.Contains(output, "Validating transition: StateA -> proceed") {
+		t.Errorf("Expected validation header, got:\n%s", output)
+	}
+
+	// Verify success message
+	if !strings.Contains(output, "✓ Transition is valid and can be executed") {
+		t.Errorf("Expected success message, got:\n%s", output)
+	}
+
+	// Verify target state displayed
+	if !strings.Contains(output, "Target state: StateB") {
+		t.Errorf("Expected target state display, got:\n%s", output)
+	}
+
+	// Verify description displayed
+	if !strings.Contains(output, "Description: Move to StateB") {
+		t.Errorf("Expected description display, got:\n%s", output)
+	}
+
+	// Verify execution hint
+	if !strings.Contains(output, "To execute: sow advance proceed") {
+		t.Errorf("Expected execution hint, got:\n%s", output)
+	}
+
+	// Verify project state unchanged
+	if proj.Statechart.Current_state != "StateA" {
+		t.Errorf("Expected state to remain StateA, got %s", proj.Statechart.Current_state)
+	}
+}
+
+// TestAdvanceDryRunBlocked tests dry-run mode when guard blocks transition.
+func TestAdvanceDryRunBlocked(t *testing.T) {
+	// Create test project where guard blocks transition
+	config := sdkproject.NewProjectTypeConfigBuilder("test").
+		AddTransition(
+			sdkstate.State("StateA"),
+			sdkstate.State("StateB"),
+			sdkstate.Event("proceed"),
+			sdkproject.WithDescription("Move to StateB"),
+			sdkproject.WithGuard(
+				"approval required",
+				func(_ *state.Project) bool { return false },
+			),
+		).
+		Build()
+
+	proj := createTestProjectWithConfig(t, "StateA", config)
+	machine := proj.Machine()
+
+	// Capture output
+	var capturedErr error
+	output := captureOutput(func() {
+		capturedErr = validateTransition(
+			nil,
+			proj,
+			machine,
+			sdkstate.State("StateA"),
+			sdkstate.Event("proceed"),
+		)
+	})
+
+	// Verify error returned
+	if capturedErr == nil {
+		t.Error("Expected error for blocked transition, got nil")
+	}
+	if capturedErr != nil && !strings.Contains(capturedErr.Error(), "blocked by guard") {
+		t.Errorf("Expected 'blocked by guard' error, got: %v", capturedErr)
+	}
+
+	// Verify output shows validation header
+	if !strings.Contains(output, "Validating transition: StateA -> proceed") {
+		t.Errorf("Expected validation header, got:\n%s", output)
+	}
+
+	// Verify blocked message
+	if !strings.Contains(output, "✗ Transition blocked by guard condition") {
+		t.Errorf("Expected blocked message, got:\n%s", output)
+	}
+
+	// Verify guard description displayed
+	if !strings.Contains(output, "Guard description: approval required") {
+		t.Errorf("Expected guard description, got:\n%s", output)
+	}
+
+	// Verify status message
+	if !strings.Contains(output, "Current status: Guard not satisfied") {
+		t.Errorf("Expected status message, got:\n%s", output)
+	}
+
+	// Verify fix hint
+	if !strings.Contains(output, "Fix the guard condition, then try again.") {
+		t.Errorf("Expected fix hint, got:\n%s", output)
+	}
+
+	// Verify project state unchanged
+	if proj.Statechart.Current_state != "StateA" {
+		t.Errorf("Expected state to remain StateA, got %s", proj.Statechart.Current_state)
+	}
+}
+
+// TestAdvanceDryRunInvalidEvent tests dry-run mode with an event not configured for current state.
+func TestAdvanceDryRunInvalidEvent(t *testing.T) {
+	// Create test project with some configured transitions
+	config := sdkproject.NewProjectTypeConfigBuilder("test").
+		AddTransition(
+			sdkstate.State("StateA"),
+			sdkstate.State("StateB"),
+			sdkstate.Event("proceed"),
+		).
+		Build()
+
+	proj := createTestProjectWithConfig(t, "StateA", config)
+	machine := proj.Machine()
+
+	// Capture output
+	var capturedErr error
+	output := captureOutput(func() {
+		capturedErr = validateTransition(
+			nil,
+			proj,
+			machine,
+			sdkstate.State("StateA"),
+			sdkstate.Event("invalid_event"),
+		)
+	})
+
+	// Verify error returned
+	if capturedErr == nil {
+		t.Error("Expected error for invalid event, got nil")
+	}
+	if capturedErr != nil && !strings.Contains(capturedErr.Error(), "event not configured") {
+		t.Errorf("Expected 'event not configured' error, got: %v", capturedErr)
+	}
+
+	// Verify output shows validation header
+	if !strings.Contains(output, "Validating transition: StateA -> invalid_event") {
+		t.Errorf("Expected validation header, got:\n%s", output)
+	}
+
+	// Verify error message about unconfigured event
+	if !strings.Contains(output, "✗ Event 'invalid_event' is not configured for state StateA") {
+		t.Errorf("Expected unconfigured event message, got:\n%s", output)
+	}
+
+	// Verify suggestion to use --list
+	if !strings.Contains(output, "Use 'sow advance --list' to see available transitions.") {
+		t.Errorf("Expected --list suggestion, got:\n%s", output)
+	}
+
+	// Verify project state unchanged
+	if proj.Statechart.Current_state != "StateA" {
+		t.Errorf("Expected state to remain StateA, got %s", proj.Statechart.Current_state)
+	}
+}
+
+// TestAdvanceDryRunNoSideEffects tests that dry-run never modifies project state.
+// This is CRITICAL - dry-run must never execute actions or change state.
+func TestAdvanceDryRunNoSideEffects(t *testing.T) {
+	// Track if OnEntry action was executed
+	actionExecuted := false
+
+	// Create test project with OnEntry action that would modify state
+	config := sdkproject.NewProjectTypeConfigBuilder("test").
+		AddTransition(
+			sdkstate.State("StateA"),
+			sdkstate.State("StateB"),
+			sdkstate.Event("proceed"),
+			sdkproject.WithOnEntry(func(proj *state.Project) error {
+				actionExecuted = true
+				// This would modify project metadata
+				if proj.Phases == nil {
+					proj.Phases = make(map[string]projectschema.PhaseState)
+				}
+				proj.Phases["test"] = projectschema.PhaseState{
+					Status:  "modified",
+					Enabled: true,
+				}
+				return nil
+			}),
+		).
+		Build()
+
+	proj := createTestProjectWithConfig(t, "StateA", config)
+	machine := proj.Machine()
+
+	// Capture initial state
+	initialState := proj.Statechart.Current_state
+
+	// Run dry-run validation
+	_ = validateTransition(
+		nil,
+		proj,
+		machine,
+		sdkstate.State("StateA"),
+		sdkstate.Event("proceed"),
+	)
+
+	// CRITICAL: Verify OnEntry action was NOT executed
+	if actionExecuted {
+		t.Error("CRITICAL: dry-run executed OnEntry action (side effect detected)")
+	}
+
+	// Verify state unchanged
+	if proj.Statechart.Current_state != initialState {
+		t.Errorf("CRITICAL: dry-run modified state machine state (was %s, now %s)", initialState, proj.Statechart.Current_state)
+	}
+
+	// Verify phase metadata unchanged (no phases should exist)
+	if len(proj.Phases) > 0 {
+		t.Error("CRITICAL: dry-run modified project phases")
+	}
+}
+
+// TestAdvanceDryRunWithoutEvent is already covered by TestAdvanceFlagValidation
+// which tests the "--dry-run requires an event argument" validation.
+// No additional test needed here.

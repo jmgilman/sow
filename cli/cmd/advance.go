@@ -7,6 +7,8 @@ import (
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sdks/project"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
 
@@ -73,6 +75,15 @@ Examples:
 			listFlag, _ := cmd.Flags().GetBool("list")
 			if listFlag {
 				return listAvailableTransitions(project, currentState)
+			}
+
+			// Check for dry-run mode
+			dryRunFlag, _ := cmd.Flags().GetBool("dry-run")
+			if dryRunFlag {
+				// Get event argument (validation ensures it exists)
+				event := args[0]
+				machine := project.Machine()
+				return validateTransition(ctx, project, machine, currentState, sdkstate.Event(event))
 			}
 
 			// Auto-determination mode: no flags, no event argument
@@ -274,4 +285,72 @@ func enhanceAutoTransitionError(err error, proj *state.Project, currentState sta
 
 	// Default error wrapping
 	return fmt.Errorf("cannot advance from state %s: %w", currentState, err)
+}
+
+// validateTransition validates whether a transition can be executed without executing it.
+// This is the core implementation of dry-run mode.
+//
+// Returns nil if the transition is valid and would succeed.
+// Returns an error if the transition is invalid or blocked.
+//
+// Side effects: NONE - this function never modifies project state.
+func validateTransition(
+	ctx *sow.Context,
+	proj *state.Project,
+	machine *sdkstate.Machine,
+	currentState sdkstate.State,
+	event sdkstate.Event,
+) error {
+	fmt.Printf("Validating transition: %s -> %s\n\n", currentState, event)
+
+	// Type assert to get access to introspection methods
+	projectConfig, ok := proj.Config().(*project.ProjectTypeConfig)
+	if !ok {
+		return fmt.Errorf("cannot validate transition: invalid project configuration")
+	}
+
+	// Check if event is configured for this state
+	targetState := projectConfig.GetTargetState(currentState, event)
+	if targetState == "" {
+		fmt.Printf("✗ Event '%s' is not configured for state %s\n\n", event, currentState)
+		fmt.Println("Use 'sow advance --list' to see available transitions.")
+		return fmt.Errorf("event not configured")
+	}
+
+	// Check if event can fire (guard passes)
+	canFire, err := machine.CanFire(event)
+	if err != nil {
+		return fmt.Errorf("failed to validate transition: %w", err)
+	}
+
+	if !canFire {
+		// Blocked by guard
+		fmt.Println("✗ Transition blocked by guard condition")
+		fmt.Println()
+
+		guardDesc := projectConfig.GetGuardDescription(currentState, event)
+		if guardDesc != "" {
+			fmt.Printf("Guard description: %s\n", guardDesc)
+		}
+		fmt.Println("Current status: Guard not satisfied")
+		fmt.Println()
+		fmt.Println("Fix the guard condition, then try again.")
+
+		return fmt.Errorf("transition blocked by guard")
+	}
+
+	// Valid - would succeed
+	fmt.Println("✓ Transition is valid and can be executed")
+	fmt.Println()
+	fmt.Printf("Target state: %s\n", targetState)
+
+	description := projectConfig.GetTransitionDescription(currentState, event)
+	if description != "" {
+		fmt.Printf("Description: %s\n", description)
+	}
+
+	fmt.Println()
+	fmt.Printf("To execute: sow advance %s\n", event)
+
+	return nil
 }
