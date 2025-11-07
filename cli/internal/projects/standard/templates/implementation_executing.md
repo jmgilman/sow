@@ -203,6 +203,7 @@ EXECUTION WORKFLOW (Step by Step):
 
   5. IF assessment = pass:
        Mark completed: sow task set --id <id> status completed
+       CREATE COMMIT AND PUSH (see GIT WORKFLOW below)
        Move to next pending task
 
      IF assessment = fail or blocked:
@@ -215,8 +216,102 @@ EXECUTION WORKFLOW (Step by Step):
   - You can ONLY mark completed AFTER writing and registering passing feedback
   - Never skip the feedback step - implementers need it for next iteration
   - Status flow: pending → in_progress → needs_review → (feedback written) → completed
+  - After marking completed, ALWAYS commit and push changes
 
   When all tasks completed: sow advance (transitions to review phase)
+
+GIT WORKFLOW (Commit and Push After Task Completion):
+
+  After marking task(s) as completed, create a commit and push to remote.
+
+  TIMING OPTIONS:
+  1. Commit after EACH task completes (default)
+  2. Commit after GROUP of parallel tasks complete (if running multiple agents)
+
+  Choose based on task granularity and parallelization.
+
+  COMMIT STEPS:
+
+  1. Collect modified files from completed task(s):
+     ```bash
+     sow task status --id <id>  # Check "outputs" section for modified files
+     ```
+
+  2. Stage the files:
+     ```bash
+     git add <modified-files>
+     ```
+
+  3. Create commit with conventional commit format:
+
+     Format: `<type>(<scope>): <description>`
+
+     Common types:
+     - feat: New feature implementation
+     - fix: Bug fix
+     - refactor: Code restructuring
+     - test: Test additions/updates
+     - docs: Documentation changes
+
+     Examples:
+     ```bash
+     git commit -m "feat(auth): implement JWT middleware
+
+     Implements secure JWT token validation middleware with
+     error handling and session management.
+
+     Task ID: 010
+
+     🤖 Generated with [sow](https://github.com/jmgilman/sow)
+     Co-Authored-By: Claude <noreply@anthropic.com>"
+     ```
+
+     For grouped tasks:
+     ```bash
+     git commit -m "feat(auth): implement authentication system
+
+     - Implement JWT middleware (task 010)
+     - Add login endpoint (task 020)
+     - Create user session management (task 030)
+
+     🤖 Generated with [sow](https://github.com/jmgilman/sow)
+     Co-Authored-By: Claude <noreply@anthropic.com>"
+     ```
+
+  4. Push to remote:
+     ```bash
+     git push origin HEAD
+     ```
+
+     This updates the draft PR with incremental progress.
+
+  COMMIT MESSAGE GUIDELINES:
+
+  - Always use conventional commit format
+  - Include task ID(s) in body
+  - Keep subject line under 72 characters
+  - Use imperative mood ("implement" not "implements")
+  - Include sow attribution footer
+  - For rework iterations, use "fix" type and mention review feedback
+
+  PARALLELIZATION STRATEGY:
+
+  If spawning multiple implementers in parallel:
+  - Wait for ALL to complete
+  - Review ALL tasks
+  - Mark ALL as completed
+  - Create SINGLE commit with all changes
+  - Push once
+
+  This prevents interleaved commits and keeps history clean.
+
+  ERROR HANDLING:
+
+  If push fails:
+  - Check remote status: git fetch origin
+  - If behind: rebase and retry: git pull --rebase origin {{.Branch}} && git push
+  - If conflicts: resolve manually, then push
+  - If auth fails: check gh auth status
 
 Reference: PHASES/IMPLEMENTATION.md, AGENTS.md (implementer)
 

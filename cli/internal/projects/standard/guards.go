@@ -122,3 +122,9 @@ func prChecksPassed(p *state.Project) bool {
 func projectDeleted(p *state.Project) bool {
 	return phaseMetadataBool(p, "finalize", "project_deleted")
 }
+
+// draftPRCreated checks if a draft PR has been created and metadata stored.
+// Returns false if implementation phase missing or draft_pr_created not set to true.
+func draftPRCreated(p *state.Project) bool {
+	return phaseMetadataBool(p, "implementation", "draft_pr_created")
+}
