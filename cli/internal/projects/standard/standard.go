@@ -129,55 +129,50 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 			}),
 		).
 
-		// Review → Finalize (pass)
-		AddTransition(
+		// Review → Finalize/Implementation (branching on review assessment)
+		// Uses AddBranch to declaratively define pass/fail paths based on review assessment
+		AddBranch(
 			sdkstate.State(ReviewActive),
-			sdkstate.State(FinalizeChecks),
-			sdkstate.Event(EventReviewPass),
-			project.WithDescription("Review approved, proceed to finalization checks"),
-			project.WithGuard("latest review approved", func(p *state.Project) bool {
-				return latestReviewApproved(p)
-			}),
-		).
+			project.BranchOn(getReviewAssessment),
+			project.When("pass",
+				sdkstate.Event(EventReviewPass),
+				sdkstate.State(FinalizeChecks),
+				project.WithDescription("Review approved, proceed to finalization checks"),
+			),
+			project.When("fail",
+				sdkstate.Event(EventReviewFail),
+				sdkstate.State(ImplementationPlanning),
+				project.WithDescription("Review failed, return to implementation planning for rework"),
+				project.WithFailedPhase("review"), // Mark review as failed instead of completed
+				project.WithOnEntry(func(p *state.Project) error {
+					// Only execute rework logic if review phase exists and has failed
+					// (this prevents executing on NoProject → ImplementationPlanning transition)
+					reviewPhase, hasReview := p.Phases["review"]
+					if !hasReview || len(reviewPhase.Outputs) == 0 {
+						// First time entering implementation - no rework needed
+						return nil
+					}
 
-		// Review → Implementation (fail - rework)
-		AddTransition(
-			sdkstate.State(ReviewActive),
-			sdkstate.State(ImplementationPlanning),
-			sdkstate.Event(EventReviewFail),
-			project.WithDescription("Review failed, return to implementation planning for rework"),
-			project.WithGuard("latest review approved", func(p *state.Project) bool {
-				return latestReviewApproved(p)
-			}),
-			project.WithFailedPhase("review"), // Mark review as failed instead of completed
-			project.WithOnEntry(func(p *state.Project) error {
-				// Only execute rework logic if review phase exists and has failed
-				// (this prevents executing on NoProject → ImplementationPlanning transition)
-				reviewPhase, hasReview := p.Phases["review"]
-				if !hasReview || len(reviewPhase.Outputs) == 0 {
-					// First time entering implementation - no rework needed
-					return nil
-				}
+					// Increment implementation iteration for rework
+					if err := state.IncrementPhaseIteration(p, "implementation"); err != nil {
+						return fmt.Errorf("failed to increment implementation iteration: %w", err)
+					}
 
-				// Increment implementation iteration for rework
-				if err := state.IncrementPhaseIteration(p, "implementation"); err != nil {
-					return fmt.Errorf("failed to increment implementation iteration: %w", err)
-				}
-
-				// Add failed review as implementation input
-				// Note: Implementation phase status will be automatically set to "in_progress"
-				// by FireWithPhaseUpdates when entering ImplementationPlanning state
-				return state.AddPhaseInputFromOutput(
-					p,
-					"review",
-					"implementation",
-					"review",
-					func(a *projschema.ArtifactState) bool {
-						assessment, ok := a.Metadata["assessment"].(string)
-						return ok && assessment == "fail" && a.Approved
-					},
-				)
-			}),
+					// Add failed review as implementation input
+					// Note: Implementation phase status will be automatically set to "in_progress"
+					// by FireWithPhaseUpdates when entering ImplementationPlanning state
+					return state.AddPhaseInputFromOutput(
+						p,
+						"review",
+						"implementation",
+						"review",
+						func(a *projschema.ArtifactState) bool {
+							assessment, ok := a.Metadata["assessment"].(string)
+							return ok && assessment == "fail" && a.Approved
+						},
+					)
+				}),
+			),
 		).
 
 		// Finalize substates
@@ -227,42 +222,8 @@ func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *proje
 		OnAdvance(sdkstate.State(ImplementationExecuting), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventAllTasksComplete), nil
 		}).
-		OnAdvance(sdkstate.State(ReviewActive), func(p *state.Project) (sdkstate.Event, error) {
-			// Complex: examine review assessment
-			phase, exists := p.Phases["review"]
-			if !exists {
-				return "", fmt.Errorf("review phase not found")
-			}
-
-			// Find latest approved review
-			var latestReview *projschema.ArtifactState
-			for i := len(phase.Outputs) - 1; i >= 0; i-- {
-				if phase.Outputs[i].Type == "review" && phase.Outputs[i].Approved {
-					artifact := phase.Outputs[i]
-					latestReview = &artifact
-					break
-				}
-			}
-
-			if latestReview == nil {
-				return "", fmt.Errorf("no approved review found")
-			}
-
-			// Check assessment metadata
-			assessment, ok := latestReview.Metadata["assessment"].(string)
-			if !ok {
-				return "", fmt.Errorf("review missing assessment")
-			}
-
-			switch assessment {
-			case "pass":
-				return sdkstate.Event(EventReviewPass), nil
-			case "fail":
-				return sdkstate.Event(EventReviewFail), nil
-			default:
-				return "", fmt.Errorf("invalid assessment: %s", assessment)
-			}
-		}).
+		// NOTE: ReviewActive OnAdvance is auto-generated by AddBranch (see configureTransitions)
+		// The discriminator function getReviewAssessment determines pass/fail branching
 		OnAdvance(sdkstate.State(FinalizeChecks), func(_ *state.Project) (sdkstate.Event, error) {
 			return sdkstate.Event(EventChecksDone), nil
 		}).

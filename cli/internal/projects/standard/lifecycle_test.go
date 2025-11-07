@@ -734,3 +734,185 @@ func TestDescriptionQuality(t *testing.T) {
 			len(transitions), len(descriptions))
 	}
 }
+
+// TestReviewActiveBranchingRefactored tests the refactored branching logic using AddBranch.
+// This test verifies that ReviewActive correctly branches to pass/fail paths based on
+// review assessment metadata.
+func TestReviewActiveBranchingRefactored(t *testing.T) {
+	t.Run("pass path: review approved transitions to FinalizeChecks", func(t *testing.T) {
+		proj, machine, config := createTestProject(t, ReviewActive)
+		addApprovedReview(t, proj, "pass", "review.md")
+
+		// Test DetermineEvent returns correct event
+		event, err := config.DetermineEvent(proj)
+		if err != nil {
+			t.Fatalf("DetermineEvent failed: %v", err)
+		}
+		if event != sdkstate.Event(EventReviewPass) {
+			t.Errorf("DetermineEvent returned %v, want %v", event, EventReviewPass)
+		}
+
+		// Fire event and verify transition
+		err = config.FireWithPhaseUpdates(machine, EventReviewPass, proj)
+		if err != nil {
+			t.Fatalf("Fire(EventReviewPass) failed: %v", err)
+		}
+		if got := machine.State(); got != sdkstate.State(FinalizeChecks) {
+			t.Errorf("state = %v, want %v", got, FinalizeChecks)
+		}
+	})
+
+	t.Run("fail path: review failed transitions to ImplementationPlanning with rework", func(t *testing.T) {
+		proj, machine, config := createTestProject(t, ReviewActive)
+		addApprovedReview(t, proj, "fail", "review-fail.md")
+
+		// Test DetermineEvent returns correct event
+		event, err := config.DetermineEvent(proj)
+		if err != nil {
+			t.Fatalf("DetermineEvent failed: %v", err)
+		}
+		if event != sdkstate.Event(EventReviewFail) {
+			t.Errorf("DetermineEvent returned %v, want %v", event, EventReviewFail)
+		}
+
+		// Fire event and verify transition
+		err = config.FireWithPhaseUpdates(machine, EventReviewFail, proj)
+		if err != nil {
+			t.Fatalf("Fire(EventReviewFail) failed: %v", err)
+		}
+		if got := machine.State(); got != sdkstate.State(ImplementationPlanning) {
+			t.Errorf("state = %v, want %v", got, ImplementationPlanning)
+		}
+
+		// Verify implementation iteration incremented
+		implPhase := proj.Phases["implementation"]
+		if implPhase.Iteration != 1 {
+			t.Errorf("implementation iteration = %v, want 1", implPhase.Iteration)
+		}
+
+		// Verify failed review added as input
+		foundReviewInput := false
+		for _, input := range implPhase.Inputs {
+			if input.Type == "review" {
+				foundReviewInput = true
+				if assessment, ok := input.Metadata["assessment"].(string); ok {
+					if assessment != "fail" {
+						t.Errorf("review input assessment = %v, want fail", assessment)
+					}
+				}
+				break
+			}
+		}
+		if !foundReviewInput {
+			t.Error("failed review not added as implementation input")
+		}
+	})
+}
+
+// TestReviewActiveBranchDescriptions verifies both branch paths have meaningful descriptions.
+func TestReviewActiveBranchDescriptions(t *testing.T) {
+	config := NewStandardProjectConfig()
+
+	t.Run("pass path has description", func(t *testing.T) {
+		desc := config.GetTransitionDescription(sdkstate.State(ReviewActive), sdkstate.Event(EventReviewPass))
+		if desc == "" {
+			t.Error("EventReviewPass transition has no description")
+		}
+		// Verify it mentions approval/finalization
+		descLower := strings.ToLower(desc)
+		if !strings.Contains(descLower, "approve") && !strings.Contains(descLower, "finali") {
+			t.Errorf("description should mention approval or finalization: %s", desc)
+		}
+	})
+
+	t.Run("fail path has description", func(t *testing.T) {
+		desc := config.GetTransitionDescription(sdkstate.State(ReviewActive), sdkstate.Event(EventReviewFail))
+		if desc == "" {
+			t.Error("EventReviewFail transition has no description")
+		}
+		// Verify it mentions failure/rework
+		descLower := strings.ToLower(desc)
+		if !strings.Contains(descLower, "fail") && !strings.Contains(descLower, "rework") && !strings.Contains(descLower, "planning") {
+			t.Errorf("description should mention failure or rework: %s", desc)
+		}
+	})
+}
+
+// TestReviewActiveIsBranchingState verifies ReviewActive is recognized as a branching state.
+func TestReviewActiveIsBranchingState(t *testing.T) {
+	config := NewStandardProjectConfig()
+
+	// ReviewActive should be a branching state (has AddBranch)
+	isBranching := config.IsBranchingState(sdkstate.State(ReviewActive))
+	if !isBranching {
+		t.Error("ReviewActive should be a branching state (configured with AddBranch)")
+	}
+}
+
+// TestGetReviewAssessment tests the discriminator function independently.
+func TestGetReviewAssessment(t *testing.T) {
+	t.Run("returns pass for pass assessment", func(t *testing.T) {
+		proj, _, _ := createTestProject(t, ReviewActive)
+		addApprovedReview(t, proj, "pass", "review.md")
+
+		assessment := getReviewAssessment(proj)
+		if assessment != "pass" {
+			t.Errorf("expected 'pass', got '%s'", assessment)
+		}
+	})
+
+	t.Run("returns fail for fail assessment", func(t *testing.T) {
+		proj, _, _ := createTestProject(t, ReviewActive)
+		addApprovedReview(t, proj, "fail", "review.md")
+
+		assessment := getReviewAssessment(proj)
+		if assessment != "fail" {
+			t.Errorf("expected 'fail', got '%s'", assessment)
+		}
+	})
+
+	t.Run("returns empty for no approved review", func(t *testing.T) {
+		proj, _, _ := createTestProject(t, ReviewActive)
+
+		assessment := getReviewAssessment(proj)
+		if assessment != "" {
+			t.Errorf("expected empty, got '%s'", assessment)
+		}
+	})
+
+	t.Run("returns empty for review without assessment metadata", func(t *testing.T) {
+		proj, _, _ := createTestProject(t, ReviewActive)
+
+		// Add approved review without assessment metadata
+		phase := proj.Phases["review"]
+		artifact := projschema.ArtifactState{
+			Type:       "review",
+			Path:       "review.md",
+			Created_at: time.Now(),
+			Approved:   true,
+			Metadata:   map[string]interface{}{}, // No assessment
+		}
+		phase.Outputs = append(phase.Outputs, artifact)
+		proj.Phases["review"] = phase
+
+		assessment := getReviewAssessment(proj)
+		if assessment != "" {
+			t.Errorf("expected empty, got '%s'", assessment)
+		}
+	})
+
+	t.Run("returns latest assessment when multiple reviews exist", func(t *testing.T) {
+		proj, _, _ := createTestProject(t, ReviewActive)
+
+		// Add first review (fail)
+		addApprovedReview(t, proj, "fail", "review-1.md")
+
+		// Add second review (pass) - should be the one used
+		addApprovedReview(t, proj, "pass", "review-2.md")
+
+		assessment := getReviewAssessment(proj)
+		if assessment != "pass" {
+			t.Errorf("expected 'pass' (latest), got '%s'", assessment)
+		}
+	})
+}
