@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
+	"github.com/jmgilman/sow/cli/internal/sdks/project"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/spf13/cobra"
 )
@@ -65,36 +66,11 @@ Examples:
 				return fmt.Errorf("failed to load project: %w", err)
 			}
 
-			// Get current state for display
-			currentState := project.Statechart.Current_state
-			fmt.Printf("Current state: %s\n", currentState)
+			// Get current state
+			currentState := state.State(project.Statechart.Current_state)
 
-			// Determine which event to fire from current state
-			event, err := project.Config().DetermineEvent(project)
-			if err != nil {
-				return fmt.Errorf("cannot advance from state %s: %w\n\nThis may be a terminal state", currentState, err)
-			}
-
-			// Fire the event with automatic phase status updates
-			// (evaluates guards, executes actions, transitions state, updates phase status)
-			if err := project.Config().FireWithPhaseUpdates(project.Machine(), event, project); err != nil {
-				// Provide helpful error messages based on error type
-				if strings.Contains(err.Error(), "cannot fire event") {
-					return fmt.Errorf("transition blocked: %w\n\nCheck that all prerequisites for this state transition are met", err)
-				}
-				return fmt.Errorf("failed to advance: %w", err)
-			}
-
-			// Save updated state
-			if err := project.Save(); err != nil {
-				return fmt.Errorf("failed to save state: %w", err)
-			}
-
-			// Display new state
-			newState := project.Statechart.Current_state
-			fmt.Printf("Advanced to: %s\n", newState)
-
-			return nil
+			// Auto-determination mode: no flags, no event argument
+			return executeAutoTransition(project, currentState)
 		},
 	}
 
@@ -131,4 +107,91 @@ func validateAdvanceFlags(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// executeAutoTransition performs automatic event determination and transition.
+// This is the backward-compatible default mode when no event is specified.
+//
+// Returns error if:
+// - DetermineEvent fails (terminal state, intent-based branching)
+// - Transition fails (guard blocked, invalid event)
+// - Save fails (I/O error)
+func executeAutoTransition(
+	proj *state.Project,
+	currentState state.State,
+) error {
+	fmt.Printf("Current state: %s\n", currentState)
+
+	// Build state machine for current state
+	machine := proj.Machine()
+
+	// Determine which event to fire from current state
+	event, err := proj.Config().DetermineEvent(proj)
+	if err != nil {
+		// Enhanced error handling
+		return enhanceAutoTransitionError(err, proj, currentState)
+	}
+
+	// Fire the event with automatic phase status updates
+	if err := proj.Config().FireWithPhaseUpdates(machine, event, proj); err != nil {
+		// Provide helpful error messages based on error type
+		if strings.Contains(err.Error(), "cannot fire event") {
+			return fmt.Errorf("transition blocked: %w\n\nCheck that all prerequisites for this state transition are met", err)
+		}
+		return fmt.Errorf("failed to advance: %w", err)
+	}
+
+	// Save updated state
+	if err := proj.Save(); err != nil {
+		return fmt.Errorf("failed to save state: %w", err)
+	}
+
+	// Display new state
+	newState := proj.Statechart.Current_state
+	fmt.Printf("Advanced to: %s\n", newState)
+
+	return nil
+}
+
+// enhanceAutoTransitionError provides helpful error messages when auto-determination fails.
+// Distinguishes between terminal states and intent-based branching scenarios.
+func enhanceAutoTransitionError(err error, proj *state.Project, currentState state.State) error {
+	// Type assert to get access to introspection methods
+	// The config is always *project.ProjectTypeConfig which has GetAvailableTransitions
+	config, ok := proj.Config().(*project.ProjectTypeConfig)
+	if !ok {
+		// Fallback to basic error if type assertion fails (shouldn't happen in practice)
+		return fmt.Errorf("cannot advance from state %s: %w", currentState, err)
+	}
+
+	// Check if this is a terminal state (no transitions configured)
+	transitions := config.GetAvailableTransitions(currentState)
+	if len(transitions) == 0 {
+		return fmt.Errorf(
+			"cannot advance from state %s: %w\n\nThis may be a terminal state",
+			currentState,
+			err,
+		)
+	}
+
+	// Intent-based branching case (multiple transitions, no discriminator)
+	if len(transitions) > 1 {
+		// Extract event names
+		events := make([]string, len(transitions))
+		for i, t := range transitions {
+			events[i] = string(t.Event)
+		}
+
+		return fmt.Errorf(
+			"cannot advance from state %s: %w\n\n"+
+				"Use 'sow advance --list' to see available transitions and select one explicitly.\n"+
+				"Available events: %s",
+			currentState,
+			err,
+			strings.Join(events, ", "),
+		)
+	}
+
+	// Default error wrapping
+	return fmt.Errorf("cannot advance from state %s: %w", currentState, err)
 }

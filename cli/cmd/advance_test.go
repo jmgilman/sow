@@ -143,3 +143,44 @@ func boolToString(b bool) string {
 	}
 	return "false"
 }
+
+// TestAdvanceAutoLinear tests auto-determination for linear states (one transition).
+func TestAdvanceAutoLinear(t *testing.T) {
+	t.Skip("TODO: Implement test - requires project test setup")
+	// This test should:
+	// 1. Create test project in linear state (e.g., ImplementationPlanning)
+	// 2. Set up prerequisites so guard passes
+	// 3. Call executeAutoTransition (once extracted)
+	// 4. Verify: state advances, no error
+}
+
+// TestAdvanceAutoBranching tests auto-determination for state-determined branching (uses AddBranch discriminator).
+func TestAdvanceAutoBranching(t *testing.T) {
+	t.Skip("TODO: Implement test - requires project test setup")
+	// This test should:
+	// 1. Create test project in ReviewActive state (branching state)
+	// 2. Add approved review with "pass" assessment
+	// 3. Call executeAutoTransition
+	// 4. Verify: DetermineEvent selects EventReviewPass, transitions to FinalizeChecks
+}
+
+// TestAdvanceAutoIntentBased tests auto-determination failure for intent-based branching (multiple transitions, no discriminator).
+func TestAdvanceAutoIntentBased(t *testing.T) {
+	t.Skip("TODO: Implement test - requires exploration project setup")
+	// This test should:
+	// 1. Create test project in Researching state (intent-based branching)
+	// 2. Call executeAutoTransition
+	// 3. Verify: error returned
+	// 4. Verify: error message suggests using --list
+	// 5. Verify: error message lists available events (finalize, add_more_research)
+}
+
+// TestAdvanceAutoTerminalState tests auto-determination failure for terminal states (no transitions).
+func TestAdvanceAutoTerminalState(t *testing.T) {
+	t.Skip("TODO: Implement test - requires project test setup")
+	// This test should:
+	// 1. Create test project in terminal state (e.g., Completed)
+	// 2. Call executeAutoTransition
+	// 3. Verify: error returned
+	// 4. Verify: error message indicates terminal state
+}
