@@ -1,0 +1,200 @@
+name: wizard-foundation-and-state-machine
+type: standard
+branch: 68-wizard-foundation-and-state-machine
+description: Wizard Foundation and State Machine
+created_at: 2025-11-07T15:26:26.191859-08:00
+updated_at: 2025-11-07T15:51:30.892356-08:00
+phases:
+    finalize:
+        status: pending
+        enabled: false
+        created_at: 2025-11-07T15:26:26.191859-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+    implementation:
+        status: in_progress
+        enabled: false
+        created_at: 2025-11-07T15:26:26.191859-08:00
+        started_at: 2025-11-07T15:26:26.191896-08:00
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata:
+            planning_approved: true
+        inputs:
+            - type: github_issue
+              path: context/issue-68.md
+              approved: true
+              created_at: 2025-11-07T15:26:26.191849-08:00
+              metadata:
+                issue_number: 68
+                issue_title: Wizard Foundation and State Machine
+                issue_url: https://github.com/jmgilman/sow/issues/68
+        outputs: []
+        tasks:
+            - id: "010"
+              name: Add huh Library Dependency
+              phase: implementation
+              status: pending
+              created_at: 2025-11-07T15:50:46.127547-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T15:51:20.189014-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/go.mod
+                  approved: false
+                  created_at: 2025-11-07T15:51:20.17786-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/huh-library-verification.md
+                  approved: false
+                  created_at: 2025-11-07T15:51:20.189014-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "020"
+              name: Extract Shared Utilities
+              phase: implementation
+              status: pending
+              created_at: 2025-11-07T15:50:46.757485-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T15:51:21.668729-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/cmd/project/new.go
+                  approved: false
+                  created_at: 2025-11-07T15:51:21.634788-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/continue.go
+                  approved: false
+                  created_at: 2025-11-07T15:51:21.649674-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/context.go
+                  approved: false
+                  created_at: 2025-11-07T15:51:21.659638-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/state/project.go
+                  approved: false
+                  created_at: 2025-11-07T15:51:21.668729-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "030"
+              name: Wizard Foundation and State Machine
+              phase: implementation
+              status: pending
+              created_at: 2025-11-07T15:50:47.381338-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T15:51:22.993581-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: .sow/knowledge/designs/interactive-wizard-ux-flow.md
+                  approved: false
+                  created_at: 2025-11-07T15:51:22.976195-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/interactive-wizard-technical-implementation.md
+                  approved: false
+                  created_at: 2025-11-07T15:51:22.985178-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/new.go
+                  approved: false
+                  created_at: 2025-11-07T15:51:22.993581-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "040"
+              name: Helper Functions and Utilities
+              phase: implementation
+              status: pending
+              created_at: 2025-11-07T15:50:48.101565-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T15:51:23.890965-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: .sow/knowledge/designs/interactive-wizard-technical-implementation.md
+                  approved: false
+                  created_at: 2025-11-07T15:51:23.872775-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/interactive-wizard-ux-flow.md
+                  approved: false
+                  created_at: 2025-11-07T15:51:23.882312-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/state/registry.go
+                  approved: false
+                  created_at: 2025-11-07T15:51:23.890965-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "050"
+              name: Command Integration and Cleanup
+              phase: implementation
+              status: pending
+              created_at: 2025-11-07T15:50:48.828938-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T15:51:25.172215-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/cmd/project/project.go
+                  approved: false
+                  created_at: 2025-11-07T15:51:25.144665-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/new.go
+                  approved: false
+                  created_at: 2025-11-07T15:51:25.155025-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/continue.go
+                  approved: false
+                  created_at: 2025-11-07T15:51:25.164042-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/shared.go
+                  approved: false
+                  created_at: 2025-11-07T15:51:25.172215-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+    review:
+        status: pending
+        enabled: false
+        created_at: 2025-11-07T15:26:26.191859-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+statechart:
+    current_state: ImplementationDraftPRCreation
+    updated_at: 2025-11-07T15:51:30.892356-08:00
