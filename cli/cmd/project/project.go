@@ -12,12 +12,14 @@ func NewProjectCmd() *cobra.Command {
 		Long: `Manage sow projects through subcommands.
 
 Subcommands:
+  wizard    Create or continue a project (interactive)
   new       Create a new project
   continue  Continue an existing project
   set       Set project field values
   delete    Delete the current project
 
 Examples:
+  sow project wizard
   sow project new --branch feat/auth "Add authentication"
   sow project continue
   sow project set description "Updated description"
@@ -25,6 +27,7 @@ Examples:
   sow project delete`,
 	}
 
+	cmd.AddCommand(newWizardCmd())
 	cmd.AddCommand(newNewCmd())
 	cmd.AddCommand(newContinueCmd())
 	cmd.AddCommand(newSetCmd())
