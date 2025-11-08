@@ -858,6 +858,12 @@ func (w *Wizard) finalizeCreation() error {
 		issue = issueData
 	}
 
+	// Extract knowledge files if present
+	var knowledgeFiles []string
+	if files, ok := w.choices["knowledge_files"].([]string); ok {
+		knowledgeFiles = files
+	}
+
 	// Step 1: Conditional uncommitted changes check
 	currentBranch, err := w.ctx.Git().CurrentBranch()
 	if err != nil {
@@ -882,14 +888,14 @@ func (w *Wizard) finalizeCreation() error {
 		return fmt.Errorf("failed to create worktree: %w", err)
 	}
 
-	// Step 3: Initialize project in worktree WITH issue metadata
+	// Step 3: Initialize project in worktree WITH issue metadata and knowledge files
 	worktreeCtx, err := sow.NewContext(worktreePath)
 	if err != nil {
 		return fmt.Errorf("failed to create worktree context: %w", err)
 	}
 
-	// Pass issue to initializeProject (will be nil for branch name path)
-	project, err := initializeProject(worktreeCtx, branch, name, issue)
+	// Pass issue and knowledge files to initializeProject (both will be nil/empty for basic branch path)
+	project, err := initializeProject(worktreeCtx, branch, name, issue, knowledgeFiles)
 	if err != nil {
 		return fmt.Errorf("failed to initialize project: %w", err)
 	}

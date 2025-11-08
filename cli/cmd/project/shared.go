@@ -19,13 +19,14 @@ import (
 
 // initializeProject creates a new project in the given context.
 // It creates the project directory structure, optionally writes issue context,
-// and initializes project state.
+// registers knowledge file artifacts, and initializes project state.
 //
 // Parameters:
 //   - ctx: The sow context (should be a worktree context)
 //   - branch: The branch name for the project
 //   - description: The project description
 //   - issue: Optional GitHub issue to link (can be nil)
+//   - knowledgeFiles: Optional list of knowledge file paths to register as artifacts (can be nil or empty)
 //
 // Returns the created project or an error.
 func initializeProject(
@@ -33,6 +34,7 @@ func initializeProject(
 	branch string,
 	description string,
 	issue *sow.Issue,
+	knowledgeFiles []string,
 ) (*state.Project, error) {
 	// Get the worktree root path
 	worktreePath := ctx.RepoRoot()
@@ -87,6 +89,39 @@ func initializeProject(
 		}
 	}
 
+	// Add knowledge file inputs if provided
+	if len(knowledgeFiles) > 0 {
+		// Initialize initialInputs if not already done
+		if initialInputs == nil {
+			initialInputs = make(map[string][]projschema.ArtifactState)
+		}
+
+		// Create artifacts for each knowledge file
+		knowledgeArtifacts := make([]projschema.ArtifactState, 0, len(knowledgeFiles))
+		for _, file := range knowledgeFiles {
+			artifact := projschema.ArtifactState{
+				Type:       "reference",
+				Path:       filepath.Join("../../knowledge", file),
+				Approved:   true, // Auto-approved
+				Created_at: time.Now(),
+				Metadata: map[string]interface{}{
+					"source":      "user_selected",
+					"description": "Knowledge file selected during project creation",
+				},
+			}
+			knowledgeArtifacts = append(knowledgeArtifacts, artifact)
+		}
+
+		// Determine target phase for knowledge files
+		targetPhase := determineKnowledgeInputPhase("standard")
+
+		// Add knowledge artifacts to target phase
+		if _, exists := initialInputs[targetPhase]; !exists {
+			initialInputs[targetPhase] = []projschema.ArtifactState{}
+		}
+		initialInputs[targetPhase] = append(initialInputs[targetPhase], knowledgeArtifacts...)
+	}
+
 	// Create project using SDK with initial inputs
 	proj, err := state.Create(ctx, branch, description, initialInputs)
 	if err != nil {
@@ -94,6 +129,15 @@ func initializeProject(
 	}
 
 	return proj, nil
+}
+
+// determineKnowledgeInputPhase determines which phase should receive knowledge file inputs.
+// For now, all project types use "implementation" as the default first phase.
+// This can be enhanced in the future to support different phases based on project type.
+func determineKnowledgeInputPhase(projectType string) string {
+	// For now, use "implementation" as default (first phase for standard projects)
+	// This could be enhanced to detect project type and use appropriate phase
+	return "implementation"
 }
 
 // generateNewProjectPrompt creates the custom prompt for new projects.
