@@ -242,16 +242,19 @@ func TestStateTransitionValidation(t *testing.T) {
 		{"create_source to type_select", StateCreateSource, StateTypeSelect, false},
 		{"issue_select to type_select", StateIssueSelect, StateTypeSelect, false},
 		{"issue_select to create_source", StateIssueSelect, StateCreateSource, false},
-		{"type_select to name_entry", StateTypeSelect, StateNameEntry, false},
-		{"type_select to prompt_entry", StateTypeSelect, StatePromptEntry, false},
-		{"name_entry to prompt_entry", StateNameEntry, StatePromptEntry, false},
+		{"type_select to file_select", StateTypeSelect, StateFileSelect, false},
+		{"name_entry to file_select", StateNameEntry, StateFileSelect, false},
+		{"file_select to prompt_entry", StateFileSelect, StatePromptEntry, false},
 		{"prompt_entry to complete", StatePromptEntry, StateComplete, false},
 
-		// Invalid transitions
+		// Invalid transitions (updated to reflect new flow)
 		{"entry to complete", StateEntry, StateComplete, true},
 		{"create_source to complete", StateCreateSource, StateComplete, true},
 		{"type_select to complete", StateTypeSelect, StateComplete, true},
 		{"entry to prompt_entry", StateEntry, StatePromptEntry, true},
+		{"type_select to name_entry", StateTypeSelect, StateNameEntry, true},
+		{"type_select to prompt_entry", StateTypeSelect, StatePromptEntry, true},
+		{"name_entry to prompt_entry", StateNameEntry, StatePromptEntry, true},
 	}
 
 	for _, tt := range tests {

@@ -24,6 +24,7 @@ const (
 	StateIssueSelect    WizardState = "issue_select"
 	StateTypeSelect     WizardState = "type_select"
 	StateNameEntry      WizardState = "name_entry"
+	StateFileSelect     WizardState = "file_select"
 	StatePromptEntry    WizardState = "prompt_entry"
 	StateProjectSelect  WizardState = "project_select"
 	StateContinuePrompt WizardState = "continue_prompt"
