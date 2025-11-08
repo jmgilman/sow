@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -860,13 +861,16 @@ func TestHandleProjectSelect_ProjectDeletedAfterDiscovery(t *testing.T) {
 	w := NewWizard(nil, ctx, []string{})
 	w.state = StateProjectSelect
 
-	// Check if state file exists - if it does, store choice and transition
-	if _, err := os.Stat(statePath); err == nil {
+	// Check if state file exists
+	if _, err := os.Stat(statePath); err != nil {
+		// Project no longer exists - stay in current state (allow retry)
+		// Don't transition to StateContinuePrompt
+		// Don't store the choice
+	} else {
 		// Project exists - store choice and transition
 		w.choices["project"] = selectedProj
 		w.state = StateContinuePrompt
 	}
-	// Project no longer exists - stay in current state (allow retry)
 
 	// Verify handler stayed in StateProjectSelect (no transition)
 	if w.state != StateProjectSelect {

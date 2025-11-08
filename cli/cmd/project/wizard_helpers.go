@@ -5,10 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
+	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
 )
 
@@ -296,6 +299,136 @@ func checkBranchState(ctx *sow.Context, branchName string) (*BranchState, error)
 	}
 
 	return state, nil
+}
+
+// ProjectInfo holds metadata about a project for display in the wizard.
+type ProjectInfo struct {
+	Branch         string    // Git branch name (e.g., "feat/auth")
+	Name           string    // Project name from state.yaml
+	Type           string    // Project type (standard, exploration, design, breakdown)
+	Phase          string    // Current phase/state from state machine
+	TasksCompleted int       // Number of completed tasks (0 if phase has no tasks)
+	TasksTotal     int       // Total number of tasks (0 if phase has no tasks)
+	ModTime        time.Time // State file modification time for sorting
+}
+
+// listProjects discovers all active projects by scanning the worktrees directory.
+// Returns projects sorted by modification time (most recent first).
+func listProjects(ctx *sow.Context) ([]ProjectInfo, error) {
+	// Construct worktrees directory path using MainRepoRoot
+	// This works whether we're in a worktree or the main repo
+	worktreesDir := filepath.Join(ctx.MainRepoRoot(), ".sow", "worktrees")
+
+	// Check if worktrees directory exists
+	if _, err := os.Stat(worktreesDir); err != nil {
+		if os.IsNotExist(err) {
+			// Missing worktrees directory is not an error - just means no projects exist
+			return []ProjectInfo{}, nil
+		}
+		return nil, fmt.Errorf("failed to stat worktrees directory: %w", err)
+	}
+
+	var projects []ProjectInfo
+
+	// Walk the worktrees directory tree to find all state.yaml files
+	err := filepath.Walk(worktreesDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Look for state.yaml files in .sow/project/ subdirectories
+		if info.IsDir() || info.Name() != "state.yaml" {
+			return nil
+		}
+
+		// Check if this is a project state file (path ends with .sow/project/state.yaml)
+		if filepath.Base(filepath.Dir(path)) != "project" ||
+			filepath.Base(filepath.Dir(filepath.Dir(path))) != ".sow" {
+			return nil
+		}
+
+		// Process this project state file
+		projectInfo := processProjectState(path, worktreesDir, info)
+		if projectInfo != nil {
+			projects = append(projects, *projectInfo)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk worktrees directory: %w", err)
+	}
+
+	// Sort by modification time, most recent first
+	sort.Slice(projects, func(i, j int) bool {
+		return projects[i].ModTime.After(projects[j].ModTime)
+	})
+
+	return projects, nil
+}
+
+// processProjectState processes a project state.yaml file and returns project info.
+// Returns nil if the project cannot be loaded (with warning to stderr).
+func processProjectState(path, worktreesDir string, info os.FileInfo) *ProjectInfo {
+	// Extract branch name from path
+	// Path structure: worktreesDir/branchName/.sow/project/state.yaml
+	worktreePath := filepath.Dir(filepath.Dir(filepath.Dir(path)))
+	branchName, err := filepath.Rel(worktreesDir, worktreePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to extract branch name from %s: %v\n", path, err)
+		return nil
+	}
+
+	// Create a context for this worktree
+	worktreeCtx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to create context for %s: %v\n", branchName, err)
+		return nil
+	}
+
+	// Load project state
+	proj, err := state.Load(worktreeCtx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to load project state for %s: %v\n", branchName, err)
+		return nil
+	}
+
+	// Count tasks across ALL phases
+	var tasksCompleted, tasksTotal int
+	for _, phase := range proj.Phases {
+		for _, task := range phase.Tasks {
+			tasksTotal++
+			if task.Status == "completed" {
+				tasksCompleted++
+			}
+		}
+	}
+
+	// Extract metadata
+	return &ProjectInfo{
+		Branch:         branchName,
+		Name:           proj.Name,
+		Type:           proj.Type,
+		Phase:          proj.Machine().State().String(),
+		TasksCompleted: tasksCompleted,
+		TasksTotal:     tasksTotal,
+		ModTime:        info.ModTime(),
+	}
+}
+
+// formatProjectProgress formats progress information for display in project selection.
+// Returns a string like "Standard: implementation, 3/5 tasks completed" or "Design: active".
+func formatProjectProgress(proj ProjectInfo) string {
+	// Capitalize first letter of type
+	typeName := strings.ToUpper(proj.Type[:1]) + proj.Type[1:]
+
+	if proj.TasksTotal > 0 {
+		return fmt.Sprintf("%s: %s, %d/%d tasks completed",
+			typeName, proj.Phase, proj.TasksCompleted, proj.TasksTotal)
+	}
+
+	return fmt.Sprintf("%s: %s", typeName, proj.Phase)
 }
 
 // validateStateTransition checks if a state transition is valid.

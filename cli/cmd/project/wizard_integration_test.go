@@ -118,6 +118,7 @@ func TestCompleteGitHubIssueWorkflow(t *testing.T) {
 	t.Logf("✓ Created branch %s and skipped type selection", createdBranch)
 
 	// === STEP 4: Finalize project ===
+	wizard.choices["action"] = "create"
 	wizard.choices["prompt"] = "Focus on middleware implementation"
 	wizard.state = StateComplete
 
@@ -353,6 +354,7 @@ func TestBranchNamePathStillWorks(t *testing.T) {
 	}
 
 	// Simulate branch name path (no issue)
+	wizard.choices["action"] = "create"
 	wizard.choices["type"] = "standard"
 	wizard.choices["name"] = "Test Project"
 	wizard.choices["branch"] = "feat/test-project"
