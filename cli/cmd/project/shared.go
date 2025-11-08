@@ -134,7 +134,7 @@ func initializeProject(
 // determineKnowledgeInputPhase determines which phase should receive knowledge file inputs.
 // For now, all project types use "implementation" as the default first phase.
 // This can be enhanced in the future to support different phases based on project type.
-func determineKnowledgeInputPhase(projectType string) string {
+func determineKnowledgeInputPhase(_ string) string {
 	// For now, use "implementation" as default (first phase for standard projects)
 	// This could be enhanced to detect project type and use appropriate phase
 	return "implementation"

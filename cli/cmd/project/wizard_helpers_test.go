@@ -2633,8 +2633,8 @@ func TestErrorGitHubNotAuthenticated(t *testing.T) {
 }
 
 // TestDiscoverKnowledgeFiles tests the discoverKnowledgeFiles function.
-func TestDiscoverKnowledgeFiles(t *testing.T) {
-	tests := []struct {
+// discoverKnowledgeFilesTestCases defines test cases for TestDiscoverKnowledgeFiles.
+var discoverKnowledgeFilesTestCases = []struct {
 		name     string
 		setup    func(t *testing.T) string // Returns knowledge dir path
 		expected []string
@@ -2806,7 +2806,8 @@ func TestDiscoverKnowledgeFiles(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+func TestDiscoverKnowledgeFiles(t *testing.T) {
+	for _, tt := range discoverKnowledgeFilesTestCases {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := tt.setup(t)
 			got, err := discoverKnowledgeFiles(dir)
