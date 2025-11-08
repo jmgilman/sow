@@ -1,3 +1,4 @@
+// Package project provides commands for managing sow projects.
 package project
 
 import (

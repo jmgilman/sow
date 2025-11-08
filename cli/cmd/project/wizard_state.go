@@ -11,6 +11,7 @@ import (
 // WizardState represents the current state of the project wizard.
 type WizardState string
 
+// Wizard states define the flow through project creation/continuation.
 const (
 	StateEntry          WizardState = "entry"
 	StateCreateSource   WizardState = "create_source"

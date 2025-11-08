@@ -3,24 +3,19 @@ type: standard
 branch: 68-wizard-foundation-and-state-machine
 description: Wizard Foundation and State Machine
 created_at: 2025-11-07T15:26:26.191859-08:00
-updated_at: 2025-11-07T16:38:14.061455-08:00
+updated_at: 2025-11-07T16:27:38.923741-08:00
 phases:
     finalize:
-        status: in_progress
+        status: pending
         enabled: false
         created_at: 2025-11-07T15:26:26.191859-08:00
-        started_at: 2025-11-07T16:35:21.155882-08:00
+        started_at: 0001-01-01T00:00:00Z
         completed_at: 0001-01-01T00:00:00Z
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata: {}
         inputs: []
-        outputs:
-            - type: pr_body
-              path: project/phases/finalize/pr_body.md
-              approved: true
-              created_at: 2025-11-07T16:37:12.893079-08:00
-              metadata: {}
+        outputs: []
         tasks: []
     implementation:
         status: completed
@@ -282,11 +277,11 @@ phases:
               outputs: []
               metadata: {}
     review:
-        status: completed
+        status: in_progress
         enabled: false
         created_at: 2025-11-07T15:26:26.191859-08:00
         started_at: 2025-11-07T16:23:35.88504-08:00
-        completed_at: 2025-11-07T16:35:21.155881-08:00
+        completed_at: 0001-01-01T00:00:00Z
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata: {}
@@ -294,12 +289,10 @@ phases:
         outputs:
             - type: review
               path: phases/review/reports/001.md
-              approved: true
+              approved: false
               created_at: 2025-11-07T16:27:38.923741-08:00
-              metadata:
-                assessment: pass
-                iteration: 1
+              metadata: {}
         tasks: []
 statechart:
-    current_state: FinalizePRChecks
-    updated_at: 2025-11-07T16:38:14.061455-08:00
+    current_state: ReviewActive
+    updated_at: 2025-11-07T16:27:38.923741-08:00

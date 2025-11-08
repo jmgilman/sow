@@ -1,49 +1,53 @@
 package project
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	projschema "github.com/jmgilman/sow/cli/schemas/project"
 
-	// Import project types to register them
+	// Import project types to register them.
 	_ "github.com/jmgilman/sow/cli/internal/projects/breakdown"
 	_ "github.com/jmgilman/sow/cli/internal/projects/design"
 	_ "github.com/jmgilman/sow/cli/internal/projects/exploration"
 	_ "github.com/jmgilman/sow/cli/internal/projects/standard"
 )
 
-// setupTestRepo initializes a git repo in the given directory for testing
+// setupTestRepo initializes a git repo in the given directory for testing.
 func setupTestRepo(t *testing.T, dir string) {
 	t.Helper()
 
 	// Initialize git repo
-	cmd := exec.Command("git", "init")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "init")
 	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to init git repo: %v", err)
 	}
 
 	// Configure git (needed for commits)
-	configCmd := exec.Command("git", "config", "user.email", "test@example.com")
+	configCmd := exec.CommandContext(ctx, "git", "config", "user.email", "test@example.com")
 	configCmd.Dir = dir
 	if err := configCmd.Run(); err != nil {
 		t.Fatalf("failed to config git email: %v", err)
 	}
 
-	configCmd = exec.Command("git", "config", "user.name", "Test User")
+	configCmd = exec.CommandContext(ctx, "git", "config", "user.name", "Test User")
 	configCmd.Dir = dir
 	if err := configCmd.Run(); err != nil {
 		t.Fatalf("failed to config git name: %v", err)
 	}
 }
 
-// setupTestContext creates a test directory with git repo and sow context
+// setupTestContext creates a test directory with git repo and sow context.
 func setupTestContext(t *testing.T) (*sow.Context, string) {
 	t.Helper()
 

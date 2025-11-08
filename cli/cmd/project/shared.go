@@ -178,6 +178,8 @@ func generateContinuePrompt(proj *state.Project) (string, error) {
 //   - claudeFlags: Additional flags to pass to Claude CLI
 //
 // Returns an error if Claude is not found or execution fails.
+//
+//nolint:unused // Will be used by wizard finalize in subsequent work units
 func launchClaudeCode(
 	cmd *cobra.Command,
 	ctx *sow.Context,

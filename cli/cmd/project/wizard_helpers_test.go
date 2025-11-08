@@ -187,7 +187,7 @@ func TestWithSpinner_PropagatesError(t *testing.T) {
 		return expectedErr
 	})
 
-	if err != expectedErr {
+	if !errors.Is(err, expectedErr) {
 		t.Errorf("withSpinner() = %v; want %v", err, expectedErr)
 	}
 }

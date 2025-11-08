@@ -9,6 +9,8 @@ import (
 )
 
 // newWizardCmd creates the interactive wizard command.
+//
+//nolint:unused // Foundation code - wizard now invoked directly via RunE
 func newWizardCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wizard",
@@ -31,7 +33,7 @@ Claude Code Flags:
 }
 
 // runWizard executes the interactive wizard.
-func runWizard(cmd *cobra.Command, args []string) error {
+func runWizard(cmd *cobra.Command, _ []string) error {
 	mainCtx := cmdutil.GetContext(cmd.Context())
 
 	if !mainCtx.IsInitialized() {
