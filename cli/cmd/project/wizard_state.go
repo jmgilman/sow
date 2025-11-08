@@ -167,10 +167,35 @@ func (w *Wizard) handleIssueSelect() error {
 	return nil
 }
 
-// handleTypeSelect allows selecting project type (stub for now).
+// handleTypeSelect allows selecting project type.
 func (w *Wizard) handleTypeSelect() error {
-	fmt.Println("Type select screen (stub)")
-	w.state = StateComplete
+	var selectedType string
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("What type of project?").
+				Options(getTypeOptions()...).
+				Value(&selectedType),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			w.state = StateCancelled
+			return nil
+		}
+		return fmt.Errorf("type selection error: %w", err)
+	}
+
+	if selectedType == "cancel" {
+		w.state = StateCancelled
+		return nil
+	}
+
+	w.choices["type"] = selectedType
+	w.state = StateNameEntry
+
 	return nil
 }
 

@@ -70,9 +70,9 @@ func TestHandleState_DispatchesToCorrectHandler(t *testing.T) {
 			// Just verify no error for valid states
 			err := wizard.handleState()
 
-			// Entry and CreateSource states require interactive input, skip for now
+			// Entry, CreateSource, and TypeSelect states require interactive input, skip for now
 			// Other states (stubs) should complete successfully
-			if tt.state == StateEntry || tt.state == StateCreateSource {
+			if tt.state == StateEntry || tt.state == StateCreateSource || tt.state == StateTypeSelect {
 				// These require interactive input, skip for now
 				t.Skip("Interactive state requires user input")
 			} else {
@@ -110,9 +110,8 @@ func TestWizardRun_LoopsUntilTerminalState(t *testing.T) {
 // TestStateTransitions_StubHandlers tests that stub handlers transition to StateComplete.
 func TestStateTransitions_StubHandlers(t *testing.T) {
 	stubs := []WizardState{
-		// Note: StateCreateSource is now implemented, so it's not a stub anymore
+		// Note: StateCreateSource and StateTypeSelect are now implemented, so they're not stubs anymore
 		StateIssueSelect,
-		StateTypeSelect,
 		StateNameEntry,
 		StatePromptEntry,
 		StateProjectSelect,
