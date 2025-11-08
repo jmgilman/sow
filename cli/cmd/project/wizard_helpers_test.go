@@ -6,7 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 // TestNormalizeName tests the normalizeName function with various inputs.
@@ -492,5 +494,371 @@ func TestCheckBranchState_FullStack(t *testing.T) {
 	}
 	if !state.ProjectExists {
 		t.Error("ProjectExists should be true when state.yaml exists")
+	}
+}
+
+// TestFormatProjectProgress tests the formatProjectProgress function.
+func TestFormatProjectProgress(t *testing.T) {
+	testCases := []struct {
+		name     string
+		proj     ProjectInfo
+		expected string
+	}{
+		{
+			name: "project with tasks shows task counts",
+			proj: ProjectInfo{
+				Type:           "standard",
+				Phase:          "implementation",
+				TasksCompleted: 3,
+				TasksTotal:     5,
+			},
+			expected: "Standard: implementation, 3/5 tasks completed",
+		},
+		{
+			name: "project without tasks excludes task portion",
+			proj: ProjectInfo{
+				Type:      "design",
+				Phase:     "active",
+				TasksTotal: 0,
+			},
+			expected: "Design: active",
+		},
+		{
+			name: "exploration type with tasks",
+			proj: ProjectInfo{
+				Type:           "exploration",
+				Phase:          "gathering",
+				TasksCompleted: 4,
+				TasksTotal:     7,
+			},
+			expected: "Exploration: gathering, 4/7 tasks completed",
+		},
+		{
+			name: "breakdown type with all tasks completed",
+			proj: ProjectInfo{
+				Type:           "breakdown",
+				Phase:          "completed",
+				TasksCompleted: 10,
+				TasksTotal:     10,
+			},
+			expected: "Breakdown: completed, 10/10 tasks completed",
+		},
+		{
+			name: "standard type with zero completed tasks",
+			proj: ProjectInfo{
+				Type:           "standard",
+				Phase:          "planning",
+				TasksCompleted: 0,
+				TasksTotal:     8,
+			},
+			expected: "Standard: planning, 0/8 tasks completed",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := formatProjectProgress(tc.proj)
+			if result != tc.expected {
+				t.Errorf("formatProjectProgress() = %q; want %q", result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestListProjects_EmptyWorktreesDirectory tests listProjects with no worktrees.
+func TestListProjects_EmptyWorktreesDirectory(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create empty worktrees directory
+	worktreesDir := filepath.Join(tmpDir, ".sow", "worktrees")
+	if err := os.MkdirAll(worktreesDir, 0755); err != nil {
+		t.Fatalf("failed to create worktrees directory: %v", err)
+	}
+
+	projects, err := listProjects(ctx)
+	if err != nil {
+		t.Fatalf("listProjects() returned error: %v", err)
+	}
+
+	if len(projects) != 0 {
+		t.Errorf("listProjects() returned %d projects; want 0", len(projects))
+	}
+}
+
+// TestListProjects_MissingWorktreesDirectory tests listProjects when worktrees dir doesn't exist.
+func TestListProjects_MissingWorktreesDirectory(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+
+	// Don't create worktrees directory - it doesn't exist
+	projects, err := listProjects(ctx)
+	if err != nil {
+		t.Fatalf("listProjects() returned error: %v; want nil", err)
+	}
+
+	if len(projects) != 0 {
+		t.Errorf("listProjects() returned %d projects; want 0", len(projects))
+	}
+}
+
+// TestListProjects_DirectoryWithoutStateFile tests that directories without state files are skipped.
+func TestListProjects_DirectoryWithoutStateFile(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create worktrees directory with a subdirectory that has no state file
+	worktreesDir := filepath.Join(tmpDir, ".sow", "worktrees")
+	emptyDir := filepath.Join(worktreesDir, "feat", "empty-worktree")
+	if err := os.MkdirAll(emptyDir, 0755); err != nil {
+		t.Fatalf("failed to create empty worktree directory: %v", err)
+	}
+
+	projects, err := listProjects(ctx)
+	if err != nil {
+		t.Fatalf("listProjects() returned error: %v", err)
+	}
+
+	if len(projects) != 0 {
+		t.Errorf("listProjects() returned %d projects; want 0 (directory without state should be skipped)", len(projects))
+	}
+}
+
+// TestListProjects_SingleValidProject tests discovery of a single valid project.
+func TestListProjects_SingleValidProject(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create a valid project worktree
+	branchName := "feat/test-project"
+	worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
+	projectDir := filepath.Join(worktreePath, ".sow", "project")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatalf("failed to create project directory: %v", err)
+	}
+
+	// Initialize git repo in the worktree directory
+	setupTestRepo(t, worktreePath)
+
+	// Create a minimal valid state.yaml
+	stateContent := `name: test-project
+type: standard
+branch: feat/test-project
+state: implementation
+created_at: 2025-01-01T10:00:00Z
+updated_at: 2025-01-01T10:00:00Z
+phases: {}
+statechart:
+  current_state: ImplementationExecuting
+  updated_at: 2025-01-01T10:00:00Z
+`
+	stateFile := filepath.Join(projectDir, "state.yaml")
+	if err := os.WriteFile(stateFile, []byte(stateContent), 0644); err != nil {
+		t.Fatalf("failed to create state.yaml: %v", err)
+	}
+
+	projects, err := listProjects(ctx)
+	if err != nil {
+		t.Fatalf("listProjects() returned error: %v", err)
+	}
+
+	if len(projects) != 1 {
+		t.Fatalf("listProjects() returned %d projects; want 1", len(projects))
+	}
+
+	proj := projects[0]
+	if proj.Branch != branchName {
+		t.Errorf("Branch = %q; want %q", proj.Branch, branchName)
+	}
+	if proj.Name != "test-project" {
+		t.Errorf("Name = %q; want %q", proj.Name, "test-project")
+	}
+	if proj.Type != "standard" {
+		t.Errorf("Type = %q; want %q", proj.Type, "standard")
+	}
+	if proj.Phase != "ImplementationExecuting" {
+		t.Errorf("Phase = %q; want %q", proj.Phase, "ImplementationExecuting")
+	}
+	if proj.TasksTotal != 0 || proj.TasksCompleted != 0 {
+		t.Errorf("Tasks = %d/%d; want 0/0 (no tasks in project)", proj.TasksCompleted, proj.TasksTotal)
+	}
+}
+
+// TestListProjects_MultipleProjectsSorted tests that multiple projects are returned sorted by modification time.
+func TestListProjects_MultipleProjectsSorted(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	worktreesDir := filepath.Join(tmpDir, ".sow", "worktrees")
+
+	// Helper to create a project with specific modification time
+	createProject := func(branchName string, modTime time.Time) {
+		worktreePath := filepath.Join(worktreesDir, branchName)
+		projectDir := filepath.Join(worktreePath, ".sow", "project")
+		if err := os.MkdirAll(projectDir, 0755); err != nil {
+			t.Fatalf("failed to create project directory: %v", err)
+		}
+
+		// Initialize git repo in the worktree directory
+		setupTestRepo(t, worktreePath)
+
+		// Extract a valid project name from branch (feat/xxx -> xxx, no forward slashes)
+		projectName := strings.ReplaceAll(branchName, "/", "-")
+
+		stateContent := `name: ` + projectName + `
+type: standard
+branch: ` + branchName + `
+state: implementation
+created_at: 2025-01-01T10:00:00Z
+updated_at: 2025-01-01T10:00:00Z
+phases: {}
+statechart:
+  current_state: ImplementationExecuting
+  updated_at: 2025-01-01T10:00:00Z
+`
+		stateFile := filepath.Join(projectDir, "state.yaml")
+		if err := os.WriteFile(stateFile, []byte(stateContent), 0644); err != nil {
+			t.Fatalf("failed to create state.yaml: %v", err)
+		}
+
+		// Set modification time
+		if err := os.Chtimes(stateFile, modTime, modTime); err != nil {
+			t.Fatalf("failed to set modification time: %v", err)
+		}
+	}
+
+	// Create three projects with different modification times
+	now := time.Now()
+	createProject("feat/oldest", now.Add(-2*time.Hour))
+	createProject("feat/middle", now.Add(-1*time.Hour))
+	createProject("feat/newest", now)
+
+	projects, err := listProjects(ctx)
+	if err != nil {
+		t.Fatalf("listProjects() returned error: %v", err)
+	}
+
+	if len(projects) != 3 {
+		t.Fatalf("listProjects() returned %d projects; want 3", len(projects))
+	}
+
+	// Should be sorted newest first
+	if projects[0].Branch != "feat/newest" {
+		t.Errorf("projects[0].Branch = %q; want %q", projects[0].Branch, "feat/newest")
+	}
+	if projects[1].Branch != "feat/middle" {
+		t.Errorf("projects[1].Branch = %q; want %q", projects[1].Branch, "feat/middle")
+	}
+	if projects[2].Branch != "feat/oldest" {
+		t.Errorf("projects[2].Branch = %q; want %q", projects[2].Branch, "feat/oldest")
+	}
+}
+
+// TestListProjects_ProjectWithTasks tests that task counts are calculated correctly.
+func TestListProjects_ProjectWithTasks(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	branchName := "feat/with-tasks"
+	worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
+	projectDir := filepath.Join(worktreePath, ".sow", "project")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatalf("failed to create project directory: %v", err)
+	}
+
+	// Initialize git repo in the worktree directory
+	setupTestRepo(t, worktreePath)
+
+	// Create state with tasks across multiple phases
+	stateContent := `name: project-with-tasks
+type: standard
+branch: feat/with-tasks
+state: implementation
+created_at: 2025-01-01T10:00:00Z
+updated_at: 2025-01-01T10:00:00Z
+statechart:
+  current_state: ImplementationExecuting
+  updated_at: 2025-01-01T10:00:00Z
+phases:
+  planning:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T10:00:00Z
+    inputs: []
+    outputs: []
+    tasks:
+      - id: "010"
+        name: "Planning Task 1"
+        phase: planning
+        status: completed
+        created_at: 2025-01-01T10:00:00Z
+        updated_at: 2025-01-01T11:00:00Z
+        iteration: 1
+        assigned_agent: implementer
+        inputs: []
+        outputs: []
+      - id: "020"
+        name: "Planning Task 2"
+        phase: planning
+        status: completed
+        created_at: 2025-01-01T10:00:00Z
+        updated_at: 2025-01-01T11:00:00Z
+        iteration: 1
+        assigned_agent: implementer
+        inputs: []
+        outputs: []
+  implementation:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T12:00:00Z
+    inputs: []
+    outputs: []
+    tasks:
+      - id: "030"
+        name: "Implementation Task 1"
+        phase: implementation
+        status: completed
+        created_at: 2025-01-01T12:00:00Z
+        updated_at: 2025-01-01T13:00:00Z
+        iteration: 1
+        assigned_agent: implementer
+        inputs: []
+        outputs: []
+      - id: "040"
+        name: "Implementation Task 2"
+        phase: implementation
+        status: in_progress
+        created_at: 2025-01-01T12:00:00Z
+        updated_at: 2025-01-01T13:00:00Z
+        iteration: 1
+        assigned_agent: implementer
+        inputs: []
+        outputs: []
+      - id: "050"
+        name: "Implementation Task 3"
+        phase: implementation
+        status: pending
+        created_at: 2025-01-01T12:00:00Z
+        updated_at: 2025-01-01T13:00:00Z
+        iteration: 1
+        assigned_agent: implementer
+        inputs: []
+        outputs: []
+`
+	stateFile := filepath.Join(projectDir, "state.yaml")
+	if err := os.WriteFile(stateFile, []byte(stateContent), 0644); err != nil {
+		t.Fatalf("failed to create state.yaml: %v", err)
+	}
+
+	projects, err := listProjects(ctx)
+	if err != nil {
+		t.Fatalf("listProjects() returned error: %v", err)
+	}
+
+	if len(projects) != 1 {
+		t.Fatalf("listProjects() returned %d projects; want 1", len(projects))
+	}
+
+	proj := projects[0]
+	// Should have 3 completed tasks (2 from planning, 1 from implementation) out of 5 total
+	if proj.TasksCompleted != 3 {
+		t.Errorf("TasksCompleted = %d; want 3", proj.TasksCompleted)
+	}
+	if proj.TasksTotal != 5 {
+		t.Errorf("TasksTotal = %d; want 5", proj.TasksTotal)
 	}
 }
