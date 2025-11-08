@@ -35,6 +35,8 @@ const (
 // This interface allows for easy mocking in tests.
 type GitHubClient interface {
 	Ensure() error
+	CheckInstalled() error
+	CheckAuthenticated() error
 	ListIssues(label, state string) ([]sow.Issue, error)
 	GetLinkedBranches(number int) ([]sow.LinkedBranch, error)
 	CreateLinkedBranch(issueNumber int, branchName string, checkout bool) (string, error)
@@ -49,7 +51,7 @@ type Wizard struct {
 	claudeFlags []string
 	cmd         *cobra.Command
 	github      GitHubClient // GitHub client for issue operations
-	testMode    bool         // Set to true in tests to skip interactive prompts
+	testMode    bool         //nolint:unused // Will be used by wizard flows for test mode
 }
 
 // NewWizard creates a new wizard instance.

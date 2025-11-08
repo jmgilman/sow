@@ -1,6 +1,7 @@
 package project
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -233,19 +234,49 @@ func withSpinner(title string, action func() error) error {
 	return err
 }
 
+// isProtectedBranch checks if a branch name is protected (main or master).
+// Convenience wrapper around the logic used in git.IsProtectedBranch().
+//
+// Protected branches cannot have sow projects created on them to avoid
+// accidental commits to the main development line.
+//
+// Example:
+//
+//	if isProtectedBranch("main") {
+//	    return fmt.Errorf("cannot use protected branch")
+//	}
+func isProtectedBranch(name string) bool {
+	return name == "main" || name == "master"
+}
+
 // isValidBranchName checks if a string is a valid git branch name.
 // Returns nil if valid, error describing the problem if invalid.
 //
 // Git branch name rules:
+// - Not empty or whitespace-only
+// - Not a protected branch (main, master)
 // - Cannot start or end with /
 // - Cannot contain ..
 // - Cannot contain consecutive slashes //
 // - Cannot end with .lock
 // - Cannot contain special characters: ~, ^, :, ?, *, [, \.
 // - Cannot contain whitespace.
+//
+// Example:
+//
+//	err := isValidBranchName("feat/add-auth")  // nil (valid)
+//	err := isValidBranchName("main")           // error (protected)
+//	err := isValidBranchName("has spaces")     // error (spaces)
 func isValidBranchName(name string) error {
+	// Trim and check empty
+	name = strings.TrimSpace(name)
 	if name == "" {
 		return fmt.Errorf("branch name cannot be empty")
+	}
+
+	// Check protected branches
+	if isProtectedBranch(name) {
+		return fmt.Errorf("cannot use protected branch name")
 	}
 
 	// Check for invalid patterns
@@ -276,6 +307,103 @@ func isValidBranchName(name string) error {
 	return nil
 }
 
+// validateProjectName validates user input for project name entry.
+// Called by huh input field validator during name entry screen.
+//
+// The function:
+//  1. Checks for empty input
+//  2. Normalizes the name using normalizeName()
+//  3. Builds full branch name (prefix + normalized)
+//  4. Validates using isValidBranchName()
+//
+// Returns nil if valid, or error with user-friendly message.
+//
+// Example:
+//
+//	err := validateProjectName("Web Agents", "feat/")
+//	// Normalizes to "web-agents", validates "feat/web-agents"
+func validateProjectName(name string, prefix string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("project name cannot be empty")
+	}
+
+	normalized := normalizeName(name)
+	branchName := prefix + normalized
+
+	return isValidBranchName(branchName)
+}
+
+// shouldCheckUncommittedChanges determines if uncommitted changes validation is needed.
+// Returns true only when current branch == target branch.
+//
+// Why conditional? Git worktrees can't have the same branch checked out twice.
+// If current == target, sow must switch the main repo to master/main first.
+// Switching with uncommitted changes fails, so we must check first.
+//
+// Example:
+//
+//	shouldCheck, err := shouldCheckUncommittedChanges(ctx, "feat/auth")
+//	if err != nil {
+//	    return err
+//	}
+//	if shouldCheck {
+//	    // Perform validation
+//	}
+func shouldCheckUncommittedChanges(ctx *sow.Context, targetBranch string) (bool, error) {
+	currentBranch, err := ctx.Git().CurrentBranch()
+	if err != nil {
+		return false, fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	// Only check if we'll need to switch branches
+	return currentBranch == targetBranch, nil
+}
+
+// performUncommittedChangesCheckIfNeeded runs uncommitted changes validation conditionally.
+// Uses existing sow.CheckUncommittedChanges() but adds enhanced error message.
+//
+// The check only runs when current branch == target branch, because that's when
+// sow needs to switch branches (which fails with uncommitted changes).
+//
+// Error message follows the 3-part pattern:
+//  1. What: "Repository has uncommitted changes"
+//  2. How: "You are currently on branch 'X'. Creating a worktree requires switching..."
+//  3. Next: "To fix: Commit: ... Or stash: ..."
+//
+// Example:
+//
+//	err := performUncommittedChangesCheckIfNeeded(ctx, "feat/auth")
+//	if err != nil {
+//	    // User sees helpful error with current branch and fix commands
+//	    return err
+//	}
+func performUncommittedChangesCheckIfNeeded(ctx *sow.Context, targetBranch string) error {
+	shouldCheck, err := shouldCheckUncommittedChanges(ctx, targetBranch)
+	if err != nil {
+		return err
+	}
+
+	if !shouldCheck {
+		return nil // No check needed
+	}
+
+	// Use existing validation
+	if err := sow.CheckUncommittedChanges(ctx); err != nil {
+		// Enhance with user-friendly message
+		return fmt.Errorf(
+			"repository has uncommitted changes\n\n"+
+				"You are currently on branch '%s'.\n"+
+				"Creating a worktree requires switching to a different branch first.\n\n"+
+				"To fix:\n"+
+				"  Commit: git add . && git commit -m \"message\"\n"+
+				"  Or stash: git stash",
+			targetBranch,
+		)
+	}
+
+	return nil
+}
+
 // BranchState represents the state of a branch in the repository.
 type BranchState struct {
 	BranchExists   bool
@@ -283,7 +411,12 @@ type BranchState struct {
 	ProjectExists  bool
 }
 
-// checkBranchState checks if a branch exists, has a worktree, and has an existing project.
+// checkBranchState examines branch, worktree, and project state for a given branch name.
+// Used before creation to detect conflicts.
+//
+// Returns:
+//   - BranchState with all three boolean flags set
+//   - error if filesystem or git operations fail
 func checkBranchState(ctx *sow.Context, branchName string) (*BranchState, error) {
 	state := &BranchState{}
 
@@ -313,6 +446,84 @@ func checkBranchState(ctx *sow.Context, branchName string) (*BranchState, error)
 	}
 
 	return state, nil
+}
+
+// canCreateProject validates that project creation is allowed on this branch.
+// Returns error if:
+//   - Branch already has a project (state.ProjectExists == true)
+//   - Inconsistent state: worktree exists but project missing
+//
+// Returns nil if creation is allowed.
+func canCreateProject(state *BranchState, branchName string) error {
+	// Check if project already exists
+	if state.ProjectExists {
+		return fmt.Errorf("branch '%s' already has a project", branchName)
+	}
+
+	// Check for inconsistent state (worktree without project)
+	if state.WorktreeExists && !state.ProjectExists {
+		return fmt.Errorf("worktree exists but project missing for branch '%s'", branchName)
+	}
+
+	// Creation is allowed
+	return nil
+}
+
+// validateProjectExists checks that a project at given branch exists.
+// Used when continuing projects (Work Unit 004).
+//
+// Returns error if:
+//   - Branch doesn't exist
+//   - Worktree doesn't exist
+//   - Project doesn't exist in worktree
+func validateProjectExists(ctx *sow.Context, branchName string) error {
+	state, err := checkBranchState(ctx, branchName)
+	if err != nil {
+		return err
+	}
+
+	if !state.BranchExists {
+		return fmt.Errorf("branch '%s' does not exist", branchName)
+	}
+
+	if !state.WorktreeExists {
+		return fmt.Errorf("worktree for branch '%s' does not exist", branchName)
+	}
+
+	if !state.ProjectExists {
+		return fmt.Errorf("project for branch '%s' does not exist", branchName)
+	}
+
+	return nil
+}
+
+// listExistingProjects finds all branches with existing projects.
+// Used by "continue existing project" screen to show available options.
+//
+// Returns:
+//   - Slice of branch names that have projects
+//   - error if filesystem or git operations fail
+func listExistingProjects(ctx *sow.Context) ([]string, error) {
+	branches, err := ctx.Git().Branches()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list branches: %w", err)
+	}
+
+	var projects []string
+	for _, branch := range branches {
+		state, err := checkBranchState(ctx, branch)
+		if err != nil {
+			return nil, err
+		}
+		if state.ProjectExists {
+			projects = append(projects, branch)
+		}
+	}
+
+	// Sort alphabetically for consistent UI
+	sort.Strings(projects)
+
+	return projects, nil
 }
 
 // ProjectInfo holds metadata about a project for display in the wizard.
@@ -474,4 +685,341 @@ func validateStateTransition(from, to WizardState) error {
 	}
 
 	return fmt.Errorf("invalid transition from %s to %s", from, to)
+}
+
+// formatError formats error messages in the consistent 3-part pattern:
+//  1. What went wrong (title)
+//  2. How to fix (problem and solution)
+//  3. Next steps (what to do now)
+//
+// The function assembles the parts into a single formatted string suitable
+// for display in huh components.
+//
+// Example:
+//
+//	msg := formatError(
+//	    "Cannot create project on protected branch 'main'",
+//	    "Projects must be created on feature branches.",
+//	    "Action: Choose a different project name",
+//	)
+func formatError(problem string, howToFix string, nextSteps string) string {
+	var parts []string
+
+	if problem != "" {
+		parts = append(parts, problem)
+	}
+	if howToFix != "" {
+		parts = append(parts, howToFix)
+	}
+	if nextSteps != "" {
+		parts = append(parts, nextSteps)
+	}
+
+	return strings.Join(parts, "\n\n")
+}
+
+// showErrorWithOptions displays an error with multiple action choices.
+// Returns the user's selected choice.
+//
+// Used for errors where multiple recovery paths are available
+// (e.g., "continue existing project" vs "change name").
+//
+// Example:
+//
+//	choice, err := showErrorWithOptions(
+//	    formatError(...),
+//	    map[string]string{
+//	        "retry": "Change project name",
+//	        "continue": "Continue existing project",
+//	        "cancel": "Cancel",
+//	    },
+//	)
+//
+//nolint:unused // Will be used by wizard screens in subsequent work units
+func showErrorWithOptions(message string, options map[string]string) (string, error) {
+	// Skip interactive prompts in test mode
+	if os.Getenv("SOW_TEST") == "1" {
+		debugLog("ErrorWithOptions", "%s", message)
+		// Return first option key in test mode
+		for key := range options {
+			return key, nil
+		}
+		return "", nil
+	}
+
+	var selected string
+
+	// Convert map to huh options
+	var huhOptions []huh.Option[string]
+	for key, label := range options {
+		huhOptions = append(huhOptions, huh.NewOption(label, key))
+	}
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Error").
+				Description(message),
+			huh.NewSelect[string]().
+				Title("What would you like to do?").
+				Options(huhOptions...).
+				Value(&selected),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		return "", err
+	}
+
+	return selected, nil
+}
+
+// errorProtectedBranch returns the formatted error message for attempting
+// to create a project on a protected branch (main or master).
+func errorProtectedBranch(branchName string) string {
+	return formatError(
+		fmt.Sprintf("Cannot create project on protected branch '%s'", branchName),
+		"Projects must be created on feature branches.",
+		"Action: Choose a different project name",
+	)
+}
+
+// errorIssueAlreadyLinked returns the formatted error message when a GitHub
+// issue already has a linked branch.
+func errorIssueAlreadyLinked(issueNumber int, linkedBranch string) string {
+	return formatError(
+		fmt.Sprintf("Issue #%d already has a linked branch: %s", issueNumber, linkedBranch),
+		"To continue working on this issue:\n  Select \"Continue existing project\" from the main menu",
+		"",
+	)
+}
+
+// errorBranchHasProject returns the formatted error message when attempting
+// to create a project on a branch that already has one.
+func errorBranchHasProject(branchName string, projectName string) string {
+	return formatError(
+		fmt.Sprintf("Branch '%s' already has a project", branchName),
+		"To continue this project:\n  Select \"Continue existing project\" from the main menu",
+		fmt.Sprintf("To create a different project:\n  Choose a different project name (currently: \"%s\")", projectName),
+	)
+}
+
+// errorUncommittedChanges returns the formatted error message when the
+// repository has uncommitted changes and worktree creation requires switching branches.
+func errorUncommittedChanges(currentBranch string) string {
+	return formatError(
+		"Repository has uncommitted changes",
+		fmt.Sprintf(
+			"You are currently on branch '%s'.\n"+
+				"Creating a worktree requires switching to a different branch first.",
+			currentBranch,
+		),
+		"To fix:\n"+
+			"  Commit: git add . && git commit -m \"message\"\n"+
+			"  Or stash: git stash",
+	)
+}
+
+// errorInconsistentState returns the formatted error message when a worktree
+// exists but the project directory is missing.
+func errorInconsistentState(branchName string, worktreePath string) string {
+	return formatError(
+		"Worktree exists but project missing",
+		fmt.Sprintf(
+			"Branch '%s' has a worktree at %s\n"+
+				"but no .sow/project/ directory.",
+			branchName,
+			worktreePath,
+		),
+		fmt.Sprintf(
+			"To fix:\n"+
+				"  1. Remove worktree: git worktree remove %s\n"+
+				"  2. Delete directory: rm -rf %s\n"+
+				"  3. Try creating project again",
+			branchName,
+			worktreePath,
+		),
+	)
+}
+
+// errorGitHubCLIMissing returns the formatted error message when the gh
+// command is not installed.
+func errorGitHubCLIMissing() string {
+	return formatError(
+		"GitHub CLI not found",
+		"The 'gh' command is required for GitHub issue integration.\n\n"+
+			"To install:\n"+
+			"  macOS: brew install gh\n"+
+			"  Linux: See https://cli.github.com/",
+		"Or select \"From branch name\" instead.",
+	)
+}
+
+// wrapValidationError wraps a validation error with user-friendly formatting.
+// If err is nil, returns nil.
+// Otherwise, wraps with formatError and returns displayable error.
+func wrapValidationError(err error, context string) error {
+	if err == nil {
+		return nil
+	}
+
+	// Wrap the error with context
+	if context != "" {
+		return fmt.Errorf("%s: %w", context, err)
+	}
+
+	return err
+}
+
+// checkGitHubCLI validates that gh CLI is installed and authenticated.
+// Returns nil if both checks pass, or user-friendly error if not.
+//
+// This is called before any GitHub operation to provide clear error
+// messages instead of cryptic command failures.
+func checkGitHubCLI(github GitHubClient) error {
+	// Check installation
+	if err := github.CheckInstalled(); err != nil {
+		var notInstalled sow.ErrGHNotInstalled
+		if errors.As(err, &notInstalled) {
+			return errors.New(errorGitHubCLIMissing())
+		}
+		return fmt.Errorf("failed to check gh installation: %w", err)
+	}
+
+	// Check authentication
+	if err := github.CheckAuthenticated(); err != nil {
+		var notAuthenticated sow.ErrGHNotAuthenticated
+		if errors.As(err, &notAuthenticated) {
+			return errors.New(errorGitHubNotAuthenticated())
+		}
+		return fmt.Errorf("failed to check gh authentication: %w", err)
+	}
+
+	return nil
+}
+
+// errorGitHubNotAuthenticated returns the formatted error message when
+// gh CLI is installed but not authenticated.
+func errorGitHubNotAuthenticated() string {
+	return formatError(
+		"GitHub CLI not authenticated",
+		"The 'gh' command is installed but you're not logged in.",
+		"To authenticate:\n"+
+			"  Run: gh auth login\n"+
+			"  Follow the prompts to log in\n\n"+
+			"Or select \"From branch name\" instead.",
+	)
+}
+
+// formatGitHubError converts GitHub command errors to user-friendly messages.
+// Handles specific error cases by parsing stderr output.
+//
+// Error types handled:
+//   - Network errors: "check connection, retry"
+//   - Rate limit: "wait or authenticate for higher limit"
+//   - Issue not found: "check issue number"
+//   - Permission denied: "check repository access"
+//   - Unknown errors: show command that failed
+//
+// Returns formatted error string ready for display.
+func formatGitHubError(err error) string {
+	var ghErr sow.ErrGHCommand
+	if !errors.As(err, &ghErr) {
+		// Not a GitHub command error, return generic message
+		return fmt.Sprintf("GitHub operation failed: %v", err)
+	}
+
+	stderr := strings.ToLower(ghErr.Stderr)
+
+	// Check for rate limit (most specific)
+	if strings.Contains(stderr, "rate limit") {
+		return "GitHub API rate limit exceeded.\n\n" +
+			"To fix:\n" +
+			"  Wait a few minutes and try again\n" +
+			"  Or run: gh auth login (for higher limits)"
+	}
+
+	// Check for network errors
+	if strings.Contains(stderr, "network") ||
+		strings.Contains(stderr, "connection") ||
+		strings.Contains(stderr, "timeout") ||
+		strings.Contains(stderr, "unreachable") {
+		return "Cannot reach GitHub.\n\n" +
+			"Check your internet connection and try again."
+	}
+
+	// Check for not found
+	if strings.Contains(stderr, "not found") ||
+		strings.Contains(stderr, "does not exist") {
+		return "Resource not found.\n\n" +
+			"Check the issue number or repository access."
+	}
+
+	// Check for permission denied
+	if strings.Contains(stderr, "permission denied") ||
+		strings.Contains(stderr, "forbidden") ||
+		strings.Contains(stderr, "not authorized") {
+		return "Permission denied.\n\n" +
+			"Check your GitHub repository access."
+	}
+
+	// Unknown error - show command
+	return fmt.Sprintf("GitHub command failed: gh %s\n\n"+
+		"Check that gh CLI is working correctly:\n"+
+		"  Run: gh auth status",
+		ghErr.Command)
+}
+
+// checkIssueLinkedBranch validates that a GitHub issue doesn't have an
+// existing linked branch. Used before creating a new project from an issue.
+//
+// Returns:
+//   - nil if no linked branches (OK to create)
+//   - formatted error if linked branch exists
+func checkIssueLinkedBranch(github GitHubClient, issueNumber int) error {
+	branches, err := github.GetLinkedBranches(issueNumber)
+	if err != nil {
+		// Format the GitHub error for user display
+		return errors.New(formatGitHubError(err))
+	}
+
+	// If no linked branches, OK to create
+	if len(branches) == 0 {
+		return nil
+	}
+
+	// Issue already has linked branch - show error
+	branchName := branches[0].Name
+	return errors.New(errorIssueAlreadyLinked(issueNumber, branchName))
+}
+
+// filterIssuesBySowLabel filters issues to only include those with 'sow' label.
+// Used by issue selection screen to show only sow-related issues.
+//
+// Returns:
+//   - Slice of issues that have the 'sow' label
+func filterIssuesBySowLabel(issues []sow.Issue) []sow.Issue {
+	var filtered []sow.Issue
+
+	for _, issue := range issues {
+		if issue.HasLabel("sow") {
+			filtered = append(filtered, issue)
+		}
+	}
+
+	return filtered
+}
+
+// ensureGitHubAvailable checks that GitHub CLI is available and working.
+// Returns nil if OK, or displays error and returns error.
+//
+// This is a convenience function that combines checkGitHubCLI with error display.
+// Use this at the start of GitHub-dependent flows.
+//nolint:unused // Will be used by wizard flows in future work units
+func ensureGitHubAvailable(github GitHubClient) error {
+	err := checkGitHubCLI(github)
+	if err != nil {
+		_ = showError(err.Error())
+	}
+	return err
 }

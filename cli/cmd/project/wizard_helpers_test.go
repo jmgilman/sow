@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jmgilman/sow/cli/internal/sow"
 )
 
 // TestNormalizeName tests the normalizeName function with various inputs.
@@ -860,5 +862,1772 @@ phases:
 	}
 	if proj.TasksTotal != 5 {
 		t.Errorf("TasksTotal = %d; want 5", proj.TasksTotal)
+	}
+}
+
+// TestIsProtectedBranch tests the isProtectedBranch helper function.
+func TestIsProtectedBranch(t *testing.T) {
+	tests := []struct {
+		name     string
+		branch   string
+		expected bool
+	}{
+		{"main is protected", "main", true},
+		{"master is protected", "master", true},
+		{"feat branch is not protected", "feat/something", false},
+		{"explore branch is not protected", "explore/test", false},
+		{"empty string is not protected", "", false},
+		{"main-like but different is not protected", "main-branch", false},
+		{"master-like but different is not protected", "master-feature", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isProtectedBranch(tt.branch)
+			if result != tt.expected {
+				t.Errorf("isProtectedBranch(%q) = %v; want %v", tt.branch, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestValidateProjectName tests the validateProjectName function.
+func TestValidateProjectName(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		prefix    string
+		wantErr   bool
+		errSubstr string
+	}{
+		// Valid cases
+		{
+			name:    "valid simple name",
+			input:   "my project",
+			prefix:  "feat/",
+			wantErr: false,
+		},
+		{
+			name:    "valid name with numbers",
+			input:   "Project 123",
+			prefix:  "explore/",
+			wantErr: false,
+		},
+		{
+			name:    "valid name with special chars that get normalized",
+			input:   "API@v2",
+			prefix:  "feat/",
+			wantErr: false,
+		},
+
+		// Empty/whitespace cases
+		{
+			name:      "empty string",
+			input:     "",
+			prefix:    "feat/",
+			wantErr:   true,
+			errSubstr: "cannot be empty",
+		},
+		{
+			name:      "only whitespace",
+			input:     "   ",
+			prefix:    "feat/",
+			wantErr:   true,
+			errSubstr: "cannot be empty",
+		},
+
+		// Protected branch cases (after normalization)
+		{
+			name:      "normalizes to main",
+			input:     "main",
+			prefix:    "",
+			wantErr:   true,
+			errSubstr: "protected",
+		},
+		{
+			name:      "normalizes to master",
+			input:     "master",
+			prefix:    "",
+			wantErr:   true,
+			errSubstr: "protected",
+		},
+		{
+			name:      "normalizes to main with uppercase",
+			input:     "MAIN",
+			prefix:    "",
+			wantErr:   true,
+			errSubstr: "protected",
+		},
+
+		// Invalid git patterns (should be caught by isValidBranchName)
+		{
+			name:      "produces consecutive dots after normalization",
+			input:     "name",
+			prefix:    "feat/..",
+			wantErr:   true,
+			errSubstr: "double dots",
+		},
+		{
+			name:      "produces leading slash",
+			input:     "test",
+			prefix:    "/feat/",
+			wantErr:   true,
+			errSubstr: "start or end with /",
+		},
+
+		// Various prefixes
+		{
+			name:    "with explore prefix",
+			input:   "Research Topic",
+			prefix:  "explore/",
+			wantErr: false,
+		},
+		{
+			name:    "with design prefix",
+			input:   "Architecture",
+			prefix:  "design/",
+			wantErr: false,
+		},
+		{
+			name:    "with breakdown prefix",
+			input:   "Task List",
+			prefix:  "breakdown/",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateProjectName(tt.input, tt.prefix)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateProjectName(%q, %q) error = %v; wantErr %v",
+					tt.input, tt.prefix, err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errSubstr != "" {
+				if !strings.Contains(err.Error(), tt.errSubstr) {
+					t.Errorf("validateProjectName(%q, %q) error = %q; want substring %q",
+						tt.input, tt.prefix, err.Error(), tt.errSubstr)
+				}
+			}
+		})
+	}
+}
+
+// TestIsValidBranchName_ProtectedBranches tests that protected branches are rejected.
+func TestIsValidBranchName_ProtectedBranches(t *testing.T) {
+	tests := []struct {
+		name   string
+		branch string
+	}{
+		{"main is protected", "main"},
+		{"master is protected", "master"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := isValidBranchName(tt.branch)
+			if err == nil {
+				t.Errorf("isValidBranchName(%q) returned nil; want error for protected branch", tt.branch)
+				return
+			}
+			if !strings.Contains(err.Error(), "protected") {
+				t.Errorf("isValidBranchName(%q) error = %q; want error containing 'protected'",
+					tt.branch, err.Error())
+			}
+		})
+	}
+}
+
+// TestShouldCheckUncommittedChanges tests the conditional logic for uncommitted changes checking.
+func TestShouldCheckUncommittedChanges(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create an initial commit so we can create branches
+	readmeFile := filepath.Join(tmpDir, "README.md")
+	if err := os.WriteFile(readmeFile, []byte("# Test\n"), 0644); err != nil {
+		t.Fatalf("failed to create README: %v", err)
+	}
+
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add README: %v", err)
+	}
+
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	// Get the current branch (should be master or main)
+	currentBranch, err := ctx.Git().CurrentBranch()
+	if err != nil {
+		t.Fatalf("failed to get current branch: %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		targetBranch string
+		wantCheck    bool
+		wantErr      bool
+	}{
+		{
+			name:         "current equals target - should check",
+			targetBranch: currentBranch,
+			wantCheck:    true,
+			wantErr:      false,
+		},
+		{
+			name:         "current does not equal target - should not check",
+			targetBranch: "feat/different-branch",
+			wantCheck:    false,
+			wantErr:      false,
+		},
+		{
+			name:         "another different branch - should not check",
+			targetBranch: "explore/something",
+			wantCheck:    false,
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			shouldCheck, err := shouldCheckUncommittedChanges(ctx, tt.targetBranch)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("shouldCheckUncommittedChanges() error = %v; wantErr %v", err, tt.wantErr)
+				return
+			}
+			if shouldCheck != tt.wantCheck {
+				t.Errorf("shouldCheckUncommittedChanges(%q) = %v; want %v",
+					tt.targetBranch, shouldCheck, tt.wantCheck)
+			}
+		})
+	}
+}
+
+// TestPerformUncommittedChangesCheckIfNeeded tests the conditional uncommitted changes validation.
+func TestPerformUncommittedChangesCheckIfNeeded(t *testing.T) {
+	// Set environment variable to skip the actual uncommitted changes check
+	// so we can test the conditional logic without needing real git state
+	t.Setenv("SOW_SKIP_UNCOMMITTED_CHECK", "1")
+
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create an initial commit
+	readmeFile := filepath.Join(tmpDir, "README.md")
+	if err := os.WriteFile(readmeFile, []byte("# Test\n"), 0644); err != nil {
+		t.Fatalf("failed to create README: %v", err)
+	}
+
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add README: %v", err)
+	}
+
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	// Get the current branch
+	currentBranch, err := ctx.Git().CurrentBranch()
+	if err != nil {
+		t.Fatalf("failed to get current branch: %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		targetBranch string
+		wantErr      bool
+	}{
+		{
+			name:         "different branch - no check needed",
+			targetBranch: "feat/different",
+			wantErr:      false,
+		},
+		{
+			name:         "same branch - check runs but passes due to SOW_SKIP_UNCOMMITTED_CHECK",
+			targetBranch: currentBranch,
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := performUncommittedChangesCheckIfNeeded(ctx, tt.targetBranch)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("performUncommittedChangesCheckIfNeeded(%q) error = %v; wantErr %v",
+					tt.targetBranch, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestPerformUncommittedChangesCheckIfNeeded_ErrorMessage tests the enhanced error message.
+func TestPerformUncommittedChangesCheckIfNeeded_ErrorMessage(t *testing.T) {
+	// Don't set SOW_SKIP_UNCOMMITTED_CHECK so the check runs
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create an initial commit
+	readmeFile := filepath.Join(tmpDir, "README.md")
+	if err := os.WriteFile(readmeFile, []byte("# Test\n"), 0644); err != nil {
+		t.Fatalf("failed to create README: %v", err)
+	}
+
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add README: %v", err)
+	}
+
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	// Get the current branch
+	currentBranch, err := ctx.Git().CurrentBranch()
+	if err != nil {
+		t.Fatalf("failed to get current branch: %v", err)
+	}
+
+	// Create uncommitted changes
+	testFile := filepath.Join(tmpDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("uncommitted content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Stage the file to create uncommitted changes
+	cmd = exec.CommandContext(context.Background(), "git", "add", "test.txt")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to stage test file: %v", err)
+	}
+
+	// Now try to check on same branch - should fail with enhanced message
+	err = performUncommittedChangesCheckIfNeeded(ctx, currentBranch)
+	if err == nil {
+		t.Fatal("performUncommittedChangesCheckIfNeeded() returned nil; want error")
+	}
+
+	// Verify the error message contains expected parts
+	errMsg := err.Error()
+	expectedParts := []string{
+		"uncommitted changes",
+		currentBranch,
+		"git add",
+		"git commit",
+		"git stash",
+	}
+
+	for _, part := range expectedParts {
+		if !strings.Contains(errMsg, part) {
+			t.Errorf("error message missing expected part %q\nGot: %s", part, errMsg)
+		}
+	}
+}
+
+// TestCanCreateProject tests the canCreateProject validation function.
+func TestCanCreateProject(t *testing.T) {
+	tests := []struct {
+		name       string
+		state      *BranchState
+		branchName string
+		wantErr    bool
+		errSubstr  string
+	}{
+		{
+			name: "no branch, no worktree, no project - OK",
+			state: &BranchState{
+				BranchExists:   false,
+				WorktreeExists: false,
+				ProjectExists:  false,
+			},
+			branchName: "feat/new-project",
+			wantErr:    false,
+		},
+		{
+			name: "branch exists, no worktree, no project - OK",
+			state: &BranchState{
+				BranchExists:   true,
+				WorktreeExists: false,
+				ProjectExists:  false,
+			},
+			branchName: "feat/existing-branch",
+			wantErr:    false,
+		},
+		{
+			name: "project already exists - error",
+			state: &BranchState{
+				BranchExists:   true,
+				WorktreeExists: true,
+				ProjectExists:  true,
+			},
+			branchName: "feat/has-project",
+			wantErr:    true,
+			errSubstr:  "already has a project",
+		},
+		{
+			name: "worktree exists but no project - error (inconsistent state)",
+			state: &BranchState{
+				BranchExists:   true,
+				WorktreeExists: true,
+				ProjectExists:  false,
+			},
+			branchName: "feat/orphan-worktree",
+			wantErr:    true,
+			errSubstr:  "worktree exists but project missing",
+		},
+		{
+			name: "no branch but worktree exists - error (inconsistent state)",
+			state: &BranchState{
+				BranchExists:   false,
+				WorktreeExists: true,
+				ProjectExists:  false,
+			},
+			branchName: "feat/stale-worktree",
+			wantErr:    true,
+			errSubstr:  "worktree exists but project missing",
+		},
+		{
+			name: "no branch but project exists somehow - error",
+			state: &BranchState{
+				BranchExists:   false,
+				WorktreeExists: true,
+				ProjectExists:  true,
+			},
+			branchName: "feat/weird-state",
+			wantErr:    true,
+			errSubstr:  "already has a project",
+		},
+		{
+			name: "all false - OK (fresh start)",
+			state: &BranchState{
+				BranchExists:   false,
+				WorktreeExists: false,
+				ProjectExists:  false,
+			},
+			branchName: "feat/totally-new",
+			wantErr:    false,
+		},
+		{
+			name: "branch name in error message",
+			state: &BranchState{
+				BranchExists:   true,
+				WorktreeExists: true,
+				ProjectExists:  true,
+			},
+			branchName: "feat/test-name-123",
+			wantErr:    true,
+			errSubstr:  "feat/test-name-123",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := canCreateProject(tt.state, tt.branchName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("canCreateProject() error = %v; wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errSubstr != "" {
+				if !strings.Contains(err.Error(), tt.errSubstr) {
+					t.Errorf("canCreateProject() error = %q; want substring %q",
+						err.Error(), tt.errSubstr)
+				}
+			}
+		})
+	}
+}
+
+// TestValidateProjectExists tests the validateProjectExists function.
+func TestValidateProjectExists(t *testing.T) {
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string)
+		branchName string
+		wantErr    bool
+		errSubstr  string
+	}{
+		{
+			name: "all exist - OK",
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, branchName string) {
+				// Create initial commit
+				createInitialCommit(t, tmpDir)
+
+				// Create branch
+				cmd := exec.CommandContext(context.Background(), "git", "branch", branchName)
+				cmd.Dir = tmpDir
+				if err := cmd.Run(); err != nil {
+					t.Fatalf("failed to create branch: %v", err)
+				}
+
+				// Create worktree and project
+				worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
+				projectDir := filepath.Join(worktreePath, ".sow", "project")
+				if err := os.MkdirAll(projectDir, 0755); err != nil {
+					t.Fatalf("failed to create project dir: %v", err)
+				}
+
+				stateFile := filepath.Join(projectDir, "state.yaml")
+				if err := os.WriteFile(stateFile, []byte("name: test\n"), 0644); err != nil {
+					t.Fatalf("failed to create state.yaml: %v", err)
+				}
+			},
+			branchName: "feat/complete",
+			wantErr:    false,
+		},
+		{
+			name: "branch missing - error",
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, _ string) {
+				createInitialCommit(t, tmpDir)
+				// Don't create branch
+			},
+			branchName: "feat/no-branch",
+			wantErr:    true,
+			errSubstr:  "does not exist",
+		},
+		{
+			name: "worktree missing - error",
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, branchName string) {
+				createInitialCommit(t, tmpDir)
+
+				// Create branch but no worktree
+				cmd := exec.CommandContext(context.Background(), "git", "branch", branchName)
+				cmd.Dir = tmpDir
+				if err := cmd.Run(); err != nil {
+					t.Fatalf("failed to create branch: %v", err)
+				}
+			},
+			branchName: "feat/no-worktree",
+			wantErr:    true,
+			errSubstr:  "worktree for branch",
+		},
+		{
+			name: "project missing - error",
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, branchName string) {
+				createInitialCommit(t, tmpDir)
+
+				// Create branch
+				cmd := exec.CommandContext(context.Background(), "git", "branch", branchName)
+				cmd.Dir = tmpDir
+				if err := cmd.Run(); err != nil {
+					t.Fatalf("failed to create branch: %v", err)
+				}
+
+				// Create worktree but no project
+				worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
+				if err := os.MkdirAll(worktreePath, 0755); err != nil {
+					t.Fatalf("failed to create worktree: %v", err)
+				}
+			},
+			branchName: "feat/no-project",
+			wantErr:    true,
+			errSubstr:  "project for branch",
+		},
+		{
+			name: "error includes branch name",
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, _ string) {
+				createInitialCommit(t, tmpDir)
+				// Don't create anything
+			},
+			branchName: "feat/my-special-branch",
+			wantErr:    true,
+			errSubstr:  "feat/my-special-branch",
+		},
+		{
+			name: "nothing exists - error mentions branch first",
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, _ string) {
+				createInitialCommit(t, tmpDir)
+			},
+			branchName: "feat/nonexistent",
+			wantErr:    true,
+			errSubstr:  "does not exist",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, tmpDir := setupTestContext(t)
+			tt.setup(t, ctx, tmpDir, tt.branchName)
+
+			err := validateProjectExists(ctx, tt.branchName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateProjectExists() error = %v; wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errSubstr != "" {
+				if !strings.Contains(err.Error(), tt.errSubstr) {
+					t.Errorf("validateProjectExists() error = %q; want substring %q",
+						err.Error(), tt.errSubstr)
+				}
+			}
+		})
+	}
+}
+
+// TestListExistingProjects tests the listExistingProjects function.
+func TestListExistingProjects(t *testing.T) {
+	tests := []struct {
+		name          string
+		setup         func(t *testing.T, tmpDir string)
+		wantBranches  []string
+		wantErr       bool
+	}{
+		{
+			name: "no projects",
+			setup: func(t *testing.T, tmpDir string) {
+				createInitialCommit(t, tmpDir)
+			},
+			wantBranches: []string{},
+			wantErr:      false,
+		},
+		{
+			name: "single project",
+			setup: func(t *testing.T, tmpDir string) {
+				createInitialCommit(t, tmpDir)
+				createTestProject(t, tmpDir, "feat/project-one")
+			},
+			wantBranches: []string{"feat/project-one"},
+			wantErr:      false,
+		},
+		{
+			name: "multiple projects sorted alphabetically",
+			setup: func(t *testing.T, tmpDir string) {
+				createInitialCommit(t, tmpDir)
+				createTestProject(t, tmpDir, "feat/zzz-last")
+				createTestProject(t, tmpDir, "feat/aaa-first")
+				createTestProject(t, tmpDir, "explore/middle")
+			},
+			wantBranches: []string{"explore/middle", "feat/aaa-first", "feat/zzz-last"},
+			wantErr:      false,
+		},
+		{
+			name: "branch without project excluded",
+			setup: func(t *testing.T, tmpDir string) {
+				createInitialCommit(t, tmpDir)
+				createTestProject(t, tmpDir, "feat/has-project")
+
+				// Create branch without project
+				cmd := exec.CommandContext(context.Background(), "git", "branch", "feat/no-project")
+				cmd.Dir = tmpDir
+				if err := cmd.Run(); err != nil {
+					t.Fatalf("failed to create branch: %v", err)
+				}
+			},
+			wantBranches: []string{"feat/has-project"},
+			wantErr:      false,
+		},
+		{
+			name: "worktree without project excluded",
+			setup: func(t *testing.T, tmpDir string) {
+				createInitialCommit(t, tmpDir)
+				createTestProject(t, tmpDir, "feat/complete")
+
+				// Create branch with worktree but no project
+				branchName := "feat/orphan-worktree"
+				cmd := exec.CommandContext(context.Background(), "git", "branch", branchName)
+				cmd.Dir = tmpDir
+				if err := cmd.Run(); err != nil {
+					t.Fatalf("failed to create branch: %v", err)
+				}
+
+				worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
+				if err := os.MkdirAll(worktreePath, 0755); err != nil {
+					t.Fatalf("failed to create worktree: %v", err)
+				}
+			},
+			wantBranches: []string{"feat/complete"},
+			wantErr:      false,
+		},
+		{
+			name: "mixed project types sorted together",
+			setup: func(t *testing.T, tmpDir string) {
+				createInitialCommit(t, tmpDir)
+				createTestProject(t, tmpDir, "feat/standard")
+				createTestProject(t, tmpDir, "explore/research")
+				createTestProject(t, tmpDir, "design/architecture")
+				createTestProject(t, tmpDir, "breakdown/tasks")
+			},
+			wantBranches: []string{"breakdown/tasks", "design/architecture", "explore/research", "feat/standard"},
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, tmpDir := setupTestContext(t)
+			tt.setup(t, tmpDir)
+
+			branches, err := listExistingProjects(ctx)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("listExistingProjects() error = %v; wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if len(branches) != len(tt.wantBranches) {
+				t.Errorf("listExistingProjects() returned %d branches; want %d\nGot: %v\nWant: %v",
+					len(branches), len(tt.wantBranches), branches, tt.wantBranches)
+				return
+			}
+
+			for i, branch := range branches {
+				if branch != tt.wantBranches[i] {
+					t.Errorf("listExistingProjects()[%d] = %q; want %q",
+						i, branch, tt.wantBranches[i])
+				}
+			}
+		})
+	}
+}
+
+// Helper function to create an initial commit in a test repo.
+func createInitialCommit(t *testing.T, tmpDir string) {
+	t.Helper()
+
+	readmeFile := filepath.Join(tmpDir, "README.md")
+	if err := os.WriteFile(readmeFile, []byte("# Test\n"), 0644); err != nil {
+		t.Fatalf("failed to create README: %v", err)
+	}
+
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add README: %v", err)
+	}
+
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+}
+
+// Helper function to create a complete test project (branch + worktree + project).
+func createTestProject(t *testing.T, tmpDir string, branchName string) {
+	t.Helper()
+
+	// Create branch
+	cmd := exec.CommandContext(context.Background(), "git", "branch", branchName)
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create branch %s: %v", branchName, err)
+	}
+
+	// Create worktree and project
+	worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
+	projectDir := filepath.Join(worktreePath, ".sow", "project")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatalf("failed to create project dir for %s: %v", branchName, err)
+	}
+
+	stateFile := filepath.Join(projectDir, "state.yaml")
+	if err := os.WriteFile(stateFile, []byte("name: test\n"), 0644); err != nil {
+		t.Fatalf("failed to create state.yaml for %s: %v", branchName, err)
+	}
+}
+
+// TestFormatError tests the formatError function with various inputs.
+func TestFormatError(t *testing.T) {
+	testCases := []struct {
+		name       string
+		problem    string
+		howToFix   string
+		nextSteps  string
+		expected   string
+	}{
+		{
+			name:      "all three parts provided",
+			problem:   "Something went wrong",
+			howToFix:  "Here's how to fix it",
+			nextSteps: "Next steps to take",
+			expected:  "Something went wrong\n\nHere's how to fix it\n\nNext steps to take",
+		},
+		{
+			name:      "empty problem",
+			problem:   "",
+			howToFix:  "Fix instructions",
+			nextSteps: "Next steps",
+			expected:  "Fix instructions\n\nNext steps",
+		},
+		{
+			name:      "empty how to fix",
+			problem:   "Problem description",
+			howToFix:  "",
+			nextSteps: "Next steps",
+			expected:  "Problem description\n\nNext steps",
+		},
+		{
+			name:      "empty next steps",
+			problem:   "Problem description",
+			howToFix:  "Fix instructions",
+			nextSteps: "",
+			expected:  "Problem description\n\nFix instructions",
+		},
+		{
+			name:      "all empty",
+			problem:   "",
+			howToFix:  "",
+			nextSteps: "",
+			expected:  "",
+		},
+		{
+			name:      "only problem",
+			problem:   "Just a problem",
+			howToFix:  "",
+			nextSteps: "",
+			expected:  "Just a problem",
+		},
+		{
+			name:      "multiline content",
+			problem:   "Line 1\nLine 2",
+			howToFix:  "Fix line 1\nFix line 2",
+			nextSteps: "Step 1\nStep 2",
+			expected:  "Line 1\nLine 2\n\nFix line 1\nFix line 2\n\nStep 1\nStep 2",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := formatError(tc.problem, tc.howToFix, tc.nextSteps)
+			if result != tc.expected {
+				t.Errorf("formatError() =\n%q\n\nwant:\n%q", result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestErrorProtectedBranch tests the errorProtectedBranch function.
+func TestErrorProtectedBranch(t *testing.T) {
+	testCases := []struct {
+		name       string
+		branchName string
+		expected   string
+	}{
+		{
+			name:       "main branch",
+			branchName: "main",
+			expected: `Cannot create project on protected branch 'main'
+
+Projects must be created on feature branches.
+
+Action: Choose a different project name`,
+		},
+		{
+			name:       "master branch",
+			branchName: "master",
+			expected: `Cannot create project on protected branch 'master'
+
+Projects must be created on feature branches.
+
+Action: Choose a different project name`,
+		},
+		{
+			name:       "custom protected branch name",
+			branchName: "production",
+			expected: `Cannot create project on protected branch 'production'
+
+Projects must be created on feature branches.
+
+Action: Choose a different project name`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := errorProtectedBranch(tc.branchName)
+			if result != tc.expected {
+				t.Errorf("errorProtectedBranch(%q) =\n%s\n\nwant:\n%s", tc.branchName, result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestErrorIssueAlreadyLinked tests the errorIssueAlreadyLinked function.
+func TestErrorIssueAlreadyLinked(t *testing.T) {
+	testCases := []struct {
+		name         string
+		issueNumber  int
+		linkedBranch string
+		expected     string
+	}{
+		{
+			name:         "issue 123",
+			issueNumber:  123,
+			linkedBranch: "feat/add-jwt-auth",
+			expected: `Issue #123 already has a linked branch: feat/add-jwt-auth
+
+To continue working on this issue:
+  Select "Continue existing project" from the main menu`,
+		},
+		{
+			name:         "issue 1",
+			issueNumber:  1,
+			linkedBranch: "explore/research",
+			expected: `Issue #1 already has a linked branch: explore/research
+
+To continue working on this issue:
+  Select "Continue existing project" from the main menu`,
+		},
+		{
+			name:         "large issue number",
+			issueNumber:  9999,
+			linkedBranch: "feat/feature-name",
+			expected: `Issue #9999 already has a linked branch: feat/feature-name
+
+To continue working on this issue:
+  Select "Continue existing project" from the main menu`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := errorIssueAlreadyLinked(tc.issueNumber, tc.linkedBranch)
+			if result != tc.expected {
+				t.Errorf("errorIssueAlreadyLinked(%d, %q) =\n%s\n\nwant:\n%s",
+					tc.issueNumber, tc.linkedBranch, result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestErrorBranchHasProject tests the errorBranchHasProject function.
+func TestErrorBranchHasProject(t *testing.T) {
+	testCases := []struct {
+		name        string
+		branchName  string
+		projectName string
+		expected    string
+	}{
+		{
+			name:        "explore branch",
+			branchName:  "explore/web-agents",
+			projectName: "web agents",
+			expected: `Branch 'explore/web-agents' already has a project
+
+To continue this project:
+  Select "Continue existing project" from the main menu
+
+To create a different project:
+  Choose a different project name (currently: "web agents")`,
+		},
+		{
+			name:        "feat branch",
+			branchName:  "feat/auth",
+			projectName: "auth",
+			expected: `Branch 'feat/auth' already has a project
+
+To continue this project:
+  Select "Continue existing project" from the main menu
+
+To create a different project:
+  Choose a different project name (currently: "auth")`,
+		},
+		{
+			name:        "long project name",
+			branchName:  "feat/very-long-branch-name",
+			projectName: "very long project name",
+			expected: `Branch 'feat/very-long-branch-name' already has a project
+
+To continue this project:
+  Select "Continue existing project" from the main menu
+
+To create a different project:
+  Choose a different project name (currently: "very long project name")`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := errorBranchHasProject(tc.branchName, tc.projectName)
+			if result != tc.expected {
+				t.Errorf("errorBranchHasProject(%q, %q) =\n%s\n\nwant:\n%s",
+					tc.branchName, tc.projectName, result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestErrorUncommittedChanges tests the errorUncommittedChanges function.
+func TestErrorUncommittedChanges(t *testing.T) {
+	testCases := []struct {
+		name          string
+		currentBranch string
+		expected      string
+	}{
+		{
+			name:          "feat branch",
+			currentBranch: "feat/add-jwt-auth-123",
+			expected: `Repository has uncommitted changes
+
+You are currently on branch 'feat/add-jwt-auth-123'.
+Creating a worktree requires switching to a different branch first.
+
+To fix:
+  Commit: git add . && git commit -m "message"
+  Or stash: git stash`,
+		},
+		{
+			name:          "main branch",
+			currentBranch: "main",
+			expected: `Repository has uncommitted changes
+
+You are currently on branch 'main'.
+Creating a worktree requires switching to a different branch first.
+
+To fix:
+  Commit: git add . && git commit -m "message"
+  Or stash: git stash`,
+		},
+		{
+			name:          "explore branch",
+			currentBranch: "explore/research",
+			expected: `Repository has uncommitted changes
+
+You are currently on branch 'explore/research'.
+Creating a worktree requires switching to a different branch first.
+
+To fix:
+  Commit: git add . && git commit -m "message"
+  Or stash: git stash`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := errorUncommittedChanges(tc.currentBranch)
+			if result != tc.expected {
+				t.Errorf("errorUncommittedChanges(%q) =\n%s\n\nwant:\n%s",
+					tc.currentBranch, result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestErrorInconsistentState tests the errorInconsistentState function.
+func TestErrorInconsistentState(t *testing.T) {
+	testCases := []struct {
+		name         string
+		branchName   string
+		worktreePath string
+		expected     string
+	}{
+		{
+			name:         "feat branch",
+			branchName:   "feat/xyz",
+			worktreePath: ".sow/worktrees/feat/xyz",
+			expected: `Worktree exists but project missing
+
+Branch 'feat/xyz' has a worktree at .sow/worktrees/feat/xyz
+but no .sow/project/ directory.
+
+To fix:
+  1. Remove worktree: git worktree remove feat/xyz
+  2. Delete directory: rm -rf .sow/worktrees/feat/xyz
+  3. Try creating project again`,
+		},
+		{
+			name:         "explore branch",
+			branchName:   "explore/research",
+			worktreePath: ".sow/worktrees/explore/research",
+			expected: `Worktree exists but project missing
+
+Branch 'explore/research' has a worktree at .sow/worktrees/explore/research
+but no .sow/project/ directory.
+
+To fix:
+  1. Remove worktree: git worktree remove explore/research
+  2. Delete directory: rm -rf .sow/worktrees/explore/research
+  3. Try creating project again`,
+		},
+		{
+			name:         "absolute path",
+			branchName:   "feat/test",
+			worktreePath: "/home/user/repo/.sow/worktrees/feat/test",
+			expected: `Worktree exists but project missing
+
+Branch 'feat/test' has a worktree at /home/user/repo/.sow/worktrees/feat/test
+but no .sow/project/ directory.
+
+To fix:
+  1. Remove worktree: git worktree remove feat/test
+  2. Delete directory: rm -rf /home/user/repo/.sow/worktrees/feat/test
+  3. Try creating project again`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := errorInconsistentState(tc.branchName, tc.worktreePath)
+			if result != tc.expected {
+				t.Errorf("errorInconsistentState(%q, %q) =\n%s\n\nwant:\n%s",
+					tc.branchName, tc.worktreePath, result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestErrorGitHubCLIMissing tests the errorGitHubCLIMissing function.
+func TestErrorGitHubCLIMissing(t *testing.T) {
+	expected := `GitHub CLI not found
+
+The 'gh' command is required for GitHub issue integration.
+
+To install:
+  macOS: brew install gh
+  Linux: See https://cli.github.com/
+
+Or select "From branch name" instead.`
+
+	result := errorGitHubCLIMissing()
+	if result != expected {
+		t.Errorf("errorGitHubCLIMissing() =\n%s\n\nwant:\n%s", result, expected)
+	}
+}
+
+// TestShowError tests that showError compiles and accepts correct input.
+func TestShowError(t *testing.T) {
+	// Set SOW_TEST=1 to skip interactive prompts
+	t.Setenv("SOW_TEST", "1")
+
+	testCases := []struct {
+		name    string
+		message string
+	}{
+		{
+			name:    "simple message",
+			message: "Test error message",
+		},
+		{
+			name:    "multiline message",
+			message: "Line 1\nLine 2\nLine 3",
+		},
+		{
+			name:    "empty message",
+			message: "",
+		},
+		{
+			name:    "formatted error",
+			message: formatError("Problem", "How to fix", "Next steps"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Should not panic and should return nil in test mode
+			err := showError(tc.message)
+			if err != nil {
+				t.Errorf("showError(%q) returned error: %v", tc.message, err)
+			}
+		})
+	}
+}
+
+// TestShowErrorWithOptions tests that showErrorWithOptions compiles and accepts correct input.
+func TestShowErrorWithOptions(t *testing.T) {
+	// Set SOW_TEST=1 to skip interactive prompts
+	t.Setenv("SOW_TEST", "1")
+
+	testCases := []struct {
+		name    string
+		message string
+		options map[string]string
+	}{
+		{
+			name:    "single option",
+			message: "Error occurred",
+			options: map[string]string{
+				"retry": "Try again",
+			},
+		},
+		{
+			name:    "multiple options",
+			message: "Choose an action",
+			options: map[string]string{
+				"retry":    "Try again",
+				"continue": "Continue existing project",
+				"cancel":   "Cancel",
+			},
+		},
+		{
+			name:    "empty options",
+			message: "Error",
+			options: map[string]string{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(_ *testing.T) {
+			// In test mode, function should handle gracefully
+			// We can't fully test the interactive behavior, but we can ensure it compiles
+			// and doesn't panic with valid inputs
+			_, _ = showErrorWithOptions(tc.message, tc.options)
+		})
+	}
+}
+
+// TestWrapValidationError tests the wrapValidationError function.
+func TestWrapValidationError(t *testing.T) {
+	testCases := []struct {
+		name     string
+		err      error
+		context  string
+		wantNil  bool
+		contains []string
+	}{
+		{
+			name:    "nil error returns nil",
+			err:     nil,
+			context: "any context",
+			wantNil: true,
+		},
+		{
+			name:     "wraps error with context",
+			err:      errors.New("branch name contains spaces"),
+			context:  "project name validation",
+			wantNil:  false,
+			contains: []string{"branch name contains spaces", "project name validation"},
+		},
+		{
+			name:     "preserves original error message",
+			err:      errors.New("invalid character: ~"),
+			context:  "branch validation",
+			wantNil:  false,
+			contains: []string{"invalid character: ~"},
+		},
+		{
+			name:     "empty context still wraps",
+			err:      errors.New("test error"),
+			context:  "",
+			wantNil:  false,
+			contains: []string{"test error"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := wrapValidationError(tc.err, tc.context)
+
+			if tc.wantNil {
+				if result != nil {
+					t.Errorf("wrapValidationError() = %v; want nil", result)
+				}
+				return
+			}
+
+			if result == nil {
+				t.Fatal("wrapValidationError() = nil; want error")
+			}
+
+			errMsg := result.Error()
+			for _, substr := range tc.contains {
+				if !strings.Contains(errMsg, substr) {
+					t.Errorf("wrapValidationError() error = %q; want to contain %q",
+						errMsg, substr)
+				}
+			}
+		})
+	}
+}
+
+// Mock GitHubClient for testing GitHub error handling functions.
+type mockGitHubClient struct {
+	checkInstalledErr     error
+	checkAuthenticatedErr error
+	linkedBranches        []sow.LinkedBranch
+	linkedBranchesErr     error
+}
+
+func (m *mockGitHubClient) Ensure() error {
+	return nil
+}
+
+func (m *mockGitHubClient) CheckInstalled() error {
+	return m.checkInstalledErr
+}
+
+func (m *mockGitHubClient) CheckAuthenticated() error {
+	return m.checkAuthenticatedErr
+}
+
+func (m *mockGitHubClient) ListIssues(_, _ string) ([]sow.Issue, error) {
+	return nil, nil
+}
+
+func (m *mockGitHubClient) GetLinkedBranches(_ int) ([]sow.LinkedBranch, error) {
+	return m.linkedBranches, m.linkedBranchesErr
+}
+
+func (m *mockGitHubClient) CreateLinkedBranch(_ int, _ string, _ bool) (string, error) {
+	return "", nil
+}
+
+func (m *mockGitHubClient) GetIssue(_ int) (*sow.Issue, error) {
+	return nil, nil
+}
+
+// TestCheckGitHubCLI tests the checkGitHubCLI function.
+func TestCheckGitHubCLI(t *testing.T) {
+	tests := []struct {
+		name        string
+		installErr  error
+		authErr     error
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:       "both checks pass",
+			installErr: nil,
+			authErr:    nil,
+			wantErr:    false,
+		},
+		{
+			name:        "not installed",
+			installErr:  sow.ErrGHNotInstalled{},
+			wantErr:     true,
+			errContains: "not found",
+		},
+		{
+			name:        "not authenticated",
+			installErr:  nil,
+			authErr:     sow.ErrGHNotAuthenticated{},
+			wantErr:     true,
+			errContains: "not authenticated",
+		},
+		{
+			name:        "generic installation error",
+			installErr:  errors.New("generic error"),
+			wantErr:     true,
+			errContains: "failed to check gh installation",
+		},
+		{
+			name:        "generic authentication error",
+			installErr:  nil,
+			authErr:     errors.New("generic auth error"),
+			wantErr:     true,
+			errContains: "failed to check gh authentication",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &mockGitHubClient{
+				checkInstalledErr:     tt.installErr,
+				checkAuthenticatedErr: tt.authErr,
+			}
+
+			err := checkGitHubCLI(mock)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkGitHubCLI() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if err != nil && tt.errContains != "" {
+				if !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error message %q does not contain %q",
+						err.Error(), tt.errContains)
+				}
+			}
+		})
+	}
+}
+
+// TestFormatGitHubError_RateLimit tests rate limit error formatting.
+func TestFormatGitHubError_RateLimit(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		contains    []string
+		notContains []string
+	}{
+		{
+			name: "rate limit error",
+			err: sow.ErrGHCommand{
+				Command: "issue list",
+				Stderr:  "API rate limit exceeded for user",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"rate limit", "Wait a few minutes"},
+			notContains: []string{"network"},
+		},
+		{
+			name: "case insensitive matching",
+			err: sow.ErrGHCommand{
+				Command: "test",
+				Stderr:  "RATE LIMIT exceeded",
+				Err:     errors.New("exit code 1"),
+			},
+			contains: []string{"rate limit"},
+		},
+	}
+	runFormatGitHubErrorTests(t, tests)
+}
+
+// TestFormatGitHubError_Network tests network error formatting.
+func TestFormatGitHubError_Network(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		contains    []string
+		notContains []string
+	}{
+		{
+			name: "network error - connection",
+			err: sow.ErrGHCommand{
+				Command: "issue view",
+				Stderr:  "dial tcp: connection refused",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Cannot reach GitHub", "internet connection"},
+			notContains: []string{"rate limit"},
+		},
+		{
+			name: "network error - timeout",
+			err: sow.ErrGHCommand{
+				Command: "issue view",
+				Stderr:  "request timeout",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Cannot reach GitHub"},
+			notContains: []string{"rate limit"},
+		},
+		{
+			name: "network error - unreachable",
+			err: sow.ErrGHCommand{
+				Command: "issue view",
+				Stderr:  "host unreachable",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Cannot reach GitHub"},
+			notContains: []string{"rate limit"},
+		},
+	}
+	runFormatGitHubErrorTests(t, tests)
+}
+
+// TestFormatGitHubError_NotFound tests not found error formatting.
+func TestFormatGitHubError_NotFound(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		contains    []string
+		notContains []string
+	}{
+		{
+			name: "not found error",
+			err: sow.ErrGHCommand{
+				Command: "issue view 999",
+				Stderr:  "issue not found",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Resource not found", "issue number"},
+			notContains: []string{"network"},
+		},
+		{
+			name: "not found error - does not exist",
+			err: sow.ErrGHCommand{
+				Command: "repo view",
+				Stderr:  "repository does not exist",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Resource not found"},
+			notContains: []string{"network"},
+		},
+	}
+	runFormatGitHubErrorTests(t, tests)
+}
+
+// TestFormatGitHubError_Permission tests permission error formatting.
+func TestFormatGitHubError_Permission(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		contains    []string
+		notContains []string
+	}{
+		{
+			name: "permission denied error",
+			err: sow.ErrGHCommand{
+				Command: "issue create",
+				Stderr:  "permission denied",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Permission denied", "repository access"},
+			notContains: []string{"network"},
+		},
+		{
+			name: "permission denied - forbidden",
+			err: sow.ErrGHCommand{
+				Command: "issue create",
+				Stderr:  "403 Forbidden",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Permission denied"},
+			notContains: []string{"network"},
+		},
+		{
+			name: "permission denied - not authorized",
+			err: sow.ErrGHCommand{
+				Command: "issue create",
+				Stderr:  "not authorized to access",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Permission denied"},
+			notContains: []string{"network"},
+		},
+	}
+	runFormatGitHubErrorTests(t, tests)
+}
+
+// TestFormatGitHubError_Other tests other error formatting cases.
+func TestFormatGitHubError_Other(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		contains    []string
+		notContains []string
+	}{
+		{
+			name: "unknown error",
+			err: sow.ErrGHCommand{
+				Command: "some command",
+				Stderr:  "some unexpected error",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"GitHub command failed", "gh some command", "gh auth status"},
+			notContains: []string{"network", "rate limit"},
+		},
+		{
+			name:     "non-GitHub command error",
+			err:      errors.New("some other error"),
+			contains: []string{"GitHub operation failed"},
+		},
+	}
+	runFormatGitHubErrorTests(t, tests)
+}
+
+// runFormatGitHubErrorTests is a helper that runs test cases for formatGitHubError.
+func runFormatGitHubErrorTests(t *testing.T, tests []struct {
+	name        string
+	err         error
+	contains    []string
+	notContains []string
+}) {
+	t.Helper()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatGitHubError(tt.err)
+
+			for _, substr := range tt.contains {
+				if !strings.Contains(strings.ToLower(result), strings.ToLower(substr)) {
+					t.Errorf("formatGitHubError() result does not contain %q\nGot: %s", substr, result)
+				}
+			}
+
+			for _, substr := range tt.notContains {
+				if strings.Contains(strings.ToLower(result), strings.ToLower(substr)) {
+					t.Errorf("formatGitHubError() result should not contain %q\nGot: %s", substr, result)
+				}
+			}
+		})
+	}
+}
+
+// TestCheckIssueLinkedBranch tests the checkIssueLinkedBranch function.
+func TestCheckIssueLinkedBranch(t *testing.T) {
+	tests := []struct {
+		name          string
+		branches      []sow.LinkedBranch
+		branchesErr   error
+		wantErr       bool
+		errContains   string
+		notErrContain string
+	}{
+		{
+			name:     "no linked branches - OK",
+			branches: []sow.LinkedBranch{},
+			wantErr:  false,
+		},
+		{
+			name: "one linked branch - error",
+			branches: []sow.LinkedBranch{
+				{Name: "feat/auth", URL: "https://github.com/test/repo/tree/feat/auth"},
+			},
+			wantErr:     true,
+			errContains: "feat/auth",
+		},
+		{
+			name: "multiple linked branches - error with first",
+			branches: []sow.LinkedBranch{
+				{Name: "feat/first-branch", URL: "https://github.com/test/repo/tree/feat/first-branch"},
+				{Name: "feat/second-branch", URL: "https://github.com/test/repo/tree/feat/second-branch"},
+			},
+			wantErr:       true,
+			errContains:   "feat/first-branch",
+			notErrContain: "second-branch",
+		},
+		{
+			name:        "GetLinkedBranches error",
+			branchesErr: sow.ErrGHCommand{Command: "issue develop --list", Stderr: "some error"},
+			wantErr:     true,
+			errContains: "GitHub command failed",
+		},
+		{
+			name:        "GetLinkedBranches network error",
+			branchesErr: sow.ErrGHCommand{Command: "issue develop --list", Stderr: "network timeout"},
+			wantErr:     true,
+			errContains: "Cannot reach GitHub",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &mockGitHubClient{
+				linkedBranches:    tt.branches,
+				linkedBranchesErr: tt.branchesErr,
+			}
+
+			err := checkIssueLinkedBranch(mock, 123)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkIssueLinkedBranch() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if err != nil && tt.errContains != "" {
+				if !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error message %q does not contain %q",
+						err.Error(), tt.errContains)
+				}
+			}
+
+			if err != nil && tt.notErrContain != "" {
+				if strings.Contains(err.Error(), tt.notErrContain) {
+					t.Errorf("error message %q should not contain %q",
+						err.Error(), tt.notErrContain)
+				}
+			}
+		})
+	}
+}
+
+// TestFilterIssuesBySowLabel tests the filterIssuesBySowLabel function.
+func TestFilterIssuesBySowLabel(t *testing.T) {
+	tests := []struct {
+		name     string
+		issues   []sow.Issue
+		expected int
+	}{
+		{
+			name:     "empty input",
+			issues:   []sow.Issue{},
+			expected: 0,
+		},
+		{
+			name: "all issues have sow label",
+			issues: []sow.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "sow"}}},
+				{Number: 2, Title: "Issue 2", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "sow"}}},
+			},
+			expected: 2,
+		},
+		{
+			name: "no issues have sow label",
+			issues: []sow.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "bug"}}},
+				{Number: 2, Title: "Issue 2", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "feature"}}},
+			},
+			expected: 0,
+		},
+		{
+			name: "mixed labels",
+			issues: []sow.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "sow"}}},
+				{Number: 2, Title: "Issue 2", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "bug"}}},
+				{Number: 3, Title: "Issue 3", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "sow"}, {Name: "feature"}}},
+			},
+			expected: 2,
+		},
+		{
+			name: "issues with no labels",
+			issues: []sow.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []struct {
+					Name string `json:"name"`
+				}{}},
+				{Number: 2, Title: "Issue 2", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "sow"}}},
+			},
+			expected: 1,
+		},
+		{
+			name: "case sensitive matching",
+			issues: []sow.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "sow"}}},
+				{Number: 2, Title: "Issue 2", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "SOW"}}},
+				{Number: 3, Title: "Issue 3", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "Sow"}}},
+			},
+			expected: 1, // Only exact match "sow"
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := filterIssuesBySowLabel(tt.issues)
+
+			if len(result) != tt.expected {
+				t.Errorf("filterIssuesBySowLabel() returned %d issues; want %d", len(result), tt.expected)
+			}
+
+			// Verify all returned issues have the "sow" label
+			for _, issue := range result {
+				if !issue.HasLabel("sow") {
+					t.Errorf("issue #%d in result does not have 'sow' label", issue.Number)
+				}
+			}
+		})
+	}
+}
+
+// TestErrorGitHubNotAuthenticated tests the errorGitHubNotAuthenticated function.
+func TestErrorGitHubNotAuthenticated(t *testing.T) {
+	result := errorGitHubNotAuthenticated()
+
+	expectedParts := []string{
+		"GitHub CLI not authenticated",
+		"not logged in",
+		"gh auth login",
+		"From branch name",
+	}
+
+	for _, part := range expectedParts {
+		if !strings.Contains(result, part) {
+			t.Errorf("errorGitHubNotAuthenticated() result does not contain %q\nGot: %s", part, result)
+		}
 	}
 }

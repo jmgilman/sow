@@ -15,7 +15,10 @@ import (
 // TestMain sets up test environment for all tests in this package.
 func TestMain(m *testing.M) {
 	// Enable test mode to skip interactive prompts
-	os.Setenv("SOW_TEST", "1")
+	if err := os.Setenv("SOW_TEST", "1"); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to set test mode: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Run tests
 	code := m.Run()
