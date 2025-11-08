@@ -577,7 +577,7 @@ func (m *mockGitHub) GetLinkedBranches(_ int) ([]sow.LinkedBranch, error) {
 	return m.getLinkedBranchesResult, nil
 }
 
-func (m *mockGitHub) CreateLinkedBranch(_ int, branchName string, checkout bool) (string, error) {
+func (m *mockGitHub) CreateLinkedBranch(_ int, branchName string, _ bool) (string, error) {
 	if m.createLinkedBranchErr != nil {
 		return "", m.createLinkedBranchErr
 	}
@@ -827,7 +827,7 @@ func TestShowIssueSelectScreen_IssueAlreadyLinked(t *testing.T) {
 }
 
 // TestShowIssueSelectScreen_NoLinkedBranch tests successful validation when no linked branch exists.
-// After Task 070: Should default type to "standard" and skip type selection
+// After Task 070: Should default type to "standard" and skip type selection.
 func TestShowIssueSelectScreen_NoLinkedBranch(t *testing.T) {
 	ctx, tmpDir := setupTestContext(t)
 
