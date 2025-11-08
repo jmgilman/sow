@@ -295,30 +295,17 @@ func (w *Wizard) handleTypeSelect() error {
 	var selectedType string
 
 	// Check if we have issue context
-	var contextNote *huh.Note
-	issue, hasIssue := w.choices["issue"].(*sow.Issue)
-	if hasIssue {
-		contextNote = huh.NewNote().
-			Description(fmt.Sprintf("Issue: #%d - %s", issue.Number, issue.Title))
-	}
+	_, hasIssue := w.choices["issue"].(*sow.Issue)
 
-	// Build form groups
-	groups := []*huh.Group{}
-
-	// Add context note if present
-	if contextNote != nil {
-		groups = append(groups, huh.NewGroup(contextNote))
-	}
-
-	// Add type selection
-	groups = append(groups, huh.NewGroup(
-		huh.NewSelect[string]().
-			Title("What type of project?").
-			Options(getTypeOptions()...).
-			Value(&selectedType),
-	))
-
-	form := huh.NewForm(groups...)
+	// Build form with just type selection
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("What type of project?").
+				Options(getTypeOptions()...).
+				Value(&selectedType),
+		),
+	)
 
 	if err := form.Run(); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {

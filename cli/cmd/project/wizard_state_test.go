@@ -936,6 +936,7 @@ func TestHandleTypeSelect_RoutingWithIssue(t *testing.T) {
 	// When an issue exists in choices, after type selection we should:
 	// 1. Create a linked branch
 	// 2. Transition to StatePromptEntry (skip name entry)
+	// Note: Context note should NOT create a separate screen
 
 	ctx, _ := setupTestContext(t)
 	wizard := &Wizard{
@@ -963,6 +964,7 @@ func TestHandleTypeSelect_RoutingWithIssue(t *testing.T) {
 
 	// The implementation should check hasIssue and call createLinkedBranch
 	// Then transition to StatePromptEntry instead of StateNameEntry
+	// Context note should be removed to avoid separate screen
 }
 
 // TestHandleTypeSelect_RoutingWithoutIssue tests that type selection routes to name entry when no issue exists
