@@ -1043,7 +1043,10 @@ func TestGitHubIssuePath_SkipsTypeSelection(t *testing.T) {
 	}
 
 	// Verify branch uses "feat/" prefix (standard type)
-	branch := wizard.choices["branch"].(string)
+	branch, ok := wizard.choices["branch"].(string)
+	if !ok {
+		t.Fatal("Expected branch to be set in choices")
+	}
 	if branch != "feat/project-continuation-workflow-71" {
 		t.Errorf("expected branch with 'feat/' prefix, got %q", branch)
 	}
@@ -1156,7 +1159,10 @@ func TestHandlePromptEntry_WithBranchNameContext(t *testing.T) {
 	}
 
 	// Verify branch context computed correctly
-	branchName := wizard.choices["branch"].(string)
+	branchName, ok := wizard.choices["branch"].(string)
+	if !ok {
+		t.Fatal("Expected branch to be set in choices")
+	}
 	expected := "explore/web-based-agents"
 
 	if branchName != expected {

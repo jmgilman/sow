@@ -259,8 +259,11 @@ func (w *Wizard) handleGitHubError(err error) error {
 	var errorMsg string
 	var fallbackMsg string
 
-	// Determine error type using type assertion
-	if _, ok := err.(sow.ErrGHNotInstalled); ok {
+	// Determine error type using errors.As for wrapped error support
+	var notInstalled sow.ErrGHNotInstalled
+	var notAuthenticated sow.ErrGHNotAuthenticated
+
+	if errors.As(err, &notInstalled) {
 		errorMsg = "GitHub CLI not found\n\n" +
 			"The 'gh' command is required for GitHub issue integration.\n\n" +
 			"To install:\n" +
@@ -268,7 +271,7 @@ func (w *Wizard) handleGitHubError(err error) error {
 			"  Linux: See https://cli.github.com/"
 		fallbackMsg = "Or select 'From branch name' instead."
 
-	} else if _, ok := err.(sow.ErrGHNotAuthenticated); ok {
+	} else if errors.As(err, &notAuthenticated) {
 		errorMsg = "GitHub CLI not authenticated\n\n" +
 			"Run the following command to authenticate:\n" +
 			"  gh auth login\n\n" +
@@ -326,11 +329,11 @@ func (w *Wizard) handleTypeSelect() error {
 	if hasIssue {
 		// GitHub issue path: create branch then go to prompt entry
 		return w.createLinkedBranch()
-	} else {
-		// Branch name path: go to name entry
-		w.state = StateNameEntry
-		return nil
 	}
+
+	// Branch name path: go to name entry
+	w.state = StateNameEntry
+	return nil
 }
 
 // handleNameEntry allows entering project name with real-time branch preview.
@@ -437,7 +440,10 @@ func (w *Wizard) handlePromptEntry() error {
 		contextLines = append(contextLines, fmt.Sprintf("Branch: %s", branchName))
 	} else if name, ok := w.choices["name"].(string); ok {
 		// Branch name path - compute branch name for display
-		projectType := w.choices["type"].(string)
+		projectType, ok := w.choices["type"].(string)
+		if !ok {
+			projectType = "standard" // Default fallback
+		}
 		prefix := getTypePrefix(projectType)
 		normalized := normalizeName(name)
 		contextLines = append(contextLines,

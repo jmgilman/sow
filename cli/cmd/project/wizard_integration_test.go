@@ -14,6 +14,8 @@ import (
 
 // TestCompleteGitHubIssueWorkflow tests the entire flow from source selection to finalization.
 // This integration test validates the logic flow without requiring TTY interaction.
+//
+//nolint:funlen // Integration test requires many steps for thorough validation
 func TestCompleteGitHubIssueWorkflow(t *testing.T) {
 	// Setup
 	ctx, tmpDir := setupTestContext(t)
@@ -109,7 +111,10 @@ func TestCompleteGitHubIssueWorkflow(t *testing.T) {
 		t.Errorf("expected state StatePromptEntry, got %v", wizard.state)
 	}
 
-	createdBranch := wizard.choices["branch"].(string)
+	createdBranch, ok := wizard.choices["branch"].(string)
+	if !ok {
+		t.Fatal("Expected branch to be set in choices")
+	}
 	t.Logf("✓ Created branch %s and skipped type selection", createdBranch)
 
 	// === STEP 4: Finalize project ===
