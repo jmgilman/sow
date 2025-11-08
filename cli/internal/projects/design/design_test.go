@@ -590,4 +590,3 @@ func TestTransitions_FinalizingToCompleted_GuardAllowsWhenTasksComplete(t *testi
 	require.NoError(t, err)
 	assert.True(t, canFire, "should be able to fire EventCompleteFinalization when tasks complete")
 }
-

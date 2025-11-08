@@ -39,7 +39,7 @@ func TestGuardDescriptionInError(t *testing.T) {
 
 	// Try to fire the event - should fail with our custom description
 	err := config.FireWithPhaseUpdates(machine, sdkstate.Event("go"), proj)
-	
+
 	if err == nil {
 		t.Fatal("expected error when guard fails, got nil")
 	}

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/cli/internal/sow"
 	projschema "github.com/jmgilman/sow/cli/schemas/project"
 
 	// Import project types to register them

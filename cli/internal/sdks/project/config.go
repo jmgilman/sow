@@ -305,18 +305,18 @@ func (ptc *ProjectTypeConfig) GetTransition(from, to sdkstate.State, event sdkst
 // use machine.CanFire(event) or machine.PermittedTriggers().
 //
 // Transitions are returned in a deterministic order:
-//   1. First, transitions from branches (if state is a branching state)
-//   2. Then, direct AddTransition calls
-//   Both sorted by event name for consistency
+//  1. First, transitions from branches (if state is a branching state)
+//  2. Then, direct AddTransition calls
+//     Both sorted by event name for consistency
 //
 // Returns empty slice if no transitions are defined from the state.
 //
 // Example:
-//   transitions := config.GetAvailableTransitions(sdkstate.State(ReviewActive))
-//   for _, t := range transitions {
-//       fmt.Printf("%s -> %s: %s\n", t.Event, t.To, t.Description)
-//   }
 //
+//	transitions := config.GetAvailableTransitions(sdkstate.State(ReviewActive))
+//	for _, t := range transitions {
+//	    fmt.Printf("%s -> %s: %s\n", t.Event, t.To, t.Description)
+//	}
 func (ptc *ProjectTypeConfig) GetAvailableTransitions(from sdkstate.State) []TransitionInfo {
 	var result []TransitionInfo
 
@@ -387,11 +387,11 @@ func (ptc *ProjectTypeConfig) GetAvailableTransitions(from sdkstate.State) []Tra
 // different descriptions (context-specific).
 //
 // Example:
-//   desc := config.GetTransitionDescription(
-//       sdkstate.State(ReviewActive),
-//       sdkstate.Event(EventReviewPass))
-//   // Returns: "Review approved - proceed to finalization"
 //
+//	desc := config.GetTransitionDescription(
+//	    sdkstate.State(ReviewActive),
+//	    sdkstate.Event(EventReviewPass))
+//	// Returns: "Review approved - proceed to finalization"
 func (ptc *ProjectTypeConfig) GetTransitionDescription(from sdkstate.State, event sdkstate.Event) string {
 	// Check branch paths first
 	if branchConfig, exists := ptc.branches[from]; exists {
@@ -420,11 +420,11 @@ func (ptc *ProjectTypeConfig) GetTransitionDescription(from sdkstate.State, even
 // Returns empty State if no transition exists for the from/event combination.
 //
 // Example:
-//   target := config.GetTargetState(
-//       sdkstate.State(ReviewActive),
-//       sdkstate.Event(EventReviewPass))
-//   // Returns: sdkstate.State(FinalizeChecks)
 //
+//	target := config.GetTargetState(
+//	    sdkstate.State(ReviewActive),
+//	    sdkstate.Event(EventReviewPass))
+//	// Returns: sdkstate.State(FinalizeChecks)
 func (ptc *ProjectTypeConfig) GetTargetState(from sdkstate.State, event sdkstate.Event) sdkstate.State {
 	// Check branch paths first
 	if branchConfig, exists := ptc.branches[from]; exists {
@@ -456,11 +456,11 @@ func (ptc *ProjectTypeConfig) GetTargetState(from sdkstate.State, event sdkstate
 //   - The guard exists but has no description
 //
 // Example:
-//   desc := config.GetGuardDescription(
-//       sdkstate.State(ImplementationExecuting),
-//       sdkstate.Event(EventAllTasksComplete))
-//   // Returns: "all tasks complete"
 //
+//	desc := config.GetGuardDescription(
+//	    sdkstate.State(ImplementationExecuting),
+//	    sdkstate.Event(EventAllTasksComplete))
+//	// Returns: "all tasks complete"
 func (ptc *ProjectTypeConfig) GetGuardDescription(from sdkstate.State, event sdkstate.Event) string {
 	// Check branch paths first
 	if branchConfig, exists := ptc.branches[from]; exists {
@@ -495,11 +495,11 @@ func (ptc *ProjectTypeConfig) GetGuardDescription(from sdkstate.State, event sdk
 //   - Highlight states where discriminator logic determines the path
 //
 // Example:
-//   if config.IsBranchingState(sdkstate.State(ReviewActive)) {
-//       fmt.Println("This is a branching state - the system will automatically")
-//       fmt.Println("determine which transition to take based on project state")
-//   }
 //
+//	if config.IsBranchingState(sdkstate.State(ReviewActive)) {
+//	    fmt.Println("This is a branching state - the system will automatically")
+//	    fmt.Println("determine which transition to take based on project state")
+//	}
 func (ptc *ProjectTypeConfig) IsBranchingState(state sdkstate.State) bool {
 	_, exists := ptc.branches[state]
 	return exists

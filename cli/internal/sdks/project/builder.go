@@ -102,33 +102,34 @@ func (b *ProjectTypeConfigBuilder) OnAdvance(
 //
 // This method provides a declarative API for defining multi-way branches where
 // the next state can be determined by examining project state. It auto-generates:
-//   1. Transitions for each When clause
-//   2. Event determiner using the discriminator function
+//  1. Transitions for each When clause
+//  2. Event determiner using the discriminator function
 //
 // The discriminator examines project state and returns a string value. This value
 // is matched against the values defined in When() clauses to determine which
 // event to fire and which state to transition to.
 //
 // Example (binary branch):
-//   AddBranch(
-//       sdkstate.State(ReviewActive),
-//       project.BranchOn(func(p *state.Project) string {
-//           // Get review assessment from latest approved review
-//           assessment := getReviewAssessment(p)
-//           return assessment  // "pass" or "fail"
-//       }),
-//       project.When("pass",
-//           sdkstate.Event(EventReviewPass),
-//           sdkstate.State(FinalizeChecks),
-//           project.WithDescription("Review approved - proceed to finalization"),
-//       ),
-//       project.When("fail",
-//           sdkstate.Event(EventReviewFail),
-//           sdkstate.State(ImplementationPlanning),
-//           project.WithDescription("Review failed - return to planning for rework"),
-//           project.WithFailedPhase("review"),
-//       ),
-//   )
+//
+//	AddBranch(
+//	    sdkstate.State(ReviewActive),
+//	    project.BranchOn(func(p *state.Project) string {
+//	        // Get review assessment from latest approved review
+//	        assessment := getReviewAssessment(p)
+//	        return assessment  // "pass" or "fail"
+//	    }),
+//	    project.When("pass",
+//	        sdkstate.Event(EventReviewPass),
+//	        sdkstate.State(FinalizeChecks),
+//	        project.WithDescription("Review approved - proceed to finalization"),
+//	    ),
+//	    project.When("fail",
+//	        sdkstate.Event(EventReviewFail),
+//	        sdkstate.State(ImplementationPlanning),
+//	        project.WithDescription("Review failed - return to planning for rework"),
+//	        project.WithFailedPhase("review"),
+//	    ),
+//	)
 //
 // This auto-generates:
 //   - Two AddTransition calls (one per When clause)
