@@ -51,6 +51,6 @@ func runWizard(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	wizard := NewWizard(mainCtx, claudeFlags)
+	wizard := NewWizard(cmd, mainCtx, claudeFlags)
 	return wizard.Run()
 }

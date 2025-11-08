@@ -1,11 +1,15 @@
 package project
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
+	"github.com/jmgilman/sow/cli/internal/sow"
 )
 
 // ProjectTypeConfig defines the configuration for a project type.
@@ -194,4 +198,86 @@ func withSpinner(title string, action func() error) error {
 		Run()
 
 	return err
+}
+
+// isValidBranchName checks if a string is a valid git branch name.
+// Returns nil if valid, error describing the problem if invalid.
+//
+// Git branch name rules:
+// - Cannot start or end with /
+// - Cannot contain ..
+// - Cannot contain consecutive slashes //
+// - Cannot end with .lock
+// - Cannot contain special characters: ~, ^, :, ?, *, [, \.
+// - Cannot contain whitespace.
+func isValidBranchName(name string) error {
+	if name == "" {
+		return fmt.Errorf("branch name cannot be empty")
+	}
+
+	// Check for invalid patterns
+	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {
+		return fmt.Errorf("branch name cannot start or end with /")
+	}
+
+	if strings.Contains(name, "..") {
+		return fmt.Errorf("branch name cannot contain double dots")
+	}
+
+	if strings.Contains(name, "//") {
+		return fmt.Errorf("branch name cannot contain consecutive slashes")
+	}
+
+	if strings.HasSuffix(name, ".lock") {
+		return fmt.Errorf("branch name cannot end with .lock")
+	}
+
+	// Check for invalid characters
+	invalidChars := []string{"~", "^", ":", "?", "*", "[", "\\", " "}
+	for _, char := range invalidChars {
+		if strings.Contains(name, char) {
+			return fmt.Errorf("branch name contains invalid character: %s", char)
+		}
+	}
+
+	return nil
+}
+
+// BranchState represents the state of a branch in the repository.
+type BranchState struct {
+	BranchExists   bool
+	WorktreeExists bool
+	ProjectExists  bool
+}
+
+// checkBranchState checks if a branch exists, has a worktree, and has an existing project.
+func checkBranchState(ctx *sow.Context, branchName string) (*BranchState, error) {
+	state := &BranchState{}
+
+	// Check if branch exists
+	branches, err := ctx.Git().Branches()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list branches: %w", err)
+	}
+
+	for _, branch := range branches {
+		if branch == branchName {
+			state.BranchExists = true
+			break
+		}
+	}
+
+	// Check if worktree exists
+	worktreePath := sow.WorktreePath(ctx.RepoRoot(), branchName)
+	if _, err := os.Stat(worktreePath); err == nil {
+		state.WorktreeExists = true
+
+		// If worktree exists, check for project
+		projectStatePath := filepath.Join(worktreePath, ".sow", "project", "state.yaml")
+		if _, err := os.Stat(projectStatePath); err == nil {
+			state.ProjectExists = true
+		}
+	}
+
+	return state, nil
 }

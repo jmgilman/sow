@@ -14,7 +14,7 @@ func TestNewWizard_InitializesCorrectly(t *testing.T) {
 	var ctx *sow.Context
 	claudeFlags := []string{"--model", "opus"}
 
-	wizard := NewWizard(ctx, claudeFlags)
+	wizard := NewWizard(nil, ctx, claudeFlags)
 
 	// Verify wizard starts in StateEntry
 	assert.Equal(t, StateEntry, wizard.state, "Wizard should start in StateEntry")
@@ -32,7 +32,7 @@ func TestNewWizard_InitializesCorrectly(t *testing.T) {
 
 // TestHandleState_UnknownStateReturnsError tests that handleState returns an error for unknown states.
 func TestHandleState_UnknownStateReturnsError(t *testing.T) {
-	wizard := NewWizard(nil, nil)
+	wizard := NewWizard(nil, nil, nil)
 
 	// Set wizard to an unknown/invalid state
 	wizard.state = WizardState("invalid_state")
@@ -62,42 +62,28 @@ func TestHandleState_DispatchesToCorrectHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wizard := NewWizard(nil, nil)
+			// Entry, CreateSource, TypeSelect, NameEntry, and PromptEntry states require interactive input, skip for now
+			if tt.state == StateEntry || tt.state == StateCreateSource || tt.state == StateTypeSelect || tt.state == StateNameEntry || tt.state == StatePromptEntry {
+				// These require interactive input, skip for now
+				t.Skip("Interactive state requires user input")
+			}
+
+			wizard := NewWizard(nil, nil, nil)
 			wizard.state = tt.state
 
 			// For stub handlers, we expect them to transition to StateComplete
-			// For entry handler, it would need user input (we can't fully test here)
 			// Just verify no error for valid states
 			err := wizard.handleState()
-
-			// Entry state will error because we can't provide input in unit test
-			// Other states (stubs) should complete successfully
-			if tt.state == StateEntry {
-				// Entry requires interactive input, skip for now
-				t.Skip("Entry state requires interactive input")
-			} else {
-				assert.NoError(t, err, "Valid state should not error")
-				assert.Equal(t, StateComplete, wizard.state, "Stub handlers should transition to StateComplete")
-			}
+			assert.NoError(t, err, "Valid state should not error")
+			assert.Equal(t, StateComplete, wizard.state, "Stub handlers should transition to StateComplete")
 		})
 	}
 }
 
 // TestWizardRun_LoopsUntilTerminalState tests that Run() loops until terminal state.
 func TestWizardRun_LoopsUntilTerminalState(t *testing.T) {
-	t.Run("exits on StateComplete", func(t *testing.T) {
-		wizard := NewWizard(nil, nil)
-		// Start in a stub state that will transition to complete
-		wizard.state = StateCreateSource
-
-		err := wizard.Run()
-
-		assert.NoError(t, err, "Run should complete without error")
-		assert.Equal(t, StateComplete, wizard.state, "Should end in StateComplete")
-	})
-
 	t.Run("exits on StateCancelled", func(t *testing.T) {
-		wizard := NewWizard(nil, nil)
+		wizard := NewWizard(nil, nil, nil)
 		wizard.state = StateCancelled
 
 		err := wizard.Run()
@@ -105,23 +91,23 @@ func TestWizardRun_LoopsUntilTerminalState(t *testing.T) {
 		assert.NoError(t, err, "Run should return nil for cancellation")
 		assert.Equal(t, StateCancelled, wizard.state, "Should stay in StateCancelled")
 	})
+
+	// Note: Testing StateComplete requires full wizard flow or populated choices
+	// This is covered by TestFinalize_* tests which test the full finalize() flow
 }
 
 // TestStateTransitions_StubHandlers tests that stub handlers transition to StateComplete.
 func TestStateTransitions_StubHandlers(t *testing.T) {
 	stubs := []WizardState{
-		StateCreateSource,
+		// Note: StateCreateSource, StateTypeSelect, StateNameEntry, and StatePromptEntry are now implemented, so they're not stubs anymore
 		StateIssueSelect,
-		StateTypeSelect,
-		StateNameEntry,
-		StatePromptEntry,
 		StateProjectSelect,
 		StateContinuePrompt,
 	}
 
 	for _, state := range stubs {
 		t.Run(string(state), func(t *testing.T) {
-			wizard := NewWizard(nil, nil)
+			wizard := NewWizard(nil, nil, nil)
 			wizard.state = state
 
 			err := wizard.handleState()

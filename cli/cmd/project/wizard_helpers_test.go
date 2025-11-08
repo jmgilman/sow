@@ -1,7 +1,11 @@
 package project
 
 import (
+	"context"
 	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 )
 
@@ -248,5 +252,245 @@ func TestProjectTypesMap(t *testing.T) {
 			t.Errorf("projectTypes[%q].Description = %q; want %q",
 				typeName, config.Description, expected.description)
 		}
+	}
+}
+
+// TestIsValidBranchName_ValidNames tests valid branch names.
+func TestIsValidBranchName_ValidNames(t *testing.T) {
+	testCases := []string{
+		"feat/auth",
+		"explore/api-v2",
+		"123-feature",
+		"design/architecture",
+		"breakdown/task-list",
+		"feat/web-based-agents",
+		"feature-name",
+		"feat/under_scores_ok",
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc, func(t *testing.T) {
+			err := isValidBranchName(tc)
+			if err != nil {
+				t.Errorf("isValidBranchName(%q) returned error: %v; want nil", tc, err)
+			}
+		})
+	}
+}
+
+// TestIsValidBranchName_InvalidNames tests invalid branch names.
+func TestIsValidBranchName_InvalidNames(t *testing.T) {
+	testCases := []struct {
+		name          string
+		expectedError string
+	}{
+		{"", "branch name cannot be empty"},
+		{"/leading-slash", "branch name cannot start or end with /"},
+		{"trailing-slash/", "branch name cannot start or end with /"},
+		{"feat..auth", "branch name cannot contain double dots"},
+		{"feat//auth", "branch name cannot contain consecutive slashes"},
+		{"feat.lock", "branch name cannot end with .lock"},
+		{"feat/branch.lock", "branch name cannot end with .lock"},
+		{"feat~auth", "branch name contains invalid character: ~"},
+		{"feat^auth", "branch name contains invalid character: ^"},
+		{"feat:auth", "branch name contains invalid character: :"},
+		{"feat?auth", "branch name contains invalid character: ?"},
+		{"feat*auth", "branch name contains invalid character: *"},
+		{"feat[auth", "branch name contains invalid character: ["},
+		{"feat\\auth", "branch name contains invalid character: \\"},
+		{"feat with spaces", "branch name contains invalid character:  "},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := isValidBranchName(tc.name)
+			if err == nil {
+				t.Errorf("isValidBranchName(%q) returned nil; want error containing %q", tc.name, tc.expectedError)
+				return
+			}
+			if err.Error() != tc.expectedError {
+				t.Errorf("isValidBranchName(%q) error = %q; want %q", tc.name, err.Error(), tc.expectedError)
+			}
+		})
+	}
+}
+
+// TestCheckBranchState_NoBranchNoWorktreeNoProject tests when branch doesn't exist.
+func TestCheckBranchState_NoBranchNoWorktreeNoProject(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+
+	state, err := checkBranchState(ctx, "feat/nonexistent")
+	if err != nil {
+		t.Fatalf("checkBranchState failed: %v", err)
+	}
+
+	if state.BranchExists {
+		t.Error("BranchExists should be false when branch doesn't exist")
+	}
+	if state.WorktreeExists {
+		t.Error("WorktreeExists should be false when branch doesn't exist")
+	}
+	if state.ProjectExists {
+		t.Error("ProjectExists should be false when branch doesn't exist")
+	}
+}
+
+// TestCheckBranchState_BranchExistsNoWorktree tests when branch exists but no worktree.
+func TestCheckBranchState_BranchExistsNoWorktree(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Need to create an initial commit for git branch to work
+	readmeFile := filepath.Join(tmpDir, "README.md")
+	if err := os.WriteFile(readmeFile, []byte("# Test\n"), 0644); err != nil {
+		t.Fatalf("failed to create README: %v", err)
+	}
+
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add README: %v", err)
+	}
+
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	// Create a branch using git CLI
+	cmd = exec.CommandContext(context.Background(), "git", "branch", "feat/test-branch")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create branch: %v", err)
+	}
+
+	state, err := checkBranchState(ctx, "feat/test-branch")
+	if err != nil {
+		t.Fatalf("checkBranchState failed: %v", err)
+	}
+
+	if !state.BranchExists {
+		t.Error("BranchExists should be true when branch exists")
+	}
+	if state.WorktreeExists {
+		t.Error("WorktreeExists should be false when worktree doesn't exist")
+	}
+	if state.ProjectExists {
+		t.Error("ProjectExists should be false when worktree doesn't exist")
+	}
+}
+
+// TestCheckBranchState_WorktreeExistsNoProject tests when worktree exists but no project.
+func TestCheckBranchState_WorktreeExistsNoProject(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Need to create an initial commit for git branch to work
+	readmeFile := filepath.Join(tmpDir, "README.md")
+	if err := os.WriteFile(readmeFile, []byte("# Test\n"), 0644); err != nil {
+		t.Fatalf("failed to create README: %v", err)
+	}
+
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add README: %v", err)
+	}
+
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	// Create branch and worktree
+	branchName := "feat/test-worktree"
+	worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
+
+	// Create branch
+	cmd = exec.CommandContext(context.Background(), "git", "branch", branchName)
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create branch: %v", err)
+	}
+
+	// Create worktree directory structure (but no project)
+	if err := os.MkdirAll(worktreePath, 0755); err != nil {
+		t.Fatalf("failed to create worktree directory: %v", err)
+	}
+
+	state, err := checkBranchState(ctx, branchName)
+	if err != nil {
+		t.Fatalf("checkBranchState failed: %v", err)
+	}
+
+	if !state.BranchExists {
+		t.Error("BranchExists should be true when branch exists")
+	}
+	if !state.WorktreeExists {
+		t.Error("WorktreeExists should be true when worktree directory exists")
+	}
+	if state.ProjectExists {
+		t.Error("ProjectExists should be false when project file doesn't exist")
+	}
+}
+
+// TestCheckBranchState_FullStack tests when branch, worktree, and project all exist.
+func TestCheckBranchState_FullStack(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Need to create an initial commit for git branch to work
+	readmeFile := filepath.Join(tmpDir, "README.md")
+	if err := os.WriteFile(readmeFile, []byte("# Test\n"), 0644); err != nil {
+		t.Fatalf("failed to create README: %v", err)
+	}
+
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add README: %v", err)
+	}
+
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	// Create branch and worktree with project
+	branchName := "feat/test-full"
+	worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
+
+	// Create branch
+	cmd = exec.CommandContext(context.Background(), "git", "branch", branchName)
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create branch: %v", err)
+	}
+
+	// Create worktree directory structure
+	projectDir := filepath.Join(worktreePath, ".sow", "project")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatalf("failed to create project directory: %v", err)
+	}
+
+	// Create state.yaml file (project exists)
+	stateFile := filepath.Join(projectDir, "state.yaml")
+	if err := os.WriteFile(stateFile, []byte("name: test\n"), 0644); err != nil {
+		t.Fatalf("failed to create state.yaml: %v", err)
+	}
+
+	state, err := checkBranchState(ctx, branchName)
+	if err != nil {
+		t.Fatalf("checkBranchState failed: %v", err)
+	}
+
+	if !state.BranchExists {
+		t.Error("BranchExists should be true when branch exists")
+	}
+	if !state.WorktreeExists {
+		t.Error("WorktreeExists should be true when worktree directory exists")
+	}
+	if !state.ProjectExists {
+		t.Error("ProjectExists should be true when state.yaml exists")
 	}
 }
