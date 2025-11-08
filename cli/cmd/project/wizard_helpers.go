@@ -208,8 +208,8 @@ func withSpinner(title string, action func() error) error {
 // - Cannot contain ..
 // - Cannot contain consecutive slashes //
 // - Cannot end with .lock
-// - Cannot contain special characters: ~, ^, :, ?, *, [, \
-// - Cannot contain whitespace
+// - Cannot contain special characters: ~, ^, :, ?, *, [, \.
+// - Cannot contain whitespace.
 func isValidBranchName(name string) error {
 	if name == "" {
 		return fmt.Errorf("branch name cannot be empty")
@@ -221,7 +221,7 @@ func isValidBranchName(name string) error {
 	}
 
 	if strings.Contains(name, "..") {
-		return fmt.Errorf("branch name cannot contain ..")
+		return fmt.Errorf("branch name cannot contain double dots")
 	}
 
 	if strings.Contains(name, "//") {

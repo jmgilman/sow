@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -286,7 +287,7 @@ func TestIsValidBranchName_InvalidNames(t *testing.T) {
 		{"", "branch name cannot be empty"},
 		{"/leading-slash", "branch name cannot start or end with /"},
 		{"trailing-slash/", "branch name cannot start or end with /"},
-		{"feat..auth", "branch name cannot contain .."},
+		{"feat..auth", "branch name cannot contain double dots"},
 		{"feat//auth", "branch name cannot contain consecutive slashes"},
 		{"feat.lock", "branch name cannot end with .lock"},
 		{"feat/branch.lock", "branch name cannot end with .lock"},
@@ -344,20 +345,20 @@ func TestCheckBranchState_BranchExistsNoWorktree(t *testing.T) {
 		t.Fatalf("failed to create README: %v", err)
 	}
 
-	cmd := exec.Command("git", "add", "README.md")
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to add README: %v", err)
 	}
 
-	cmd = exec.Command("git", "commit", "-m", "Initial commit")
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to commit: %v", err)
 	}
 
 	// Create a branch using git CLI
-	cmd = exec.Command("git", "branch", "feat/test-branch")
+	cmd = exec.CommandContext(context.Background(), "git", "branch", "feat/test-branch")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create branch: %v", err)
@@ -389,13 +390,13 @@ func TestCheckBranchState_WorktreeExistsNoProject(t *testing.T) {
 		t.Fatalf("failed to create README: %v", err)
 	}
 
-	cmd := exec.Command("git", "add", "README.md")
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to add README: %v", err)
 	}
 
-	cmd = exec.Command("git", "commit", "-m", "Initial commit")
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to commit: %v", err)
@@ -406,7 +407,7 @@ func TestCheckBranchState_WorktreeExistsNoProject(t *testing.T) {
 	worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
 
 	// Create branch
-	cmd = exec.Command("git", "branch", branchName)
+	cmd = exec.CommandContext(context.Background(), "git", "branch", branchName)
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create branch: %v", err)
@@ -443,13 +444,13 @@ func TestCheckBranchState_FullStack(t *testing.T) {
 		t.Fatalf("failed to create README: %v", err)
 	}
 
-	cmd := exec.Command("git", "add", "README.md")
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to add README: %v", err)
 	}
 
-	cmd = exec.Command("git", "commit", "-m", "Initial commit")
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to commit: %v", err)
@@ -460,7 +461,7 @@ func TestCheckBranchState_FullStack(t *testing.T) {
 	worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
 
 	// Create branch
-	cmd = exec.Command("git", "branch", branchName)
+	cmd = exec.CommandContext(context.Background(), "git", "branch", branchName)
 	cmd.Dir = tmpDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create branch: %v", err)

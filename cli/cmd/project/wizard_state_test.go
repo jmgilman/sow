@@ -272,9 +272,9 @@ func TestFinalize_CreatesWorktree(t *testing.T) {
 
 	// Create initial commit (required for worktree creation)
 	testFile := tmpDir + "/README.md"
-	os.WriteFile(testFile, []byte("# Test"), 0644)
-	exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
-	exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
 
 	w := NewWizard(nil, ctx, []string{})
 
@@ -303,9 +303,9 @@ func TestFinalize_InitializesProject(t *testing.T) {
 
 	// Create initial commit (required for worktree creation)
 	testFile := tmpDir + "/README.md"
-	os.WriteFile(testFile, []byte("# Test"), 0644)
-	exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
-	exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
 
 	w := NewWizard(nil, ctx, []string{})
 
@@ -388,9 +388,9 @@ func TestFinalize_WithEmptyPrompt(t *testing.T) {
 
 	// Create initial commit (required for worktree creation)
 	testFile := tmpDir + "/README.md"
-	os.WriteFile(testFile, []byte("# Test"), 0644)
-	exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
-	exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
 
 	w := NewWizard(nil, ctx, []string{})
 
@@ -447,8 +447,8 @@ func TestFinalize_UncommittedChangesError(t *testing.T) {
 	}
 
 	// Stage and commit the file first
-	exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", "test.txt").Run()
-	exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", "test.txt").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
 
 	// Now modify it again (creating uncommitted changes)
 	if err := os.WriteFile(testFile, []byte("modified content"), 0644); err != nil {
@@ -498,8 +498,8 @@ func TestFinalize_SkipsUncommittedCheckWhenDifferentBranch(t *testing.T) {
 	}
 
 	// Stage and commit the file first
-	exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", "test.txt").Run()
-	exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", "test.txt").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
 
 	// Now modify it again (creating uncommitted changes)
 	if err := os.WriteFile(testFile, []byte("modified content"), 0644); err != nil {
@@ -519,8 +519,8 @@ func TestFinalize_SkipsUncommittedCheckWhenDifferentBranch(t *testing.T) {
 	}
 
 	// Set environment variable to skip check in tests (for worktree creation)
-	os.Setenv("SOW_SKIP_UNCOMMITTED_CHECK", "1")
-	defer os.Unsetenv("SOW_SKIP_UNCOMMITTED_CHECK")
+	_ = os.Setenv("SOW_SKIP_UNCOMMITTED_CHECK", "1")
+	defer func() { _ = os.Unsetenv("SOW_SKIP_UNCOMMITTED_CHECK") }()
 
 	w := NewWizard(nil, ctx, []string{})
 

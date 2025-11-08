@@ -207,7 +207,10 @@ func (w *Wizard) handleTypeSelect() error {
 // handleNameEntry allows entering project name with real-time branch preview.
 func (w *Wizard) handleNameEntry() error {
 	var name string
-	projectType := w.choices["type"].(string)
+	projectType, ok := w.choices["type"].(string)
+	if !ok {
+		return fmt.Errorf("type choice not set or invalid")
+	}
 	prefix := getTypePrefix(projectType)
 
 	form := huh.NewForm(
@@ -269,7 +272,7 @@ func (w *Wizard) handleNameEntry() error {
 	}
 
 	if state.ProjectExists {
-		showError(fmt.Sprintf(
+		_ = showError(fmt.Sprintf(
 			"Error: Branch '%s' already has a project\n\n"+
 				"To continue this project:\n"+
 				"  Select \"Continue existing project\" from the main menu\n\n"+
@@ -291,8 +294,14 @@ func (w *Wizard) handleNameEntry() error {
 func (w *Wizard) handlePromptEntry() error {
 	var prompt string
 
-	projectType := w.choices["type"].(string)
-	branchName := w.choices["branch"].(string)
+	projectType, ok := w.choices["type"].(string)
+	if !ok {
+		return fmt.Errorf("type choice not set or invalid")
+	}
+	branchName, ok := w.choices["branch"].(string)
+	if !ok {
+		return fmt.Errorf("branch choice not set or invalid")
+	}
 
 	contextInfo := fmt.Sprintf(
 		"Type: %s\nBranch: %s\n\nPress Ctrl+E to open $EDITOR for multi-line input",
@@ -340,8 +349,14 @@ func (w *Wizard) handleContinuePrompt() error {
 // finalize creates the project, initializes it in a worktree, and launches Claude Code.
 func (w *Wizard) finalize() error {
 	// Extract wizard choices
-	name := w.choices["name"].(string)
-	branch := w.choices["branch"].(string)
+	name, ok := w.choices["name"].(string)
+	if !ok {
+		return fmt.Errorf("name choice not set or invalid")
+	}
+	branch, ok := w.choices["branch"].(string)
+	if !ok {
+		return fmt.Errorf("branch choice not set or invalid")
+	}
 	initialPrompt := ""
 	if prompt, ok := w.choices["prompt"].(string); ok {
 		initialPrompt = prompt
@@ -389,8 +404,8 @@ func (w *Wizard) finalize() error {
 	}
 
 	// Step 5: Display success message
-	fmt.Fprintf(os.Stdout, "✓ Initialized project '%s' on branch %s\n", name, branch)
-	fmt.Fprintf(os.Stdout, "✓ Launching Claude in worktree...\n")
+	_, _ = fmt.Fprintf(os.Stdout, "✓ Initialized project '%s' on branch %s\n", name, branch)
+	_, _ = fmt.Fprintf(os.Stdout, "✓ Launching Claude in worktree...\n")
 
 	// Step 6: Launch Claude Code
 	// Note: w.cmd may be nil in tests, so we skip launch in that case
