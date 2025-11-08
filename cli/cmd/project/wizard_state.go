@@ -465,7 +465,7 @@ func (w *Wizard) handleFileSelect() error {
 				Value(&selectedFiles).
 				Filterable(true). // Enable filtering for easy navigation
 				Limit(10),        // Limit visible items (user can scroll/filter)
-		),
+		).Title("File Selection"), // Add title to group for filterable MultiSelect
 	)
 
 	if err := form.Run(); err != nil {

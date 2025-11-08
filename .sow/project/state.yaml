@@ -3,7 +3,7 @@ type: standard
 branch: feat/wizard-select-files
 description: wizard-select-files
 created_at: 2025-11-08T13:41:59.901869-08:00
-updated_at: 2025-11-08T14:15:35.883221-08:00
+updated_at: 2025-11-08T14:46:44.285876-08:00
 phases:
     finalize:
         status: pending
@@ -18,19 +18,26 @@ phases:
         outputs: []
         tasks: []
     implementation:
-        status: in_progress
+        status: completed
         enabled: false
         created_at: 2025-11-08T13:41:59.901869-08:00
         started_at: 2025-11-08T13:41:59.901911-08:00
-        completed_at: 0001-01-01T00:00:00Z
+        completed_at: 2025-11-08T14:15:57.114044-08:00
         failed_at: 0001-01-01T00:00:00Z
-        iteration: 0
+        iteration: 1
         metadata:
             draft_pr_created: true
             planning_approved: true
             pr_number: 89
             pr_url: https://github.com/jmgilman/sow/pull/89
-        inputs: []
+        inputs:
+            - type: review
+              path: phases/review/reports/001.md
+              approved: true
+              created_at: 2025-11-08T14:21:25.381152-08:00
+              metadata:
+                assessment: fail
+                iteration: 1
         outputs: []
         tasks:
             - id: "010"
@@ -197,18 +204,63 @@ phases:
                   created_at: 2025-11-08T14:13:50.433802-08:00
                   metadata: {}
               metadata: {}
+            - id: "040"
+              name: Fix MultiSelect title display issue
+              phase: implementation
+              status: completed
+              created_at: 2025-11-08T14:41:23.750029-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-08T14:46:44.285876-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-08T14:41:25.905622-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/phases/review/reports/001.md
+                  approved: false
+                  created_at: 2025-11-08T14:41:25.914191-08:00
+                  metadata: {}
+                - type: reference
+                  path: go.mod
+                  approved: false
+                  created_at: 2025-11-08T14:41:25.92355-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/040/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-08T14:46:43.240929-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-08T14:46:21.05938-08:00
+                  metadata: {}
+              metadata: {}
     review:
-        status: pending
+        status: failed
         enabled: false
         created_at: 2025-11-08T13:41:59.901869-08:00
-        started_at: 0001-01-01T00:00:00Z
+        started_at: 2025-11-08T14:15:57.114045-08:00
         completed_at: 0001-01-01T00:00:00Z
-        failed_at: 0001-01-01T00:00:00Z
+        failed_at: 2025-11-08T14:39:54.579903-08:00
         iteration: 0
         metadata: {}
         inputs: []
-        outputs: []
+        outputs:
+            - type: review
+              path: phases/review/reports/001.md
+              approved: true
+              created_at: 2025-11-08T14:21:25.381152-08:00
+              metadata:
+                assessment: fail
+                iteration: 1
         tasks: []
 statechart:
     current_state: ImplementationExecuting
-    updated_at: 2025-11-08T14:15:35.883221-08:00
+    updated_at: 2025-11-08T14:46:44.285876-08:00
