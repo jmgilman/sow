@@ -233,19 +233,49 @@ func withSpinner(title string, action func() error) error {
 	return err
 }
 
+// isProtectedBranch checks if a branch name is protected (main or master).
+// Convenience wrapper around the logic used in git.IsProtectedBranch().
+//
+// Protected branches cannot have sow projects created on them to avoid
+// accidental commits to the main development line.
+//
+// Example:
+//
+//	if isProtectedBranch("main") {
+//	    return fmt.Errorf("cannot use protected branch")
+//	}
+func isProtectedBranch(name string) bool {
+	return name == "main" || name == "master"
+}
+
 // isValidBranchName checks if a string is a valid git branch name.
 // Returns nil if valid, error describing the problem if invalid.
 //
 // Git branch name rules:
+// - Not empty or whitespace-only
+// - Not a protected branch (main, master)
 // - Cannot start or end with /
 // - Cannot contain ..
 // - Cannot contain consecutive slashes //
 // - Cannot end with .lock
 // - Cannot contain special characters: ~, ^, :, ?, *, [, \.
 // - Cannot contain whitespace.
+//
+// Example:
+//
+//	err := isValidBranchName("feat/add-auth")  // nil (valid)
+//	err := isValidBranchName("main")           // error (protected)
+//	err := isValidBranchName("has spaces")     // error (spaces)
 func isValidBranchName(name string) error {
+	// Trim and check empty
+	name = strings.TrimSpace(name)
 	if name == "" {
 		return fmt.Errorf("branch name cannot be empty")
+	}
+
+	// Check protected branches
+	if isProtectedBranch(name) {
+		return fmt.Errorf("cannot use protected branch name")
 	}
 
 	// Check for invalid patterns
@@ -271,6 +301,103 @@ func isValidBranchName(name string) error {
 		if strings.Contains(name, char) {
 			return fmt.Errorf("branch name contains invalid character: %s", char)
 		}
+	}
+
+	return nil
+}
+
+// validateProjectName validates user input for project name entry.
+// Called by huh input field validator during name entry screen.
+//
+// The function:
+//  1. Checks for empty input
+//  2. Normalizes the name using normalizeName()
+//  3. Builds full branch name (prefix + normalized)
+//  4. Validates using isValidBranchName()
+//
+// Returns nil if valid, or error with user-friendly message.
+//
+// Example:
+//
+//	err := validateProjectName("Web Agents", "feat/")
+//	// Normalizes to "web-agents", validates "feat/web-agents"
+func validateProjectName(name string, prefix string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("project name cannot be empty")
+	}
+
+	normalized := normalizeName(name)
+	branchName := prefix + normalized
+
+	return isValidBranchName(branchName)
+}
+
+// shouldCheckUncommittedChanges determines if uncommitted changes validation is needed.
+// Returns true only when current branch == target branch.
+//
+// Why conditional? Git worktrees can't have the same branch checked out twice.
+// If current == target, sow must switch the main repo to master/main first.
+// Switching with uncommitted changes fails, so we must check first.
+//
+// Example:
+//
+//	shouldCheck, err := shouldCheckUncommittedChanges(ctx, "feat/auth")
+//	if err != nil {
+//	    return err
+//	}
+//	if shouldCheck {
+//	    // Perform validation
+//	}
+func shouldCheckUncommittedChanges(ctx *sow.Context, targetBranch string) (bool, error) {
+	currentBranch, err := ctx.Git().CurrentBranch()
+	if err != nil {
+		return false, fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	// Only check if we'll need to switch branches
+	return currentBranch == targetBranch, nil
+}
+
+// performUncommittedChangesCheckIfNeeded runs uncommitted changes validation conditionally.
+// Uses existing sow.CheckUncommittedChanges() but adds enhanced error message.
+//
+// The check only runs when current branch == target branch, because that's when
+// sow needs to switch branches (which fails with uncommitted changes).
+//
+// Error message follows the 3-part pattern:
+//  1. What: "Repository has uncommitted changes"
+//  2. How: "You are currently on branch 'X'. Creating a worktree requires switching..."
+//  3. Next: "To fix: Commit: ... Or stash: ..."
+//
+// Example:
+//
+//	err := performUncommittedChangesCheckIfNeeded(ctx, "feat/auth")
+//	if err != nil {
+//	    // User sees helpful error with current branch and fix commands
+//	    return err
+//	}
+func performUncommittedChangesCheckIfNeeded(ctx *sow.Context, targetBranch string) error {
+	shouldCheck, err := shouldCheckUncommittedChanges(ctx, targetBranch)
+	if err != nil {
+		return err
+	}
+
+	if !shouldCheck {
+		return nil // No check needed
+	}
+
+	// Use existing validation
+	if err := sow.CheckUncommittedChanges(ctx); err != nil {
+		// Enhance with user-friendly message
+		return fmt.Errorf(
+			"Repository has uncommitted changes\n\n"+
+				"You are currently on branch '%s'.\n"+
+				"Creating a worktree requires switching to a different branch first.\n\n"+
+				"To fix:\n"+
+				"  Commit: git add . && git commit -m \"message\"\n"+
+				"  Or stash: git stash",
+			targetBranch,
+		)
 	}
 
 	return nil

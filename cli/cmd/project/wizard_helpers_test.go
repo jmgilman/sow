@@ -862,3 +862,371 @@ phases:
 		t.Errorf("TasksTotal = %d; want 5", proj.TasksTotal)
 	}
 }
+
+// TestIsProtectedBranch tests the isProtectedBranch helper function.
+func TestIsProtectedBranch(t *testing.T) {
+	tests := []struct {
+		name     string
+		branch   string
+		expected bool
+	}{
+		{"main is protected", "main", true},
+		{"master is protected", "master", true},
+		{"feat branch is not protected", "feat/something", false},
+		{"explore branch is not protected", "explore/test", false},
+		{"empty string is not protected", "", false},
+		{"main-like but different is not protected", "main-branch", false},
+		{"master-like but different is not protected", "master-feature", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isProtectedBranch(tt.branch)
+			if result != tt.expected {
+				t.Errorf("isProtectedBranch(%q) = %v; want %v", tt.branch, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestValidateProjectName tests the validateProjectName function.
+func TestValidateProjectName(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		prefix    string
+		wantErr   bool
+		errSubstr string
+	}{
+		// Valid cases
+		{
+			name:    "valid simple name",
+			input:   "my project",
+			prefix:  "feat/",
+			wantErr: false,
+		},
+		{
+			name:    "valid name with numbers",
+			input:   "Project 123",
+			prefix:  "explore/",
+			wantErr: false,
+		},
+		{
+			name:    "valid name with special chars that get normalized",
+			input:   "API@v2",
+			prefix:  "feat/",
+			wantErr: false,
+		},
+
+		// Empty/whitespace cases
+		{
+			name:      "empty string",
+			input:     "",
+			prefix:    "feat/",
+			wantErr:   true,
+			errSubstr: "cannot be empty",
+		},
+		{
+			name:      "only whitespace",
+			input:     "   ",
+			prefix:    "feat/",
+			wantErr:   true,
+			errSubstr: "cannot be empty",
+		},
+
+		// Protected branch cases (after normalization)
+		{
+			name:      "normalizes to main",
+			input:     "main",
+			prefix:    "",
+			wantErr:   true,
+			errSubstr: "protected",
+		},
+		{
+			name:      "normalizes to master",
+			input:     "master",
+			prefix:    "",
+			wantErr:   true,
+			errSubstr: "protected",
+		},
+		{
+			name:      "normalizes to main with uppercase",
+			input:     "MAIN",
+			prefix:    "",
+			wantErr:   true,
+			errSubstr: "protected",
+		},
+
+		// Invalid git patterns (should be caught by isValidBranchName)
+		{
+			name:      "produces consecutive dots after normalization",
+			input:     "name",
+			prefix:    "feat/..",
+			wantErr:   true,
+			errSubstr: "double dots",
+		},
+		{
+			name:      "produces leading slash",
+			input:     "test",
+			prefix:    "/feat/",
+			wantErr:   true,
+			errSubstr: "start or end with /",
+		},
+
+		// Various prefixes
+		{
+			name:    "with explore prefix",
+			input:   "Research Topic",
+			prefix:  "explore/",
+			wantErr: false,
+		},
+		{
+			name:    "with design prefix",
+			input:   "Architecture",
+			prefix:  "design/",
+			wantErr: false,
+		},
+		{
+			name:    "with breakdown prefix",
+			input:   "Task List",
+			prefix:  "breakdown/",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateProjectName(tt.input, tt.prefix)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateProjectName(%q, %q) error = %v; wantErr %v",
+					tt.input, tt.prefix, err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errSubstr != "" {
+				if !strings.Contains(err.Error(), tt.errSubstr) {
+					t.Errorf("validateProjectName(%q, %q) error = %q; want substring %q",
+						tt.input, tt.prefix, err.Error(), tt.errSubstr)
+				}
+			}
+		})
+	}
+}
+
+// TestIsValidBranchName_ProtectedBranches tests that protected branches are rejected.
+func TestIsValidBranchName_ProtectedBranches(t *testing.T) {
+	tests := []struct {
+		name   string
+		branch string
+	}{
+		{"main is protected", "main"},
+		{"master is protected", "master"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := isValidBranchName(tt.branch)
+			if err == nil {
+				t.Errorf("isValidBranchName(%q) returned nil; want error for protected branch", tt.branch)
+				return
+			}
+			if !strings.Contains(err.Error(), "protected") {
+				t.Errorf("isValidBranchName(%q) error = %q; want error containing 'protected'",
+					tt.branch, err.Error())
+			}
+		})
+	}
+}
+
+// TestShouldCheckUncommittedChanges tests the conditional logic for uncommitted changes checking.
+func TestShouldCheckUncommittedChanges(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create an initial commit so we can create branches
+	readmeFile := filepath.Join(tmpDir, "README.md")
+	if err := os.WriteFile(readmeFile, []byte("# Test\n"), 0644); err != nil {
+		t.Fatalf("failed to create README: %v", err)
+	}
+
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add README: %v", err)
+	}
+
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	// Get the current branch (should be master or main)
+	currentBranch, err := ctx.Git().CurrentBranch()
+	if err != nil {
+		t.Fatalf("failed to get current branch: %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		targetBranch string
+		wantCheck    bool
+		wantErr      bool
+	}{
+		{
+			name:         "current equals target - should check",
+			targetBranch: currentBranch,
+			wantCheck:    true,
+			wantErr:      false,
+		},
+		{
+			name:         "current does not equal target - should not check",
+			targetBranch: "feat/different-branch",
+			wantCheck:    false,
+			wantErr:      false,
+		},
+		{
+			name:         "another different branch - should not check",
+			targetBranch: "explore/something",
+			wantCheck:    false,
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			shouldCheck, err := shouldCheckUncommittedChanges(ctx, tt.targetBranch)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("shouldCheckUncommittedChanges() error = %v; wantErr %v", err, tt.wantErr)
+				return
+			}
+			if shouldCheck != tt.wantCheck {
+				t.Errorf("shouldCheckUncommittedChanges(%q) = %v; want %v",
+					tt.targetBranch, shouldCheck, tt.wantCheck)
+			}
+		})
+	}
+}
+
+// TestPerformUncommittedChangesCheckIfNeeded tests the conditional uncommitted changes validation.
+func TestPerformUncommittedChangesCheckIfNeeded(t *testing.T) {
+	// Set environment variable to skip the actual uncommitted changes check
+	// so we can test the conditional logic without needing real git state
+	t.Setenv("SOW_SKIP_UNCOMMITTED_CHECK", "1")
+
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create an initial commit
+	readmeFile := filepath.Join(tmpDir, "README.md")
+	if err := os.WriteFile(readmeFile, []byte("# Test\n"), 0644); err != nil {
+		t.Fatalf("failed to create README: %v", err)
+	}
+
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add README: %v", err)
+	}
+
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	// Get the current branch
+	currentBranch, err := ctx.Git().CurrentBranch()
+	if err != nil {
+		t.Fatalf("failed to get current branch: %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		targetBranch string
+		wantErr      bool
+	}{
+		{
+			name:         "different branch - no check needed",
+			targetBranch: "feat/different",
+			wantErr:      false,
+		},
+		{
+			name:         "same branch - check runs but passes due to SOW_SKIP_UNCOMMITTED_CHECK",
+			targetBranch: currentBranch,
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := performUncommittedChangesCheckIfNeeded(ctx, tt.targetBranch)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("performUncommittedChangesCheckIfNeeded(%q) error = %v; wantErr %v",
+					tt.targetBranch, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestPerformUncommittedChangesCheckIfNeeded_ErrorMessage tests the enhanced error message.
+func TestPerformUncommittedChangesCheckIfNeeded_ErrorMessage(t *testing.T) {
+	// Don't set SOW_SKIP_UNCOMMITTED_CHECK so the check runs
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create an initial commit
+	readmeFile := filepath.Join(tmpDir, "README.md")
+	if err := os.WriteFile(readmeFile, []byte("# Test\n"), 0644); err != nil {
+		t.Fatalf("failed to create README: %v", err)
+	}
+
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add README: %v", err)
+	}
+
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	// Get the current branch
+	currentBranch, err := ctx.Git().CurrentBranch()
+	if err != nil {
+		t.Fatalf("failed to get current branch: %v", err)
+	}
+
+	// Create uncommitted changes
+	testFile := filepath.Join(tmpDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("uncommitted content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Stage the file to create uncommitted changes
+	cmd = exec.CommandContext(context.Background(), "git", "add", "test.txt")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to stage test file: %v", err)
+	}
+
+	// Now try to check on same branch - should fail with enhanced message
+	err = performUncommittedChangesCheckIfNeeded(ctx, currentBranch)
+	if err == nil {
+		t.Fatal("performUncommittedChangesCheckIfNeeded() returned nil; want error")
+	}
+
+	// Verify the error message contains expected parts
+	errMsg := err.Error()
+	expectedParts := []string{
+		"uncommitted changes",
+		currentBranch,
+		"git add",
+		"git commit",
+		"git stash",
+	}
+
+	for _, part := range expectedParts {
+		if !strings.Contains(errMsg, part) {
+			t.Errorf("error message missing expected part %q\nGot: %s", part, errMsg)
+		}
+	}
+}
