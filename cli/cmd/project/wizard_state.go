@@ -283,10 +283,39 @@ func (w *Wizard) handleNameEntry() error {
 	return nil
 }
 
-// handlePromptEntry allows entering initial prompt (stub for now).
+// handlePromptEntry allows entering initial prompt with external editor support.
 func (w *Wizard) handlePromptEntry() error {
-	fmt.Println("Prompt entry screen (stub)")
+	var prompt string
+
+	projectType := w.choices["type"].(string)
+	branchName := w.choices["branch"].(string)
+
+	contextInfo := fmt.Sprintf(
+		"Type: %s\nBranch: %s\n\nPress Ctrl+E to open $EDITOR for multi-line input",
+		projectType, branchName)
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewText().
+				Title("Enter your task or question for Claude (optional):").
+				Description(contextInfo).
+				CharLimit(10000).
+				Value(&prompt).
+				EditorExtension(".md"),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			w.state = StateCancelled
+			return nil
+		}
+		return fmt.Errorf("prompt entry error: %w", err)
+	}
+
+	w.choices["prompt"] = prompt
 	w.state = StateComplete
+
 	return nil
 }
 
