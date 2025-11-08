@@ -2135,3 +2135,441 @@ func TestWrapValidationError(t *testing.T) {
 		})
 	}
 }
+
+// Mock GitHubClient for testing GitHub error handling functions
+type mockGitHubClient struct {
+	checkInstalledErr     error
+	checkAuthenticatedErr error
+	linkedBranches        []sow.LinkedBranch
+	linkedBranchesErr     error
+}
+
+func (m *mockGitHubClient) Ensure() error {
+	return nil
+}
+
+func (m *mockGitHubClient) CheckInstalled() error {
+	return m.checkInstalledErr
+}
+
+func (m *mockGitHubClient) CheckAuthenticated() error {
+	return m.checkAuthenticatedErr
+}
+
+func (m *mockGitHubClient) ListIssues(label, state string) ([]sow.Issue, error) {
+	return nil, nil
+}
+
+func (m *mockGitHubClient) GetLinkedBranches(number int) ([]sow.LinkedBranch, error) {
+	return m.linkedBranches, m.linkedBranchesErr
+}
+
+func (m *mockGitHubClient) CreateLinkedBranch(issueNumber int, branchName string, checkout bool) (string, error) {
+	return "", nil
+}
+
+func (m *mockGitHubClient) GetIssue(number int) (*sow.Issue, error) {
+	return nil, nil
+}
+
+// TestCheckGitHubCLI tests the checkGitHubCLI function.
+func TestCheckGitHubCLI(t *testing.T) {
+	tests := []struct {
+		name        string
+		installErr  error
+		authErr     error
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:       "both checks pass",
+			installErr: nil,
+			authErr:    nil,
+			wantErr:    false,
+		},
+		{
+			name:        "not installed",
+			installErr:  sow.ErrGHNotInstalled{},
+			wantErr:     true,
+			errContains: "not found",
+		},
+		{
+			name:        "not authenticated",
+			installErr:  nil,
+			authErr:     sow.ErrGHNotAuthenticated{},
+			wantErr:     true,
+			errContains: "not authenticated",
+		},
+		{
+			name:        "generic installation error",
+			installErr:  errors.New("generic error"),
+			wantErr:     true,
+			errContains: "failed to check gh installation",
+		},
+		{
+			name:        "generic authentication error",
+			installErr:  nil,
+			authErr:     errors.New("generic auth error"),
+			wantErr:     true,
+			errContains: "failed to check gh authentication",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &mockGitHubClient{
+				checkInstalledErr:     tt.installErr,
+				checkAuthenticatedErr: tt.authErr,
+			}
+
+			err := checkGitHubCLI(mock)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkGitHubCLI() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if err != nil && tt.errContains != "" {
+				if !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error message %q does not contain %q",
+						err.Error(), tt.errContains)
+				}
+			}
+		})
+	}
+}
+
+// TestFormatGitHubError tests the formatGitHubError function.
+func TestFormatGitHubError(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		contains    []string
+		notContains []string
+	}{
+		{
+			name: "rate limit error",
+			err: sow.ErrGHCommand{
+				Command: "issue list",
+				Stderr:  "API rate limit exceeded for user",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"rate limit", "Wait a few minutes"},
+			notContains: []string{"network"},
+		},
+		{
+			name: "network error - connection",
+			err: sow.ErrGHCommand{
+				Command: "issue view",
+				Stderr:  "dial tcp: connection refused",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Cannot reach GitHub", "internet connection"},
+			notContains: []string{"rate limit"},
+		},
+		{
+			name: "network error - timeout",
+			err: sow.ErrGHCommand{
+				Command: "issue view",
+				Stderr:  "request timeout",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Cannot reach GitHub"},
+			notContains: []string{"rate limit"},
+		},
+		{
+			name: "network error - unreachable",
+			err: sow.ErrGHCommand{
+				Command: "issue view",
+				Stderr:  "host unreachable",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Cannot reach GitHub"},
+			notContains: []string{"rate limit"},
+		},
+		{
+			name: "not found error",
+			err: sow.ErrGHCommand{
+				Command: "issue view 999",
+				Stderr:  "issue not found",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Resource not found", "issue number"},
+			notContains: []string{"network"},
+		},
+		{
+			name: "not found error - does not exist",
+			err: sow.ErrGHCommand{
+				Command: "repo view",
+				Stderr:  "repository does not exist",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Resource not found"},
+			notContains: []string{"network"},
+		},
+		{
+			name: "permission denied error",
+			err: sow.ErrGHCommand{
+				Command: "issue create",
+				Stderr:  "permission denied",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Permission denied", "repository access"},
+			notContains: []string{"network"},
+		},
+		{
+			name: "permission denied - forbidden",
+			err: sow.ErrGHCommand{
+				Command: "issue create",
+				Stderr:  "403 Forbidden",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Permission denied"},
+			notContains: []string{"network"},
+		},
+		{
+			name: "permission denied - not authorized",
+			err: sow.ErrGHCommand{
+				Command: "issue create",
+				Stderr:  "not authorized to access",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"Permission denied"},
+			notContains: []string{"network"},
+		},
+		{
+			name: "unknown error",
+			err: sow.ErrGHCommand{
+				Command: "some command",
+				Stderr:  "some unexpected error",
+				Err:     errors.New("exit code 1"),
+			},
+			contains:    []string{"GitHub command failed", "gh some command", "gh auth status"},
+			notContains: []string{"network", "rate limit"},
+		},
+		{
+			name: "non-GitHub command error",
+			err:  errors.New("some other error"),
+			contains: []string{"GitHub operation failed"},
+		},
+		{
+			name: "case insensitive matching",
+			err: sow.ErrGHCommand{
+				Command: "test",
+				Stderr:  "RATE LIMIT exceeded",
+				Err:     errors.New("exit code 1"),
+			},
+			contains: []string{"rate limit"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatGitHubError(tt.err)
+
+			for _, substr := range tt.contains {
+				if !strings.Contains(strings.ToLower(result), strings.ToLower(substr)) {
+					t.Errorf("formatGitHubError() result does not contain %q\nGot: %s", substr, result)
+				}
+			}
+
+			for _, substr := range tt.notContains {
+				if strings.Contains(strings.ToLower(result), strings.ToLower(substr)) {
+					t.Errorf("formatGitHubError() result should not contain %q\nGot: %s", substr, result)
+				}
+			}
+		})
+	}
+}
+
+// TestCheckIssueLinkedBranch tests the checkIssueLinkedBranch function.
+func TestCheckIssueLinkedBranch(t *testing.T) {
+	tests := []struct {
+		name          string
+		branches      []sow.LinkedBranch
+		branchesErr   error
+		wantErr       bool
+		errContains   string
+		notErrContain string
+	}{
+		{
+			name:     "no linked branches - OK",
+			branches: []sow.LinkedBranch{},
+			wantErr:  false,
+		},
+		{
+			name: "one linked branch - error",
+			branches: []sow.LinkedBranch{
+				{Name: "feat/auth", URL: "https://github.com/test/repo/tree/feat/auth"},
+			},
+			wantErr:     true,
+			errContains: "feat/auth",
+		},
+		{
+			name: "multiple linked branches - error with first",
+			branches: []sow.LinkedBranch{
+				{Name: "feat/first-branch", URL: "https://github.com/test/repo/tree/feat/first-branch"},
+				{Name: "feat/second-branch", URL: "https://github.com/test/repo/tree/feat/second-branch"},
+			},
+			wantErr:       true,
+			errContains:   "feat/first-branch",
+			notErrContain: "second-branch",
+		},
+		{
+			name:        "GetLinkedBranches error",
+			branchesErr: sow.ErrGHCommand{Command: "issue develop --list", Stderr: "some error"},
+			wantErr:     true,
+			errContains: "GitHub command failed",
+		},
+		{
+			name:        "GetLinkedBranches network error",
+			branchesErr: sow.ErrGHCommand{Command: "issue develop --list", Stderr: "network timeout"},
+			wantErr:     true,
+			errContains: "Cannot reach GitHub",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &mockGitHubClient{
+				linkedBranches:    tt.branches,
+				linkedBranchesErr: tt.branchesErr,
+			}
+
+			err := checkIssueLinkedBranch(mock, 123)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkIssueLinkedBranch() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if err != nil && tt.errContains != "" {
+				if !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error message %q does not contain %q",
+						err.Error(), tt.errContains)
+				}
+			}
+
+			if err != nil && tt.notErrContain != "" {
+				if strings.Contains(err.Error(), tt.notErrContain) {
+					t.Errorf("error message %q should not contain %q",
+						err.Error(), tt.notErrContain)
+				}
+			}
+		})
+	}
+}
+
+// TestFilterIssuesBySowLabel tests the filterIssuesBySowLabel function.
+func TestFilterIssuesBySowLabel(t *testing.T) {
+	tests := []struct {
+		name     string
+		issues   []sow.Issue
+		expected int
+	}{
+		{
+			name:     "empty input",
+			issues:   []sow.Issue{},
+			expected: 0,
+		},
+		{
+			name: "all issues have sow label",
+			issues: []sow.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "sow"}}},
+				{Number: 2, Title: "Issue 2", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "sow"}}},
+			},
+			expected: 2,
+		},
+		{
+			name: "no issues have sow label",
+			issues: []sow.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "bug"}}},
+				{Number: 2, Title: "Issue 2", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "feature"}}},
+			},
+			expected: 0,
+		},
+		{
+			name: "mixed labels",
+			issues: []sow.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "sow"}}},
+				{Number: 2, Title: "Issue 2", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "bug"}}},
+				{Number: 3, Title: "Issue 3", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "sow"}, {Name: "feature"}}},
+			},
+			expected: 2,
+		},
+		{
+			name: "issues with no labels",
+			issues: []sow.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []struct {
+					Name string `json:"name"`
+				}{}},
+				{Number: 2, Title: "Issue 2", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "sow"}}},
+			},
+			expected: 1,
+		},
+		{
+			name: "case sensitive matching",
+			issues: []sow.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "sow"}}},
+				{Number: 2, Title: "Issue 2", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "SOW"}}},
+				{Number: 3, Title: "Issue 3", Labels: []struct {
+					Name string `json:"name"`
+				}{{Name: "Sow"}}},
+			},
+			expected: 1, // Only exact match "sow"
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := filterIssuesBySowLabel(tt.issues)
+
+			if len(result) != tt.expected {
+				t.Errorf("filterIssuesBySowLabel() returned %d issues; want %d", len(result), tt.expected)
+			}
+
+			// Verify all returned issues have the "sow" label
+			for _, issue := range result {
+				if !issue.HasLabel("sow") {
+					t.Errorf("issue #%d in result does not have 'sow' label", issue.Number)
+				}
+			}
+		})
+	}
+}
+
+// TestErrorGitHubNotAuthenticated tests the errorGitHubNotAuthenticated function.
+func TestErrorGitHubNotAuthenticated(t *testing.T) {
+	result := errorGitHubNotAuthenticated()
+
+	expectedParts := []string{
+		"GitHub CLI not authenticated",
+		"not logged in",
+		"gh auth login",
+		"From branch name",
+	}
+
+	for _, part := range expectedParts {
+		if !strings.Contains(result, part) {
+			t.Errorf("errorGitHubNotAuthenticated() result does not contain %q\nGot: %s", part, result)
+		}
+	}
+}

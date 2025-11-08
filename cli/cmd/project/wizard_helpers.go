@@ -1,6 +1,7 @@
 package project
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -867,5 +868,157 @@ func wrapValidationError(err error, context string) error {
 		return fmt.Errorf("%s: %w", context, err)
 	}
 
+	return err
+}
+
+// checkGitHubCLI validates that gh CLI is installed and authenticated.
+// Returns nil if both checks pass, or user-friendly error if not.
+//
+// This is called before any GitHub operation to provide clear error
+// messages instead of cryptic command failures.
+func checkGitHubCLI(github GitHubClient) error {
+	// Check installation
+	if err := github.CheckInstalled(); err != nil {
+		var notInstalled sow.ErrGHNotInstalled
+		if errors.As(err, &notInstalled) {
+			return errors.New(errorGitHubCLIMissing())
+		}
+		return fmt.Errorf("failed to check gh installation: %w", err)
+	}
+
+	// Check authentication
+	if err := github.CheckAuthenticated(); err != nil {
+		var notAuthenticated sow.ErrGHNotAuthenticated
+		if errors.As(err, &notAuthenticated) {
+			return errors.New(errorGitHubNotAuthenticated())
+		}
+		return fmt.Errorf("failed to check gh authentication: %w", err)
+	}
+
+	return nil
+}
+
+// errorGitHubNotAuthenticated returns the formatted error message when
+// gh CLI is installed but not authenticated.
+func errorGitHubNotAuthenticated() string {
+	return formatError(
+		"GitHub CLI not authenticated",
+		"The 'gh' command is installed but you're not logged in.",
+		"To authenticate:\n"+
+			"  Run: gh auth login\n"+
+			"  Follow the prompts to log in\n\n"+
+			"Or select \"From branch name\" instead.",
+	)
+}
+
+// formatGitHubError converts GitHub command errors to user-friendly messages.
+// Handles specific error cases by parsing stderr output.
+//
+// Error types handled:
+//   - Network errors: "check connection, retry"
+//   - Rate limit: "wait or authenticate for higher limit"
+//   - Issue not found: "check issue number"
+//   - Permission denied: "check repository access"
+//   - Unknown errors: show command that failed
+//
+// Returns formatted error string ready for display.
+func formatGitHubError(err error) string {
+	var ghErr sow.ErrGHCommand
+	if !errors.As(err, &ghErr) {
+		// Not a GitHub command error, return generic message
+		return fmt.Sprintf("GitHub operation failed: %v", err)
+	}
+
+	stderr := strings.ToLower(ghErr.Stderr)
+
+	// Check for rate limit (most specific)
+	if strings.Contains(stderr, "rate limit") {
+		return "GitHub API rate limit exceeded.\n\n" +
+			"To fix:\n" +
+			"  Wait a few minutes and try again\n" +
+			"  Or run: gh auth login (for higher limits)"
+	}
+
+	// Check for network errors
+	if strings.Contains(stderr, "network") ||
+		strings.Contains(stderr, "connection") ||
+		strings.Contains(stderr, "timeout") ||
+		strings.Contains(stderr, "unreachable") {
+		return "Cannot reach GitHub.\n\n" +
+			"Check your internet connection and try again."
+	}
+
+	// Check for not found
+	if strings.Contains(stderr, "not found") ||
+		strings.Contains(stderr, "does not exist") {
+		return "Resource not found.\n\n" +
+			"Check the issue number or repository access."
+	}
+
+	// Check for permission denied
+	if strings.Contains(stderr, "permission denied") ||
+		strings.Contains(stderr, "forbidden") ||
+		strings.Contains(stderr, "not authorized") {
+		return "Permission denied.\n\n" +
+			"Check your GitHub repository access."
+	}
+
+	// Unknown error - show command
+	return fmt.Sprintf("GitHub command failed: gh %s\n\n"+
+		"Check that gh CLI is working correctly:\n"+
+		"  Run: gh auth status",
+		ghErr.Command)
+}
+
+// checkIssueLinkedBranch validates that a GitHub issue doesn't have an
+// existing linked branch. Used before creating a new project from an issue.
+//
+// Returns:
+//   - nil if no linked branches (OK to create)
+//   - formatted error if linked branch exists
+func checkIssueLinkedBranch(github GitHubClient, issueNumber int) error {
+	branches, err := github.GetLinkedBranches(issueNumber)
+	if err != nil {
+		// Format the GitHub error for user display
+		return errors.New(formatGitHubError(err))
+	}
+
+	// If no linked branches, OK to create
+	if len(branches) == 0 {
+		return nil
+	}
+
+	// Issue already has linked branch - show error
+	branchName := branches[0].Name
+	return errors.New(errorIssueAlreadyLinked(issueNumber, branchName))
+}
+
+// filterIssuesBySowLabel filters issues to only include those with 'sow' label.
+// Used by issue selection screen to show only sow-related issues.
+//
+// Returns:
+//   - Slice of issues that have the 'sow' label
+func filterIssuesBySowLabel(issues []sow.Issue) []sow.Issue {
+	var filtered []sow.Issue
+
+	for _, issue := range issues {
+		if issue.HasLabel("sow") {
+			filtered = append(filtered, issue)
+		}
+	}
+
+	return filtered
+}
+
+// ensureGitHubAvailable checks that GitHub CLI is available and working.
+// Returns nil if OK, or displays error and returns error.
+//
+// This is a convenience function that combines checkGitHubCLI with error display.
+// Use this at the start of GitHub-dependent flows.
+func ensureGitHubAvailable(github GitHubClient) error {
+	err := checkGitHubCLI(github)
+	if err != nil {
+		showError(err.Error())
+	}
 	return err
 }

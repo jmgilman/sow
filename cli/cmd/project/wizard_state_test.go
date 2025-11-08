@@ -17,6 +17,8 @@ import (
 // mockGitHub is a test double for GitHub operations.
 type mockGitHub struct {
 	ensureErr                error
+	checkInstalledErr        error
+	checkAuthenticatedErr    error
 	listIssuesResult         []sow.Issue
 	listIssuesErr            error
 	getLinkedBranchesResult  []sow.LinkedBranch
@@ -29,6 +31,14 @@ type mockGitHub struct {
 
 func (m *mockGitHub) Ensure() error {
 	return m.ensureErr
+}
+
+func (m *mockGitHub) CheckInstalled() error {
+	return m.checkInstalledErr
+}
+
+func (m *mockGitHub) CheckAuthenticated() error {
+	return m.checkAuthenticatedErr
 }
 
 func (m *mockGitHub) ListIssues(_, _ string) ([]sow.Issue, error) {
