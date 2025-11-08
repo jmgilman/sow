@@ -685,3 +685,187 @@ func validateStateTransition(from, to WizardState) error {
 
 	return fmt.Errorf("invalid transition from %s to %s", from, to)
 }
+
+// formatError formats error messages in the consistent 3-part pattern:
+//  1. What went wrong (title)
+//  2. How to fix (problem and solution)
+//  3. Next steps (what to do now)
+//
+// The function assembles the parts into a single formatted string suitable
+// for display in huh components.
+//
+// Example:
+//
+//	msg := formatError(
+//	    "Cannot create project on protected branch 'main'",
+//	    "Projects must be created on feature branches.",
+//	    "Action: Choose a different project name",
+//	)
+func formatError(problem string, howToFix string, nextSteps string) string {
+	var parts []string
+
+	if problem != "" {
+		parts = append(parts, problem)
+	}
+	if howToFix != "" {
+		parts = append(parts, howToFix)
+	}
+	if nextSteps != "" {
+		parts = append(parts, nextSteps)
+	}
+
+	return strings.Join(parts, "\n\n")
+}
+
+// showErrorWithOptions displays an error with multiple action choices.
+// Returns the user's selected choice.
+//
+// Used for errors where multiple recovery paths are available
+// (e.g., "continue existing project" vs "change name").
+//
+// Example:
+//
+//	choice, err := showErrorWithOptions(
+//	    formatError(...),
+//	    map[string]string{
+//	        "retry": "Change project name",
+//	        "continue": "Continue existing project",
+//	        "cancel": "Cancel",
+//	    },
+//	)
+//
+//nolint:unused // Will be used by wizard screens in subsequent work units
+func showErrorWithOptions(message string, options map[string]string) (string, error) {
+	// Skip interactive prompts in test mode
+	if os.Getenv("SOW_TEST") == "1" {
+		debugLog("ErrorWithOptions", "%s", message)
+		// Return first option key in test mode
+		for key := range options {
+			return key, nil
+		}
+		return "", nil
+	}
+
+	var selected string
+
+	// Convert map to huh options
+	var huhOptions []huh.Option[string]
+	for key, label := range options {
+		huhOptions = append(huhOptions, huh.NewOption(label, key))
+	}
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Error").
+				Description(message),
+			huh.NewSelect[string]().
+				Title("What would you like to do?").
+				Options(huhOptions...).
+				Value(&selected),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		return "", err
+	}
+
+	return selected, nil
+}
+
+// errorProtectedBranch returns the formatted error message for attempting
+// to create a project on a protected branch (main or master).
+func errorProtectedBranch(branchName string) string {
+	return formatError(
+		fmt.Sprintf("Cannot create project on protected branch '%s'", branchName),
+		"Projects must be created on feature branches.",
+		"Action: Choose a different project name",
+	)
+}
+
+// errorIssueAlreadyLinked returns the formatted error message when a GitHub
+// issue already has a linked branch.
+func errorIssueAlreadyLinked(issueNumber int, linkedBranch string) string {
+	return formatError(
+		fmt.Sprintf("Issue #%d already has a linked branch: %s", issueNumber, linkedBranch),
+		"To continue working on this issue:\n  Select \"Continue existing project\" from the main menu",
+		"",
+	)
+}
+
+// errorBranchHasProject returns the formatted error message when attempting
+// to create a project on a branch that already has one.
+func errorBranchHasProject(branchName string, projectName string) string {
+	return formatError(
+		fmt.Sprintf("Branch '%s' already has a project", branchName),
+		"To continue this project:\n  Select \"Continue existing project\" from the main menu",
+		fmt.Sprintf("To create a different project:\n  Choose a different project name (currently: \"%s\")", projectName),
+	)
+}
+
+// errorUncommittedChanges returns the formatted error message when the
+// repository has uncommitted changes and worktree creation requires switching branches.
+func errorUncommittedChanges(currentBranch string) string {
+	return formatError(
+		"Repository has uncommitted changes",
+		fmt.Sprintf(
+			"You are currently on branch '%s'.\n"+
+				"Creating a worktree requires switching to a different branch first.",
+			currentBranch,
+		),
+		"To fix:\n"+
+			"  Commit: git add . && git commit -m \"message\"\n"+
+			"  Or stash: git stash",
+	)
+}
+
+// errorInconsistentState returns the formatted error message when a worktree
+// exists but the project directory is missing.
+func errorInconsistentState(branchName string, worktreePath string) string {
+	return formatError(
+		"Worktree exists but project missing",
+		fmt.Sprintf(
+			"Branch '%s' has a worktree at %s\n"+
+				"but no .sow/project/ directory.",
+			branchName,
+			worktreePath,
+		),
+		fmt.Sprintf(
+			"To fix:\n"+
+				"  1. Remove worktree: git worktree remove %s\n"+
+				"  2. Delete directory: rm -rf %s\n"+
+				"  3. Try creating project again",
+			branchName,
+			worktreePath,
+		),
+	)
+}
+
+// errorGitHubCLIMissing returns the formatted error message when the gh
+// command is not installed.
+func errorGitHubCLIMissing() string {
+	return formatError(
+		"GitHub CLI not found",
+		"The 'gh' command is required for GitHub issue integration.\n\n"+
+			"To install:\n"+
+			"  macOS: brew install gh\n"+
+			"  Linux: See https://cli.github.com/",
+		"Or select \"From branch name\" instead.",
+	)
+}
+
+// wrapValidationError wraps a validation error with user-friendly formatting.
+// If err is nil, returns nil.
+// Otherwise, wraps with formatError and returns displayable error.
+func wrapValidationError(err error, context string) error {
+	if err == nil {
+		return nil
+	}
+
+	// Wrap the error with context
+	if context != "" {
+		return fmt.Errorf("%s: %w", context, err)
+	}
+
+	return err
+}

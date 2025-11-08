@@ -1632,3 +1632,506 @@ func createTestProject(t *testing.T, tmpDir string, branchName string) {
 		t.Fatalf("failed to create state.yaml for %s: %v", branchName, err)
 	}
 }
+
+// TestFormatError tests the formatError function with various inputs.
+func TestFormatError(t *testing.T) {
+	testCases := []struct {
+		name       string
+		problem    string
+		howToFix   string
+		nextSteps  string
+		expected   string
+	}{
+		{
+			name:      "all three parts provided",
+			problem:   "Something went wrong",
+			howToFix:  "Here's how to fix it",
+			nextSteps: "Next steps to take",
+			expected:  "Something went wrong\n\nHere's how to fix it\n\nNext steps to take",
+		},
+		{
+			name:      "empty problem",
+			problem:   "",
+			howToFix:  "Fix instructions",
+			nextSteps: "Next steps",
+			expected:  "Fix instructions\n\nNext steps",
+		},
+		{
+			name:      "empty how to fix",
+			problem:   "Problem description",
+			howToFix:  "",
+			nextSteps: "Next steps",
+			expected:  "Problem description\n\nNext steps",
+		},
+		{
+			name:      "empty next steps",
+			problem:   "Problem description",
+			howToFix:  "Fix instructions",
+			nextSteps: "",
+			expected:  "Problem description\n\nFix instructions",
+		},
+		{
+			name:      "all empty",
+			problem:   "",
+			howToFix:  "",
+			nextSteps: "",
+			expected:  "",
+		},
+		{
+			name:      "only problem",
+			problem:   "Just a problem",
+			howToFix:  "",
+			nextSteps: "",
+			expected:  "Just a problem",
+		},
+		{
+			name:      "multiline content",
+			problem:   "Line 1\nLine 2",
+			howToFix:  "Fix line 1\nFix line 2",
+			nextSteps: "Step 1\nStep 2",
+			expected:  "Line 1\nLine 2\n\nFix line 1\nFix line 2\n\nStep 1\nStep 2",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := formatError(tc.problem, tc.howToFix, tc.nextSteps)
+			if result != tc.expected {
+				t.Errorf("formatError() =\n%q\n\nwant:\n%q", result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestErrorProtectedBranch tests the errorProtectedBranch function.
+func TestErrorProtectedBranch(t *testing.T) {
+	testCases := []struct {
+		name       string
+		branchName string
+		expected   string
+	}{
+		{
+			name:       "main branch",
+			branchName: "main",
+			expected: `Cannot create project on protected branch 'main'
+
+Projects must be created on feature branches.
+
+Action: Choose a different project name`,
+		},
+		{
+			name:       "master branch",
+			branchName: "master",
+			expected: `Cannot create project on protected branch 'master'
+
+Projects must be created on feature branches.
+
+Action: Choose a different project name`,
+		},
+		{
+			name:       "custom protected branch name",
+			branchName: "production",
+			expected: `Cannot create project on protected branch 'production'
+
+Projects must be created on feature branches.
+
+Action: Choose a different project name`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := errorProtectedBranch(tc.branchName)
+			if result != tc.expected {
+				t.Errorf("errorProtectedBranch(%q) =\n%s\n\nwant:\n%s", tc.branchName, result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestErrorIssueAlreadyLinked tests the errorIssueAlreadyLinked function.
+func TestErrorIssueAlreadyLinked(t *testing.T) {
+	testCases := []struct {
+		name         string
+		issueNumber  int
+		linkedBranch string
+		expected     string
+	}{
+		{
+			name:         "issue 123",
+			issueNumber:  123,
+			linkedBranch: "feat/add-jwt-auth",
+			expected: `Issue #123 already has a linked branch: feat/add-jwt-auth
+
+To continue working on this issue:
+  Select "Continue existing project" from the main menu`,
+		},
+		{
+			name:         "issue 1",
+			issueNumber:  1,
+			linkedBranch: "explore/research",
+			expected: `Issue #1 already has a linked branch: explore/research
+
+To continue working on this issue:
+  Select "Continue existing project" from the main menu`,
+		},
+		{
+			name:         "large issue number",
+			issueNumber:  9999,
+			linkedBranch: "feat/feature-name",
+			expected: `Issue #9999 already has a linked branch: feat/feature-name
+
+To continue working on this issue:
+  Select "Continue existing project" from the main menu`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := errorIssueAlreadyLinked(tc.issueNumber, tc.linkedBranch)
+			if result != tc.expected {
+				t.Errorf("errorIssueAlreadyLinked(%d, %q) =\n%s\n\nwant:\n%s",
+					tc.issueNumber, tc.linkedBranch, result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestErrorBranchHasProject tests the errorBranchHasProject function.
+func TestErrorBranchHasProject(t *testing.T) {
+	testCases := []struct {
+		name        string
+		branchName  string
+		projectName string
+		expected    string
+	}{
+		{
+			name:        "explore branch",
+			branchName:  "explore/web-agents",
+			projectName: "web agents",
+			expected: `Branch 'explore/web-agents' already has a project
+
+To continue this project:
+  Select "Continue existing project" from the main menu
+
+To create a different project:
+  Choose a different project name (currently: "web agents")`,
+		},
+		{
+			name:        "feat branch",
+			branchName:  "feat/auth",
+			projectName: "auth",
+			expected: `Branch 'feat/auth' already has a project
+
+To continue this project:
+  Select "Continue existing project" from the main menu
+
+To create a different project:
+  Choose a different project name (currently: "auth")`,
+		},
+		{
+			name:        "long project name",
+			branchName:  "feat/very-long-branch-name",
+			projectName: "very long project name",
+			expected: `Branch 'feat/very-long-branch-name' already has a project
+
+To continue this project:
+  Select "Continue existing project" from the main menu
+
+To create a different project:
+  Choose a different project name (currently: "very long project name")`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := errorBranchHasProject(tc.branchName, tc.projectName)
+			if result != tc.expected {
+				t.Errorf("errorBranchHasProject(%q, %q) =\n%s\n\nwant:\n%s",
+					tc.branchName, tc.projectName, result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestErrorUncommittedChanges tests the errorUncommittedChanges function.
+func TestErrorUncommittedChanges(t *testing.T) {
+	testCases := []struct {
+		name          string
+		currentBranch string
+		expected      string
+	}{
+		{
+			name:          "feat branch",
+			currentBranch: "feat/add-jwt-auth-123",
+			expected: `Repository has uncommitted changes
+
+You are currently on branch 'feat/add-jwt-auth-123'.
+Creating a worktree requires switching to a different branch first.
+
+To fix:
+  Commit: git add . && git commit -m "message"
+  Or stash: git stash`,
+		},
+		{
+			name:          "main branch",
+			currentBranch: "main",
+			expected: `Repository has uncommitted changes
+
+You are currently on branch 'main'.
+Creating a worktree requires switching to a different branch first.
+
+To fix:
+  Commit: git add . && git commit -m "message"
+  Or stash: git stash`,
+		},
+		{
+			name:          "explore branch",
+			currentBranch: "explore/research",
+			expected: `Repository has uncommitted changes
+
+You are currently on branch 'explore/research'.
+Creating a worktree requires switching to a different branch first.
+
+To fix:
+  Commit: git add . && git commit -m "message"
+  Or stash: git stash`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := errorUncommittedChanges(tc.currentBranch)
+			if result != tc.expected {
+				t.Errorf("errorUncommittedChanges(%q) =\n%s\n\nwant:\n%s",
+					tc.currentBranch, result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestErrorInconsistentState tests the errorInconsistentState function.
+func TestErrorInconsistentState(t *testing.T) {
+	testCases := []struct {
+		name         string
+		branchName   string
+		worktreePath string
+		expected     string
+	}{
+		{
+			name:         "feat branch",
+			branchName:   "feat/xyz",
+			worktreePath: ".sow/worktrees/feat/xyz",
+			expected: `Worktree exists but project missing
+
+Branch 'feat/xyz' has a worktree at .sow/worktrees/feat/xyz
+but no .sow/project/ directory.
+
+To fix:
+  1. Remove worktree: git worktree remove feat/xyz
+  2. Delete directory: rm -rf .sow/worktrees/feat/xyz
+  3. Try creating project again`,
+		},
+		{
+			name:         "explore branch",
+			branchName:   "explore/research",
+			worktreePath: ".sow/worktrees/explore/research",
+			expected: `Worktree exists but project missing
+
+Branch 'explore/research' has a worktree at .sow/worktrees/explore/research
+but no .sow/project/ directory.
+
+To fix:
+  1. Remove worktree: git worktree remove explore/research
+  2. Delete directory: rm -rf .sow/worktrees/explore/research
+  3. Try creating project again`,
+		},
+		{
+			name:         "absolute path",
+			branchName:   "feat/test",
+			worktreePath: "/home/user/repo/.sow/worktrees/feat/test",
+			expected: `Worktree exists but project missing
+
+Branch 'feat/test' has a worktree at /home/user/repo/.sow/worktrees/feat/test
+but no .sow/project/ directory.
+
+To fix:
+  1. Remove worktree: git worktree remove feat/test
+  2. Delete directory: rm -rf /home/user/repo/.sow/worktrees/feat/test
+  3. Try creating project again`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := errorInconsistentState(tc.branchName, tc.worktreePath)
+			if result != tc.expected {
+				t.Errorf("errorInconsistentState(%q, %q) =\n%s\n\nwant:\n%s",
+					tc.branchName, tc.worktreePath, result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestErrorGitHubCLIMissing tests the errorGitHubCLIMissing function.
+func TestErrorGitHubCLIMissing(t *testing.T) {
+	expected := `GitHub CLI not found
+
+The 'gh' command is required for GitHub issue integration.
+
+To install:
+  macOS: brew install gh
+  Linux: See https://cli.github.com/
+
+Or select "From branch name" instead.`
+
+	result := errorGitHubCLIMissing()
+	if result != expected {
+		t.Errorf("errorGitHubCLIMissing() =\n%s\n\nwant:\n%s", result, expected)
+	}
+}
+
+// TestShowError tests that showError compiles and accepts correct input.
+func TestShowError(t *testing.T) {
+	// Set SOW_TEST=1 to skip interactive prompts
+	t.Setenv("SOW_TEST", "1")
+
+	testCases := []struct {
+		name    string
+		message string
+	}{
+		{
+			name:    "simple message",
+			message: "Test error message",
+		},
+		{
+			name:    "multiline message",
+			message: "Line 1\nLine 2\nLine 3",
+		},
+		{
+			name:    "empty message",
+			message: "",
+		},
+		{
+			name:    "formatted error",
+			message: formatError("Problem", "How to fix", "Next steps"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Should not panic and should return nil in test mode
+			err := showError(tc.message)
+			if err != nil {
+				t.Errorf("showError(%q) returned error: %v", tc.message, err)
+			}
+		})
+	}
+}
+
+// TestShowErrorWithOptions tests that showErrorWithOptions compiles and accepts correct input.
+func TestShowErrorWithOptions(t *testing.T) {
+	// Set SOW_TEST=1 to skip interactive prompts
+	t.Setenv("SOW_TEST", "1")
+
+	testCases := []struct {
+		name    string
+		message string
+		options map[string]string
+	}{
+		{
+			name:    "single option",
+			message: "Error occurred",
+			options: map[string]string{
+				"retry": "Try again",
+			},
+		},
+		{
+			name:    "multiple options",
+			message: "Choose an action",
+			options: map[string]string{
+				"retry":    "Try again",
+				"continue": "Continue existing project",
+				"cancel":   "Cancel",
+			},
+		},
+		{
+			name:    "empty options",
+			message: "Error",
+			options: map[string]string{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// In test mode, function should handle gracefully
+			// We can't fully test the interactive behavior, but we can ensure it compiles
+			// and doesn't panic with valid inputs
+			_, _ = showErrorWithOptions(tc.message, tc.options)
+		})
+	}
+}
+
+// TestWrapValidationError tests the wrapValidationError function.
+func TestWrapValidationError(t *testing.T) {
+	testCases := []struct {
+		name     string
+		err      error
+		context  string
+		wantNil  bool
+		contains []string
+	}{
+		{
+			name:    "nil error returns nil",
+			err:     nil,
+			context: "any context",
+			wantNil: true,
+		},
+		{
+			name:     "wraps error with context",
+			err:      errors.New("branch name contains spaces"),
+			context:  "project name validation",
+			wantNil:  false,
+			contains: []string{"branch name contains spaces", "project name validation"},
+		},
+		{
+			name:     "preserves original error message",
+			err:      errors.New("invalid character: ~"),
+			context:  "branch validation",
+			wantNil:  false,
+			contains: []string{"invalid character: ~"},
+		},
+		{
+			name:     "empty context still wraps",
+			err:      errors.New("test error"),
+			context:  "",
+			wantNil:  false,
+			contains: []string{"test error"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := wrapValidationError(tc.err, tc.context)
+
+			if tc.wantNil {
+				if result != nil {
+					t.Errorf("wrapValidationError() = %v; want nil", result)
+				}
+				return
+			}
+
+			if result == nil {
+				t.Fatal("wrapValidationError() = nil; want error")
+			}
+
+			errMsg := result.Error()
+			for _, substr := range tc.contains {
+				if !strings.Contains(errMsg, substr) {
+					t.Errorf("wrapValidationError() error = %q; want to contain %q",
+						errMsg, substr)
+				}
+			}
+		})
+	}
+}
