@@ -3,6 +3,7 @@ package project
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/jmgilman/sow/cli/internal/sow"
@@ -199,10 +200,86 @@ func (w *Wizard) handleTypeSelect() error {
 	return nil
 }
 
-// handleNameEntry allows entering project name (stub for now).
+// handleNameEntry allows entering project name with real-time branch preview.
 func (w *Wizard) handleNameEntry() error {
-	fmt.Println("Name entry screen (stub)")
-	w.state = StateComplete
+	var name string
+	projectType := w.choices["type"].(string)
+	prefix := getTypePrefix(projectType)
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Enter project name:").
+				Placeholder("e.g., Web Based Agents").
+				Value(&name).
+				Validate(func(s string) error {
+					// Validation 1: Not empty
+					if strings.TrimSpace(s) == "" {
+						return fmt.Errorf("project name cannot be empty")
+					}
+
+					// Validation 2: Not protected branch
+					normalized := normalizeName(s)
+					branchName := fmt.Sprintf("%s%s", prefix, normalized)
+
+					if w.ctx.Git().IsProtectedBranch(branchName) {
+						return fmt.Errorf("cannot use protected branch name")
+					}
+
+					// Validation 3: Valid git branch name
+					if err := isValidBranchName(branchName); err != nil {
+						return err
+					}
+
+					return nil
+				}),
+
+			// Real-time preview
+			huh.NewNote().
+				Title("Branch Preview").
+				DescriptionFunc(func() string {
+					if name == "" {
+						return fmt.Sprintf("%s<project-name>", prefix)
+					}
+					normalized := normalizeName(name)
+					return fmt.Sprintf("%s%s", prefix, normalized)
+				}, &name), // CRITICAL: Bind to name variable
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			w.state = StateTypeSelect // Go back
+			return nil
+		}
+		return fmt.Errorf("name entry error: %w", err)
+	}
+
+	// Post-submit validation: check branch state
+	normalized := normalizeName(name)
+	branchName := fmt.Sprintf("%s%s", prefix, normalized)
+
+	state, err := checkBranchState(w.ctx, branchName)
+	if err != nil {
+		return fmt.Errorf("failed to check branch state: %w", err)
+	}
+
+	if state.ProjectExists {
+		showError(fmt.Sprintf(
+			"Error: Branch '%s' already has a project\n\n"+
+				"To continue this project:\n"+
+				"  Select \"Continue existing project\" from the main menu\n\n"+
+				"To create a different project:\n"+
+				"  Choose a different project name",
+			branchName))
+		return nil // Stay in current state to retry
+	}
+
+	// Store both original name and full branch name
+	w.choices["name"] = name
+	w.choices["branch"] = branchName
+	w.state = StatePromptEntry
+
 	return nil
 }
 

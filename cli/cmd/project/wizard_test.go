@@ -62,23 +62,20 @@ func TestHandleState_DispatchesToCorrectHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Entry, CreateSource, TypeSelect, and NameEntry states require interactive input, skip for now
+			if tt.state == StateEntry || tt.state == StateCreateSource || tt.state == StateTypeSelect || tt.state == StateNameEntry {
+				// These require interactive input, skip for now
+				t.Skip("Interactive state requires user input")
+			}
+
 			wizard := NewWizard(nil, nil)
 			wizard.state = tt.state
 
 			// For stub handlers, we expect them to transition to StateComplete
-			// For interactive handlers (Entry, CreateSource), they need user input (we can't fully test here)
 			// Just verify no error for valid states
 			err := wizard.handleState()
-
-			// Entry, CreateSource, and TypeSelect states require interactive input, skip for now
-			// Other states (stubs) should complete successfully
-			if tt.state == StateEntry || tt.state == StateCreateSource || tt.state == StateTypeSelect {
-				// These require interactive input, skip for now
-				t.Skip("Interactive state requires user input")
-			} else {
-				assert.NoError(t, err, "Valid state should not error")
-				assert.Equal(t, StateComplete, wizard.state, "Stub handlers should transition to StateComplete")
-			}
+			assert.NoError(t, err, "Valid state should not error")
+			assert.Equal(t, StateComplete, wizard.state, "Stub handlers should transition to StateComplete")
 		})
 	}
 }
@@ -110,9 +107,8 @@ func TestWizardRun_LoopsUntilTerminalState(t *testing.T) {
 // TestStateTransitions_StubHandlers tests that stub handlers transition to StateComplete.
 func TestStateTransitions_StubHandlers(t *testing.T) {
 	stubs := []WizardState{
-		// Note: StateCreateSource and StateTypeSelect are now implemented, so they're not stubs anymore
+		// Note: StateCreateSource, StateTypeSelect, and StateNameEntry are now implemented, so they're not stubs anymore
 		StateIssueSelect,
-		StateNameEntry,
 		StatePromptEntry,
 		StateProjectSelect,
 		StateContinuePrompt,
