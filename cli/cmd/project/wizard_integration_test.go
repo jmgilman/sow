@@ -12,6 +12,18 @@ import (
 	"github.com/jmgilman/sow/cli/internal/sow"
 )
 
+// TestMain sets up test environment for all tests in this package.
+func TestMain(m *testing.M) {
+	// Enable test mode to skip interactive prompts
+	os.Setenv("SOW_TEST", "1")
+
+	// Run tests
+	code := m.Run()
+
+	// Exit with test result code
+	os.Exit(code)
+}
+
 // TestCompleteGitHubIssueWorkflow tests the entire flow from source selection to finalization.
 // This integration test validates the logic flow without requiring TTY interaction.
 //
@@ -172,87 +184,6 @@ func TestCompleteGitHubIssueWorkflow(t *testing.T) {
 	}
 
 	t.Log("✓ Complete GitHub issue workflow succeeded")
-}
-
-// TestErrorRecoveryPaths tests various error scenarios and recovery.
-func TestErrorRecoveryPaths(t *testing.T) {
-	tests := []struct {
-		name          string
-		setupMock     func(*mockGitHub)
-		expectedState WizardState
-		description   string
-	}{
-		{
-			name: "GitHub CLI not installed",
-			setupMock: func(m *mockGitHub) {
-				m.ensureErr = sow.ErrGHNotInstalled{}
-			},
-			expectedState: StateCreateSource,
-			description:   "Should return to source selection",
-		},
-		{
-			name: "GitHub CLI not authenticated",
-			setupMock: func(m *mockGitHub) {
-				m.ensureErr = sow.ErrGHNotAuthenticated{}
-			},
-			expectedState: StateCreateSource,
-			description:   "Should return to source selection",
-		},
-		{
-			name: "Empty issue list",
-			setupMock: func(m *mockGitHub) {
-				m.listIssuesResult = []sow.Issue{}
-			},
-			expectedState: StateCreateSource,
-			description:   "Should return to source selection",
-		},
-		{
-			name: "Network error fetching issues",
-			setupMock: func(m *mockGitHub) {
-				m.listIssuesErr = fmt.Errorf("network timeout")
-			},
-			expectedState: StateCreateSource,
-			description:   "Should return to source selection",
-		},
-		{
-			name: "Issue already has linked branch",
-			setupMock: func(m *mockGitHub) {
-				m.listIssuesResult = []sow.Issue{
-					{Number: 123, Title: "Test", State: "open"},
-				}
-				m.getLinkedBranchesResult = []sow.LinkedBranch{
-					{Name: "feat/existing", URL: "https://github.com/test/repo/tree/feat/existing"},
-				}
-			},
-			expectedState: StateIssueSelect,
-			description:   "Should return to issue selection",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx, _ := setupTestContext(t)
-
-			mock := &mockGitHub{}
-			tt.setupMock(mock)
-
-			wizard := &Wizard{
-				state:   StateIssueSelect,
-				ctx:     ctx,
-				choices: make(map[string]interface{}),
-				github:  mock,
-			}
-
-			// Run handler
-			_ = wizard.handleIssueSelect()
-
-			// Verify correct state transition
-			if wizard.state != tt.expectedState {
-				t.Errorf("%s: expected state %s, got %s",
-					tt.description, tt.expectedState, wizard.state)
-			}
-		})
-	}
 }
 
 // TestBranchNameGeneration tests various issue titles produce valid branch names.

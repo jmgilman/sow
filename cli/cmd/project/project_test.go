@@ -9,9 +9,10 @@ import (
 func TestProjectCmd_Structure(t *testing.T) {
 	cmd := NewProjectCmd()
 
-	// Verify basic properties
-	if cmd.Use != "project" {
-		t.Errorf("Expected Use to be 'project', got '%s'", cmd.Use)
+	// Verify basic properties - Use field now includes Claude flag syntax
+	expectedUse := "project [-- <claude-flags>...]"
+	if cmd.Use != expectedUse {
+		t.Errorf("Expected Use to be '%s', got '%s'", expectedUse, cmd.Use)
 	}
 
 	if cmd.Short != "Create or continue a project (interactive)" {
@@ -23,9 +24,9 @@ func TestProjectCmd_Structure(t *testing.T) {
 		t.Error("Expected project command to have RunE (wizard handler), but it's nil")
 	}
 
-	// Verify Args is set to NoArgs
-	if cmd.Args == nil {
-		t.Error("Expected project command to have Args validator, but it's nil")
+	// Verify Args is NOT set (nil) to allow pass-through flags after --
+	if cmd.Args != nil {
+		t.Error("Expected project command to have no Args validator (to allow -- pass-through), but it's set")
 	}
 }
 

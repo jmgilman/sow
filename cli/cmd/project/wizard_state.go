@@ -49,6 +49,7 @@ type Wizard struct {
 	claudeFlags []string
 	cmd         *cobra.Command
 	github      GitHubClient // GitHub client for issue operations
+	testMode    bool         // Set to true in tests to skip interactive prompts
 }
 
 // NewWizard creates a new wizard instance.

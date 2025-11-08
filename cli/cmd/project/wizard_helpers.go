@@ -163,6 +163,7 @@ func previewBranchName(projectType, name string) string {
 
 // showError displays an error message to the user in a formatted way using huh forms.
 // The user must press Enter to acknowledge the error.
+// In test mode (SOW_TEST=1), this is a no-op to prevent tests from hanging.
 //
 // Returns nil after the error is shown (error is not propagated).
 //
@@ -174,6 +175,12 @@ func previewBranchName(projectType, name string) string {
 //
 //nolint:unused,unparam // Will be used by wizard screens in subsequent work units
 func showError(message string) error {
+	// Skip interactive prompts in test mode
+	if os.Getenv("SOW_TEST") == "1" {
+		debugLog("Error", "%s", message)
+		return nil
+	}
+
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().
@@ -191,6 +198,7 @@ func showError(message string) error {
 
 // withSpinner wraps a long-running operation with a loading spinner.
 // The spinner displays the provided title while the action is running.
+// In test mode (SOW_TEST=1), executes action directly without spinner.
 //
 // If the action returns an error, it is propagated to the caller.
 // If the action succeeds, nil is returned.
@@ -207,6 +215,12 @@ func showError(message string) error {
 //	    return fmt.Errorf("failed to fetch issues: %w", err)
 //	}
 func withSpinner(title string, action func() error) error {
+	// Skip spinner in test mode - just run action directly
+	if os.Getenv("SOW_TEST") == "1" {
+		debugLog("Spinner", "%s", title)
+		return action()
+	}
+
 	var err error
 
 	_ = spinner.New().

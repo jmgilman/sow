@@ -33,7 +33,7 @@ Claude Code Flags:
 }
 
 // runWizard executes the interactive wizard.
-func runWizard(cmd *cobra.Command, _ []string) error {
+func runWizard(cmd *cobra.Command, args []string) error {
 	mainCtx := cmdutil.GetContext(cmd.Context())
 
 	if !mainCtx.IsInitialized() {
@@ -43,12 +43,11 @@ func runWizard(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Extract Claude Code flags (everything after --)
+	// When -- is used, all args after it are passed through in args parameter
 	var claudeFlags []string
-	if dashIndex := cmd.ArgsLenAtDash(); dashIndex >= 0 {
-		allArgs := cmd.Flags().Args()
-		if dashIndex < len(allArgs) {
-			claudeFlags = allArgs[dashIndex:]
-		}
+	if cmd.ArgsLenAtDash() >= 0 {
+		// Everything in args after the dash index is a Claude flag
+		claudeFlags = args[cmd.ArgsLenAtDash():]
 	}
 
 	wizard := NewWizard(cmd, mainCtx, claudeFlags)
