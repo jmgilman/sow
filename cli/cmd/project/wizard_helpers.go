@@ -15,6 +15,22 @@ import (
 	"github.com/jmgilman/sow/cli/internal/sow"
 )
 
+// debugLog prints debug messages to stderr when SOW_DEBUG=1 is set.
+// This helps users and developers troubleshoot issues without modifying code.
+//
+// Format: [DEBUG] <component>: <message>
+//
+// Example:
+//
+//	debugLog("GitHub", "Fetched %d issues", len(issues))
+//	// Output: [DEBUG] GitHub: Fetched 3 issues
+func debugLog(component, format string, args ...interface{}) {
+	if os.Getenv("SOW_DEBUG") == "1" {
+		message := fmt.Sprintf(format, args...)
+		fmt.Fprintf(os.Stderr, "[DEBUG] %s: %s\n", component, message)
+	}
+}
+
 // ProjectTypeConfig defines the configuration for a project type.
 type ProjectTypeConfig struct {
 	Prefix      string
@@ -402,4 +418,35 @@ func formatProjectProgress(proj ProjectInfo) string {
 	}
 
 	return fmt.Sprintf("%s: %s", typeName, proj.Phase)
+}
+
+// validateStateTransition checks if a state transition is valid.
+// This helps catch logic errors during development and debugging.
+//
+// Returns nil if the transition is valid, error describing the problem if invalid.
+func validateStateTransition(from, to WizardState) error {
+	// Define valid transitions
+	validTransitions := map[WizardState][]WizardState{
+		StateEntry:          {StateCreateSource, StateProjectSelect, StateCancelled},
+		StateCreateSource:   {StateIssueSelect, StateTypeSelect, StateCancelled},
+		StateIssueSelect:    {StateTypeSelect, StateCreateSource, StateCancelled},
+		StateTypeSelect:     {StateNameEntry, StatePromptEntry, StateCancelled},
+		StateNameEntry:      {StatePromptEntry, StateTypeSelect, StateCancelled},
+		StatePromptEntry:    {StateComplete, StateCancelled},
+		StateProjectSelect:  {StateContinuePrompt, StateCancelled},
+		StateContinuePrompt: {StateComplete, StateCancelled},
+	}
+
+	allowed, exists := validTransitions[from]
+	if !exists {
+		return fmt.Errorf("unknown source state: %s", from)
+	}
+
+	for _, validTo := range allowed {
+		if validTo == to {
+			return nil // Transition is valid
+		}
+	}
+
+	return fmt.Errorf("invalid transition from %s to %s", from, to)
 }

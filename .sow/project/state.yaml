@@ -1,0 +1,423 @@
+name: github-issue-integration-workflow
+type: standard
+branch: 70-github-issue-integration-workflow
+description: GitHub Issue Integration Workflow
+created_at: 2025-11-07T19:06:31.601619-08:00
+updated_at: 2025-11-07T20:33:41.844784-08:00
+phases:
+    finalize:
+        status: pending
+        enabled: false
+        created_at: 2025-11-07T19:06:31.601619-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+    implementation:
+        status: completed
+        enabled: false
+        created_at: 2025-11-07T19:06:31.601619-08:00
+        started_at: 2025-11-07T19:06:31.601664-08:00
+        completed_at: 2025-11-07T19:56:00.793396-08:00
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 1
+        metadata:
+            draft_pr_created: true
+            planning_approved: true
+            pr_number: 85
+            pr_url: https://github.com/jmgilman/sow/pull/85
+        inputs:
+            - type: github_issue
+              path: context/issue-70.md
+              approved: true
+              created_at: 2025-11-07T19:06:31.601608-08:00
+              metadata:
+                issue_number: 70
+                issue_title: GitHub Issue Integration Workflow
+                issue_url: https://github.com/jmgilman/sow/issues/70
+            - type: review
+              path: phases/review/reports/001.md
+              approved: true
+              created_at: 2025-11-07T19:59:16.336733-08:00
+              metadata:
+                assessment: fail
+                iteration: 1
+        outputs: []
+        tasks:
+            - id: "010"
+              name: GitHub CLI Validation and Error Handling
+              phase: implementation
+              status: completed
+              created_at: 2025-11-07T19:22:01.043847-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T19:28:44.055564-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/github.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:05.488263-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:05.497297-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_helpers.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:05.50559-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/exec/executor.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:05.512903-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/interactive-wizard-ux-flow.md
+                  approved: false
+                  created_at: 2025-11-07T19:22:05.519653-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-70.md
+                  approved: false
+                  created_at: 2025-11-07T19:22:05.526611-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/010/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-07T19:28:43.076679-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "020"
+              name: Issue Listing Screen with Spinner
+              phase: implementation
+              status: completed
+              created_at: 2025-11-07T19:22:12.719758-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T19:35:22.049172-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/github.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:14.270253-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:14.280409-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_helpers.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:14.289377-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/interactive-wizard-ux-flow.md
+                  approved: false
+                  created_at: 2025-11-07T19:22:14.297398-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/interactive-wizard-technical-implementation.md
+                  approved: false
+                  created_at: 2025-11-07T19:22:14.304897-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-70.md
+                  approved: false
+                  created_at: 2025-11-07T19:22:14.312485-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/020/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-07T19:35:21.37892-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-07T19:34:05.446199-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/cmd/project/wizard_state_test.go
+                  approved: false
+                  created_at: 2025-11-07T19:34:09.502883-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/cmd/project/wizard_test.go
+                  approved: false
+                  created_at: 2025-11-07T19:34:13.458586-08:00
+                  metadata: {}
+              metadata: {}
+            - id: "030"
+              name: Issue Validation and Branch Creation
+              phase: implementation
+              status: completed
+              created_at: 2025-11-07T19:22:21.415272-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T19:40:31.431159-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/github.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:26.453717-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:26.464352-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_helpers.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:26.473993-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/interactive-wizard-ux-flow.md
+                  approved: false
+                  created_at: 2025-11-07T19:22:26.482801-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/interactive-wizard-technical-implementation.md
+                  approved: false
+                  created_at: 2025-11-07T19:22:26.491306-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-70.md
+                  approved: false
+                  created_at: 2025-11-07T19:22:26.499577-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/030/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-07T19:40:30.638806-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "040"
+              name: Prompt Entry Enhancement and Project Finalization with Issue Context
+              phase: implementation
+              status: completed
+              created_at: 2025-11-07T19:22:34.350375-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T19:46:28.500071-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:38.234645-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/shared.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:38.244703-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_helpers.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:38.254154-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/worktree.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:38.262557-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/interactive-wizard-ux-flow.md
+                  approved: false
+                  created_at: 2025-11-07T19:22:38.270246-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/huh-library-verification.md
+                  approved: false
+                  created_at: 2025-11-07T19:22:38.277508-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-70.md
+                  approved: false
+                  created_at: 2025-11-07T19:22:38.284647-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/040/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-07T19:46:25.398834-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "050"
+              name: Integration Testing and Error Handling Polish
+              phase: implementation
+              status: completed
+              created_at: 2025-11-07T19:22:45.472761-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T19:55:42.980524-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/cmd/project/wizard_state_test.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:49.776242-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_helpers_test.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:49.78777-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:49.798191-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_helpers.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:49.8077-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github.go
+                  approved: false
+                  created_at: 2025-11-07T19:22:49.816012-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/interactive-wizard-ux-flow.md
+                  approved: false
+                  created_at: 2025-11-07T19:22:49.824431-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-70.md
+                  approved: false
+                  created_at: 2025-11-07T19:22:49.832151-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/050/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-07T19:55:41.929319-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "060"
+              name: Fix Separate Context Note Screen
+              phase: implementation
+              status: completed
+              created_at: 2025-11-07T20:23:21.978056-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T20:27:30.952122-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-07T20:23:24.213522-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_state_test.go
+                  approved: false
+                  created_at: 2025-11-07T20:23:24.227905-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/phases/review/reports/001.md
+                  approved: false
+                  created_at: 2025-11-07T20:23:24.239439-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/060/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-07T20:27:29.947775-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: /Users/josh/code/sow/.sow/worktrees/70-github-issue-integration-workflow/cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-07T20:26:34.178637-08:00
+                  metadata: {}
+                - type: modified
+                  path: /Users/josh/code/sow/.sow/worktrees/70-github-issue-integration-workflow/cli/cmd/project/wizard_state_test.go
+                  approved: false
+                  created_at: 2025-11-07T20:26:34.191673-08:00
+                  metadata: {}
+              metadata: {}
+            - id: "070"
+              name: Skip Type Selection for GitHub Issues
+              phase: implementation
+              status: completed
+              created_at: 2025-11-07T20:23:32.962073-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-07T20:33:41.844783-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-07T20:23:35.057278-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_state_test.go
+                  approved: false
+                  created_at: 2025-11-07T20:23:35.068744-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_integration_test.go
+                  approved: false
+                  created_at: 2025-11-07T20:23:35.079329-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/phases/review/reports/001.md
+                  approved: false
+                  created_at: 2025-11-07T20:23:35.089273-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-70.md
+                  approved: false
+                  created_at: 2025-11-07T20:23:35.099403-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/070/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-07T20:33:40.624336-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+    review:
+        status: failed
+        enabled: false
+        created_at: 2025-11-07T19:06:31.601619-08:00
+        started_at: 2025-11-07T19:56:00.793396-08:00
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 2025-11-07T20:21:41.379355-08:00
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs:
+            - type: review
+              path: phases/review/reports/001.md
+              approved: true
+              created_at: 2025-11-07T19:59:16.336733-08:00
+              metadata:
+                assessment: fail
+                iteration: 1
+        tasks: []
+statechart:
+    current_state: ImplementationExecuting
+    updated_at: 2025-11-07T20:33:41.844784-08:00

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	sowexec "github.com/jmgilman/sow/cli/internal/exec"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
@@ -30,6 +31,16 @@ const (
 	StateCancelled      WizardState = "cancelled"
 )
 
+// GitHubClient defines the interface for GitHub operations used by the wizard.
+// This interface allows for easy mocking in tests.
+type GitHubClient interface {
+	Ensure() error
+	ListIssues(label, state string) ([]sow.Issue, error)
+	GetLinkedBranches(number int) ([]sow.LinkedBranch, error)
+	CreateLinkedBranch(issueNumber int, branchName string, checkout bool) (string, error)
+	GetIssue(number int) (*sow.Issue, error)
+}
+
 // Wizard manages the interactive project creation/continuation workflow.
 type Wizard struct {
 	state       WizardState
@@ -37,21 +48,27 @@ type Wizard struct {
 	choices     map[string]interface{}
 	claudeFlags []string
 	cmd         *cobra.Command
+	github      GitHubClient // GitHub client for issue operations
 }
 
 // NewWizard creates a new wizard instance.
 func NewWizard(cmd *cobra.Command, ctx *sow.Context, claudeFlags []string) *Wizard {
+	ghExec := sowexec.NewLocal("gh")
+
 	return &Wizard{
 		state:       StateEntry,
 		ctx:         ctx,
 		choices:     make(map[string]interface{}),
 		claudeFlags: claudeFlags,
 		cmd:         cmd,
+		github:      sow.NewGitHub(ghExec),
 	}
 }
 
 // Run executes the wizard state machine loop.
 func (w *Wizard) Run() error {
+	debugLog("Wizard", "Starting wizard in state=%s", w.state)
+
 	for w.state != StateComplete && w.state != StateCancelled {
 		if err := w.handleState(); err != nil {
 			return err
@@ -59,9 +76,11 @@ func (w *Wizard) Run() error {
 	}
 
 	if w.state == StateCancelled {
+		debugLog("Wizard", "User cancelled wizard")
 		return nil // User cancelled, not an error
 	}
 
+	debugLog("Wizard", "Wizard complete, finalizing project")
 	return w.finalize()
 }
 
@@ -167,10 +186,97 @@ func (w *Wizard) handleCreateSource() error {
 	return nil
 }
 
-// handleIssueSelect allows selecting a GitHub issue (stub for now).
+// handleIssueSelect allows selecting a GitHub issue.
 func (w *Wizard) handleIssueSelect() error {
-	fmt.Println("Issue select screen (stub)")
-	w.state = StateComplete
+	debugLog("Wizard", "State=%s", w.state)
+
+	// Validate GitHub CLI is available and authenticated
+	if err := w.github.Ensure(); err != nil {
+		return w.handleGitHubError(err)
+	}
+
+	// Fetch issues with 'sow' label using spinner
+	var issues []sow.Issue
+	var fetchErr error
+
+	debugLog("GitHub", "Calling gh issue list --label sow --state open")
+	err := withSpinner("Fetching issues from GitHub...", func() error {
+		issues, fetchErr = w.github.ListIssues("sow", "open")
+		return fetchErr
+	})
+
+	if err != nil {
+		debugLog("GitHub", "Failed to fetch issues: %v", err)
+		errorMsg := fmt.Sprintf("Failed to fetch issues: %v\n\n"+
+			"This may be a network issue or a GitHub API problem.\n"+
+			"Please try again or select 'From branch name' instead.", err)
+		_ = showError(errorMsg)
+		w.state = StateCreateSource
+		return nil
+	}
+
+	debugLog("GitHub", "Fetched %d issues", len(issues))
+	for _, issue := range issues {
+		debugLog("GitHub", "Issue #%d: %s", issue.Number, issue.Title)
+	}
+
+	// Handle empty issue list
+	if len(issues) == 0 {
+		errorMsg := "No issues found with 'sow' label\n\n" +
+			"To use GitHub issue integration:\n" +
+			"  1. Create an issue in your repository\n" +
+			"  2. Add the 'sow' label to the issue\n" +
+			"  3. Try again\n\n" +
+			"Or select 'From branch name' to continue without an issue."
+		_ = showError(errorMsg)
+		w.state = StateCreateSource
+		return nil
+	}
+
+	// Store issues in choices for next step (Task 030)
+	w.choices["issues"] = issues
+
+	// Proceed to issue selection (next screen)
+	return w.showIssueSelectScreen()
+}
+
+// handleGitHubError displays GitHub-related errors and offers fallback paths.
+// Returns nil to keep wizard running (user can choose fallback).
+func (w *Wizard) handleGitHubError(err error) error {
+	var errorMsg string
+	var fallbackMsg string
+
+	// Determine error type using errors.As for wrapped error support
+	var notInstalled sow.ErrGHNotInstalled
+	var notAuthenticated sow.ErrGHNotAuthenticated
+
+	if errors.As(err, &notInstalled) {
+		errorMsg = "GitHub CLI not found\n\n" +
+			"The 'gh' command is required for GitHub issue integration.\n\n" +
+			"To install:\n" +
+			"  macOS: brew install gh\n" +
+			"  Linux: See https://cli.github.com/"
+		fallbackMsg = "Or select 'From branch name' instead."
+
+	} else if errors.As(err, &notAuthenticated) {
+		errorMsg = "GitHub CLI not authenticated\n\n" +
+			"Run the following command to authenticate:\n" +
+			"  gh auth login\n\n" +
+			"Then try creating your project again."
+		fallbackMsg = "Or select 'From branch name' instead."
+
+	} else {
+		// Generic GitHub error
+		errorMsg = fmt.Sprintf("GitHub CLI error: %v", err)
+		fallbackMsg = "Select 'From branch name' to continue without GitHub integration."
+	}
+
+	// Show error with fallback option
+	fullMessage := errorMsg + "\n\n" + fallbackMsg
+	_ = showError(fullMessage)
+
+	// Return to source selection so user can choose "From branch name"
+	w.state = StateCreateSource
 	return nil
 }
 
@@ -178,6 +284,10 @@ func (w *Wizard) handleIssueSelect() error {
 func (w *Wizard) handleTypeSelect() error {
 	var selectedType string
 
+	// Check if we have issue context
+	_, hasIssue := w.choices["issue"].(*sow.Issue)
+
+	// Build form with just type selection
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
@@ -201,8 +311,15 @@ func (w *Wizard) handleTypeSelect() error {
 	}
 
 	w.choices["type"] = selectedType
-	w.state = StateNameEntry
 
+	// Route based on context
+	if hasIssue {
+		// GitHub issue path: create branch then go to prompt entry
+		return w.createLinkedBranch()
+	}
+
+	// Branch name path: go to name entry
+	w.state = StateNameEntry
 	return nil
 }
 
@@ -296,24 +413,45 @@ func (w *Wizard) handleNameEntry() error {
 func (w *Wizard) handlePromptEntry() error {
 	var prompt string
 
-	projectType, ok := w.choices["type"].(string)
-	if !ok {
-		return fmt.Errorf("type choice not set or invalid")
-	}
-	branchName, ok := w.choices["branch"].(string)
-	if !ok {
-		return fmt.Errorf("branch choice not set or invalid")
+	// Build context display based on project source
+	var contextLines []string
+
+	// Check for issue context (GitHub issue path)
+	if issue, ok := w.choices["issue"].(*sow.Issue); ok {
+		contextLines = append(contextLines,
+			fmt.Sprintf("Issue: #%d - %s", issue.Number, issue.Title))
 	}
 
-	contextInfo := fmt.Sprintf(
-		"Type: %s\nBranch: %s\n\nPress Ctrl+E to open $EDITOR for multi-line input",
-		projectType, branchName)
+	// Show branch name
+	if branchName, ok := w.choices["branch"].(string); ok {
+		contextLines = append(contextLines, fmt.Sprintf("Branch: %s", branchName))
+	} else if name, ok := w.choices["name"].(string); ok {
+		// Branch name path - compute branch name for display
+		projectType, ok := w.choices["type"].(string)
+		if !ok {
+			projectType = "standard" // Default fallback
+		}
+		prefix := getTypePrefix(projectType)
+		normalized := normalizeName(name)
+		contextLines = append(contextLines,
+			fmt.Sprintf("Branch: %s%s", prefix, normalized))
+	}
+
+	// Add project type for clarity
+	if projectType, ok := w.choices["type"].(string); ok {
+		typeConfig := projectTypes[projectType]
+		contextLines = append(contextLines,
+			fmt.Sprintf("Type: %s", typeConfig.Description))
+	}
+
+	contextDisplay := strings.Join(contextLines, "\n")
+	instructionText := contextDisplay + "\n\nPress Ctrl+E to open $EDITOR for multi-line input"
 
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewText().
 				Title("Enter your task or question for Claude (optional):").
-				Description(contextInfo).
+				Description(instructionText).
 				CharLimit(10000).
 				Value(&prompt).
 				EditorExtension(".md"),
@@ -463,6 +601,149 @@ func (w *Wizard) handleContinuePrompt() error {
 	return nil
 }
 
+// showIssueSelectScreen displays the issue selection prompt.
+// Issues are retrieved from w.choices["issues"] (set by handleIssueSelect).
+func (w *Wizard) showIssueSelectScreen() error {
+	issues, ok := w.choices["issues"].([]sow.Issue)
+	if !ok {
+		return fmt.Errorf("issues not found in choices")
+	}
+
+	var selectedIssueNumber int
+
+	// Build select options
+	options := make([]huh.Option[int], 0, len(issues)+1)
+	for _, issue := range issues {
+		label := fmt.Sprintf("#%d: %s", issue.Number, issue.Title)
+		options = append(options, huh.NewOption(label, issue.Number))
+	}
+
+	// Add cancel option
+	options = append(options, huh.NewOption("Cancel", -1))
+
+	// Create select form
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[int]().
+				Title("Select an issue (filtered by 'sow' label):").
+				Options(options...).
+				Value(&selectedIssueNumber),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			w.state = StateCancelled
+			return nil
+		}
+		return fmt.Errorf("issue selection error: %w", err)
+	}
+
+	// Handle cancel
+	if selectedIssueNumber == -1 {
+		w.state = StateCancelled
+		return nil
+	}
+
+	// NEW: Validate issue doesn't have linked branch
+	linkedBranches, err := w.github.GetLinkedBranches(selectedIssueNumber)
+	if err != nil {
+		errorMsg := fmt.Sprintf("Failed to check linked branches: %v\n\n"+
+			"Please try again or select 'From branch name' instead.", err)
+		_ = showError(errorMsg)
+		w.state = StateCreateSource
+		return nil
+	}
+
+	if len(linkedBranches) > 0 {
+		return w.handleAlreadyLinkedError(selectedIssueNumber, linkedBranches[0])
+	}
+
+	// NEW: Fetch full issue details
+	issue, err := w.github.GetIssue(selectedIssueNumber)
+	if err != nil {
+		errorMsg := fmt.Sprintf("Failed to get issue details: %v\n\n"+
+			"Please try again.", err)
+		_ = showError(errorMsg)
+		// Stay in current state to allow retry
+		return nil
+	}
+
+	// Store issue in choices for next steps
+	w.choices["issue"] = issue
+
+	// Task 070: Default GitHub issues to "standard" type and skip type selection
+	w.choices["type"] = "standard"
+
+	// Task 070: Proceed directly to branch creation (skip type selection screen)
+	return w.createLinkedBranch()
+}
+
+// createLinkedBranch generates a branch name from the issue and creates a linked branch.
+func (w *Wizard) createLinkedBranch() error {
+	issue, ok := w.choices["issue"].(*sow.Issue)
+	if !ok {
+		return fmt.Errorf("issue not found in choices")
+	}
+
+	projectType, ok := w.choices["type"].(string)
+	if !ok {
+		return fmt.Errorf("type not found in choices")
+	}
+
+	// Generate branch name: <prefix><issue-slug>-<number>
+	prefix := getTypePrefix(projectType)
+	issueSlug := normalizeName(issue.Title)
+	branchName := fmt.Sprintf("%s%s-%d", prefix, issueSlug, issue.Number)
+
+	// Create linked branch via gh issue develop with spinner
+	var createdBranch string
+	err := withSpinner("Creating linked branch...", func() error {
+		var err error
+		// Pass checkout=false because we use worktrees, not traditional checkout
+		createdBranch, err = w.github.CreateLinkedBranch(issue.Number, branchName, false)
+		return err
+	})
+
+	if err != nil {
+		errorMsg := fmt.Sprintf("Failed to create linked branch: %v\n\n"+
+			"This may be a GitHub API issue. Please try again.",
+			err)
+		_ = showError(errorMsg)
+		// Stay in current state to allow retry
+		return nil
+	}
+
+	// Store branch name and use issue title as project name
+	w.choices["branch"] = createdBranch
+	w.choices["name"] = issue.Title
+
+	// Proceed to prompt entry
+	w.state = StatePromptEntry
+
+	return nil
+}
+
+// handleAlreadyLinkedError displays error when issue has existing linked branch.
+// Returns nil to keep wizard running (user can select different issue).
+func (w *Wizard) handleAlreadyLinkedError(issueNumber int, branch sow.LinkedBranch) error {
+	errorMsg := fmt.Sprintf(
+		"Issue #%d already has a linked branch: %s\n\n"+
+			"To continue working on this issue:\n"+
+			"  Select \"Continue existing project\" from the main menu\n\n"+
+			"To work on a different issue:\n"+
+			"  Select a different issue from the list",
+		issueNumber,
+		branch.Name,
+	)
+
+	_ = showError(errorMsg)
+
+	// Return to issue select to let user choose different issue
+	// Keep issues list in choices so we don't need to fetch again
+	return w.showIssueSelectScreen()
+}
+
 // finalize routes to the appropriate finalization method based on the action choice.
 func (w *Wizard) finalize() error {
 	// Determine which path we're on
@@ -497,6 +778,12 @@ func (w *Wizard) finalizeCreation() error {
 		initialPrompt = prompt
 	}
 
+	// Extract issue if present (GitHub issue path)
+	var issue *sow.Issue
+	if issueData, ok := w.choices["issue"].(*sow.Issue); ok {
+		issue = issueData
+	}
+
 	// Step 1: Conditional uncommitted changes check
 	currentBranch, err := w.ctx.Git().CurrentBranch()
 	if err != nil {
@@ -521,13 +808,14 @@ func (w *Wizard) finalizeCreation() error {
 		return fmt.Errorf("failed to create worktree: %w", err)
 	}
 
-	// Step 3: Initialize project in worktree
+	// Step 3: Initialize project in worktree WITH issue metadata
 	worktreeCtx, err := sow.NewContext(worktreePath)
 	if err != nil {
 		return fmt.Errorf("failed to create worktree context: %w", err)
 	}
 
-	project, err := initializeProject(worktreeCtx, branch, name, nil)
+	// Pass issue to initializeProject (will be nil for branch name path)
+	project, err := initializeProject(worktreeCtx, branch, name, issue)
 	if err != nil {
 		return fmt.Errorf("failed to initialize project: %w", err)
 	}
@@ -540,6 +828,9 @@ func (w *Wizard) finalizeCreation() error {
 
 	// Step 5: Display success message
 	_, _ = fmt.Fprintf(os.Stdout, "✓ Initialized project '%s' on branch %s\n", name, branch)
+	if issue != nil {
+		_, _ = fmt.Fprintf(os.Stdout, "✓ Linked to issue #%d: %s\n", issue.Number, issue.Title)
+	}
 	_, _ = fmt.Fprintf(os.Stdout, "✓ Launching Claude in worktree...\n")
 
 	// Step 6: Launch Claude Code

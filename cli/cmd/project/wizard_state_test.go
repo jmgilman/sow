@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +14,55 @@ import (
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
 )
+
+// mockGitHub is a test double for GitHub operations.
+type mockGitHub struct {
+	ensureErr                error
+	listIssuesResult         []sow.Issue
+	listIssuesErr            error
+	getLinkedBranchesResult  []sow.LinkedBranch
+	getLinkedBranchesErr     error
+	getIssueResult           *sow.Issue
+	getIssueErr              error
+	createLinkedBranchResult string
+	createLinkedBranchErr    error
+}
+
+func (m *mockGitHub) Ensure() error {
+	return m.ensureErr
+}
+
+func (m *mockGitHub) ListIssues(_, _ string) ([]sow.Issue, error) {
+	if m.listIssuesErr != nil {
+		return nil, m.listIssuesErr
+	}
+	return m.listIssuesResult, nil
+}
+
+func (m *mockGitHub) GetLinkedBranches(_ int) ([]sow.LinkedBranch, error) {
+	if m.getLinkedBranchesErr != nil {
+		return nil, m.getLinkedBranchesErr
+	}
+	return m.getLinkedBranchesResult, nil
+}
+
+func (m *mockGitHub) CreateLinkedBranch(_ int, branchName string, _ bool) (string, error) {
+	if m.createLinkedBranchErr != nil {
+		return "", m.createLinkedBranchErr
+	}
+	// Return provided branch name or mock result
+	if branchName != "" {
+		return branchName, nil
+	}
+	return m.createLinkedBranchResult, nil
+}
+
+func (m *mockGitHub) GetIssue(_ int) (*sow.Issue, error) {
+	if m.getIssueErr != nil {
+		return nil, m.getIssueErr
+	}
+	return m.getIssueResult, nil
+}
 
 // TestHandleCreateSource_StateTransitions tests state transitions directly
 // by manually setting values and checking the results.
