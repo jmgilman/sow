@@ -13,59 +13,6 @@ import (
 	"github.com/jmgilman/sow/cli/internal/sow"
 )
 
-// TestHandleCreateSource_SelectsIssue tests that selecting "issue" transitions to StateIssueSelect
-// and stores "issue" in choices.
-func TestHandleCreateSource_SelectsIssue(t *testing.T) {
-	ctx, _ := setupTestContext(t)
-	w := NewWizard(nil, ctx, []string{})
-
-	// We need to mock the form interaction somehow
-	// Since we can't easily mock huh.Form, we'll test the actual implementation
-	// by simulating what happens after form.Run() completes
-	// For now, let's test that the function exists and has the right signature
-
-	// Set initial state
-	w.state = StateCreateSource
-
-	// Note: This test requires mocking the huh form, which is difficult
-	// We'll test the logic by directly setting values and testing state transitions
-	t.Skip("Requires form mocking - testing via integration tests instead")
-}
-
-// TestHandleCreateSource_SelectsBranch tests that selecting "branch" transitions to StateTypeSelect
-// and stores "branch" in choices.
-func TestHandleCreateSource_SelectsBranch(t *testing.T) {
-	ctx, _ := setupTestContext(t)
-	w := NewWizard(nil, ctx, []string{})
-
-	// Set initial state
-	w.state = StateCreateSource
-
-	t.Skip("Requires form mocking - testing via integration tests instead")
-}
-
-// TestHandleCreateSource_SelectsCancel tests that selecting "cancel" transitions to StateCancelled.
-func TestHandleCreateSource_SelectsCancel(t *testing.T) {
-	ctx, _ := setupTestContext(t)
-	w := NewWizard(nil, ctx, []string{})
-
-	// Set initial state
-	w.state = StateCreateSource
-
-	t.Skip("Requires form mocking - testing via integration tests instead")
-}
-
-// TestHandleCreateSource_UserAbort tests that Ctrl+C/Esc transitions to StateCancelled.
-func TestHandleCreateSource_UserAbort(t *testing.T) {
-	ctx, _ := setupTestContext(t)
-	w := NewWizard(nil, ctx, []string{})
-
-	// Set initial state
-	w.state = StateCreateSource
-
-	t.Skip("Requires form mocking - testing via integration tests instead")
-}
-
 // TestHandleCreateSource_StateTransitions tests state transitions directly
 // by manually setting values and checking the results.
 func TestHandleCreateSource_StateTransitions(t *testing.T) {
