@@ -121,10 +121,42 @@ func (w *Wizard) handleEntry() error {
 	return nil
 }
 
-// handleCreateSource shows options for creating a project (stub for now).
+// handleCreateSource shows options for creating a project.
 func (w *Wizard) handleCreateSource() error {
-	fmt.Println("Create source screen (stub)")
-	w.state = StateComplete
+	var source string
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("How would you like to create the project?").
+				Options(
+					huh.NewOption("From GitHub issue", "issue"),
+					huh.NewOption("From branch name", "branch"),
+					huh.NewOption("Cancel", "cancel"),
+				).
+				Value(&source),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			w.state = StateCancelled
+			return nil
+		}
+		return fmt.Errorf("create source screen error: %w", err)
+	}
+
+	w.choices["source"] = source
+
+	switch source {
+	case "issue":
+		w.state = StateIssueSelect
+	case "branch":
+		w.state = StateTypeSelect
+	case "cancel":
+		w.state = StateCancelled
+	}
+
 	return nil
 }
 

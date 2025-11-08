@@ -385,17 +385,3 @@ func TestGenerateContinuePrompt_UsesCurrentState(t *testing.T) {
 		t.Error("continue prompt should not contain user initial request section")
 	}
 }
-
-// Test launchClaudeCode - we'll test arg building and command setup,
-// but not actual execution (that would require Claude to be installed)
-
-func TestLaunchClaudeCode_BuildsArgsCorrectly(t *testing.T) {
-	// We can't fully test execution without Claude installed,
-	// but we can test the function exists and handles basic cases
-	// This test will be a simple check that the function signature exists
-	// and doesn't panic when called with proper args
-
-	// Note: This test will fail if Claude is not installed, which is expected
-	// The real test is that the function exists with the correct signature
-	t.Skip("Skipping launchClaudeCode test - requires Claude CLI to be installed")
-}
