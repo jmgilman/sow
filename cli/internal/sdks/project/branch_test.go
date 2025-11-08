@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	projectschema "github.com/jmgilman/sow/cli/schemas/project"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	projectschema "github.com/jmgilman/sow/cli/schemas/project"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -822,7 +822,7 @@ func TestDiscriminatorNoMatch(t *testing.T) {
 		assert.Empty(t, event)
 		assert.Contains(t, err.Error(), "no branch defined")
 		assert.Contains(t, err.Error(), "unmapped_value")
-		assert.Contains(t, err.Error(), "expected_value")  // Shows available values
+		assert.Contains(t, err.Error(), "expected_value") // Shows available values
 	})
 
 	t.Run("error message lists all available values", func(t *testing.T) {

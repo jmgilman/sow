@@ -43,8 +43,8 @@ func NewBreakdownProjectConfig() *project.ProjectTypeConfig {
 // configurePhases adds phase definitions to the builder.
 //
 // The breakdown project type has a single phase:
-// 1. breakdown - Contains discovery, decomposition, specification, and review tasks,
-//    produces discovery and work_unit_spec artifacts.
+//  1. breakdown - Contains discovery, decomposition, specification, and review tasks,
+//     produces discovery and work_unit_spec artifacts.
 //
 // Unlike design/exploration projects, there is NO finalization phase.
 // The breakdown phase completes after all work units are published as GitHub issues.

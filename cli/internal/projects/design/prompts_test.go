@@ -136,6 +136,7 @@ func TestGenerateOrchestratorPrompt(t *testing.T) {
 }
 
 // TestGenerateActivePrompt verifies the Active state prompt generation.
+//
 //nolint:funlen // Test contains multiple subtests for comprehensive prompt validation
 func TestGenerateActivePrompt(t *testing.T) {
 	t.Run("shows project name and branch", func(t *testing.T) {
@@ -418,7 +419,7 @@ func TestGenerateActivePrompt(t *testing.T) {
 								Status:     "in_progress",
 								Created_at: now,
 								Metadata: map[string]interface{}{
-									"artifact_path":  "project/architecture.md",
+									"artifact_path": "project/architecture.md",
 									"document_type": "architecture",
 								},
 							},
@@ -440,6 +441,7 @@ func TestGenerateActivePrompt(t *testing.T) {
 }
 
 // TestGenerateFinalizingPrompt verifies the Finalizing state prompt generation.
+//
 //nolint:funlen // Test contains multiple subtests for comprehensive prompt validation
 func TestGenerateFinalizingPrompt(t *testing.T) {
 	t.Run("shows project name and branch", func(t *testing.T) {

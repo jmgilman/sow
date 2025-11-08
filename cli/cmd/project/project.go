@@ -4,29 +4,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewProjectCmd creates the project command with subcommands.
+// NewProjectCmd creates the project command with wizard as primary interface.
 func NewProjectCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "project",
-		Short: "Manage projects",
-		Long: `Manage sow projects through subcommands.
+		Short: "Create or continue a project (interactive)",
+		Long: `Interactive wizard for creating or continuing projects.
 
-Subcommands:
-  new       Create a new project
-  continue  Continue an existing project
-  set       Set project field values
-  delete    Delete the current project
+The wizard guides you through:
+  - Creating new projects from GitHub issues or branch names
+  - Continuing existing projects
+  - Selecting project types and providing descriptions
 
 Examples:
-  sow project new --branch feat/auth "Add authentication"
-  sow project continue
-  sow project set description "Updated description"
-  sow project set metadata.custom_field value
-  sow project delete`,
+  sow project                    # Launch interactive wizard
+  sow project -- --model opus    # Launch wizard, pass flags to Claude`,
+		RunE: runWizard,
+		Args: cobra.NoArgs,
 	}
 
-	cmd.AddCommand(newNewCmd())
-	cmd.AddCommand(newContinueCmd())
+	// Keep set and delete subcommands
 	cmd.AddCommand(newSetCmd())
 	cmd.AddCommand(newDeleteCmd())
 

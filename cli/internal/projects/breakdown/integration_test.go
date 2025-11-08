@@ -13,6 +13,7 @@ import (
 
 // TestBreakdownLifecycle_HappyPath tests the complete breakdown workflow from creation to completion.
 // This is the primary happy path test covering all states: Discovery → Active → Publishing → Completed.
+//
 //nolint:funlen // Test contains multiple subtests for lifecycle verification
 func TestBreakdownLifecycle_HappyPath(t *testing.T) {
 	// Setup: Create project and state machine
@@ -139,6 +140,7 @@ func TestBreakdownLifecycle_HappyPath(t *testing.T) {
 }
 
 // TestReviewWorkflow_BackAndForth tests work unit review workflow with status transitions.
+//
 //nolint:funlen // Test contains multiple subtests for review workflow verification
 func TestReviewWorkflow_BackAndForth(t *testing.T) {
 	proj, machine, config := setupBreakdownProject(t)
@@ -295,6 +297,7 @@ func TestDependencyValidation_ValidChain(t *testing.T) {
 }
 
 // TestPublishing_Resumability tests that publishing can be interrupted and resumed.
+//
 //nolint:funlen // Test contains multiple subtests for resumability verification
 func TestPublishing_Resumability(t *testing.T) {
 	proj, machine, config := setupBreakdownProject(t)
@@ -361,6 +364,7 @@ func TestPublishing_Resumability(t *testing.T) {
 }
 
 // TestBreakdownIntegration_DiamondDependencies tests complex dependency graphs.
+//
 //nolint:funlen // Test contains multiple subtests for dependency verification
 func TestBreakdownIntegration_DiamondDependencies(t *testing.T) {
 	proj, machine, config := setupBreakdownProject(t)
@@ -660,6 +664,7 @@ func TestAutoApproval(t *testing.T) {
 }
 
 // TestGuardFailures tests that guards properly block invalid transitions.
+//
 //nolint:funlen // Test contains multiple guard validation subtests
 func TestGuardFailures(t *testing.T) {
 	t.Run("Active to Publishing blocked with pending tasks", func(t *testing.T) {
@@ -779,6 +784,7 @@ func TestGuardFailures(t *testing.T) {
 }
 
 // TestStateValidation tests that project state validates correctly at each stage.
+//
 //nolint:funlen // Test contains multiple validation subtests
 func TestStateValidation(t *testing.T) {
 	t.Run("breakdown phase status updates correctly", func(t *testing.T) {
@@ -1070,6 +1076,7 @@ func verifyPhaseEnabled(t *testing.T, p *state.Project, phaseName string, expect
 }
 
 // verifyTaskStatus verifies the status of a task.
+//
 //nolint:unparam // phaseName parameter kept for consistency with test helper pattern
 func verifyTaskStatus(t *testing.T, p *state.Project, phaseName, taskID, expectedStatus string) {
 	t.Helper()

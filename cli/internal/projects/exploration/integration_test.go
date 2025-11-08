@@ -11,6 +11,7 @@ import (
 )
 
 // TestExplorationLifecycle_SingleSummary tests complete workflow with one summary document.
+//
 //nolint:funlen // Test contains multiple subtests for lifecycle verification
 func TestExplorationLifecycle_SingleSummary(t *testing.T) {
 	// Setup: Create project and state machine
@@ -251,6 +252,7 @@ func TestExplorationLifecycle_MultipleSummaries(t *testing.T) {
 }
 
 // TestGuardFailures tests that guards properly block invalid transitions.
+//
 //nolint:funlen // Test contains multiple guard validation subtests
 func TestGuardFailures(t *testing.T) {
 	t.Run("Active to Summarizing blocked with pending tasks", func(t *testing.T) {

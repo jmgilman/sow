@@ -14,6 +14,7 @@ import (
 
 // TestDesignLifecycle_SingleDocument tests complete workflow with one design document.
 // This is the primary happy path test covering all states: Active → Finalizing → Completed.
+//
 //nolint:funlen // Test contains multiple subtests for lifecycle verification
 func TestDesignLifecycle_SingleDocument(t *testing.T) {
 	// Setup: Create project and state machine
@@ -121,6 +122,7 @@ func TestDesignLifecycle_SingleDocument(t *testing.T) {
 }
 
 // TestDesignLifecycle_MultipleDocuments tests workflow with multiple design documents of different types.
+//
 //nolint:funlen // Test contains multiple subtests for comprehensive document type coverage
 func TestDesignLifecycle_MultipleDocuments(t *testing.T) {
 	proj, machine, config := setupDesignProject(t)
@@ -251,6 +253,7 @@ func TestDesignLifecycle_WithInputs(t *testing.T) {
 }
 
 // TestDesignLifecycle_ReviewWorkflow tests needs_review → in_progress → completed workflow.
+//
 //nolint:funlen // Test contains multiple subtests for review workflow verification
 func TestDesignLifecycle_ReviewWorkflow(t *testing.T) {
 	proj, machine, _ := setupDesignProject(t)
@@ -452,6 +455,7 @@ func TestDesignLifecycle_AutoApproval(t *testing.T) {
 }
 
 // TestGuardFailures tests that guards properly block invalid transitions.
+//
 //nolint:funlen // Test contains multiple guard validation subtests
 func TestGuardFailures(t *testing.T) {
 	t.Run("Active to Finalizing blocked with pending tasks", func(t *testing.T) {
@@ -591,6 +595,7 @@ func TestGuardFailures(t *testing.T) {
 }
 
 // TestStateValidation tests that project state validates correctly at each stage.
+//
 //nolint:funlen // Test contains multiple validation subtests
 func TestStateValidation(t *testing.T) {
 	t.Run("design phase status updates correctly", func(t *testing.T) {
@@ -961,6 +966,7 @@ func verifyPhaseEnabled(t *testing.T, p *state.Project, phaseName string, expect
 }
 
 // verifyTaskStatus verifies the status of a task.
+//
 //nolint:unparam // phaseName parameter kept for consistency with test helper pattern
 func verifyTaskStatus(t *testing.T, p *state.Project, phaseName, taskID, expectedStatus string) {
 	t.Helper()
@@ -983,6 +989,7 @@ func verifyTaskStatus(t *testing.T, p *state.Project, phaseName, taskID, expecte
 }
 
 // addFinalizationTask adds a task to the finalization phase.
+//
 //nolint:unparam // id parameter kept for consistency with test helper pattern
 func addFinalizationTask(t *testing.T, p *state.Project, id, name, status string) {
 	t.Helper()

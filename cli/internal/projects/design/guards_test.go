@@ -38,6 +38,7 @@ func newTask(id, status string) projschema.TaskState {
 }
 
 // Helper to create a task with metadata.
+//
 //nolint:unparam // id parameter kept for consistency with test helper pattern
 func newTaskWithMetadata(id, status string, metadata map[string]any) projschema.TaskState {
 	task := newTask(id, status)
@@ -46,6 +47,7 @@ func newTaskWithMetadata(id, status string, metadata map[string]any) projschema.
 }
 
 // Helper to create an artifact.
+//
 //nolint:unparam // approved parameter kept for consistency with test helper pattern
 func newArtifact(path string, approved bool) projschema.ArtifactState {
 	return projschema.ArtifactState{
