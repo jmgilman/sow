@@ -144,7 +144,7 @@ func validateAdvanceFlags(cmd *cobra.Command, args []string) error {
 // Returns error if:
 // - DetermineEvent fails (terminal state, intent-based branching)
 // - Transition fails (guard blocked, invalid event)
-// - Save fails (I/O error)
+// - Save fails (I/O error).
 func executeAutoTransition(
 	proj *state.Project,
 	currentState state.State,
@@ -307,7 +307,7 @@ func enhanceAutoTransitionError(err error, proj *state.Project, currentState sta
 //
 // Side effects: NONE - this function never modifies project state.
 func validateTransition(
-	ctx *sow.Context,
+	_ *sow.Context,
 	proj *state.Project,
 	machine *sdkstate.Machine,
 	currentState sdkstate.State,
@@ -384,7 +384,7 @@ func validateTransition(
 // Side effects:
 // - Fires event and transitions state machine
 // - Updates phase status based on transition
-// - Saves project state to disk
+// - Saves project state to disk.
 func executeExplicitTransition(
 	ctx *sow.Context,
 	proj *state.Project,
