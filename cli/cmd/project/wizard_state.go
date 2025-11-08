@@ -24,6 +24,7 @@ const (
 	StateIssueSelect    WizardState = "issue_select"
 	StateTypeSelect     WizardState = "type_select"
 	StateNameEntry      WizardState = "name_entry"
+	StateFileSelect     WizardState = "file_select"
 	StatePromptEntry    WizardState = "prompt_entry"
 	StateProjectSelect  WizardState = "project_select"
 	StateContinuePrompt WizardState = "continue_prompt"
@@ -100,6 +101,8 @@ func (w *Wizard) handleState() error {
 		return w.handleTypeSelect()
 	case StateNameEntry:
 		return w.handleNameEntry()
+	case StateFileSelect:
+		return w.handleFileSelect()
 	case StatePromptEntry:
 		return w.handlePromptEntry()
 	case StateProjectSelect:
@@ -407,8 +410,76 @@ func (w *Wizard) handleNameEntry() error {
 	// Store both original name and full branch name
 	w.choices["name"] = name
 	w.choices["branch"] = branchName
-	w.state = StatePromptEntry
+	w.state = StateFileSelect
 
+	return nil
+}
+
+// handleFileSelect allows selecting knowledge files to attach as context.
+// Files are discovered from .sow/knowledge/ and presented in a multi-select UI.
+// Users can select zero or more files, or the screen is skipped if no files exist.
+func (w *Wizard) handleFileSelect() error {
+	debugLog("Wizard", "State=%s", w.state)
+
+	// Discover knowledge files
+	knowledgeDir := filepath.Join(w.ctx.MainRepoRoot(), ".sow", "knowledge")
+	files, err := discoverKnowledgeFiles(knowledgeDir)
+	if err != nil {
+		// Log error but don't fail - just skip file selection
+		debugLog("FileSelect", "Failed to discover files: %v", err)
+		w.state = StatePromptEntry
+		return nil
+	}
+
+	// If no files exist, skip selection
+	if len(files) == 0 {
+		debugLog("FileSelect", "No knowledge files found, skipping")
+		w.state = StatePromptEntry
+		return nil
+	}
+
+	var selectedFiles []string
+
+	// In test mode, skip interactive form
+	if os.Getenv("SOW_TEST") == "1" {
+		debugLog("FileSelect", "Test mode: skipping interactive selection, storing empty list")
+		// Store empty list in test mode (files were discovered successfully)
+		w.choices["knowledge_files"] = selectedFiles
+		w.state = StatePromptEntry
+		return nil
+	}
+
+	// Build multi-select options
+	options := make([]huh.Option[string], 0, len(files))
+	for _, file := range files {
+		// Use relative path for display
+		options = append(options, huh.NewOption(file, file))
+	}
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewMultiSelect[string]().
+				Title("Select knowledge files to provide context (optional):").
+				Description("Type to filter • Space to select • Enter to confirm").
+				Options(options...).
+				Value(&selectedFiles).
+				Filterable(true). // Enable filtering for easy navigation
+				Limit(10),        // Limit visible items (user can scroll/filter)
+		).Title("File Selection"), // Add title to group for filterable MultiSelect
+	)
+
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			w.state = StateCancelled
+			return nil
+		}
+		return fmt.Errorf("file selection error: %w", err)
+	}
+
+	// Store selected files (empty slice is valid - user can skip)
+	w.choices["knowledge_files"] = selectedFiles
+
+	w.state = StatePromptEntry
 	return nil
 }
 
@@ -721,8 +792,8 @@ func (w *Wizard) createLinkedBranch() error {
 	w.choices["branch"] = createdBranch
 	w.choices["name"] = issue.Title
 
-	// Proceed to prompt entry
-	w.state = StatePromptEntry
+	// Proceed to file selection
+	w.state = StateFileSelect
 
 	return nil
 }
@@ -787,6 +858,12 @@ func (w *Wizard) finalizeCreation() error {
 		issue = issueData
 	}
 
+	// Extract knowledge files if present
+	var knowledgeFiles []string
+	if files, ok := w.choices["knowledge_files"].([]string); ok {
+		knowledgeFiles = files
+	}
+
 	// Step 1: Conditional uncommitted changes check
 	currentBranch, err := w.ctx.Git().CurrentBranch()
 	if err != nil {
@@ -811,14 +888,14 @@ func (w *Wizard) finalizeCreation() error {
 		return fmt.Errorf("failed to create worktree: %w", err)
 	}
 
-	// Step 3: Initialize project in worktree WITH issue metadata
+	// Step 3: Initialize project in worktree WITH issue metadata and knowledge files
 	worktreeCtx, err := sow.NewContext(worktreePath)
 	if err != nil {
 		return fmt.Errorf("failed to create worktree context: %w", err)
 	}
 
-	// Pass issue to initializeProject (will be nil for branch name path)
-	project, err := initializeProject(worktreeCtx, branch, name, issue)
+	// Pass issue and knowledge files to initializeProject (both will be nil/empty for basic branch path)
+	project, err := initializeProject(worktreeCtx, branch, name, issue, knowledgeFiles)
 	if err != nil {
 		return fmt.Errorf("failed to initialize project: %w", err)
 	}

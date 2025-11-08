@@ -2631,3 +2631,280 @@ func TestErrorGitHubNotAuthenticated(t *testing.T) {
 		}
 	}
 }
+
+// TestDiscoverKnowledgeFiles tests the discoverKnowledgeFiles function.
+// discoverKnowledgeFilesTestCases defines test cases for TestDiscoverKnowledgeFiles.
+var discoverKnowledgeFilesTestCases = []struct {
+		name     string
+		setup    func(t *testing.T) string // Returns knowledge dir path
+		expected []string
+		wantErr  bool
+	}{
+		{
+			name: "discovers markdown files in flat directory",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				knowledgeDir := filepath.Join(dir, ".sow", "knowledge")
+				if err := os.MkdirAll(knowledgeDir, 0755); err != nil {
+					t.Fatalf("failed to create knowledge dir: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(knowledgeDir, "README.md"), []byte("# Readme"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(knowledgeDir, "overview.md"), []byte("# Overview"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				return knowledgeDir
+			},
+			expected: []string{"README.md", "overview.md"},
+			wantErr:  false,
+		},
+		{
+			name: "discovers files in nested directories",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				knowledgeDir := filepath.Join(dir, ".sow", "knowledge")
+				if err := os.MkdirAll(filepath.Join(knowledgeDir, "designs"), 0755); err != nil {
+					t.Fatalf("failed to create designs dir: %v", err)
+				}
+				if err := os.MkdirAll(filepath.Join(knowledgeDir, "adrs"), 0755); err != nil {
+					t.Fatalf("failed to create adrs dir: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(knowledgeDir, "README.md"), []byte("# Readme"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(knowledgeDir, "designs", "api.md"), []byte("# API"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(knowledgeDir, "adrs", "001-decision.md"), []byte("# Decision"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				return knowledgeDir
+			},
+			expected: []string{"README.md", "adrs/001-decision.md", "designs/api.md"},
+			wantErr:  false,
+		},
+		{
+			name: "handles non-existent directory",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				knowledgeDir := filepath.Join(dir, ".sow", "knowledge")
+				// Don't create the directory
+				return knowledgeDir
+			},
+			expected: []string{},
+			wantErr:  false,
+		},
+		{
+			name: "handles empty directory",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				knowledgeDir := filepath.Join(dir, ".sow", "knowledge")
+				if err := os.MkdirAll(knowledgeDir, 0755); err != nil {
+					t.Fatalf("failed to create knowledge dir: %v", err)
+				}
+				// Don't create any files
+				return knowledgeDir
+			},
+			expected: []string{},
+			wantErr:  false,
+		},
+		{
+			name: "sorts results alphabetically",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				knowledgeDir := filepath.Join(dir, ".sow", "knowledge")
+				if err := os.MkdirAll(knowledgeDir, 0755); err != nil {
+					t.Fatalf("failed to create knowledge dir: %v", err)
+				}
+				// Create files in non-alphabetical order
+				if err := os.WriteFile(filepath.Join(knowledgeDir, "zebra.md"), []byte("z"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(knowledgeDir, "alpha.md"), []byte("a"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(knowledgeDir, "beta.md"), []byte("b"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				return knowledgeDir
+			},
+			expected: []string{"alpha.md", "beta.md", "zebra.md"},
+			wantErr:  false,
+		},
+		{
+			name: "returns relative paths from knowledge directory",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				knowledgeDir := filepath.Join(dir, ".sow", "knowledge")
+				if err := os.MkdirAll(filepath.Join(knowledgeDir, "deep", "nested", "path"), 0755); err != nil {
+					t.Fatalf("failed to create nested dir: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(knowledgeDir, "deep", "nested", "path", "file.md"), []byte("# File"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				return knowledgeDir
+			},
+			expected: []string{"deep/nested/path/file.md"},
+			wantErr:  false,
+		},
+		{
+			name: "discovers various file types",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				knowledgeDir := filepath.Join(dir, ".sow", "knowledge")
+				if err := os.MkdirAll(knowledgeDir, 0755); err != nil {
+					t.Fatalf("failed to create knowledge dir: %v", err)
+				}
+				// Create files with different extensions
+				if err := os.WriteFile(filepath.Join(knowledgeDir, "doc.md"), []byte("md"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(knowledgeDir, "data.json"), []byte("{}"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(knowledgeDir, "notes.txt"), []byte("notes"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				return knowledgeDir
+			},
+			expected: []string{"data.json", "doc.md", "notes.txt"},
+			wantErr:  false,
+		},
+		{
+			name: "excludes directories from results",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				knowledgeDir := filepath.Join(dir, ".sow", "knowledge")
+				if err := os.MkdirAll(filepath.Join(knowledgeDir, "subdir"), 0755); err != nil {
+					t.Fatalf("failed to create subdir: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(knowledgeDir, "file.md"), []byte("file"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				return knowledgeDir
+			},
+			expected: []string{"file.md"},
+			wantErr:  false,
+		},
+		{
+			name: "handles deeply nested files",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				knowledgeDir := filepath.Join(dir, ".sow", "knowledge")
+				deepPath := filepath.Join(knowledgeDir, "a", "b", "c", "d", "e")
+				if err := os.MkdirAll(deepPath, 0755); err != nil {
+					t.Fatalf("failed to create deep path: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(deepPath, "deep.md"), []byte("deep"), 0644); err != nil {
+					t.Fatalf("failed to create file: %v", err)
+				}
+				return knowledgeDir
+			},
+			expected: []string{"a/b/c/d/e/deep.md"},
+			wantErr:  false,
+		},
+	}
+
+func TestDiscoverKnowledgeFiles(t *testing.T) {
+	for _, tt := range discoverKnowledgeFilesTestCases {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := tt.setup(t)
+			got, err := discoverKnowledgeFiles(dir)
+
+			if tt.wantErr && err == nil {
+				t.Error("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+
+			if len(got) != len(tt.expected) {
+				t.Errorf("got %d files, want %d\nGot: %v\nWant: %v", len(got), len(tt.expected), got, tt.expected)
+				return
+			}
+
+			for i := range got {
+				if got[i] != tt.expected[i] {
+					t.Errorf("file[%d] = %q; want %q", i, got[i], tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+// TestValidateStateTransition_FileSelectTransitions tests state transitions involving StateFileSelect.
+func TestValidateStateTransition_FileSelectTransitions(t *testing.T) {
+	tests := []struct {
+		name    string
+		from    WizardState
+		to      WizardState
+		wantErr bool
+	}{
+		// Valid transitions to StateFileSelect
+		{
+			name:    "StateNameEntry to StateFileSelect is valid",
+			from:    StateNameEntry,
+			to:      StateFileSelect,
+			wantErr: false,
+		},
+		{
+			name:    "StateTypeSelect to StateFileSelect is valid (GitHub issue flow)",
+			from:    StateTypeSelect,
+			to:      StateFileSelect,
+			wantErr: false,
+		},
+		// Valid transitions from StateFileSelect
+		{
+			name:    "StateFileSelect to StatePromptEntry is valid",
+			from:    StateFileSelect,
+			to:      StatePromptEntry,
+			wantErr: false,
+		},
+		{
+			name:    "StateFileSelect to StateCancelled is valid",
+			from:    StateFileSelect,
+			to:      StateCancelled,
+			wantErr: false,
+		},
+		// Invalid transitions
+		{
+			name:    "StateFileSelect to StateComplete is invalid",
+			from:    StateFileSelect,
+			to:      StateComplete,
+			wantErr: true,
+		},
+		{
+			name:    "StateFileSelect to StateEntry is invalid",
+			from:    StateFileSelect,
+			to:      StateEntry,
+			wantErr: true,
+		},
+		{
+			name:    "StatePromptEntry to StateFileSelect is invalid (backwards)",
+			from:    StatePromptEntry,
+			to:      StateFileSelect,
+			wantErr: true,
+		},
+		// Verify StateNameEntry no longer goes directly to StatePromptEntry
+		{
+			name:    "StateNameEntry to StatePromptEntry is invalid (should go through FileSelect)",
+			from:    StateNameEntry,
+			to:      StatePromptEntry,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateStateTransition(tt.from, tt.to)
+
+			if tt.wantErr && err == nil {
+				t.Errorf("validateStateTransition(%s, %s) expected error, got nil", tt.from, tt.to)
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("validateStateTransition(%s, %s) unexpected error: %v", tt.from, tt.to, err)
+			}
+		})
+	}
+}

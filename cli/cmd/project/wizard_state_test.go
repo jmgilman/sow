@@ -416,7 +416,7 @@ func TestFinalize_GeneratesPrompt(t *testing.T) {
 	// by calling generateNewProjectPrompt directly
 
 	// First create a project
-	proj, err := initializeProject(ctx, "feat/test", "Test Project", nil)
+	proj, err := initializeProject(ctx, "feat/test", "Test Project", nil, nil)
 	if err != nil {
 		t.Fatalf("failed to initialize project: %v", err)
 	}
@@ -665,7 +665,7 @@ func TestHandleProjectSelect_SingleProject(t *testing.T) {
 		t.Fatalf("failed to create worktree context: %v", err)
 	}
 
-	_, err = initializeProject(worktreeCtx, branchName, "test-project", nil)
+	_, err = initializeProject(worktreeCtx, branchName, "test-project", nil, nil)
 	if err != nil {
 		t.Fatalf("failed to initialize project: %v", err)
 	}
@@ -743,7 +743,7 @@ func TestHandleProjectSelect_MultipleProjects(t *testing.T) {
 			t.Fatalf("failed to create worktree context for %s: %v", p.branch, err)
 		}
 
-		_, err = initializeProject(worktreeCtx, p.branch, p.name, nil)
+		_, err = initializeProject(worktreeCtx, p.branch, p.name, nil, nil)
 		if err != nil {
 			t.Fatalf("failed to initialize project for %s: %v", p.branch, err)
 		}
@@ -809,7 +809,7 @@ func TestHandleProjectSelect_CancelOption(t *testing.T) {
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
 	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
-	_, _ = initializeProject(worktreeCtx, branchName, "test", nil)
+	_, _ = initializeProject(worktreeCtx, branchName, "test", nil, nil)
 
 	w := NewWizard(nil, ctx, []string{})
 	w.state = StateProjectSelect
@@ -842,7 +842,7 @@ func TestHandleProjectSelect_ProjectDeletedAfterDiscovery(t *testing.T) {
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
 	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
-	_, _ = initializeProject(worktreeCtx, branchName, "test-delete", nil)
+	_, _ = initializeProject(worktreeCtx, branchName, "test-delete", nil, nil)
 
 	// Discover projects
 	projects, err := listProjects(ctx)
@@ -1163,7 +1163,7 @@ func TestHandleContinuePrompt_IntegrationFlow(t *testing.T) {
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
 	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
-	_, _ = initializeProject(worktreeCtx, branchName, "integration-test", nil)
+	_, _ = initializeProject(worktreeCtx, branchName, "integration-test", nil, nil)
 
 	// Start wizard in project selection
 	w := NewWizard(nil, ctx, []string{})
@@ -1231,7 +1231,7 @@ func TestFinalize_RoutesToContinuation(t *testing.T) {
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
 	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
-	_, _ = initializeProject(worktreeCtx, branchName, "existing-project", nil)
+	_, _ = initializeProject(worktreeCtx, branchName, "existing-project", nil, nil)
 
 	// Discover project
 	projects, _ := listProjects(ctx)
@@ -1285,7 +1285,7 @@ func TestFinalizeContinuation_ValidChoices(t *testing.T) {
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
 	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
-	_, _ = initializeProject(worktreeCtx, branchName, "test-continuation", nil)
+	_, _ = initializeProject(worktreeCtx, branchName, "test-continuation", nil, nil)
 
 	// Discover project
 	projects, _ := listProjects(ctx)
@@ -1339,7 +1339,7 @@ func TestFinalizeContinuation_EmptyUserPrompt(t *testing.T) {
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
 	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
-	_, _ = initializeProject(worktreeCtx, branchName, "empty-prompt-test", nil)
+	_, _ = initializeProject(worktreeCtx, branchName, "empty-prompt-test", nil, nil)
 
 	// Discover project
 	projects, _ := listProjects(ctx)
@@ -1394,7 +1394,7 @@ func TestFinalizeContinuation_NonEmptyUserPrompt(t *testing.T) {
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
 	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
-	_, _ = initializeProject(worktreeCtx, branchName, "user-prompt-test", nil)
+	_, _ = initializeProject(worktreeCtx, branchName, "user-prompt-test", nil, nil)
 
 	// Discover project
 	projects, _ := listProjects(ctx)
@@ -1505,7 +1505,7 @@ func TestFinalizeContinuation_MissingPromptChoice(t *testing.T) {
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
 	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
-	_, _ = initializeProject(worktreeCtx, branchName, "missing-prompt", nil)
+	_, _ = initializeProject(worktreeCtx, branchName, "missing-prompt", nil, nil)
 
 	// Discover project
 	projects, _ := listProjects(ctx)
@@ -1543,7 +1543,7 @@ func TestFinalizeContinuation_WorktreeDeleted(t *testing.T) {
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
 	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
-	_, _ = initializeProject(worktreeCtx, branchName, "worktree-deleted", nil)
+	_, _ = initializeProject(worktreeCtx, branchName, "worktree-deleted", nil, nil)
 
 	// Discover project
 	projects, _ := listProjects(ctx)
@@ -1587,7 +1587,7 @@ func TestFinalizeContinuation_NoUncommittedCheck(t *testing.T) {
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
 	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
-	_, _ = initializeProject(worktreeCtx, branchName, "uncommitted-test", nil)
+	_, _ = initializeProject(worktreeCtx, branchName, "uncommitted-test", nil, nil)
 
 	// Create uncommitted changes in MAIN repo (not worktree)
 	mainTestFile := tmpDir + "/uncommitted.txt"

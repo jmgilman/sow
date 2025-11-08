@@ -75,7 +75,7 @@ func TestInitializeProject_CreatesDirectories(t *testing.T) {
 	ctx, tmpDir := setupTestContext(t)
 
 	// Call initializeProject
-	_, err := initializeProject(ctx, "feat/test", "Test project", nil)
+	_, err := initializeProject(ctx, "feat/test", "Test project", nil, nil)
 	if err != nil {
 		t.Fatalf("initializeProject failed: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestInitializeProject_WithIssue_WritesIssueFile(t *testing.T) {
 	}
 
 	// Call initializeProject with issue
-	_, err := initializeProject(ctx, "feat/test-issue", "Test with issue", issue)
+	_, err := initializeProject(ctx, "feat/test-issue", "Test with issue", issue, nil)
 	if err != nil {
 		t.Fatalf("initializeProject failed: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestInitializeProject_WithIssue_CreatesArtifact(t *testing.T) {
 	}
 
 	// Call initializeProject with issue
-	proj, err := initializeProject(ctx, "feat/test-artifact", "Test artifact", issue)
+	proj, err := initializeProject(ctx, "feat/test-artifact", "Test artifact", issue, nil)
 	if err != nil {
 		t.Fatalf("initializeProject failed: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestInitializeProject_WithoutIssue_NoArtifacts(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 
 	// Call initializeProject without issue
-	_, err := initializeProject(ctx, "feat/no-issue", "Test without issue", nil)
+	_, err := initializeProject(ctx, "feat/no-issue", "Test without issue", nil, nil)
 	if err != nil {
 		t.Fatalf("initializeProject failed: %v", err)
 	}
@@ -243,7 +243,7 @@ func TestGenerateNewProjectPrompt_Has3Layers(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 
 	// Create a project
-	proj, err := initializeProject(ctx, "feat/test", "Test project", nil)
+	proj, err := initializeProject(ctx, "feat/test", "Test project", nil, nil)
 	if err != nil {
 		t.Fatalf("failed to initialize project: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestGenerateNewProjectPrompt_WithUserPrompt(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 
 	// Create a project
-	proj, err := initializeProject(ctx, "feat/test", "Test project", nil)
+	proj, err := initializeProject(ctx, "feat/test", "Test project", nil, nil)
 	if err != nil {
 		t.Fatalf("failed to initialize project: %v", err)
 	}
@@ -302,7 +302,7 @@ func TestGenerateNewProjectPrompt_WithoutUserPrompt(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 
 	// Create a project
-	proj, err := initializeProject(ctx, "feat/test", "Test project", nil)
+	proj, err := initializeProject(ctx, "feat/test", "Test project", nil, nil)
 	if err != nil {
 		t.Fatalf("failed to initialize project: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestGenerateContinuePrompt_Has3Layers(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 
 	// Create a project
-	proj, err := initializeProject(ctx, "feat/test", "Test project", nil)
+	proj, err := initializeProject(ctx, "feat/test", "Test project", nil, nil)
 	if err != nil {
 		t.Fatalf("failed to initialize project: %v", err)
 	}
@@ -362,7 +362,7 @@ func TestGenerateContinuePrompt_UsesCurrentState(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 
 	// Create a project
-	proj, err := initializeProject(ctx, "feat/test", "Test project", nil)
+	proj, err := initializeProject(ctx, "feat/test", "Test project", nil, nil)
 	if err != nil {
 		t.Fatalf("failed to initialize project: %v", err)
 	}
@@ -383,5 +383,268 @@ func TestGenerateContinuePrompt_UsesCurrentState(t *testing.T) {
 	// Verify it doesn't contain "User's Initial Request" (that's only for new prompts)
 	if strings.Contains(prompt, "User's Initial Request") {
 		t.Error("continue prompt should not contain user initial request section")
+	}
+}
+
+// Test initializeProject with knowledge files
+
+func TestInitializeProject_WithEmptyKnowledgeFiles(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+
+	// Call initializeProject with empty knowledge files slice
+	_, err := initializeProject(ctx, "feat/test", "Test project", nil, []string{})
+	if err != nil {
+		t.Fatalf("initializeProject failed: %v", err)
+	}
+
+	// Load the project state
+	loadedProj, err := state.Load(ctx)
+	if err != nil {
+		t.Fatalf("failed to load project: %v", err)
+	}
+
+	// Get implementation phase
+	implPhase, exists := loadedProj.Phases["implementation"]
+	if !exists {
+		t.Fatal("implementation phase not found")
+	}
+
+	// Verify no artifacts were created (empty slice is valid)
+	if len(implPhase.Inputs) != 0 {
+		t.Errorf("expected no inputs in implementation phase with empty knowledge files, got %d", len(implPhase.Inputs))
+	}
+}
+
+func TestInitializeProject_WithSingleKnowledgeFile(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+
+	knowledgeFiles := []string{"designs/api.md"}
+
+	// Call initializeProject with single knowledge file
+	_, err := initializeProject(ctx, "feat/test", "Test project", nil, knowledgeFiles)
+	if err != nil {
+		t.Fatalf("initializeProject failed: %v", err)
+	}
+
+	// Load the project state
+	loadedProj, err := state.Load(ctx)
+	if err != nil {
+		t.Fatalf("failed to load project: %v", err)
+	}
+
+	// Get implementation phase
+	implPhase, exists := loadedProj.Phases["implementation"]
+	if !exists {
+		t.Fatal("implementation phase not found")
+	}
+
+	// Verify artifact was created
+	if len(implPhase.Inputs) != 1 {
+		t.Fatalf("expected 1 input in implementation phase, got %d", len(implPhase.Inputs))
+	}
+
+	// Verify artifact structure
+	artifact := implPhase.Inputs[0]
+	if artifact.Type != "reference" {
+		t.Errorf("artifact type incorrect: got %q, want %q", artifact.Type, "reference")
+	}
+
+	expectedPath := "../../knowledge/designs/api.md"
+	if artifact.Path != expectedPath {
+		t.Errorf("artifact path incorrect: got %q, want %q", artifact.Path, expectedPath)
+	}
+
+	if !artifact.Approved {
+		t.Error("artifact should be auto-approved")
+	}
+
+	// Verify metadata
+	if source, ok := artifact.Metadata["source"].(string); !ok || source != "user_selected" {
+		t.Errorf("artifact metadata source incorrect: got %v", artifact.Metadata["source"])
+	}
+
+	if desc, ok := artifact.Metadata["description"].(string); !ok || desc != "Knowledge file selected during project creation" {
+		t.Errorf("artifact metadata description incorrect: got %v", artifact.Metadata["description"])
+	}
+}
+
+func TestInitializeProject_WithMultipleKnowledgeFiles(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+
+	knowledgeFiles := []string{
+		"designs/api.md",
+		"adrs/001-architecture.md",
+		"guides/testing.md",
+	}
+
+	// Call initializeProject with multiple knowledge files
+	_, err := initializeProject(ctx, "feat/test", "Test project", nil, knowledgeFiles)
+	if err != nil {
+		t.Fatalf("initializeProject failed: %v", err)
+	}
+
+	// Load the project state
+	loadedProj, err := state.Load(ctx)
+	if err != nil {
+		t.Fatalf("failed to load project: %v", err)
+	}
+
+	// Get implementation phase
+	implPhase, exists := loadedProj.Phases["implementation"]
+	if !exists {
+		t.Fatal("implementation phase not found")
+	}
+
+	// Verify all artifacts were created
+	if len(implPhase.Inputs) != 3 {
+		t.Fatalf("expected 3 inputs in implementation phase, got %d", len(implPhase.Inputs))
+	}
+
+	// Verify each artifact
+	expectedPaths := map[string]bool{
+		"../../knowledge/designs/api.md":           false,
+		"../../knowledge/adrs/001-architecture.md": false,
+		"../../knowledge/guides/testing.md":        false,
+	}
+
+	for _, artifact := range implPhase.Inputs {
+		// All should be reference type
+		if artifact.Type != "reference" {
+			t.Errorf("artifact type incorrect: got %q, want %q", artifact.Type, "reference")
+		}
+
+		// All should be approved
+		if !artifact.Approved {
+			t.Error("artifact should be auto-approved")
+		}
+
+		// Mark path as found
+		if _, exists := expectedPaths[artifact.Path]; exists {
+			expectedPaths[artifact.Path] = true
+		} else {
+			t.Errorf("unexpected artifact path: %q", artifact.Path)
+		}
+
+		// Verify metadata
+		if source, ok := artifact.Metadata["source"].(string); !ok || source != "user_selected" {
+			t.Errorf("artifact metadata source incorrect: got %v", artifact.Metadata["source"])
+		}
+	}
+
+	// Verify all expected paths were found
+	for path, found := range expectedPaths {
+		if !found {
+			t.Errorf("expected artifact path not found: %q", path)
+		}
+	}
+}
+
+func TestInitializeProject_WithIssueAndKnowledgeFiles(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+
+	// Create test issue
+	issue := &sow.Issue{
+		Number: 789,
+		Title:  "Test Issue with Knowledge",
+		Body:   "Test body",
+		State:  "OPEN",
+		URL:    "https://github.com/test/repo/issues/789",
+	}
+
+	knowledgeFiles := []string{"designs/api.md"}
+
+	// Call initializeProject with both issue and knowledge files
+	_, err := initializeProject(ctx, "feat/test", "Test project", issue, knowledgeFiles)
+	if err != nil {
+		t.Fatalf("initializeProject failed: %v", err)
+	}
+
+	// Load the project state
+	loadedProj, err := state.Load(ctx)
+	if err != nil {
+		t.Fatalf("failed to load project: %v", err)
+	}
+
+	// Get implementation phase
+	implPhase, exists := loadedProj.Phases["implementation"]
+	if !exists {
+		t.Fatal("implementation phase not found")
+	}
+
+	// Verify both issue and knowledge artifacts exist
+	if len(implPhase.Inputs) != 2 {
+		t.Fatalf("expected 2 inputs (1 issue + 1 knowledge), got %d", len(implPhase.Inputs))
+	}
+
+	// Find artifacts by type
+	var hasIssue, hasKnowledge bool
+	for _, artifact := range implPhase.Inputs {
+		if artifact.Type == "github_issue" {
+			hasIssue = true
+			// Verify issue artifact
+			if !strings.HasPrefix(artifact.Path, "context/issue-") {
+				t.Errorf("issue artifact path incorrect: %q", artifact.Path)
+			}
+		}
+		if artifact.Type == "reference" {
+			hasKnowledge = true
+			// Verify knowledge artifact
+			if artifact.Path != "../../knowledge/designs/api.md" {
+				t.Errorf("knowledge artifact path incorrect: %q", artifact.Path)
+			}
+		}
+	}
+
+	if !hasIssue {
+		t.Error("should have issue artifact")
+	}
+	if !hasKnowledge {
+		t.Error("should have knowledge artifact")
+	}
+}
+
+func TestInitializeProject_NilKnowledgeFiles(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+
+	// Call initializeProject with nil knowledge files (should behave like empty slice)
+	_, err := initializeProject(ctx, "feat/test", "Test project", nil, nil)
+	if err != nil {
+		t.Fatalf("initializeProject failed: %v", err)
+	}
+
+	// Load the project state
+	loadedProj, err := state.Load(ctx)
+	if err != nil {
+		t.Fatalf("failed to load project: %v", err)
+	}
+
+	// Get implementation phase
+	implPhase, exists := loadedProj.Phases["implementation"]
+	if !exists {
+		t.Fatal("implementation phase not found")
+	}
+
+	// Verify no artifacts were created
+	if len(implPhase.Inputs) != 0 {
+		t.Errorf("expected no inputs in implementation phase with nil knowledge files, got %d", len(implPhase.Inputs))
+	}
+}
+
+// Test determineKnowledgeInputPhase helper
+
+func TestDetermineKnowledgeInputPhase_ReturnsImplementation(t *testing.T) {
+	// Test with standard project type
+	phase := determineKnowledgeInputPhase("standard")
+	if phase != "implementation" {
+		t.Errorf("expected phase %q, got %q", "implementation", phase)
+	}
+
+	// Test with other project types (all should return implementation for now)
+	projectTypes := []string{"design", "exploration", "breakdown"}
+	for _, pt := range projectTypes {
+		phase := determineKnowledgeInputPhase(pt)
+		if phase != "implementation" {
+			t.Errorf("for project type %q, expected phase %q, got %q", pt, "implementation", phase)
+		}
 	}
 }

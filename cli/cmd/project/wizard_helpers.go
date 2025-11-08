@@ -666,8 +666,9 @@ func validateStateTransition(from, to WizardState) error {
 		StateEntry:          {StateCreateSource, StateProjectSelect, StateCancelled},
 		StateCreateSource:   {StateIssueSelect, StateTypeSelect, StateCancelled},
 		StateIssueSelect:    {StateTypeSelect, StateCreateSource, StateCancelled},
-		StateTypeSelect:     {StateNameEntry, StatePromptEntry, StateCancelled},
-		StateNameEntry:      {StatePromptEntry, StateTypeSelect, StateCancelled},
+		StateTypeSelect:     {StateFileSelect, StateCancelled},
+		StateNameEntry:      {StateFileSelect, StateCancelled},
+		StateFileSelect:     {StatePromptEntry, StateCancelled},
 		StatePromptEntry:    {StateComplete, StateCancelled},
 		StateProjectSelect:  {StateContinuePrompt, StateCancelled},
 		StateContinuePrompt: {StateComplete, StateCancelled},
@@ -1022,4 +1023,67 @@ func ensureGitHubAvailable(github GitHubClient) error {
 		_ = showError(err.Error())
 	}
 	return err
+}
+
+// discoverKnowledgeFiles walks the knowledge directory tree and returns all file paths.
+// Files are returned as relative paths from the knowledge directory (e.g., "designs/api.md").
+// Results are sorted alphabetically for consistent presentation.
+//
+// Edge cases:
+//   - If directory doesn't exist: returns empty slice, NOT an error (graceful degradation)
+//   - If directory is empty: returns empty slice
+//   - If permission errors occur: returns error
+//   - Directories are skipped, only files are returned
+//
+// Example:
+//
+//	knowledgeDir := filepath.Join(ctx.MainRepoRoot(), ".sow", "knowledge")
+//	files, err := discoverKnowledgeFiles(knowledgeDir)
+//	if err != nil {
+//	    return fmt.Errorf("failed to discover files: %w", err)
+//	}
+//	// files = ["README.md", "designs/api.md", "adrs/001-decision.md"]
+func discoverKnowledgeFiles(knowledgeDir string) ([]string, error) {
+	// Check if directory exists
+	if _, err := os.Stat(knowledgeDir); err != nil {
+		if os.IsNotExist(err) {
+			// Directory doesn't exist - not an error, just return empty slice
+			return []string{}, nil
+		}
+		// Other stat errors (permission denied, etc.) should be returned
+		return nil, fmt.Errorf("failed to stat knowledge directory: %w", err)
+	}
+
+	var files []string
+
+	// Walk the directory tree
+	err := filepath.Walk(knowledgeDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			// Error accessing path - propagate it
+			return err
+		}
+
+		// Skip directories - we only want files
+		if info.IsDir() {
+			return nil
+		}
+
+		// Get relative path from knowledge directory
+		relPath, err := filepath.Rel(knowledgeDir, path)
+		if err != nil {
+			return fmt.Errorf("failed to get relative path: %w", err)
+		}
+
+		files = append(files, relPath)
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk knowledge directory: %w", err)
+	}
+
+	// Sort alphabetically for consistent ordering
+	sort.Strings(files)
+
+	return files, nil
 }
