@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TestHandleCreateSource_StateTransitions tests state transitions directly
+// TestHandleCreateSource_StateTransitions tests state transitions directly.
 // by manually setting values and checking the results.
 func TestHandleCreateSource_StateTransitions(t *testing.T) {
 	testCases := []struct {
@@ -83,7 +83,7 @@ func TestHandleCreateSource_ErrorHandling(t *testing.T) {
 	})
 }
 
-// TestHandleTypeSelect_StateTransitions tests state transitions for type selection
+// TestHandleTypeSelect_StateTransitions tests state transitions for type selection.
 // by manually setting values and checking the results.
 func TestHandleTypeSelect_StateTransitions(t *testing.T) {
 	testCases := []struct {
@@ -168,7 +168,7 @@ func TestHandleTypeSelect_ErrorHandling(t *testing.T) {
 	})
 }
 
-// TestHandlePromptEntry_StateTransitions tests state transitions for prompt entry
+// TestHandlePromptEntry_StateTransitions tests state transitions for prompt entry.
 // by manually setting values and checking the results.
 func TestHandlePromptEntry_StateTransitions(t *testing.T) {
 	testCases := []struct {
@@ -437,7 +437,7 @@ func TestFinalize_WithEmptyPrompt(t *testing.T) {
 	}
 }
 
-// TestFinalize_UncommittedChangesError tests that finalize returns error when uncommitted changes exist
+// TestFinalize_UncommittedChangesError tests that finalize returns error when uncommitted changes exist.
 // and current branch == target branch.
 func TestFinalize_UncommittedChangesError(t *testing.T) {
 	ctx, tmpDir := setupTestContext(t)
@@ -488,7 +488,7 @@ func TestFinalize_UncommittedChangesError(t *testing.T) {
 	}
 }
 
-// TestFinalize_SkipsUncommittedCheckWhenDifferentBranch tests that finalize skips the uncommitted
+// TestFinalize_SkipsUncommittedCheckWhenDifferentBranch tests that finalize skips the uncommitted.
 // changes check when current branch != target branch.
 func TestFinalize_SkipsUncommittedCheckWhenDifferentBranch(t *testing.T) {
 	ctx, tmpDir := setupTestContext(t)
@@ -546,7 +546,7 @@ func TestFinalize_SkipsUncommittedCheckWhenDifferentBranch(t *testing.T) {
 
 // Test GitHub Integration
 
-// mockGitHub is a test double for GitHub operations
+// mockGitHub is a test double for GitHub operations.
 type mockGitHub struct {
 	ensureErr                error
 	listIssuesResult         []sow.Issue
@@ -563,21 +563,21 @@ func (m *mockGitHub) Ensure() error {
 	return m.ensureErr
 }
 
-func (m *mockGitHub) ListIssues(label, state string) ([]sow.Issue, error) {
+func (m *mockGitHub) ListIssues(_, _ string) ([]sow.Issue, error) {
 	if m.listIssuesErr != nil {
 		return nil, m.listIssuesErr
 	}
 	return m.listIssuesResult, nil
 }
 
-func (m *mockGitHub) GetLinkedBranches(number int) ([]sow.LinkedBranch, error) {
+func (m *mockGitHub) GetLinkedBranches(_ int) ([]sow.LinkedBranch, error) {
 	if m.getLinkedBranchesErr != nil {
 		return nil, m.getLinkedBranchesErr
 	}
 	return m.getLinkedBranchesResult, nil
 }
 
-func (m *mockGitHub) CreateLinkedBranch(issueNumber int, branchName string, checkout bool) (string, error) {
+func (m *mockGitHub) CreateLinkedBranch(_ int, branchName string, checkout bool) (string, error) {
 	if m.createLinkedBranchErr != nil {
 		return "", m.createLinkedBranchErr
 	}
@@ -588,14 +588,14 @@ func (m *mockGitHub) CreateLinkedBranch(issueNumber int, branchName string, chec
 	return m.createLinkedBranchResult, nil
 }
 
-func (m *mockGitHub) GetIssue(number int) (*sow.Issue, error) {
+func (m *mockGitHub) GetIssue(_ int) (*sow.Issue, error) {
 	if m.getIssueErr != nil {
 		return nil, m.getIssueErr
 	}
 	return m.getIssueResult, nil
 }
 
-// TestNewWizard_InitializesGitHubClient tests that the GitHub client is initialized
+// TestNewWizard_InitializesGitHubClient tests that the GitHub client is initialized.
 func TestNewWizard_InitializesGitHubClient(t *testing.T) {
 	cmd := &cobra.Command{}
 	ctx, _ := setupTestContext(t)
@@ -607,7 +607,7 @@ func TestNewWizard_InitializesGitHubClient(t *testing.T) {
 	}
 }
 
-// TestHandleIssueSelect_GitHubNotInstalled tests handling when gh CLI is not installed
+// TestHandleIssueSelect_GitHubNotInstalled tests handling when gh CLI is not installed.
 func TestHandleIssueSelect_GitHubNotInstalled(t *testing.T) {
 	// Create wizard with mock GitHub client that returns ErrGHNotInstalled
 	ctx, _ := setupTestContext(t)
@@ -631,7 +631,7 @@ func TestHandleIssueSelect_GitHubNotInstalled(t *testing.T) {
 	}
 }
 
-// TestHandleIssueSelect_GitHubNotAuthenticated tests handling when gh CLI is not authenticated
+// TestHandleIssueSelect_GitHubNotAuthenticated tests handling when gh CLI is not authenticated.
 func TestHandleIssueSelect_GitHubNotAuthenticated(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 	wizard := &Wizard{
@@ -652,7 +652,7 @@ func TestHandleIssueSelect_GitHubNotAuthenticated(t *testing.T) {
 	}
 }
 
-// TestHandleIssueSelect_ValidationSuccess tests successful GitHub CLI validation
+// TestHandleIssueSelect_ValidationSuccess tests successful GitHub CLI validation.
 func TestHandleIssueSelect_ValidationSuccess(t *testing.T) {
 	// This test now uses Task 020 implementation
 	mockIssues := []sow.Issue{
@@ -686,7 +686,7 @@ func TestHandleIssueSelect_ValidationSuccess(t *testing.T) {
 
 // Task 020 Tests: Issue Listing Screen with Spinner
 
-// TestHandleIssueSelect_SuccessfulFetch tests that issues are fetched and stored
+// TestHandleIssueSelect_SuccessfulFetch tests that issues are fetched and stored.
 func TestHandleIssueSelect_SuccessfulFetch(t *testing.T) {
 	mockIssues := []sow.Issue{
 		{Number: 123, Title: "Add JWT authentication", State: "open"},
@@ -722,7 +722,7 @@ func TestHandleIssueSelect_SuccessfulFetch(t *testing.T) {
 	}
 }
 
-// TestHandleIssueSelect_EmptyList tests handling when no issues are found
+// TestHandleIssueSelect_EmptyList tests handling when no issues are found.
 func TestHandleIssueSelect_EmptyList(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 	wizard := &Wizard{
@@ -743,7 +743,7 @@ func TestHandleIssueSelect_EmptyList(t *testing.T) {
 	}
 }
 
-// TestHandleIssueSelect_FetchError tests handling when fetching fails
+// TestHandleIssueSelect_FetchError tests handling when fetching fails.
 func TestHandleIssueSelect_FetchError(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 	wizard := &Wizard{
@@ -766,7 +766,7 @@ func TestHandleIssueSelect_FetchError(t *testing.T) {
 	}
 }
 
-// TestIssueWorkflow_ValidationToSelection tests the complete flow from validation through selection
+// TestIssueWorkflow_ValidationToSelection tests the complete flow from validation through selection.
 func TestIssueWorkflow_ValidationToSelection(t *testing.T) {
 	mockIssues := []sow.Issue{
 		{Number: 123, Title: "Test Issue", State: "open", URL: "https://github.com/test/repo/issues/123"},
@@ -796,7 +796,7 @@ func TestIssueWorkflow_ValidationToSelection(t *testing.T) {
 
 // Task 030 Tests: Issue Validation and Branch Creation
 
-// TestShowIssueSelectScreen_IssueAlreadyLinked tests that an error is shown when issue has a linked branch
+// TestShowIssueSelectScreen_IssueAlreadyLinked tests that an error is shown when issue has a linked branch.
 func TestShowIssueSelectScreen_IssueAlreadyLinked(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 	wizard := &Wizard{
@@ -826,7 +826,7 @@ func TestShowIssueSelectScreen_IssueAlreadyLinked(t *testing.T) {
 	_ = err
 }
 
-// TestShowIssueSelectScreen_NoLinkedBranch tests successful validation when no linked branch exists
+// TestShowIssueSelectScreen_NoLinkedBranch tests successful validation when no linked branch exists.
 // After Task 070: Should default type to "standard" and skip type selection
 func TestShowIssueSelectScreen_NoLinkedBranch(t *testing.T) {
 	ctx, tmpDir := setupTestContext(t)
@@ -916,7 +916,7 @@ func TestShowIssueSelectScreen_NoLinkedBranch(t *testing.T) {
 	}
 }
 
-// TestCreateLinkedBranch_BranchNameGeneration tests that branch names are generated correctly
+// TestCreateLinkedBranch_BranchNameGeneration tests that branch names are generated correctly.
 func TestCreateLinkedBranch_BranchNameGeneration(t *testing.T) {
 	tests := []struct {
 		issueTitle  string
@@ -971,7 +971,7 @@ func TestCreateLinkedBranch_BranchNameGeneration(t *testing.T) {
 	}
 }
 
-// TestGitHubIssuePath_SkipsTypeSelection tests Task 070: GitHub issues skip type selection entirely
+// TestGitHubIssuePath_SkipsTypeSelection tests Task 070: GitHub issues skip type selection entirely.
 func TestGitHubIssuePath_SkipsTypeSelection(t *testing.T) {
 	ctx, tmpDir := setupTestContext(t)
 
@@ -1052,7 +1052,7 @@ func TestGitHubIssuePath_SkipsTypeSelection(t *testing.T) {
 	}
 }
 
-// TestHandleTypeSelect_RoutingWithIssue tests that type selection routes to branch creation when issue context exists
+// TestHandleTypeSelect_RoutingWithIssue tests that type selection routes to branch creation when issue context exists.
 func TestHandleTypeSelect_RoutingWithIssue(t *testing.T) {
 	// This test verifies the routing logic for issue-based projects
 	// When an issue exists in choices, after type selection we should:
@@ -1089,7 +1089,7 @@ func TestHandleTypeSelect_RoutingWithIssue(t *testing.T) {
 	// Context note should be removed to avoid separate screen
 }
 
-// TestHandleTypeSelect_RoutingWithoutIssue tests that type selection routes to name entry when no issue exists
+// TestHandleTypeSelect_RoutingWithoutIssue tests that type selection routes to name entry when no issue exists.
 func TestHandleTypeSelect_RoutingWithoutIssue(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 	wizard := &Wizard{
@@ -1111,7 +1111,7 @@ func TestHandleTypeSelect_RoutingWithoutIssue(t *testing.T) {
 
 // Task 040 Tests: Prompt Entry Enhancement and Project Finalization with Issue Context
 
-// TestHandlePromptEntry_WithIssueContext tests that issue context is displayed correctly
+// TestHandlePromptEntry_WithIssueContext tests that issue context is displayed correctly.
 func TestHandlePromptEntry_WithIssueContext(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 	wizard := &Wizard{
@@ -1145,7 +1145,7 @@ func TestHandlePromptEntry_WithIssueContext(t *testing.T) {
 	}
 }
 
-// TestHandlePromptEntry_WithBranchNameContext tests that branch name context is computed correctly
+// TestHandlePromptEntry_WithBranchNameContext tests that branch name context is computed correctly.
 func TestHandlePromptEntry_WithBranchNameContext(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 	wizard := &Wizard{
@@ -1170,7 +1170,7 @@ func TestHandlePromptEntry_WithBranchNameContext(t *testing.T) {
 	}
 }
 
-// TestFinalize_WithIssue tests that finalization stores issue metadata correctly
+// TestFinalize_WithIssue tests that finalization stores issue metadata correctly.
 func TestFinalize_WithIssue(t *testing.T) {
 	ctx, tmpDir := setupTestContext(t)
 
@@ -1272,7 +1272,7 @@ func TestFinalize_WithIssue(t *testing.T) {
 	}
 }
 
-// TestFinalize_WithoutIssue tests that finalization works without issue (branch name path)
+// TestFinalize_WithoutIssue tests that finalization works without issue (branch name path).
 func TestFinalize_WithoutIssue(t *testing.T) {
 	ctx, tmpDir := setupTestContext(t)
 

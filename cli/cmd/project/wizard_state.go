@@ -63,21 +63,6 @@ func NewWizard(cmd *cobra.Command, ctx *sow.Context, claudeFlags []string) *Wiza
 	}
 }
 
-// setState transitions the wizard to a new state with optional validation in debug mode.
-func (w *Wizard) setState(newState WizardState) {
-	oldState := w.state
-	w.state = newState
-
-	debugLog("Wizard", "State transition: %s -> %s", oldState, newState)
-
-	// In debug mode, validate state transitions
-	if os.Getenv("SOW_DEBUG") == "1" {
-		if err := validateStateTransition(oldState, newState); err != nil {
-			fmt.Fprintf(os.Stderr, "[WARN] %v\n", err)
-		}
-	}
-}
-
 // Run executes the wizard state machine loop.
 func (w *Wizard) Run() error {
 	debugLog("Wizard", "Starting wizard in state=%s", w.state)
