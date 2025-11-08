@@ -3,7 +3,7 @@ type: standard
 branch: 70-github-issue-integration-workflow
 description: GitHub Issue Integration Workflow
 created_at: 2025-11-07T19:06:31.601619-08:00
-updated_at: 2025-11-07T19:22:56.859683-08:00
+updated_at: 2025-11-07T19:28:44.055565-08:00
 phases:
     finalize:
         status: pending
@@ -26,7 +26,10 @@ phases:
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata:
+            draft_pr_created: true
             planning_approved: true
+            pr_number: 85
+            pr_url: https://github.com/jmgilman/sow/pull/85
         inputs:
             - type: github_issue
               path: context/issue-70.md
@@ -41,10 +44,10 @@ phases:
             - id: "010"
               name: GitHub CLI Validation and Error Handling
               phase: implementation
-              status: pending
+              status: completed
               created_at: 2025-11-07T19:22:01.043847-08:00
               started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-11-07T19:22:05.526611-08:00
+              updated_at: 2025-11-07T19:28:44.055564-08:00
               completed_at: 0001-01-01T00:00:00Z
               iteration: 1
               assigned_agent: implementer
@@ -78,6 +81,11 @@ phases:
                   path: .sow/project/context/issue-70.md
                   approved: false
                   created_at: 2025-11-07T19:22:05.526611-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/010/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-07T19:28:43.076679-08:00
                   metadata: {}
               outputs: []
               metadata: {}
@@ -276,5 +284,5 @@ phases:
         outputs: []
         tasks: []
 statechart:
-    current_state: ImplementationDraftPRCreation
-    updated_at: 2025-11-07T19:22:56.859683-08:00
+    current_state: ImplementationExecuting
+    updated_at: 2025-11-07T19:28:44.055565-08:00

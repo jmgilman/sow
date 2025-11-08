@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	sowexec "github.com/jmgilman/sow/cli/internal/exec"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
@@ -28,6 +29,16 @@ const (
 	StateCancelled      WizardState = "cancelled"
 )
 
+// GitHubClient defines the interface for GitHub operations used by the wizard.
+// This interface allows for easy mocking in tests.
+type GitHubClient interface {
+	Ensure() error
+	ListIssues(label, state string) ([]sow.Issue, error)
+	GetLinkedBranches(number int) ([]sow.LinkedBranch, error)
+	CreateLinkedBranch(issueNumber int, branchName string, checkout bool) (string, error)
+	GetIssue(number int) (*sow.Issue, error)
+}
+
 // Wizard manages the interactive project creation/continuation workflow.
 type Wizard struct {
 	state       WizardState
@@ -35,16 +46,20 @@ type Wizard struct {
 	choices     map[string]interface{}
 	claudeFlags []string
 	cmd         *cobra.Command
+	github      GitHubClient // GitHub client for issue operations
 }
 
 // NewWizard creates a new wizard instance.
 func NewWizard(cmd *cobra.Command, ctx *sow.Context, claudeFlags []string) *Wizard {
+	ghExec := sowexec.NewLocal("gh")
+
 	return &Wizard{
 		state:       StateEntry,
 		ctx:         ctx,
 		choices:     make(map[string]interface{}),
 		claudeFlags: claudeFlags,
 		cmd:         cmd,
+		github:      sow.NewGitHub(ghExec),
 	}
 }
 
@@ -167,8 +182,52 @@ func (w *Wizard) handleCreateSource() error {
 
 // handleIssueSelect allows selecting a GitHub issue (stub for now).
 func (w *Wizard) handleIssueSelect() error {
-	fmt.Println("Issue select screen (stub)")
+	// Validate GitHub CLI is available and authenticated
+	if err := w.github.Ensure(); err != nil {
+		return w.handleGitHubError(err)
+	}
+
+	// If validation passes, continue to issue fetching (Task 020)
+	// For now, stub until Task 020 implements issue listing
+	fmt.Println("GitHub CLI validated successfully")
 	w.state = StateComplete
+	return nil
+}
+
+// handleGitHubError displays GitHub-related errors and offers fallback paths.
+// Returns nil to keep wizard running (user can choose fallback).
+func (w *Wizard) handleGitHubError(err error) error {
+	var errorMsg string
+	var fallbackMsg string
+
+	// Determine error type using type assertion
+	if _, ok := err.(sow.ErrGHNotInstalled); ok {
+		errorMsg = "GitHub CLI not found\n\n" +
+			"The 'gh' command is required for GitHub issue integration.\n\n" +
+			"To install:\n" +
+			"  macOS: brew install gh\n" +
+			"  Linux: See https://cli.github.com/"
+		fallbackMsg = "Or select 'From branch name' instead."
+
+	} else if _, ok := err.(sow.ErrGHNotAuthenticated); ok {
+		errorMsg = "GitHub CLI not authenticated\n\n" +
+			"Run the following command to authenticate:\n" +
+			"  gh auth login\n\n" +
+			"Then try creating your project again."
+		fallbackMsg = "Or select 'From branch name' instead."
+
+	} else {
+		// Generic GitHub error
+		errorMsg = fmt.Sprintf("GitHub CLI error: %v", err)
+		fallbackMsg = "Select 'From branch name' to continue without GitHub integration."
+	}
+
+	// Show error with fallback option
+	fullMessage := errorMsg + "\n\n" + fallbackMsg
+	_ = showError(fullMessage)
+
+	// Return to source selection so user can choose "From branch name"
+	w.state = StateCreateSource
 	return nil
 }
 

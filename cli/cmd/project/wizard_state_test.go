@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/spf13/cobra"
 )
 
 // TestHandleCreateSource_StateTransitions tests state transitions directly
@@ -539,5 +540,111 @@ func TestFinalize_SkipsUncommittedCheckWhenDifferentBranch(t *testing.T) {
 	worktreePath := tmpDir + "/.sow/worktrees/" + differentBranch
 	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
 		t.Errorf("worktree should have been created at %s", worktreePath)
+	}
+}
+
+// Test GitHub Integration
+
+// mockGitHub is a test double for GitHub operations
+type mockGitHub struct {
+	ensureErr error
+}
+
+func (m *mockGitHub) Ensure() error {
+	return m.ensureErr
+}
+
+func (m *mockGitHub) ListIssues(label, state string) ([]sow.Issue, error) {
+	return nil, nil // Stub for future tasks
+}
+
+func (m *mockGitHub) GetLinkedBranches(number int) ([]sow.LinkedBranch, error) {
+	return nil, nil // Stub for future tasks
+}
+
+func (m *mockGitHub) CreateLinkedBranch(issueNumber int, branchName string, checkout bool) (string, error) {
+	return "", nil // Stub for future tasks
+}
+
+func (m *mockGitHub) GetIssue(number int) (*sow.Issue, error) {
+	return nil, nil // Stub for future tasks
+}
+
+// TestNewWizard_InitializesGitHubClient tests that the GitHub client is initialized
+func TestNewWizard_InitializesGitHubClient(t *testing.T) {
+	cmd := &cobra.Command{}
+	ctx, _ := setupTestContext(t)
+
+	wizard := NewWizard(cmd, ctx, nil)
+
+	if wizard.github == nil {
+		t.Error("expected GitHub client to be initialized, got nil")
+	}
+}
+
+// TestHandleIssueSelect_GitHubNotInstalled tests handling when gh CLI is not installed
+func TestHandleIssueSelect_GitHubNotInstalled(t *testing.T) {
+	// Create wizard with mock GitHub client that returns ErrGHNotInstalled
+	ctx, _ := setupTestContext(t)
+	wizard := &Wizard{
+		state:   StateIssueSelect,
+		ctx:     ctx,
+		choices: make(map[string]interface{}),
+		github:  &mockGitHub{ensureErr: sow.ErrGHNotInstalled{}},
+	}
+
+	err := wizard.handleIssueSelect()
+
+	// Should not return error (wizard continues)
+	if err != nil {
+		t.Errorf("expected nil error, got %v", err)
+	}
+
+	// Should transition back to source selection
+	if wizard.state != StateCreateSource {
+		t.Errorf("expected state %s, got %s", StateCreateSource, wizard.state)
+	}
+}
+
+// TestHandleIssueSelect_GitHubNotAuthenticated tests handling when gh CLI is not authenticated
+func TestHandleIssueSelect_GitHubNotAuthenticated(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+	wizard := &Wizard{
+		state:   StateIssueSelect,
+		ctx:     ctx,
+		choices: make(map[string]interface{}),
+		github:  &mockGitHub{ensureErr: sow.ErrGHNotAuthenticated{}},
+	}
+
+	err := wizard.handleIssueSelect()
+
+	if err != nil {
+		t.Errorf("expected nil error, got %v", err)
+	}
+
+	if wizard.state != StateCreateSource {
+		t.Errorf("expected state %s, got %s", StateCreateSource, wizard.state)
+	}
+}
+
+// TestHandleIssueSelect_ValidationSuccess tests successful GitHub CLI validation
+func TestHandleIssueSelect_ValidationSuccess(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+	wizard := &Wizard{
+		state:   StateIssueSelect,
+		ctx:     ctx,
+		choices: make(map[string]interface{}),
+		github:  &mockGitHub{ensureErr: nil}, // No error = success
+	}
+
+	err := wizard.handleIssueSelect()
+
+	if err != nil {
+		t.Errorf("expected nil error, got %v", err)
+	}
+
+	// Should continue to completion (stub behavior for now)
+	if wizard.state != StateComplete {
+		t.Errorf("expected state %s, got %s", StateComplete, wizard.state)
 	}
 }
