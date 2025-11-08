@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jmgilman/sow/cli/internal/sow"
 )
 
 // TestNormalizeName tests the normalizeName function with various inputs.
@@ -1228,5 +1230,405 @@ func TestPerformUncommittedChangesCheckIfNeeded_ErrorMessage(t *testing.T) {
 		if !strings.Contains(errMsg, part) {
 			t.Errorf("error message missing expected part %q\nGot: %s", part, errMsg)
 		}
+	}
+}
+
+// TestCanCreateProject tests the canCreateProject validation function.
+func TestCanCreateProject(t *testing.T) {
+	tests := []struct {
+		name       string
+		state      *BranchState
+		branchName string
+		wantErr    bool
+		errSubstr  string
+	}{
+		{
+			name: "no branch, no worktree, no project - OK",
+			state: &BranchState{
+				BranchExists:   false,
+				WorktreeExists: false,
+				ProjectExists:  false,
+			},
+			branchName: "feat/new-project",
+			wantErr:    false,
+		},
+		{
+			name: "branch exists, no worktree, no project - OK",
+			state: &BranchState{
+				BranchExists:   true,
+				WorktreeExists: false,
+				ProjectExists:  false,
+			},
+			branchName: "feat/existing-branch",
+			wantErr:    false,
+		},
+		{
+			name: "project already exists - error",
+			state: &BranchState{
+				BranchExists:   true,
+				WorktreeExists: true,
+				ProjectExists:  true,
+			},
+			branchName: "feat/has-project",
+			wantErr:    true,
+			errSubstr:  "already has a project",
+		},
+		{
+			name: "worktree exists but no project - error (inconsistent state)",
+			state: &BranchState{
+				BranchExists:   true,
+				WorktreeExists: true,
+				ProjectExists:  false,
+			},
+			branchName: "feat/orphan-worktree",
+			wantErr:    true,
+			errSubstr:  "worktree exists but project missing",
+		},
+		{
+			name: "no branch but worktree exists - error (inconsistent state)",
+			state: &BranchState{
+				BranchExists:   false,
+				WorktreeExists: true,
+				ProjectExists:  false,
+			},
+			branchName: "feat/stale-worktree",
+			wantErr:    true,
+			errSubstr:  "worktree exists but project missing",
+		},
+		{
+			name: "no branch but project exists somehow - error",
+			state: &BranchState{
+				BranchExists:   false,
+				WorktreeExists: true,
+				ProjectExists:  true,
+			},
+			branchName: "feat/weird-state",
+			wantErr:    true,
+			errSubstr:  "already has a project",
+		},
+		{
+			name: "all false - OK (fresh start)",
+			state: &BranchState{
+				BranchExists:   false,
+				WorktreeExists: false,
+				ProjectExists:  false,
+			},
+			branchName: "feat/totally-new",
+			wantErr:    false,
+		},
+		{
+			name: "branch name in error message",
+			state: &BranchState{
+				BranchExists:   true,
+				WorktreeExists: true,
+				ProjectExists:  true,
+			},
+			branchName: "feat/test-name-123",
+			wantErr:    true,
+			errSubstr:  "feat/test-name-123",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := canCreateProject(tt.state, tt.branchName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("canCreateProject() error = %v; wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errSubstr != "" {
+				if !strings.Contains(err.Error(), tt.errSubstr) {
+					t.Errorf("canCreateProject() error = %q; want substring %q",
+						err.Error(), tt.errSubstr)
+				}
+			}
+		})
+	}
+}
+
+// TestValidateProjectExists tests the validateProjectExists function.
+func TestValidateProjectExists(t *testing.T) {
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string)
+		branchName string
+		wantErr    bool
+		errSubstr  string
+	}{
+		{
+			name: "all exist - OK",
+			setup: func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string) {
+				// Create initial commit
+				createInitialCommit(t, tmpDir)
+
+				// Create branch
+				cmd := exec.CommandContext(context.Background(), "git", "branch", branchName)
+				cmd.Dir = tmpDir
+				if err := cmd.Run(); err != nil {
+					t.Fatalf("failed to create branch: %v", err)
+				}
+
+				// Create worktree and project
+				worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
+				projectDir := filepath.Join(worktreePath, ".sow", "project")
+				if err := os.MkdirAll(projectDir, 0755); err != nil {
+					t.Fatalf("failed to create project dir: %v", err)
+				}
+
+				stateFile := filepath.Join(projectDir, "state.yaml")
+				if err := os.WriteFile(stateFile, []byte("name: test\n"), 0644); err != nil {
+					t.Fatalf("failed to create state.yaml: %v", err)
+				}
+			},
+			branchName: "feat/complete",
+			wantErr:    false,
+		},
+		{
+			name: "branch missing - error",
+			setup: func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string) {
+				createInitialCommit(t, tmpDir)
+				// Don't create branch
+			},
+			branchName: "feat/no-branch",
+			wantErr:    true,
+			errSubstr:  "does not exist",
+		},
+		{
+			name: "worktree missing - error",
+			setup: func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string) {
+				createInitialCommit(t, tmpDir)
+
+				// Create branch but no worktree
+				cmd := exec.CommandContext(context.Background(), "git", "branch", branchName)
+				cmd.Dir = tmpDir
+				if err := cmd.Run(); err != nil {
+					t.Fatalf("failed to create branch: %v", err)
+				}
+			},
+			branchName: "feat/no-worktree",
+			wantErr:    true,
+			errSubstr:  "worktree for branch",
+		},
+		{
+			name: "project missing - error",
+			setup: func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string) {
+				createInitialCommit(t, tmpDir)
+
+				// Create branch
+				cmd := exec.CommandContext(context.Background(), "git", "branch", branchName)
+				cmd.Dir = tmpDir
+				if err := cmd.Run(); err != nil {
+					t.Fatalf("failed to create branch: %v", err)
+				}
+
+				// Create worktree but no project
+				worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
+				if err := os.MkdirAll(worktreePath, 0755); err != nil {
+					t.Fatalf("failed to create worktree: %v", err)
+				}
+			},
+			branchName: "feat/no-project",
+			wantErr:    true,
+			errSubstr:  "project for branch",
+		},
+		{
+			name: "error includes branch name",
+			setup: func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string) {
+				createInitialCommit(t, tmpDir)
+				// Don't create anything
+			},
+			branchName: "feat/my-special-branch",
+			wantErr:    true,
+			errSubstr:  "feat/my-special-branch",
+		},
+		{
+			name: "nothing exists - error mentions branch first",
+			setup: func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string) {
+				createInitialCommit(t, tmpDir)
+			},
+			branchName: "feat/nonexistent",
+			wantErr:    true,
+			errSubstr:  "does not exist",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, tmpDir := setupTestContext(t)
+			tt.setup(t, ctx, tmpDir, tt.branchName)
+
+			err := validateProjectExists(ctx, tt.branchName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateProjectExists() error = %v; wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errSubstr != "" {
+				if !strings.Contains(err.Error(), tt.errSubstr) {
+					t.Errorf("validateProjectExists() error = %q; want substring %q",
+						err.Error(), tt.errSubstr)
+				}
+			}
+		})
+	}
+}
+
+// TestListExistingProjects tests the listExistingProjects function.
+func TestListExistingProjects(t *testing.T) {
+	tests := []struct {
+		name          string
+		setup         func(t *testing.T, tmpDir string)
+		wantBranches  []string
+		wantErr       bool
+	}{
+		{
+			name: "no projects",
+			setup: func(t *testing.T, tmpDir string) {
+				createInitialCommit(t, tmpDir)
+			},
+			wantBranches: []string{},
+			wantErr:      false,
+		},
+		{
+			name: "single project",
+			setup: func(t *testing.T, tmpDir string) {
+				createInitialCommit(t, tmpDir)
+				createTestProject(t, tmpDir, "feat/project-one")
+			},
+			wantBranches: []string{"feat/project-one"},
+			wantErr:      false,
+		},
+		{
+			name: "multiple projects sorted alphabetically",
+			setup: func(t *testing.T, tmpDir string) {
+				createInitialCommit(t, tmpDir)
+				createTestProject(t, tmpDir, "feat/zzz-last")
+				createTestProject(t, tmpDir, "feat/aaa-first")
+				createTestProject(t, tmpDir, "explore/middle")
+			},
+			wantBranches: []string{"explore/middle", "feat/aaa-first", "feat/zzz-last"},
+			wantErr:      false,
+		},
+		{
+			name: "branch without project excluded",
+			setup: func(t *testing.T, tmpDir string) {
+				createInitialCommit(t, tmpDir)
+				createTestProject(t, tmpDir, "feat/has-project")
+
+				// Create branch without project
+				cmd := exec.CommandContext(context.Background(), "git", "branch", "feat/no-project")
+				cmd.Dir = tmpDir
+				if err := cmd.Run(); err != nil {
+					t.Fatalf("failed to create branch: %v", err)
+				}
+			},
+			wantBranches: []string{"feat/has-project"},
+			wantErr:      false,
+		},
+		{
+			name: "worktree without project excluded",
+			setup: func(t *testing.T, tmpDir string) {
+				createInitialCommit(t, tmpDir)
+				createTestProject(t, tmpDir, "feat/complete")
+
+				// Create branch with worktree but no project
+				branchName := "feat/orphan-worktree"
+				cmd := exec.CommandContext(context.Background(), "git", "branch", branchName)
+				cmd.Dir = tmpDir
+				if err := cmd.Run(); err != nil {
+					t.Fatalf("failed to create branch: %v", err)
+				}
+
+				worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
+				if err := os.MkdirAll(worktreePath, 0755); err != nil {
+					t.Fatalf("failed to create worktree: %v", err)
+				}
+			},
+			wantBranches: []string{"feat/complete"},
+			wantErr:      false,
+		},
+		{
+			name: "mixed project types sorted together",
+			setup: func(t *testing.T, tmpDir string) {
+				createInitialCommit(t, tmpDir)
+				createTestProject(t, tmpDir, "feat/standard")
+				createTestProject(t, tmpDir, "explore/research")
+				createTestProject(t, tmpDir, "design/architecture")
+				createTestProject(t, tmpDir, "breakdown/tasks")
+			},
+			wantBranches: []string{"breakdown/tasks", "design/architecture", "explore/research", "feat/standard"},
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, tmpDir := setupTestContext(t)
+			tt.setup(t, tmpDir)
+
+			branches, err := listExistingProjects(ctx)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("listExistingProjects() error = %v; wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if len(branches) != len(tt.wantBranches) {
+				t.Errorf("listExistingProjects() returned %d branches; want %d\nGot: %v\nWant: %v",
+					len(branches), len(tt.wantBranches), branches, tt.wantBranches)
+				return
+			}
+
+			for i, branch := range branches {
+				if branch != tt.wantBranches[i] {
+					t.Errorf("listExistingProjects()[%d] = %q; want %q",
+						i, branch, tt.wantBranches[i])
+				}
+			}
+		})
+	}
+}
+
+// Helper function to create an initial commit in a test repo.
+func createInitialCommit(t *testing.T, tmpDir string) {
+	t.Helper()
+
+	readmeFile := filepath.Join(tmpDir, "README.md")
+	if err := os.WriteFile(readmeFile, []byte("# Test\n"), 0644); err != nil {
+		t.Fatalf("failed to create README: %v", err)
+	}
+
+	cmd := exec.CommandContext(context.Background(), "git", "add", "README.md")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add README: %v", err)
+	}
+
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+}
+
+// Helper function to create a complete test project (branch + worktree + project).
+func createTestProject(t *testing.T, tmpDir string, branchName string) {
+	t.Helper()
+
+	// Create branch
+	cmd := exec.CommandContext(context.Background(), "git", "branch", branchName)
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create branch %s: %v", branchName, err)
+	}
+
+	// Create worktree and project
+	worktreePath := filepath.Join(tmpDir, ".sow", "worktrees", branchName)
+	projectDir := filepath.Join(worktreePath, ".sow", "project")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatalf("failed to create project dir for %s: %v", branchName, err)
+	}
+
+	stateFile := filepath.Join(projectDir, "state.yaml")
+	if err := os.WriteFile(stateFile, []byte("name: test\n"), 0644); err != nil {
+		t.Fatalf("failed to create state.yaml for %s: %v", branchName, err)
 	}
 }

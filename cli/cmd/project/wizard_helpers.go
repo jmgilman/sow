@@ -410,7 +410,12 @@ type BranchState struct {
 	ProjectExists  bool
 }
 
-// checkBranchState checks if a branch exists, has a worktree, and has an existing project.
+// checkBranchState examines branch, worktree, and project state for a given branch name.
+// Used before creation to detect conflicts.
+//
+// Returns:
+//   - BranchState with all three boolean flags set
+//   - error if filesystem or git operations fail
 func checkBranchState(ctx *sow.Context, branchName string) (*BranchState, error) {
 	state := &BranchState{}
 
@@ -440,6 +445,84 @@ func checkBranchState(ctx *sow.Context, branchName string) (*BranchState, error)
 	}
 
 	return state, nil
+}
+
+// canCreateProject validates that project creation is allowed on this branch.
+// Returns error if:
+//   - Branch already has a project (state.ProjectExists == true)
+//   - Inconsistent state: worktree exists but project missing
+//
+// Returns nil if creation is allowed.
+func canCreateProject(state *BranchState, branchName string) error {
+	// Check if project already exists
+	if state.ProjectExists {
+		return fmt.Errorf("branch '%s' already has a project", branchName)
+	}
+
+	// Check for inconsistent state (worktree without project)
+	if state.WorktreeExists && !state.ProjectExists {
+		return fmt.Errorf("worktree exists but project missing for branch '%s'", branchName)
+	}
+
+	// Creation is allowed
+	return nil
+}
+
+// validateProjectExists checks that a project at given branch exists.
+// Used when continuing projects (Work Unit 004).
+//
+// Returns error if:
+//   - Branch doesn't exist
+//   - Worktree doesn't exist
+//   - Project doesn't exist in worktree
+func validateProjectExists(ctx *sow.Context, branchName string) error {
+	state, err := checkBranchState(ctx, branchName)
+	if err != nil {
+		return err
+	}
+
+	if !state.BranchExists {
+		return fmt.Errorf("branch '%s' does not exist", branchName)
+	}
+
+	if !state.WorktreeExists {
+		return fmt.Errorf("worktree for branch '%s' does not exist", branchName)
+	}
+
+	if !state.ProjectExists {
+		return fmt.Errorf("project for branch '%s' does not exist", branchName)
+	}
+
+	return nil
+}
+
+// listExistingProjects finds all branches with existing projects.
+// Used by "continue existing project" screen to show available options.
+//
+// Returns:
+//   - Slice of branch names that have projects
+//   - error if filesystem or git operations fail
+func listExistingProjects(ctx *sow.Context) ([]string, error) {
+	branches, err := ctx.Git().Branches()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list branches: %w", err)
+	}
+
+	var projects []string
+	for _, branch := range branches {
+		state, err := checkBranchState(ctx, branch)
+		if err != nil {
+			return nil, err
+		}
+		if state.ProjectExists {
+			projects = append(projects, branch)
+		}
+	}
+
+	// Sort alphabetically for consistent UI
+	sort.Strings(projects)
+
+	return projects, nil
 }
 
 // ProjectInfo holds metadata about a project for display in the wizard.
