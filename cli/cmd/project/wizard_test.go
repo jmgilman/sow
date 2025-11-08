@@ -62,8 +62,8 @@ func TestHandleState_DispatchesToCorrectHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Entry, CreateSource, TypeSelect, NameEntry, PromptEntry, and ProjectSelect states require interactive input or valid context, skip for now
-			if tt.state == StateEntry || tt.state == StateCreateSource || tt.state == StateTypeSelect || tt.state == StateNameEntry || tt.state == StatePromptEntry || tt.state == StateProjectSelect {
+			// Entry, CreateSource, TypeSelect, NameEntry, PromptEntry, ProjectSelect, and ContinuePrompt states require interactive input or valid context, skip for now
+			if tt.state == StateEntry || tt.state == StateCreateSource || tt.state == StateTypeSelect || tt.state == StateNameEntry || tt.state == StatePromptEntry || tt.state == StateProjectSelect || tt.state == StateContinuePrompt {
 				// These require interactive input or valid context, skip for now
 				t.Skip("Interactive state requires user input")
 			}
@@ -99,9 +99,8 @@ func TestWizardRun_LoopsUntilTerminalState(t *testing.T) {
 // TestStateTransitions_StubHandlers tests that stub handlers transition to StateComplete.
 func TestStateTransitions_StubHandlers(t *testing.T) {
 	stubs := []WizardState{
-		// Note: StateCreateSource, StateTypeSelect, StateNameEntry, StatePromptEntry, and StateProjectSelect are now implemented, so they're not stubs anymore
+		// Note: StateCreateSource, StateTypeSelect, StateNameEntry, StatePromptEntry, StateProjectSelect, and StateContinuePrompt are now implemented, so they're not stubs anymore
 		StateIssueSelect,
-		StateContinuePrompt,
 	}
 
 	for _, state := range stubs {

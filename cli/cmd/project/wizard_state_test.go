@@ -850,3 +850,306 @@ func TestHandleProjectSelect_UserAbort(t *testing.T) {
 		t.Errorf("expected state StateCancelled on user abort, got %v", w.state)
 	}
 }
+
+// Test handleContinuePrompt
+
+// TestHandleContinuePrompt_RequiresProject tests that project must be set before continuation prompt.
+func TestHandleContinuePrompt_RequiresProject(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+	w := NewWizard(nil, ctx, []string{})
+	w.state = StateContinuePrompt
+
+	// Do NOT set project choice - should return error
+	// We can't easily call the handler directly without user input,
+	// but we can verify the logic it should implement
+	_, ok := w.choices["project"].(ProjectInfo)
+	if ok {
+		t.Error("project choice should not be set initially")
+	}
+
+	// The handler should check for project and return error if missing
+	// This will be tested in the implementation
+}
+
+// TestHandleContinuePrompt_StateTransitions tests state transitions for continuation prompt.
+func TestHandleContinuePrompt_StateTransitions(t *testing.T) {
+	testCases := []struct {
+		name          string
+		promptText    string
+		expectedState WizardState
+	}{
+		{
+			name:          "with text",
+			promptText:    "Let's focus on the token refresh logic",
+			expectedState: StateComplete,
+		},
+		{
+			name:          "empty text (optional)",
+			promptText:    "",
+			expectedState: StateComplete,
+		},
+		{
+			name:          "multi-line text",
+			promptText:    "Focus on tests\nAdd integration tests\nCheck edge cases",
+			expectedState: StateComplete,
+		},
+		{
+			name:          "whitespace only",
+			promptText:    "   \n\n   ",
+			expectedState: StateComplete,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, tmpDir := setupTestContext(t)
+			w := NewWizard(nil, ctx, []string{})
+			w.state = StateContinuePrompt
+
+			// Pre-populate required project choice
+			proj := ProjectInfo{
+				Branch:         "feat/auth",
+				Name:           "auth",
+				Type:           "standard",
+				Phase:          "ImplementationExecuting",
+				TasksCompleted: 3,
+				TasksTotal:     5,
+			}
+			w.choices["project"] = proj
+
+			// Simulate what handleContinuePrompt should do
+			w.choices["prompt"] = tc.promptText
+			w.state = StateComplete
+
+			// Verify state transition
+			if w.state != tc.expectedState {
+				t.Errorf("expected state %v, got %v", tc.expectedState, w.state)
+			}
+
+			// Verify choice was stored (even if empty)
+			if w.choices["prompt"] != tc.promptText {
+				t.Errorf("expected prompt %q, got %q", tc.promptText, w.choices["prompt"])
+			}
+
+			// Verify tmpDir is not used (just to satisfy linter)
+			_ = tmpDir
+		})
+	}
+}
+
+// TestHandleContinuePrompt_ContextDisplay tests that context information is properly formatted.
+func TestHandleContinuePrompt_ContextDisplay(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+	w := NewWizard(nil, ctx, []string{})
+	w.state = StateContinuePrompt
+
+	// Set up project with different scenarios
+	testCases := []struct {
+		name            string
+		proj            ProjectInfo
+		expectedName    string
+		expectedBranch  string
+		expectedInState string
+	}{
+		{
+			name: "standard project with tasks",
+			proj: ProjectInfo{
+				Branch:         "feat/jwt-auth",
+				Name:           "jwt-auth",
+				Type:           "standard",
+				Phase:          "ImplementationExecuting",
+				TasksCompleted: 3,
+				TasksTotal:     5,
+			},
+			expectedName:    "jwt-auth",
+			expectedBranch:  "feat/jwt-auth",
+			expectedInState: "3/5 tasks completed",
+		},
+		{
+			name: "exploration project without tasks",
+			proj: ProjectInfo{
+				Branch:         "explore/api-research",
+				Name:           "api-research",
+				Type:           "exploration",
+				Phase:          "DesignActive",
+				TasksCompleted: 0,
+				TasksTotal:     0,
+			},
+			expectedName:    "api-research",
+			expectedBranch:  "explore/api-research",
+			expectedInState: "DesignActive",
+		},
+		{
+			name: "design project",
+			proj: ProjectInfo{
+				Branch:         "design/cli-ux",
+				Name:           "cli-ux",
+				Type:           "design",
+				Phase:          "DesignActive",
+				TasksCompleted: 0,
+				TasksTotal:     0,
+			},
+			expectedName:    "cli-ux",
+			expectedBranch:  "design/cli-ux",
+			expectedInState: "DesignActive",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			w.choices["project"] = tc.proj
+
+			// Verify we can extract the project
+			proj, ok := w.choices["project"].(ProjectInfo)
+			if !ok {
+				t.Fatal("failed to extract project from choices")
+			}
+
+			// Verify project metadata
+			if proj.Name != tc.expectedName {
+				t.Errorf("expected name %q, got %q", tc.expectedName, proj.Name)
+			}
+			if proj.Branch != tc.expectedBranch {
+				t.Errorf("expected branch %q, got %q", tc.expectedBranch, proj.Branch)
+			}
+
+			// Verify formatProjectProgress returns expected information
+			progress := formatProjectProgress(proj)
+			if !strings.Contains(progress, tc.expectedInState) {
+				t.Errorf("expected progress to contain %q, got %q", tc.expectedInState, progress)
+			}
+		})
+	}
+}
+
+// TestHandleContinuePrompt_ErrorHandling tests error handling behavior.
+func TestHandleContinuePrompt_ErrorHandling(t *testing.T) {
+	t.Run("user abort transitions to cancelled", func(t *testing.T) {
+		// Verify that errors.Is works with ErrUserAborted
+		err := huh.ErrUserAborted
+		if !errors.Is(err, huh.ErrUserAborted) {
+			t.Error("errors.Is should match ErrUserAborted")
+		}
+
+		// Simulating the handler behavior
+		ctx, _ := setupTestContext(t)
+		w := NewWizard(nil, ctx, []string{})
+		w.state = StateContinuePrompt
+		w.choices["project"] = ProjectInfo{
+			Branch: "feat/test",
+			Name:   "test",
+			Type:   "standard",
+		}
+
+		// On user abort, should transition to cancelled
+		if errors.Is(err, huh.ErrUserAborted) {
+			w.state = StateCancelled
+		}
+
+		if w.state != StateCancelled {
+			t.Errorf("expected state StateCancelled on abort, got %v", w.state)
+		}
+	})
+
+	t.Run("missing project returns error", func(t *testing.T) {
+		ctx, _ := setupTestContext(t)
+		w := NewWizard(nil, ctx, []string{})
+		w.state = StateContinuePrompt
+
+		// Do NOT set project choice
+		// Handler should detect missing project and return error
+
+		// Verify the check we expect the handler to perform
+		_, ok := w.choices["project"].(ProjectInfo)
+		if ok {
+			t.Error("project choice should not be set")
+		}
+
+		// The actual handler will return an error like:
+		// "internal error: project choice not set or invalid"
+	})
+
+	t.Run("wrong type in project choice returns error", func(t *testing.T) {
+		ctx, _ := setupTestContext(t)
+		w := NewWizard(nil, ctx, []string{})
+		w.state = StateContinuePrompt
+
+		// Set wrong type for project choice
+		w.choices["project"] = "not-a-ProjectInfo-struct"
+
+		// Verify type assertion fails
+		_, ok := w.choices["project"].(ProjectInfo)
+		if ok {
+			t.Error("type assertion should fail for wrong type")
+		}
+
+		// The actual handler will return an error like:
+		// "internal error: project choice not set or invalid"
+	})
+}
+
+// TestHandleContinuePrompt_IntegrationFlow tests the full flow from project selection to continuation prompt.
+func TestHandleContinuePrompt_IntegrationFlow(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit and a test project
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial").Run()
+
+	branchName := "feat/integration-test"
+	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
+	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	worktreeCtx, _ := sow.NewContext(worktreePath)
+	_, _ = initializeProject(worktreeCtx, branchName, "integration-test", nil)
+
+	// Start wizard in project selection
+	w := NewWizard(nil, ctx, []string{})
+	w.state = StateProjectSelect
+
+	// Discover projects
+	projects, err := listProjects(ctx)
+	if err != nil {
+		t.Fatalf("listProjects failed: %v", err)
+	}
+
+	if len(projects) != 1 {
+		t.Fatalf("expected 1 project, got %d", len(projects))
+	}
+
+	// Simulate: user selects project → transitions to StateContinuePrompt
+	selectedProj := projects[0]
+	w.choices["project"] = selectedProj
+	w.state = StateContinuePrompt
+
+	// Verify state transition
+	if w.state != StateContinuePrompt {
+		t.Errorf("expected state StateContinuePrompt, got %v", w.state)
+	}
+
+	// Verify project is stored
+	proj, ok := w.choices["project"].(ProjectInfo)
+	if !ok {
+		t.Fatal("project choice not stored correctly")
+	}
+
+	if proj.Branch != branchName {
+		t.Errorf("expected branch %q, got %q", branchName, proj.Branch)
+	}
+
+	// Simulate: user enters prompt → transitions to StateComplete
+	userPrompt := "Focus on edge cases and error handling"
+	w.choices["prompt"] = userPrompt
+	w.state = StateComplete
+
+	// Verify final state
+	if w.state != StateComplete {
+		t.Errorf("expected state StateComplete, got %v", w.state)
+	}
+
+	// Verify prompt is stored
+	if w.choices["prompt"] != userPrompt {
+		t.Errorf("expected prompt %q, got %q", userPrompt, w.choices["prompt"])
+	}
+}

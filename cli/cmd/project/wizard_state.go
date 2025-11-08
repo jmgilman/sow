@@ -417,9 +417,47 @@ func (w *Wizard) handleProjectSelect() error {
 	return nil
 }
 
-// handleContinuePrompt allows entering additional prompt for continuing (stub for now).
+// handleContinuePrompt allows entering additional prompt for continuing.
 func (w *Wizard) handleContinuePrompt() error {
-	fmt.Println("Continue prompt screen (stub)")
+	// 1. Extract selected project
+	proj, ok := w.choices["project"].(ProjectInfo)
+	if !ok {
+		return fmt.Errorf("internal error: project choice not set or invalid")
+	}
+
+	// 2. Build context display
+	progress := formatProjectProgress(proj)
+	contextInfo := fmt.Sprintf(
+		"Project: %s\nBranch: %s\nState: %s",
+		proj.Name,
+		proj.Branch,
+		progress,
+	)
+
+	// 3. Show prompt entry form
+	var prompt string
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewText().
+				Title("What would you like to work on? (optional):").
+				Description(contextInfo + "\n\nPress Ctrl+E to open $EDITOR for multi-line input").
+				CharLimit(5000).
+				Value(&prompt).
+				EditorExtension(".md"),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			w.state = StateCancelled
+			return nil
+		}
+		return fmt.Errorf("continuation prompt error: %w", err)
+	}
+
+	// 4. Save prompt and transition
+	w.choices["prompt"] = prompt
 	w.state = StateComplete
 	return nil
 }
