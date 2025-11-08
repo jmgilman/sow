@@ -3,10 +3,12 @@ package project
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/spf13/cobra"
 )
 
 // WizardState represents the current state of the project wizard.
@@ -32,15 +34,17 @@ type Wizard struct {
 	ctx         *sow.Context
 	choices     map[string]interface{}
 	claudeFlags []string
+	cmd         *cobra.Command
 }
 
 // NewWizard creates a new wizard instance.
-func NewWizard(ctx *sow.Context, claudeFlags []string) *Wizard {
+func NewWizard(cmd *cobra.Command, ctx *sow.Context, claudeFlags []string) *Wizard {
 	return &Wizard{
 		state:       StateEntry,
 		ctx:         ctx,
 		choices:     make(map[string]interface{}),
 		claudeFlags: claudeFlags,
+		cmd:         cmd,
 	}
 }
 
@@ -333,9 +337,68 @@ func (w *Wizard) handleContinuePrompt() error {
 	return nil
 }
 
-// finalize creates/continues the project and launches Claude (stub for now).
+// finalize creates the project, initializes it in a worktree, and launches Claude Code.
 func (w *Wizard) finalize() error {
-	fmt.Println("Finalize: create/continue project and launch Claude")
-	fmt.Printf("Choices: %+v\n", w.choices)
+	// Extract wizard choices
+	name := w.choices["name"].(string)
+	branch := w.choices["branch"].(string)
+	initialPrompt := ""
+	if prompt, ok := w.choices["prompt"].(string); ok {
+		initialPrompt = prompt
+	}
+
+	// Step 1: Conditional uncommitted changes check
+	currentBranch, err := w.ctx.Git().CurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	// Only check if we're on the branch we're trying to create a worktree for
+	if currentBranch == branch {
+		if err := sow.CheckUncommittedChanges(w.ctx); err != nil {
+			return fmt.Errorf("repository has uncommitted changes\n\n"+
+				"You are currently on branch '%s'.\n"+
+				"Creating a worktree requires switching to a different branch first.\n\n"+
+				"To fix:\n"+
+				"  Commit: git add . && git commit -m \"message\"\n"+
+				"  Or stash: git stash", currentBranch)
+		}
+	}
+
+	// Step 2: Ensure worktree exists
+	worktreePath := sow.WorktreePath(w.ctx.RepoRoot(), branch)
+	if err := sow.EnsureWorktree(w.ctx, worktreePath, branch); err != nil {
+		return fmt.Errorf("failed to create worktree: %w", err)
+	}
+
+	// Step 3: Initialize project in worktree
+	worktreeCtx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		return fmt.Errorf("failed to create worktree context: %w", err)
+	}
+
+	project, err := initializeProject(worktreeCtx, branch, name, nil)
+	if err != nil {
+		return fmt.Errorf("failed to initialize project: %w", err)
+	}
+
+	// Step 4: Generate 3-layer prompt
+	prompt, err := generateNewProjectPrompt(project, initialPrompt)
+	if err != nil {
+		return fmt.Errorf("failed to generate prompt: %w", err)
+	}
+
+	// Step 5: Display success message
+	fmt.Fprintf(os.Stdout, "✓ Initialized project '%s' on branch %s\n", name, branch)
+	fmt.Fprintf(os.Stdout, "✓ Launching Claude in worktree...\n")
+
+	// Step 6: Launch Claude Code
+	// Note: w.cmd may be nil in tests, so we skip launch in that case
+	if w.cmd != nil {
+		if err := launchClaudeCode(w.cmd, worktreeCtx, prompt, w.claudeFlags); err != nil {
+			return fmt.Errorf("failed to launch Claude: %w", err)
+		}
+	}
+
 	return nil
 }

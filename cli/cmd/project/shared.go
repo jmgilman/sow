@@ -49,6 +49,13 @@ func initializeProject(
 		return nil, fmt.Errorf("failed to create context directory: %w", err)
 	}
 
+	// Recreate context now that .sow directory exists
+	// This ensures ctx.FS() is properly initialized before calling state.Create
+	ctx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to recreate context after directory creation: %w", err)
+	}
+
 	// Prepare initial inputs if issue is provided
 	var initialInputs map[string][]projschema.ArtifactState
 	if issue != nil {
@@ -178,8 +185,6 @@ func generateContinuePrompt(proj *state.Project) (string, error) {
 //   - claudeFlags: Additional flags to pass to Claude CLI
 //
 // Returns an error if Claude is not found or execution fails.
-//
-//nolint:unused // Will be used by wizard finalize in subsequent work units
 func launchClaudeCode(
 	cmd *cobra.Command,
 	ctx *sow.Context,
