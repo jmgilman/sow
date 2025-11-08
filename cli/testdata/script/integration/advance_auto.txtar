@@ -1,0 +1,123 @@
+# Test: sow advance (Auto-Determination Mode)
+# Coverage: Linear state advancement, backward compatibility, guard enforcement
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-auto
+exec sow init
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Create Standard Project in ImplementationPlanning
+# =====================================
+exec mkdir -p .sow/project/phases/planning
+exec mkdir -p .sow/project/phases/implementation
+exec mkdir -p .sow/project/phases/review
+exec mkdir -p .sow/project/phases/finalize
+
+cp testdata/state.yaml .sow/project/state.yaml
+
+-- testdata/state.yaml --
+name: Auto-advance test
+type: standard
+branch: feat/test-auto
+description: Test auto-determination mode
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:00:00Z
+    completed_at: 2025-01-01T00:01:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  implementation:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:01:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata:
+      planning_approved: true
+    inputs: []
+    outputs: []
+    tasks: []
+  review:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  finalize:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: ImplementationPlanning
+  updated_at: 2025-01-01T00:00:00Z
+
+# =====================================
+# Test: Auto-Advance Linear State (Guard Passes)
+# =====================================
+
+# Verify initial state
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+stdout 'planning_approved: true'
+
+# Execute auto-advance (no flags, no args - backward compatible mode)
+exec sow advance
+stdout 'Current state: ImplementationPlanning'
+stdout 'Advanced to: ImplementationDraftPRCreation'
+
+# Verify state changed
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationDraftPRCreation'
+
+# =====================================
+# Test: Auto-Advance Blocked by Guard
+# =====================================
+
+# Try to advance without setting draft_pr_created
+! exec sow advance
+stderr 'guard'
+stderr 'blocked'
+
+# Verify state unchanged
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationDraftPRCreation'
+
+# =====================================
+# Test: Auto-Advance After Guard Satisfied
+# =====================================
+
+# Set the guard condition
+exec sow phase set metadata.draft_pr_created true --phase implementation
+
+# Now auto-advance should succeed
+exec sow advance
+stdout 'Advanced to: ImplementationExecuting'
+
+# Verify state changed
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationExecuting'

@@ -1,0 +1,156 @@
+# Test: sow advance --dry-run [event] (Dry-Run Mode)
+# Coverage: Validate transitions without execution, CRITICAL zero side effects test
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-dryrun
+exec sow init
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Create Standard Project in ImplementationPlanning
+# =====================================
+exec mkdir -p .sow/project/phases/planning
+exec mkdir -p .sow/project/phases/implementation
+exec mkdir -p .sow/project/phases/review
+exec mkdir -p .sow/project/phases/finalize
+
+cp testdata/state.yaml .sow/project/state.yaml
+
+-- testdata/state.yaml --
+name: Dry-run test
+type: standard
+branch: feat/test-dryrun
+description: Test dry-run mode
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:00:00Z
+    completed_at: 2025-01-01T00:01:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  implementation:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:01:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata:
+      planning_approved: true
+    inputs: []
+    outputs: []
+    tasks: []
+  review:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  finalize:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: ImplementationPlanning
+  updated_at: 2025-01-01T00:00:00Z
+
+# =====================================
+# Test: Dry-Run Valid Transition (Guard Passes)
+# =====================================
+
+# Verify initial state
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+stdout 'planning_approved: true'
+
+# Execute dry-run mode (should validate without executing)
+exec sow advance --dry-run planning_complete
+stdout 'Validating transition'
+stdout 'ImplementationPlanning'
+stdout 'planning_complete'
+stdout 'Transition is valid'
+stdout 'can be executed'
+stdout 'Target state: ImplementationDraftPRCreation'
+stdout 'To execute: sow advance planning_complete'
+
+# CRITICAL: Verify state is UNCHANGED (zero side effects)
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+! stdout 'current_state: ImplementationDraftPRCreation'
+
+# =====================================
+# Test: Dry-Run Blocked Transition (Guard Fails)
+# =====================================
+
+# Remove guard condition to block transition
+exec sow phase set metadata.planning_approved false --phase implementation
+
+# Dry-run should show error but NOT modify state
+! exec sow advance --dry-run planning_complete
+stderr 'Transition blocked by guard'
+stderr 'Task descriptions approved'
+stdout 'Guard not satisfied'
+stdout 'Fix the guard condition'
+
+# Verify state still unchanged
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+stdout 'planning_approved: false'
+
+# =====================================
+# Test: Dry-Run Invalid Event
+# =====================================
+
+# Try dry-run with event not configured for current state
+! exec sow advance --dry-run invalid_event
+stderr 'event not configured'
+stderr 'invalid_event'
+stdout 'not configured for state ImplementationPlanning'
+stdout 'Use.*sow advance --list.*to see available transitions'
+
+# State unchanged
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# =====================================
+# Test: CRITICAL - Dry-Run Never Executes OnEntry Actions
+# =====================================
+
+# Set guard to pass again
+exec sow phase set metadata.planning_approved true --phase implementation
+
+# Dry-run the valid transition
+exec sow advance --dry-run planning_complete
+stdout 'Transition is valid'
+
+# Verify implementation phase metadata was NOT modified by OnEntry action
+# (OnEntry for ImplementationDraftPRCreation would modify phase state)
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+! stdout 'current_state: ImplementationDraftPRCreation'
+
+# Verify phase status unchanged (OnEntry action would change this)
+stdout '(?s)implementation:.*status: in_progress'
+! stdout '(?s)implementation:.*status: completed'

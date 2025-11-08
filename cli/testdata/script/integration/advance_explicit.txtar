@@ -1,0 +1,262 @@
+# Test: sow advance [event] (Explicit Event Mode)
+# Coverage: Execute specific events, intent-based branching, guard errors
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-explicit
+exec sow init
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Create Standard Project in ImplementationPlanning
+# =====================================
+exec mkdir -p .sow/project/phases/planning
+exec mkdir -p .sow/project/phases/implementation
+exec mkdir -p .sow/project/phases/review
+exec mkdir -p .sow/project/phases/finalize
+
+cp testdata/state.yaml .sow/project/state.yaml
+
+-- testdata/state.yaml --
+name: Explicit event test
+type: standard
+branch: feat/test-explicit
+description: Test explicit event mode
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:00:00Z
+    completed_at: 2025-01-01T00:01:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  implementation:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:01:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata:
+      planning_approved: true
+    inputs: []
+    outputs: []
+    tasks: []
+  review:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  finalize:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: ImplementationPlanning
+  updated_at: 2025-01-01T00:00:00Z
+
+# =====================================
+# Test: Explicit Event Success (Linear State)
+# =====================================
+
+# Verify initial state
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# Execute explicit event (guard passes)
+exec sow advance planning_complete
+stdout 'Current state: ImplementationPlanning'
+stdout 'Advanced to: ImplementationDraftPRCreation'
+
+# Verify state changed
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationDraftPRCreation'
+
+# =====================================
+# Test: Explicit Event Blocked by Guard
+# =====================================
+
+# Try to advance without setting draft_pr_created
+! exec sow advance draft_pr_created
+stderr 'guard'
+stderr 'blocked'
+stderr 'Draft PR has been created'
+stderr '--dry-run'
+
+# Verify state unchanged
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationDraftPRCreation'
+
+# =====================================
+# Test: Explicit Event Invalid Event
+# =====================================
+
+# Try invalid event name
+! exec sow advance invalid_event_name
+stderr 'event not configured'
+stderr 'invalid_event_name'
+stderr 'ImplementationDraftPRCreation'
+stdout 'sow advance --list'
+
+# State unchanged
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationDraftPRCreation'
+
+# =====================================
+# Test: Intent-Based Branching (ReviewActive)
+# =====================================
+
+# Advance to ReviewActive (intent-based branching state)
+exec sow phase set metadata.draft_pr_created true --phase implementation
+exec sow advance draft_pr_created
+
+# Add completed tasks
+exec mkdir -p .sow/project/phases/implementation/tasks/010
+exec sh -c 'echo "# Task 010" > .sow/project/phases/implementation/tasks/010/description.md'
+exec sow task add 'Test task' --agent implementer
+exec sow task set --id 010 status completed
+
+exec sow advance all_tasks_complete
+
+# Verify we're in ReviewActive
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+
+# Add review with pass assessment
+exec mkdir -p .sow/project/phases/review
+exec sh -c 'echo "# Review Pass" > .sow/project/phases/review/report.md'
+exec sow output add --type review --path review/report.md --phase review
+exec sow output set --index 0 metadata.assessment pass --phase review
+exec sow output set --index 0 approved true --phase review
+
+# Test explicit review_pass event (one branch)
+exec sow advance review_pass
+stdout 'Advanced to: FinalizeChecks'
+
+# Verify state changed to FinalizeChecks (pass path)
+exec cat .sow/project/state.yaml
+stdout 'current_state: FinalizeChecks'
+
+# =====================================
+# Test: Intent-Based Branching - Fail Path
+# =====================================
+
+# Create new project in ReviewActive for fail path test
+exec rm -rf .sow/project
+exec mkdir -p .sow/project/phases/planning
+exec mkdir -p .sow/project/phases/implementation
+exec mkdir -p .sow/project/phases/review
+exec mkdir -p .sow/project/phases/finalize
+
+cp testdata/state_review.yaml .sow/project/state.yaml
+
+-- testdata/state_review.yaml --
+name: Review fail test
+type: standard
+branch: feat/test-explicit
+description: Test review fail path
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:00:00Z
+    completed_at: 2025-01-01T00:01:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  implementation:
+    status: in_progress
+    enabled: true
+    iteration: 0
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:01:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks:
+      - id: "010"
+        name: Test task
+        phase: implementation
+        status: completed
+        iteration: 1
+        assigned_agent: implementer
+        created_at: 2025-01-01T00:00:00Z
+        updated_at: 2025-01-01T00:00:00Z
+        completed_at: 2025-01-01T00:00:00Z
+        inputs: []
+        outputs: []
+  review:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:01:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs:
+      - type: review
+        path: review/report.md
+        created_at: 2025-01-01T00:00:00Z
+        approved: true
+        metadata:
+          assessment: fail
+    tasks: []
+  finalize:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: ReviewActive
+  updated_at: 2025-01-01T00:00:00Z
+
+# Create review report
+exec mkdir -p .sow/project/phases/review
+exec sh -c 'echo "# Review Fail" > .sow/project/phases/review/report.md'
+
+# Verify initial state
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+stdout 'assessment: fail'
+
+# Test explicit review_fail event (other branch)
+exec sow advance review_fail
+stdout 'Advanced to: ImplementationPlanning'
+
+# Verify state returned to ImplementationPlanning (fail path)
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# Verify iteration incremented
+stdout '(?s)implementation:.*iteration: 1'
