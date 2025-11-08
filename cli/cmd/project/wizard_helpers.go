@@ -149,7 +149,7 @@ func previewBranchName(projectType, name string) string {
 //	    return showError("Cannot use protected branch name: " + branchName)
 //	}
 //
-//nolint:unused // Will be used by wizard screens in subsequent work units
+//nolint:unused,unparam // Will be used by wizard screens in subsequent work units
 func showError(message string) error {
 	form := huh.NewForm(
 		huh.NewGroup(
