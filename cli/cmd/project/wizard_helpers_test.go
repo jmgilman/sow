@@ -517,8 +517,8 @@ func TestFormatProjectProgress(t *testing.T) {
 		{
 			name: "project without tasks excludes task portion",
 			proj: ProjectInfo{
-				Type:      "design",
-				Phase:     "active",
+				Type:       "design",
+				Phase:      "active",
 				TasksTotal: 0,
 			},
 			expected: "Design: active",
