@@ -337,58 +337,20 @@ func listProjects(ctx *sow.Context) ([]ProjectInfo, error) {
 		}
 
 		// Look for state.yaml files in .sow/project/ subdirectories
-		if !info.IsDir() && info.Name() == "state.yaml" {
-			// Check if this is a project state file (path ends with .sow/project/state.yaml)
-			if filepath.Base(filepath.Dir(path)) == "project" &&
-				filepath.Base(filepath.Dir(filepath.Dir(path))) == ".sow" {
+		if info.IsDir() || info.Name() != "state.yaml" {
+			return nil
+		}
 
-				// Extract branch name from path
-				// Path structure: worktreesDir/branchName/.sow/project/state.yaml
-				worktreePath := filepath.Dir(filepath.Dir(filepath.Dir(path)))
-				branchName, err := filepath.Rel(worktreesDir, worktreePath)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to extract branch name from %s: %v\n", path, err)
-					return nil
-				}
+		// Check if this is a project state file (path ends with .sow/project/state.yaml)
+		if filepath.Base(filepath.Dir(path)) != "project" ||
+			filepath.Base(filepath.Dir(filepath.Dir(path))) != ".sow" {
+			return nil
+		}
 
-				// Create a context for this worktree
-				worktreeCtx, err := sow.NewContext(worktreePath)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to create context for %s: %v\n", branchName, err)
-					return nil
-				}
-
-				// Load project state
-				proj, err := state.Load(worktreeCtx)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to load project state for %s: %v\n", branchName, err)
-					return nil
-				}
-
-				// Count tasks across ALL phases
-				var tasksCompleted, tasksTotal int
-				for _, phase := range proj.Phases {
-					for _, task := range phase.Tasks {
-						tasksTotal++
-						if task.Status == "completed" {
-							tasksCompleted++
-						}
-					}
-				}
-
-				// Extract metadata
-				projectInfo := ProjectInfo{
-					Branch:         branchName,
-					Name:           proj.Name,
-					Type:           proj.Type,
-					Phase:          proj.Machine().State().String(),
-					TasksCompleted: tasksCompleted,
-					TasksTotal:     tasksTotal,
-					ModTime:        info.ModTime(),
-				}
-
-				projects = append(projects, projectInfo)
-			}
+		// Process this project state file
+		projectInfo := processProjectState(path, worktreesDir, info)
+		if projectInfo != nil {
+			projects = append(projects, *projectInfo)
 		}
 
 		return nil
@@ -404,6 +366,55 @@ func listProjects(ctx *sow.Context) ([]ProjectInfo, error) {
 	})
 
 	return projects, nil
+}
+
+// processProjectState processes a project state.yaml file and returns project info.
+// Returns nil if the project cannot be loaded (with warning to stderr).
+func processProjectState(path, worktreesDir string, info os.FileInfo) *ProjectInfo {
+	// Extract branch name from path
+	// Path structure: worktreesDir/branchName/.sow/project/state.yaml
+	worktreePath := filepath.Dir(filepath.Dir(filepath.Dir(path)))
+	branchName, err := filepath.Rel(worktreesDir, worktreePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to extract branch name from %s: %v\n", path, err)
+		return nil
+	}
+
+	// Create a context for this worktree
+	worktreeCtx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to create context for %s: %v\n", branchName, err)
+		return nil
+	}
+
+	// Load project state
+	proj, err := state.Load(worktreeCtx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to load project state for %s: %v\n", branchName, err)
+		return nil
+	}
+
+	// Count tasks across ALL phases
+	var tasksCompleted, tasksTotal int
+	for _, phase := range proj.Phases {
+		for _, task := range phase.Tasks {
+			tasksTotal++
+			if task.Status == "completed" {
+				tasksCompleted++
+			}
+		}
+	}
+
+	// Extract metadata
+	return &ProjectInfo{
+		Branch:         branchName,
+		Name:           proj.Name,
+		Type:           proj.Type,
+		Phase:          proj.Machine().State().String(),
+		TasksCompleted: tasksCompleted,
+		TasksTotal:     tasksTotal,
+		ModTime:        info.ModTime(),
+	}
 }
 
 // formatProjectProgress formats progress information for display in project selection.
