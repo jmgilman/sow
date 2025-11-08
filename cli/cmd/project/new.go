@@ -3,19 +3,12 @@ package project
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	sowexec "github.com/jmgilman/sow/cli/internal/exec"
-	"github.com/jmgilman/sow/cli/internal/prompts"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/templates"
 	"github.com/jmgilman/sow/cli/internal/sow"
-	projschema "github.com/jmgilman/sow/cli/schemas/project"
 	"github.com/spf13/cobra"
 )
 
@@ -145,54 +138,10 @@ func runNew(cmd *cobra.Command, branchName string, issueNumber int, description 
 			worktreePath, selectedBranch)
 	}
 
-	// 8. Ensure .sow/project directory exists in worktree
-	projectDir := filepath.Join(worktreePath, ".sow", "project")
-	if err := os.MkdirAll(projectDir, 0755); err != nil {
-		return fmt.Errorf("failed to create project directory: %w", err)
-	}
-
-	// 9. Always create context directory for project files
-	contextDir := filepath.Join(projectDir, "context")
-	if err := os.MkdirAll(contextDir, 0755); err != nil {
-		return fmt.Errorf("failed to create context directory: %w", err)
-	}
-
-	// 10. Prepare initial inputs if issue is provided
-	var initialInputs map[string][]projschema.ArtifactState
-	if issue != nil {
-
-		// Write issue body to file
-		issueFileName := fmt.Sprintf("issue-%d.md", issue.Number)
-		issuePath := filepath.Join(contextDir, issueFileName)
-		issueContent := fmt.Sprintf("# Issue #%d: %s\n\n**URL**: %s\n**State**: %s\n\n## Description\n\n%s\n",
-			issue.Number, issue.Title, issue.URL, issue.State, issue.Body)
-
-		if err := os.WriteFile(issuePath, []byte(issueContent), 0644); err != nil {
-			return fmt.Errorf("failed to write issue file: %w", err)
-		}
-
-		// Create github_issue artifact for implementation phase
-		issueArtifact := projschema.ArtifactState{
-			Type:       "github_issue",
-			Path:       fmt.Sprintf("context/%s", issueFileName),
-			Approved:   true, // Auto-approved
-			Created_at: time.Now(),
-			Metadata: map[string]interface{}{
-				"issue_number": issue.Number,
-				"issue_url":    issue.URL,
-				"issue_title":  issue.Title,
-			},
-		}
-
-		initialInputs = map[string][]projschema.ArtifactState{
-			"implementation": {issueArtifact},
-		}
-	}
-
-	// 11. Create project using SDK with initial inputs
-	proj, err := state.Create(worktreeCtx, selectedBranch, description, initialInputs)
+	// 8. Initialize project using shared utility
+	proj, err := initializeProject(worktreeCtx, selectedBranch, description, issue)
 	if err != nil {
-		return fmt.Errorf("failed to create project: %w", err)
+		return err
 	}
 
 	fmt.Fprintf(os.Stderr, "✓ Initialized project '%s' on branch %s\n", proj.Name, selectedBranch)
@@ -356,66 +305,8 @@ func handleCurrentBranchScenarioNew(ctx *sow.Context) (string, error) {
 	return currentBranch, nil
 }
 
-// generateNewProjectPrompt creates the custom prompt for new projects.
-// Uses 3-layer structure: Base Orchestrator + Project Type Orchestrator + Initial State.
-func generateNewProjectPrompt(proj *state.Project, initialPrompt string) (string, error) {
-	var buf strings.Builder
-
-	// Layer 1: Base Orchestrator Introduction
-	baseOrch, err := templates.Render(prompts.FS, "templates/greet/orchestrator.md", nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to render base orchestrator prompt: %w", err)
-	}
-	buf.WriteString(baseOrch)
-	buf.WriteString("\n\n---\n\n")
-
-	// Layer 2: Project Type Orchestrator Prompt
-	projectTypePrompt := proj.Config().OrchestratorPrompt(proj)
-	if projectTypePrompt != "" {
-		buf.WriteString(projectTypePrompt)
-		buf.WriteString("\n\n---\n\n")
-	}
-
-	// Layer 3: Initial State Prompt
-	initialState := proj.Machine().State()
-	statePrompt := proj.Config().GetStatePrompt(initialState, proj)
-	if statePrompt != "" {
-		buf.WriteString(statePrompt)
-		buf.WriteString("\n\n---\n\n")
-	}
-
-	// Add initial user prompt if provided
-	if initialPrompt != "" {
-		buf.WriteString("## User's Initial Request\n\n")
-		buf.WriteString(initialPrompt)
-		buf.WriteString("\n")
-	}
-
-	return buf.String(), nil
-}
-
-// launchClaudeCode is a placeholder that should call the shared helper.
-// For now, inline the implementation to avoid import cycle.
-func launchClaudeCode(cmd *cobra.Command, ctx *sow.Context, prompt string, claudeFlags []string) error {
-	claude := sowexec.NewLocal("claude")
-	if !claude.Exists() {
-		fmt.Fprintln(os.Stderr, "Error: Claude Code CLI not found")
-		fmt.Fprintln(os.Stderr, "Install from: https://claude.com/download")
-		return fmt.Errorf("claude not found")
-	}
-
-	// Build command args: prompt first, then any additional flags
-	args := []string{prompt}
-	args = append(args, claudeFlags...)
-
-	claudeCmd := exec.CommandContext(cmd.Context(), claude.Command(), args...)
-	claudeCmd.Stdin = os.Stdin
-	claudeCmd.Stdout = os.Stdout
-	claudeCmd.Stderr = os.Stderr
-	claudeCmd.Dir = ctx.RepoRoot()
-
-	return claudeCmd.Run()
-}
+// generateNewProjectPrompt, generateContinuePrompt, launchClaudeCode, and initializeProject
+// have been moved to shared.go to support both the existing commands and the new wizard.
 
 func createBranch(git *sow.Git, branchName string) error {
 	// Get current HEAD

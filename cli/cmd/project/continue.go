@@ -5,12 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	"github.com/jmgilman/sow/cli/internal/prompts"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/templates"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
@@ -164,33 +161,5 @@ func handleCurrentBranchScenarioContinue(ctx *sow.Context) (string, error) {
 	return currentBranch, nil
 }
 
-// generateContinuePrompt creates the custom prompt for continuing projects.
-// Uses 3-layer structure: Base Orchestrator + Project Type Orchestrator + Current State.
-func generateContinuePrompt(proj *state.Project) (string, error) {
-	var buf strings.Builder
-
-	// Layer 1: Base Orchestrator Introduction
-	baseOrch, err := templates.Render(prompts.FS, "templates/greet/orchestrator.md", nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to render base orchestrator prompt: %w", err)
-	}
-	buf.WriteString(baseOrch)
-	buf.WriteString("\n\n---\n\n")
-
-	// Layer 2: Project Type Orchestrator Prompt
-	projectTypePrompt := proj.Config().OrchestratorPrompt(proj)
-	if projectTypePrompt != "" {
-		buf.WriteString(projectTypePrompt)
-		buf.WriteString("\n\n---\n\n")
-	}
-
-	// Layer 3: Current State Prompt
-	currentState := proj.Machine().State()
-	statePrompt := proj.Config().GetStatePrompt(currentState, proj)
-	if statePrompt != "" {
-		buf.WriteString(statePrompt)
-		buf.WriteString("\n")
-	}
-
-	return buf.String(), nil
-}
+// generateContinuePrompt and launchClaudeCode have been moved to shared.go
+// to support both the existing commands and the new wizard.
