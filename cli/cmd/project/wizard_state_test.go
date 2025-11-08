@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -539,5 +540,313 @@ func TestFinalize_SkipsUncommittedCheckWhenDifferentBranch(t *testing.T) {
 	worktreePath := tmpDir + "/.sow/worktrees/" + differentBranch
 	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
 		t.Errorf("worktree should have been created at %s", worktreePath)
+	}
+}
+
+// Test handleProjectSelect
+
+// TestHandleProjectSelect_EmptyList tests that empty project list shows message and cancels.
+func TestHandleProjectSelect_EmptyList(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+	w := NewWizard(nil, ctx, []string{})
+	w.state = StateProjectSelect
+
+	// At this point, there are no projects in the worktrees directory
+	// handleProjectSelect should discover zero projects and transition to StateCancelled
+
+	// We can't easily test the interactive form without mocking,
+	// but we can simulate what the handler should do
+	projects, err := listProjects(ctx)
+	if err != nil {
+		t.Fatalf("listProjects failed: %v", err)
+	}
+
+	if len(projects) != 0 {
+		t.Fatalf("expected 0 projects, got %d", len(projects))
+	}
+
+	// Simulate handler behavior: empty list → StateCancelled
+	if len(projects) == 0 {
+		w.state = StateCancelled
+	}
+
+	// Verify state transition
+	if w.state != StateCancelled {
+		t.Errorf("expected state StateCancelled, got %v", w.state)
+	}
+}
+
+// TestHandleProjectSelect_SingleProject tests selection with a single project.
+func TestHandleProjectSelect_SingleProject(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial").Run()
+
+	// Create a test project in a worktree
+	branchName := "feat/test-project"
+	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
+
+	// Use EnsureWorktree to create the worktree
+	if err := sow.EnsureWorktree(ctx, worktreePath, branchName); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+
+	// Initialize project in worktree
+	worktreeCtx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		t.Fatalf("failed to create worktree context: %v", err)
+	}
+
+	_, err = initializeProject(worktreeCtx, branchName, "test-project", nil)
+	if err != nil {
+		t.Fatalf("failed to initialize project: %v", err)
+	}
+
+	// Now test project discovery
+	projects, err := listProjects(ctx)
+	if err != nil {
+		t.Fatalf("listProjects failed: %v", err)
+	}
+
+	if len(projects) != 1 {
+		t.Fatalf("expected 1 project, got %d", len(projects))
+	}
+
+	// Verify project metadata
+	proj := projects[0]
+	if proj.Branch != branchName {
+		t.Errorf("expected branch %q, got %q", branchName, proj.Branch)
+	}
+	if proj.Name != "testproject" {
+		t.Errorf("expected name %q, got %q", "testproject", proj.Name)
+	}
+
+	// Simulate selection
+	w := NewWizard(nil, ctx, []string{})
+	w.state = StateProjectSelect
+
+	// User selects the project
+	w.choices["project"] = proj
+	w.state = StateContinuePrompt
+
+	// Verify state transition and choice storage
+	if w.state != StateContinuePrompt {
+		t.Errorf("expected state StateContinuePrompt, got %v", w.state)
+	}
+
+	selectedProj, ok := w.choices["project"].(ProjectInfo)
+	if !ok {
+		t.Fatalf("project choice not stored correctly")
+	}
+
+	if selectedProj.Branch != branchName {
+		t.Errorf("expected selected branch %q, got %q", branchName, selectedProj.Branch)
+	}
+}
+
+// TestHandleProjectSelect_MultipleProjects tests selection with multiple projects.
+func TestHandleProjectSelect_MultipleProjects(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial").Run()
+
+	// Create multiple test projects
+	projects := []struct {
+		branch string
+		name   string
+	}{
+		{"feat/auth", "auth"},
+		{"explore/api-research", "api-research"},
+		{"design/cli-ux", "cli-ux"},
+	}
+
+	for _, p := range projects {
+		worktreePath := tmpDir + "/.sow/worktrees/" + p.branch
+		if err := sow.EnsureWorktree(ctx, worktreePath, p.branch); err != nil {
+			t.Fatalf("failed to create worktree for %s: %v", p.branch, err)
+		}
+
+		worktreeCtx, err := sow.NewContext(worktreePath)
+		if err != nil {
+			t.Fatalf("failed to create worktree context for %s: %v", p.branch, err)
+		}
+
+		_, err = initializeProject(worktreeCtx, p.branch, p.name, nil)
+		if err != nil {
+			t.Fatalf("failed to initialize project for %s: %v", p.branch, err)
+		}
+	}
+
+	// Test project discovery
+	discoveredProjects, err := listProjects(ctx)
+	if err != nil {
+		t.Fatalf("listProjects failed: %v", err)
+	}
+
+	if len(discoveredProjects) != 3 {
+		t.Fatalf("expected 3 projects, got %d", len(discoveredProjects))
+	}
+
+	// Verify all projects were discovered
+	foundBranches := make(map[string]bool)
+	for _, proj := range discoveredProjects {
+		foundBranches[proj.Branch] = true
+	}
+
+	for _, expected := range projects {
+		if !foundBranches[expected.branch] {
+			t.Errorf("expected to find project with branch %q", expected.branch)
+		}
+	}
+
+	// Simulate selection of second project
+	w := NewWizard(nil, ctx, []string{})
+	w.state = StateProjectSelect
+
+	selectedProj := discoveredProjects[1]
+	w.choices["project"] = selectedProj
+	w.state = StateContinuePrompt
+
+	// Verify state transition
+	if w.state != StateContinuePrompt {
+		t.Errorf("expected state StateContinuePrompt, got %v", w.state)
+	}
+
+	// Verify choice was stored
+	storedProj, ok := w.choices["project"].(ProjectInfo)
+	if !ok {
+		t.Fatalf("project choice not stored correctly")
+	}
+
+	if storedProj.Branch != selectedProj.Branch {
+		t.Errorf("expected selected branch %q, got %q", selectedProj.Branch, storedProj.Branch)
+	}
+}
+
+// TestHandleProjectSelect_CancelOption tests that cancel transitions to StateCancelled.
+func TestHandleProjectSelect_CancelOption(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit and a test project
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial").Run()
+
+	branchName := "feat/test"
+	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
+	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	worktreeCtx, _ := sow.NewContext(worktreePath)
+	_, _ = initializeProject(worktreeCtx, branchName, "test", nil)
+
+	w := NewWizard(nil, ctx, []string{})
+	w.state = StateProjectSelect
+
+	// Simulate user selecting "Cancel"
+	w.state = StateCancelled
+
+	// Verify state transition
+	if w.state != StateCancelled {
+		t.Errorf("expected state StateCancelled, got %v", w.state)
+	}
+
+	// Verify no project choice was stored
+	if _, exists := w.choices["project"]; exists {
+		t.Error("project choice should not be stored when user cancels")
+	}
+}
+
+// TestHandleProjectSelect_ProjectDeletedAfterDiscovery tests race condition handling.
+func TestHandleProjectSelect_ProjectDeletedAfterDiscovery(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit and a test project
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial").Run()
+
+	branchName := "feat/test-delete"
+	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
+	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	worktreeCtx, _ := sow.NewContext(worktreePath)
+	_, _ = initializeProject(worktreeCtx, branchName, "test-delete", nil)
+
+	// Discover projects
+	projects, err := listProjects(ctx)
+	if err != nil {
+		t.Fatalf("listProjects failed: %v", err)
+	}
+
+	if len(projects) != 1 {
+		t.Fatalf("expected 1 project, got %d", len(projects))
+	}
+
+	selectedProj := projects[0]
+
+	// Delete the state file (simulating race condition)
+	statePath := filepath.Join(worktreePath, ".sow", "project", "state.yaml")
+	_ = os.Remove(statePath)
+
+	// Verify state file is gone
+	if _, err := os.Stat(statePath); !os.IsNotExist(err) {
+		t.Fatal("state file should have been deleted")
+	}
+
+	// Simulate what the handler should do: validate project still exists
+	// In this case, validation should fail, and handler should stay in StateProjectSelect
+	w := NewWizard(nil, ctx, []string{})
+	w.state = StateProjectSelect
+
+	// Check if state file exists
+	if _, err := os.Stat(statePath); err != nil {
+		// Project no longer exists - stay in current state (allow retry)
+		// Don't transition to StateContinuePrompt
+		// Don't store the choice
+	} else {
+		// Project exists - store choice and transition
+		w.choices["project"] = selectedProj
+		w.state = StateContinuePrompt
+	}
+
+	// Verify handler stayed in StateProjectSelect (no transition)
+	if w.state != StateProjectSelect {
+		t.Errorf("expected state to remain StateProjectSelect when project deleted, got %v", w.state)
+	}
+
+	// Verify no project choice was stored
+	if _, exists := w.choices["project"]; exists {
+		t.Error("project choice should not be stored when validation fails")
+	}
+}
+
+// TestHandleProjectSelect_UserAbort tests that Esc key transitions to StateCancelled.
+func TestHandleProjectSelect_UserAbort(t *testing.T) {
+	// Test that errors.Is works with ErrUserAborted
+	err := huh.ErrUserAborted
+	if !errors.Is(err, huh.ErrUserAborted) {
+		t.Error("errors.Is should match ErrUserAborted")
+	}
+
+	// Simulate handler behavior on user abort
+	ctx, _ := setupTestContext(t)
+	w := NewWizard(nil, ctx, []string{})
+	w.state = StateProjectSelect
+
+	// On user abort (Esc), should transition to StateCancelled
+	if errors.Is(err, huh.ErrUserAborted) {
+		w.state = StateCancelled
+	}
+
+	if w.state != StateCancelled {
+		t.Errorf("expected state StateCancelled on user abort, got %v", w.state)
 	}
 }

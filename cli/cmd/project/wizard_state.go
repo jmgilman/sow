@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -332,10 +333,87 @@ func (w *Wizard) handlePromptEntry() error {
 	return nil
 }
 
-// handleProjectSelect allows selecting existing project to continue (stub for now).
+// handleProjectSelect allows selecting existing project to continue.
 func (w *Wizard) handleProjectSelect() error {
-	fmt.Println("Project select screen (stub)")
-	w.state = StateComplete
+	// 1. Discover projects with spinner
+	var projects []ProjectInfo
+	err := withSpinner("Discovering projects...", func() error {
+		var discoverErr error
+		projects, discoverErr = listProjects(w.ctx)
+		return discoverErr
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to discover projects: %w", err)
+	}
+
+	// 2. Handle empty list
+	if len(projects) == 0 {
+		fmt.Fprintln(os.Stderr, "\nNo existing projects found.")
+		w.state = StateCancelled
+		return nil
+	}
+
+	// 3. Build selection options
+	var selectedBranch string
+	options := make([]huh.Option[string], 0, len(projects)+1)
+
+	for _, proj := range projects {
+		progress := formatProjectProgress(proj)
+		label := fmt.Sprintf("%s - %s\n    [%s]", proj.Branch, proj.Name, progress)
+		options = append(options, huh.NewOption(label, proj.Branch))
+	}
+	options = append(options, huh.NewOption("Cancel", "cancel"))
+
+	// 4. Show selection
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Select a project to continue:").
+				Options(options...).
+				Value(&selectedBranch),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			w.state = StateCancelled
+			return nil
+		}
+		return fmt.Errorf("project selection error: %w", err)
+	}
+
+	// 5. Handle cancellation
+	if selectedBranch == "cancel" {
+		w.state = StateCancelled
+		return nil
+	}
+
+	// 6. Validate project still exists
+	var selectedProj *ProjectInfo
+	for i := range projects {
+		if projects[i].Branch == selectedBranch {
+			selectedProj = &projects[i]
+			break
+		}
+	}
+
+	if selectedProj == nil {
+		return fmt.Errorf("internal error: selected project not found in list")
+	}
+
+	// Double-check state file still exists (race condition check)
+	worktreePath := sow.WorktreePath(w.ctx.MainRepoRoot(), selectedBranch)
+	statePath := filepath.Join(worktreePath, ".sow", "project", "state.yaml")
+	if _, err := os.Stat(statePath); err != nil {
+		// Project was deleted between discovery and selection
+		_ = showError("Project no longer exists (state file missing)\n\nPress Enter to try again")
+		return nil // Stay in current state to retry
+	}
+
+	// 7. Save selection and transition
+	w.choices["project"] = *selectedProj
+	w.state = StateContinuePrompt
 	return nil
 }
 
