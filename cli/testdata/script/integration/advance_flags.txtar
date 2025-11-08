@@ -1,0 +1,145 @@
+# Test: sow advance Flag Validation
+# Coverage: Mutual exclusivity rules, invalid flag combinations
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-flags
+exec sow init
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Create Standard Project
+# =====================================
+exec mkdir -p .sow/project/phases/planning
+exec mkdir -p .sow/project/phases/implementation
+exec mkdir -p .sow/project/phases/review
+exec mkdir -p .sow/project/phases/finalize
+
+cp testdata/state.yaml .sow/project/state.yaml
+
+-- testdata/state.yaml --
+name: Flag validation test
+type: standard
+branch: feat/test-flags
+description: Test flag validation
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:00:00Z
+    completed_at: 2025-01-01T00:01:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  implementation:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:01:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata:
+      planning_approved: true
+    inputs: []
+    outputs: []
+    tasks: []
+  review:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  finalize:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: ImplementationPlanning
+  updated_at: 2025-01-01T00:00:00Z
+
+# =====================================
+# Test: Valid Modes (Baseline)
+# =====================================
+
+# Auto mode: no flags, no args - VALID
+exec sow advance
+stdout 'Advanced to: ImplementationDraftPRCreation'
+
+# Reset state
+exec sow phase set metadata.planning_approved true --phase implementation
+exec rm -rf .sow/project
+exec mkdir -p .sow/project/phases/planning .sow/project/phases/implementation .sow/project/phases/review .sow/project/phases/finalize
+cp testdata/state.yaml .sow/project/state.yaml
+
+# List mode: --list flag, no args - VALID
+exec sow advance --list
+stdout 'Available transitions'
+
+# Reset state again
+exec rm -rf .sow/project
+exec mkdir -p .sow/project/phases/planning .sow/project/phases/implementation .sow/project/phases/review .sow/project/phases/finalize
+cp testdata/state.yaml .sow/project/state.yaml
+
+# Dry-run mode: --dry-run flag with event arg - VALID
+exec sow advance --dry-run planning_complete
+stdout 'Validating transition'
+
+# Reset state again
+exec rm -rf .sow/project
+exec mkdir -p .sow/project/phases/planning .sow/project/phases/implementation .sow/project/phases/review .sow/project/phases/finalize
+cp testdata/state.yaml .sow/project/state.yaml
+
+# Explicit mode: no flags, one event arg - VALID
+exec sow advance planning_complete
+stdout 'Advanced to: ImplementationDraftPRCreation'
+
+# =====================================
+# Test: Invalid Flag Combinations
+# =====================================
+
+# Reset to initial state
+exec rm -rf .sow/project
+exec mkdir -p .sow/project/phases/planning .sow/project/phases/implementation .sow/project/phases/review .sow/project/phases/finalize
+cp testdata/state.yaml .sow/project/state.yaml
+
+# --list and --dry-run together - INVALID
+! exec sow advance --list --dry-run
+stderr 'cannot use --list and --dry-run together'
+
+# --list with event argument - INVALID
+! exec sow advance --list planning_complete
+stderr 'cannot specify event argument with --list flag'
+
+# --dry-run without event argument - INVALID
+! exec sow advance --dry-run
+stderr '--dry-run requires an event argument'
+
+# =====================================
+# Test: Verify State Never Changed During Validation Errors
+# =====================================
+
+# All validation errors should occur BEFORE any state modification
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# State should be exactly as initialized (no changes from failed commands)
+stdout 'planning_approved: true'

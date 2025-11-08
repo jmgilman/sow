@@ -1,0 +1,254 @@
+# Test: sow advance - Full Standard Project Lifecycle with ReviewActive Branching
+# Coverage: Complete lifecycle through all phases, both review pass and fail paths
+
+# =====================================
+# Setup Git Repository
+# =====================================
+exec git init
+exec git config user.email 'test@example.com'
+exec git config user.name 'Test User'
+exec git commit --allow-empty -m 'Initial commit'
+exec git checkout -b feat/test-lifecycle
+exec sow init
+
+env SOW_SKIP_UNCOMMITTED_CHECK=1
+
+# =====================================
+# Test: Review Pass Path (Full Success Lifecycle)
+# =====================================
+
+exec mkdir -p .sow/project/phases/planning
+exec mkdir -p .sow/project/phases/implementation
+exec mkdir -p .sow/project/phases/review
+exec mkdir -p .sow/project/phases/finalize
+
+cp testdata/state.yaml .sow/project/state.yaml
+
+-- testdata/state.yaml --
+name: Full lifecycle test
+type: standard
+branch: feat/test-lifecycle
+description: Complete standard project lifecycle
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:00:00Z
+    completed_at: 2025-01-01T00:01:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  implementation:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:01:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata:
+      planning_approved: true
+    inputs: []
+    outputs: []
+    tasks: []
+  review:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  finalize:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: ImplementationPlanning
+  updated_at: 2025-01-01T00:00:00Z
+
+# Start: ImplementationPlanning
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# Advance to ImplementationDraftPRCreation
+exec sow advance
+stdout 'Advanced to: ImplementationDraftPRCreation'
+
+# Advance to ImplementationExecuting
+exec sow phase set metadata.draft_pr_created true --phase implementation
+exec sow advance
+stdout 'Advanced to: ImplementationExecuting'
+
+# Complete implementation tasks
+exec mkdir -p .sow/project/phases/implementation/tasks/010
+exec sh -c 'echo "# Task 010" > .sow/project/phases/implementation/tasks/010/description.md'
+exec sow task add 'Test task' --agent implementer
+exec sow task set --id 010 status completed
+
+# Advance to ReviewActive
+exec sow advance
+stdout 'Advanced to: ReviewActive'
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+
+# Create review with PASS assessment
+exec mkdir -p .sow/project/phases/review
+exec sh -c 'echo "# Review Pass" > .sow/project/phases/review/report.md'
+exec sow output add --type review --path review/report.md --phase review
+exec sow output set --index 0 metadata.assessment pass --phase review
+exec sow output set --index 0 approved true --phase review
+
+# Advance to FinalizeChecks (review pass path)
+exec sow advance
+stdout 'Advanced to: FinalizeChecks'
+exec cat .sow/project/state.yaml
+stdout 'current_state: FinalizeChecks'
+
+# Verify review phase completed
+stdout '(?s)review:.*status: completed'
+
+# Advance to FinalizePRReady
+exec sow advance
+stdout 'Advanced to: FinalizePRReady'
+
+# Create and approve PR body
+exec mkdir -p .sow/project/phases/finalize
+exec sh -c 'echo "# PR Body" > .sow/project/phases/finalize/pr_body.md'
+exec sow output add --type pr_body --path finalize/pr_body.md --phase finalize
+exec sow output set --index 0 approved true --phase finalize
+
+# Advance to FinalizePRChecks
+exec sow advance
+stdout 'Advanced to: FinalizePRChecks'
+
+# Advance to FinalizeCleanup
+exec sow phase set metadata.pr_checks_passed true --phase finalize
+exec sow advance
+stdout 'Advanced to: FinalizeCleanup'
+
+# Advance to NoProject (terminal state)
+exec sow phase set metadata.project_deleted true --phase finalize
+exec sow advance
+stdout 'Advanced to: NoProject'
+
+# Verify final state
+exec cat .sow/project/state.yaml
+stdout 'current_state: NoProject'
+stdout '(?s)finalize:.*status: completed'
+
+# =====================================
+# Test: Review Fail Path (Iteration Loop)
+# =====================================
+
+# Create new project for fail path test
+exec rm -rf .sow/project
+exec mkdir -p .sow/project/phases/planning
+exec mkdir -p .sow/project/phases/implementation
+exec mkdir -p .sow/project/phases/review
+exec mkdir -p .sow/project/phases/finalize
+
+cp testdata/state_review.yaml .sow/project/state.yaml
+
+-- testdata/state_review.yaml --
+name: Review fail path test
+type: standard
+branch: feat/test-lifecycle
+description: Test review fail iteration
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+phases:
+  planning:
+    status: completed
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:00:00Z
+    completed_at: 2025-01-01T00:01:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+  implementation:
+    status: in_progress
+    enabled: true
+    iteration: 0
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:01:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks:
+      - id: "010"
+        name: Test task
+        phase: implementation
+        status: completed
+        iteration: 1
+        assigned_agent: implementer
+        created_at: 2025-01-01T00:00:00Z
+        updated_at: 2025-01-01T00:00:00Z
+        completed_at: 2025-01-01T00:00:00Z
+        inputs: []
+        outputs: []
+  review:
+    status: in_progress
+    enabled: true
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 2025-01-01T00:01:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs:
+      - type: review
+        path: review/report.md
+        created_at: 2025-01-01T00:00:00Z
+        approved: true
+        metadata:
+          assessment: fail
+    tasks: []
+  finalize:
+    status: pending
+    enabled: false
+    created_at: 2025-01-01T00:00:00Z
+    started_at: 0001-01-01T00:00:00Z
+    completed_at: 0001-01-01T00:00:00Z
+    metadata: {}
+    inputs: []
+    outputs: []
+    tasks: []
+statechart:
+  current_state: ReviewActive
+  updated_at: 2025-01-01T00:00:00Z
+
+# Create review report file
+exec mkdir -p .sow/project/phases/review
+exec sh -c 'echo "# Review Fail" > .sow/project/phases/review/report.md'
+
+# Verify we're in ReviewActive with fail assessment
+exec cat .sow/project/state.yaml
+stdout 'current_state: ReviewActive'
+stdout 'assessment: fail'
+
+# Advance should take review_fail path (auto-determination via AddBranch discriminator)
+exec sow advance
+stdout 'Advanced to: ImplementationPlanning'
+
+# Verify state returned to ImplementationPlanning
+exec cat .sow/project/state.yaml
+stdout 'current_state: ImplementationPlanning'
+
+# Verify implementation iteration incremented
+stdout '(?s)implementation:.*iteration: 1'
+
+# Verify review phase NOT completed (fail path)
+! stdout '(?s)review:.*status: completed'

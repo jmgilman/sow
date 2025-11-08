@@ -128,3 +128,29 @@ func projectDeleted(p *state.Project) bool {
 func draftPRCreated(p *state.Project) bool {
 	return phaseMetadataBool(p, "implementation", "draft_pr_created")
 }
+
+// getReviewAssessment extracts the assessment ("pass" or "fail") from the latest approved review.
+// This is used as a discriminator function for the ReviewActive branching state.
+//
+// Returns:
+//   - "pass" if latest approved review has assessment="pass"
+//   - "fail" if latest approved review has assessment="fail"
+//   - "" (empty string) if no approved review found or assessment missing
+func getReviewAssessment(p *state.Project) string {
+	phase, exists := p.Phases["review"]
+	if !exists {
+		return ""
+	}
+
+	// Find latest approved review by iterating backwards
+	for i := len(phase.Outputs) - 1; i >= 0; i-- {
+		artifact := phase.Outputs[i]
+		if artifact.Type == "review" && artifact.Approved {
+			if assessment, ok := artifact.Metadata["assessment"].(string); ok {
+				return assessment // "pass" or "fail"
+			}
+		}
+	}
+
+	return "" // No approved review or assessment missing
+}
