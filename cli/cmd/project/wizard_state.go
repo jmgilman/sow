@@ -266,14 +266,31 @@ func (w *Wizard) handleGitHubError(err error) error {
 func (w *Wizard) handleTypeSelect() error {
 	var selectedType string
 
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("What type of project?").
-				Options(getTypeOptions()...).
-				Value(&selectedType),
-		),
-	)
+	// Check if we have issue context
+	var contextNote *huh.Note
+	issue, hasIssue := w.choices["issue"].(*sow.Issue)
+	if hasIssue {
+		contextNote = huh.NewNote().
+			Description(fmt.Sprintf("Issue: #%d - %s", issue.Number, issue.Title))
+	}
+
+	// Build form groups
+	groups := []*huh.Group{}
+
+	// Add context note if present
+	if contextNote != nil {
+		groups = append(groups, huh.NewGroup(contextNote))
+	}
+
+	// Add type selection
+	groups = append(groups, huh.NewGroup(
+		huh.NewSelect[string]().
+			Title("What type of project?").
+			Options(getTypeOptions()...).
+			Value(&selectedType),
+	))
+
+	form := huh.NewForm(groups...)
 
 	if err := form.Run(); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
@@ -289,9 +306,16 @@ func (w *Wizard) handleTypeSelect() error {
 	}
 
 	w.choices["type"] = selectedType
-	w.state = StateNameEntry
 
-	return nil
+	// Route based on context
+	if hasIssue {
+		// GitHub issue path: create branch then go to prompt entry
+		return w.createLinkedBranch()
+	} else {
+		// Branch name path: go to name entry
+		w.state = StateNameEntry
+		return nil
+	}
 }
 
 // handleNameEntry allows entering project name with real-time branch preview.
@@ -480,14 +504,102 @@ func (w *Wizard) showIssueSelectScreen() error {
 		return nil
 	}
 
-	// Store selected issue number for next step (Task 030)
-	w.choices["selectedIssueNumber"] = selectedIssueNumber
+	// NEW: Validate issue doesn't have linked branch
+	linkedBranches, err := w.github.GetLinkedBranches(selectedIssueNumber)
+	if err != nil {
+		errorMsg := fmt.Sprintf("Failed to check linked branches: %v\n\n"+
+			"Please try again or select 'From branch name' instead.", err)
+		_ = showError(errorMsg)
+		w.state = StateCreateSource
+		return nil
+	}
 
-	// Next: Validate issue doesn't have linked branch (Task 030)
-	// For now, just mark complete
-	w.state = StateComplete
+	if len(linkedBranches) > 0 {
+		return w.handleAlreadyLinkedError(selectedIssueNumber, linkedBranches[0])
+	}
+
+	// NEW: Fetch full issue details
+	issue, err := w.github.GetIssue(selectedIssueNumber)
+	if err != nil {
+		errorMsg := fmt.Sprintf("Failed to get issue details: %v\n\n"+
+			"Please try again.", err)
+		_ = showError(errorMsg)
+		// Stay in current state to allow retry
+		return nil
+	}
+
+	// Store issue in choices for next steps
+	w.choices["issue"] = issue
+
+	// Proceed to type selection
+	w.state = StateTypeSelect
 
 	return nil
+}
+
+// createLinkedBranch generates a branch name from the issue and creates a linked branch.
+func (w *Wizard) createLinkedBranch() error {
+	issue, ok := w.choices["issue"].(*sow.Issue)
+	if !ok {
+		return fmt.Errorf("issue not found in choices")
+	}
+
+	projectType, ok := w.choices["type"].(string)
+	if !ok {
+		return fmt.Errorf("type not found in choices")
+	}
+
+	// Generate branch name: <prefix><issue-slug>-<number>
+	prefix := getTypePrefix(projectType)
+	issueSlug := normalizeName(issue.Title)
+	branchName := fmt.Sprintf("%s%s-%d", prefix, issueSlug, issue.Number)
+
+	// Create linked branch via gh issue develop with spinner
+	var createdBranch string
+	err := withSpinner("Creating linked branch...", func() error {
+		var err error
+		// Pass checkout=false because we use worktrees, not traditional checkout
+		createdBranch, err = w.github.CreateLinkedBranch(issue.Number, branchName, false)
+		return err
+	})
+
+	if err != nil {
+		errorMsg := fmt.Sprintf("Failed to create linked branch: %v\n\n"+
+			"This may be a GitHub API issue. Please try again.",
+			err)
+		_ = showError(errorMsg)
+		// Stay in current state to allow retry
+		return nil
+	}
+
+	// Store branch name and use issue title as project name
+	w.choices["branch"] = createdBranch
+	w.choices["name"] = issue.Title
+
+	// Proceed to prompt entry
+	w.state = StatePromptEntry
+
+	return nil
+}
+
+// handleAlreadyLinkedError displays error when issue has existing linked branch.
+// Returns nil to keep wizard running (user can select different issue).
+func (w *Wizard) handleAlreadyLinkedError(issueNumber int, branch sow.LinkedBranch) error {
+	errorMsg := fmt.Sprintf(
+		"Issue #%d already has a linked branch: %s\n\n"+
+			"To continue working on this issue:\n"+
+			"  Select \"Continue existing project\" from the main menu\n\n"+
+			"To work on a different issue:\n"+
+			"  Select a different issue from the list",
+		issueNumber,
+		branch.Name,
+	)
+
+	_ = showError(errorMsg)
+
+	// Return to issue select to let user choose different issue
+	// Keep issues list in choices so we don't need to fetch again
+	return w.showIssueSelectScreen()
 }
 
 // finalize creates the project, initializes it in a worktree, and launches Claude Code.
