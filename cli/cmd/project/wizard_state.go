@@ -63,8 +63,25 @@ func NewWizard(cmd *cobra.Command, ctx *sow.Context, claudeFlags []string) *Wiza
 	}
 }
 
+// setState transitions the wizard to a new state with optional validation in debug mode.
+func (w *Wizard) setState(newState WizardState) {
+	oldState := w.state
+	w.state = newState
+
+	debugLog("Wizard", "State transition: %s -> %s", oldState, newState)
+
+	// In debug mode, validate state transitions
+	if os.Getenv("SOW_DEBUG") == "1" {
+		if err := validateStateTransition(oldState, newState); err != nil {
+			fmt.Fprintf(os.Stderr, "[WARN] %v\n", err)
+		}
+	}
+}
+
 // Run executes the wizard state machine loop.
 func (w *Wizard) Run() error {
+	debugLog("Wizard", "Starting wizard in state=%s", w.state)
+
 	for w.state != StateComplete && w.state != StateCancelled {
 		if err := w.handleState(); err != nil {
 			return err
@@ -72,9 +89,11 @@ func (w *Wizard) Run() error {
 	}
 
 	if w.state == StateCancelled {
+		debugLog("Wizard", "User cancelled wizard")
 		return nil // User cancelled, not an error
 	}
 
+	debugLog("Wizard", "Wizard complete, finalizing project")
 	return w.finalize()
 }
 
@@ -182,6 +201,8 @@ func (w *Wizard) handleCreateSource() error {
 
 // handleIssueSelect allows selecting a GitHub issue.
 func (w *Wizard) handleIssueSelect() error {
+	debugLog("Wizard", "State=%s", w.state)
+
 	// Validate GitHub CLI is available and authenticated
 	if err := w.github.Ensure(); err != nil {
 		return w.handleGitHubError(err)
@@ -191,18 +212,25 @@ func (w *Wizard) handleIssueSelect() error {
 	var issues []sow.Issue
 	var fetchErr error
 
+	debugLog("GitHub", "Calling gh issue list --label sow --state open")
 	err := withSpinner("Fetching issues from GitHub...", func() error {
 		issues, fetchErr = w.github.ListIssues("sow", "open")
 		return fetchErr
 	})
 
 	if err != nil {
+		debugLog("GitHub", "Failed to fetch issues: %v", err)
 		errorMsg := fmt.Sprintf("Failed to fetch issues: %v\n\n"+
 			"This may be a network issue or a GitHub API problem.\n"+
 			"Please try again or select 'From branch name' instead.", err)
 		_ = showError(errorMsg)
 		w.state = StateCreateSource
 		return nil
+	}
+
+	debugLog("GitHub", "Fetched %d issues", len(issues))
+	for _, issue := range issues {
+		debugLog("GitHub", "Issue #%d: %s", issue.Number, issue.Title)
 	}
 
 	// Handle empty issue list
