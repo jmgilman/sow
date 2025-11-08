@@ -391,7 +391,7 @@ func performUncommittedChangesCheckIfNeeded(ctx *sow.Context, targetBranch strin
 	if err := sow.CheckUncommittedChanges(ctx); err != nil {
 		// Enhance with user-friendly message
 		return fmt.Errorf(
-			"Repository has uncommitted changes\n\n"+
+			"repository has uncommitted changes\n\n"+
 				"You are currently on branch '%s'.\n"+
 				"Creating a worktree requires switching to a different branch first.\n\n"+
 				"To fix:\n"+
@@ -1015,10 +1015,11 @@ func filterIssuesBySowLabel(issues []sow.Issue) []sow.Issue {
 //
 // This is a convenience function that combines checkGitHubCLI with error display.
 // Use this at the start of GitHub-dependent flows.
+//nolint:unused // Will be used by wizard flows in future work units
 func ensureGitHubAvailable(github GitHubClient) error {
 	err := checkGitHubCLI(github)
 	if err != nil {
-		showError(err.Error())
+		_ = showError(err.Error())
 	}
 	return err
 }

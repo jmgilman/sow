@@ -51,7 +51,7 @@ type Wizard struct {
 	claudeFlags []string
 	cmd         *cobra.Command
 	github      GitHubClient // GitHub client for issue operations
-	testMode    bool         // Set to true in tests to skip interactive prompts
+	testMode    bool         //nolint:unused // Will be used by wizard flows for test mode
 }
 
 // NewWizard creates a new wizard instance.

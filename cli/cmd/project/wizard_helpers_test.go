@@ -1357,7 +1357,7 @@ func TestValidateProjectExists(t *testing.T) {
 	}{
 		{
 			name: "all exist - OK",
-			setup: func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string) {
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, branchName string) {
 				// Create initial commit
 				createInitialCommit(t, tmpDir)
 
@@ -1385,7 +1385,7 @@ func TestValidateProjectExists(t *testing.T) {
 		},
 		{
 			name: "branch missing - error",
-			setup: func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string) {
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, branchName string) {
 				createInitialCommit(t, tmpDir)
 				// Don't create branch
 			},
@@ -1395,7 +1395,7 @@ func TestValidateProjectExists(t *testing.T) {
 		},
 		{
 			name: "worktree missing - error",
-			setup: func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string) {
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, branchName string) {
 				createInitialCommit(t, tmpDir)
 
 				// Create branch but no worktree
@@ -1411,7 +1411,7 @@ func TestValidateProjectExists(t *testing.T) {
 		},
 		{
 			name: "project missing - error",
-			setup: func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string) {
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, branchName string) {
 				createInitialCommit(t, tmpDir)
 
 				// Create branch
@@ -1433,7 +1433,7 @@ func TestValidateProjectExists(t *testing.T) {
 		},
 		{
 			name: "error includes branch name",
-			setup: func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string) {
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, branchName string) {
 				createInitialCommit(t, tmpDir)
 				// Don't create anything
 			},
@@ -1443,7 +1443,7 @@ func TestValidateProjectExists(t *testing.T) {
 		},
 		{
 			name: "nothing exists - error mentions branch first",
-			setup: func(t *testing.T, ctx *sow.Context, tmpDir string, branchName string) {
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, branchName string) {
 				createInitialCommit(t, tmpDir)
 			},
 			branchName: "feat/nonexistent",
@@ -2063,7 +2063,7 @@ func TestShowErrorWithOptions(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tc.name, func(_ *testing.T) {
 			// In test mode, function should handle gracefully
 			// We can't fully test the interactive behavior, but we can ensure it compiles
 			// and doesn't panic with valid inputs
@@ -2136,7 +2136,7 @@ func TestWrapValidationError(t *testing.T) {
 	}
 }
 
-// Mock GitHubClient for testing GitHub error handling functions
+// Mock GitHubClient for testing GitHub error handling functions.
 type mockGitHubClient struct {
 	checkInstalledErr     error
 	checkAuthenticatedErr error
@@ -2156,19 +2156,19 @@ func (m *mockGitHubClient) CheckAuthenticated() error {
 	return m.checkAuthenticatedErr
 }
 
-func (m *mockGitHubClient) ListIssues(label, state string) ([]sow.Issue, error) {
+func (m *mockGitHubClient) ListIssues(_, _ string) ([]sow.Issue, error) {
 	return nil, nil
 }
 
-func (m *mockGitHubClient) GetLinkedBranches(number int) ([]sow.LinkedBranch, error) {
+func (m *mockGitHubClient) GetLinkedBranches(_ int) ([]sow.LinkedBranch, error) {
 	return m.linkedBranches, m.linkedBranchesErr
 }
 
-func (m *mockGitHubClient) CreateLinkedBranch(issueNumber int, branchName string, checkout bool) (string, error) {
+func (m *mockGitHubClient) CreateLinkedBranch(_ int, _ string, _ bool) (string, error) {
 	return "", nil
 }
 
-func (m *mockGitHubClient) GetIssue(number int) (*sow.Issue, error) {
+func (m *mockGitHubClient) GetIssue(_ int) (*sow.Issue, error) {
 	return nil, nil
 }
 
@@ -2238,8 +2238,8 @@ func TestCheckGitHubCLI(t *testing.T) {
 	}
 }
 
-// TestFormatGitHubError tests the formatGitHubError function.
-func TestFormatGitHubError(t *testing.T) {
+// TestFormatGitHubError_RateLimit tests rate limit error formatting.
+func TestFormatGitHubError_RateLimit(t *testing.T) {
 	tests := []struct {
 		name        string
 		err         error
@@ -2256,6 +2256,27 @@ func TestFormatGitHubError(t *testing.T) {
 			contains:    []string{"rate limit", "Wait a few minutes"},
 			notContains: []string{"network"},
 		},
+		{
+			name: "case insensitive matching",
+			err: sow.ErrGHCommand{
+				Command: "test",
+				Stderr:  "RATE LIMIT exceeded",
+				Err:     errors.New("exit code 1"),
+			},
+			contains: []string{"rate limit"},
+		},
+	}
+	runFormatGitHubErrorTests(t, tests)
+}
+
+// TestFormatGitHubError_Network tests network error formatting.
+func TestFormatGitHubError_Network(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		contains    []string
+		notContains []string
+	}{
 		{
 			name: "network error - connection",
 			err: sow.ErrGHCommand{
@@ -2286,6 +2307,18 @@ func TestFormatGitHubError(t *testing.T) {
 			contains:    []string{"Cannot reach GitHub"},
 			notContains: []string{"rate limit"},
 		},
+	}
+	runFormatGitHubErrorTests(t, tests)
+}
+
+// TestFormatGitHubError_NotFound tests not found error formatting.
+func TestFormatGitHubError_NotFound(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		contains    []string
+		notContains []string
+	}{
 		{
 			name: "not found error",
 			err: sow.ErrGHCommand{
@@ -2306,6 +2339,18 @@ func TestFormatGitHubError(t *testing.T) {
 			contains:    []string{"Resource not found"},
 			notContains: []string{"network"},
 		},
+	}
+	runFormatGitHubErrorTests(t, tests)
+}
+
+// TestFormatGitHubError_Permission tests permission error formatting.
+func TestFormatGitHubError_Permission(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		contains    []string
+		notContains []string
+	}{
 		{
 			name: "permission denied error",
 			err: sow.ErrGHCommand{
@@ -2336,6 +2381,18 @@ func TestFormatGitHubError(t *testing.T) {
 			contains:    []string{"Permission denied"},
 			notContains: []string{"network"},
 		},
+	}
+	runFormatGitHubErrorTests(t, tests)
+}
+
+// TestFormatGitHubError_Other tests other error formatting cases.
+func TestFormatGitHubError_Other(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		contains    []string
+		notContains []string
+	}{
 		{
 			name: "unknown error",
 			err: sow.ErrGHCommand{
@@ -2347,21 +2404,22 @@ func TestFormatGitHubError(t *testing.T) {
 			notContains: []string{"network", "rate limit"},
 		},
 		{
-			name: "non-GitHub command error",
-			err:  errors.New("some other error"),
+			name:     "non-GitHub command error",
+			err:      errors.New("some other error"),
 			contains: []string{"GitHub operation failed"},
 		},
-		{
-			name: "case insensitive matching",
-			err: sow.ErrGHCommand{
-				Command: "test",
-				Stderr:  "RATE LIMIT exceeded",
-				Err:     errors.New("exit code 1"),
-			},
-			contains: []string{"rate limit"},
-		},
 	}
+	runFormatGitHubErrorTests(t, tests)
+}
 
+// runFormatGitHubErrorTests is a helper that runs test cases for formatGitHubError.
+func runFormatGitHubErrorTests(t *testing.T, tests []struct {
+	name        string
+	err         error
+	contains    []string
+	notContains []string
+}) {
+	t.Helper()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := formatGitHubError(tt.err)
