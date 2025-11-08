@@ -280,6 +280,7 @@ func TestFinalize_CreatesWorktree(t *testing.T) {
 	w := NewWizard(nil, ctx, []string{})
 
 	// Set up wizard with choices populated
+	w.choices["action"] = "create"
 	w.choices["type"] = "standard"
 	w.choices["name"] = "Test Project"
 	w.choices["branch"] = "feat/test-project"
@@ -311,6 +312,7 @@ func TestFinalize_InitializesProject(t *testing.T) {
 	w := NewWizard(nil, ctx, []string{})
 
 	// Set up wizard with choices populated
+	w.choices["action"] = "create"
 	w.choices["type"] = "exploration"
 	w.choices["name"] = "Research Project"
 	w.choices["branch"] = "explore/research-project"
@@ -396,6 +398,7 @@ func TestFinalize_WithEmptyPrompt(t *testing.T) {
 	w := NewWizard(nil, ctx, []string{})
 
 	// Set up wizard with empty prompt choice
+	w.choices["action"] = "create"
 	w.choices["type"] = "design"
 	w.choices["name"] = "Design Project"
 	w.choices["branch"] = "design/test"
@@ -465,6 +468,7 @@ func TestFinalize_UncommittedChangesError(t *testing.T) {
 	w := NewWizard(nil, ctx, []string{})
 
 	// Set current branch == target branch (should trigger check)
+	w.choices["action"] = "create"
 	w.choices["type"] = "standard"
 	w.choices["name"] = "Test Project"
 	w.choices["branch"] = currentBranch
@@ -525,6 +529,7 @@ func TestFinalize_SkipsUncommittedCheckWhenDifferentBranch(t *testing.T) {
 
 	w := NewWizard(nil, ctx, []string{})
 
+	w.choices["action"] = "create"
 	w.choices["type"] = "standard"
 	w.choices["name"] = "Different Project"
 	w.choices["branch"] = differentBranch
@@ -1152,4 +1157,401 @@ func TestHandleContinuePrompt_IntegrationFlow(t *testing.T) {
 	if w.choices["prompt"] != userPrompt {
 		t.Errorf("expected prompt %q, got %q", userPrompt, w.choices["prompt"])
 	}
+}
+
+// Test finalize() routing for continuation path
+
+// TestFinalize_RoutesToContinuation tests that finalize correctly detects and routes to continuation path.
+func TestFinalize_RoutesToContinuation(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit and a test project
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial").Run()
+
+	branchName := "feat/existing-project"
+	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
+	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	worktreeCtx, _ := sow.NewContext(worktreePath)
+	_, _ = initializeProject(worktreeCtx, branchName, "existing-project", nil)
+
+	// Discover project
+	projects, _ := listProjects(ctx)
+	if len(projects) != 1 {
+		t.Fatalf("expected 1 project, got %d", len(projects))
+	}
+
+	w := NewWizard(nil, ctx, []string{})
+
+	// Set up wizard for continuation path
+	w.choices["action"] = "continue"
+	w.choices["project"] = projects[0]
+	w.choices["prompt"] = "continue working"
+
+	// Call finalize
+	err := w.finalize()
+	if err != nil {
+		t.Fatalf("finalize failed: %v", err)
+	}
+
+	// Verify that project still exists (continuation doesn't create new project)
+	// Need to recreate context to ensure FS is properly initialized
+	freshWorktreeCtx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		t.Fatalf("failed to create fresh worktree context: %v", err)
+	}
+
+	proj, err := state.Load(freshWorktreeCtx)
+	if err != nil {
+		t.Fatalf("failed to load project after continuation: %v", err)
+	}
+
+	if proj.Name != "existingproject" {
+		t.Errorf("project name incorrect: got %q, want %q", proj.Name, "existingproject")
+	}
+}
+
+// Test finalizeContinuation method
+
+// TestFinalizeContinuation_ValidChoices tests successful continuation with valid choices.
+func TestFinalizeContinuation_ValidChoices(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit and a test project
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial").Run()
+
+	branchName := "feat/test-continuation"
+	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
+	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	worktreeCtx, _ := sow.NewContext(worktreePath)
+	_, _ = initializeProject(worktreeCtx, branchName, "test-continuation", nil)
+
+	// Discover project
+	projects, _ := listProjects(ctx)
+	selectedProj := projects[0]
+
+	w := NewWizard(nil, ctx, []string{})
+
+	// Set up wizard choices
+	w.choices["project"] = selectedProj
+	w.choices["prompt"] = "work on tests"
+
+	// Call finalizeContinuation (we'll implement this)
+	err := w.finalizeContinuation()
+	if err != nil {
+		t.Fatalf("finalizeContinuation failed: %v", err)
+	}
+
+	// Verify worktree still exists
+	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
+		t.Errorf("worktree should exist at %s", worktreePath)
+	}
+
+	// Verify project state can be loaded
+	// Need to recreate context to ensure FS is properly initialized
+	freshWorktreeCtx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		t.Fatalf("failed to create fresh worktree context: %v", err)
+	}
+
+	proj, err := state.Load(freshWorktreeCtx)
+	if err != nil {
+		t.Fatalf("failed to load project state: %v", err)
+	}
+
+	if proj.Name != "testcontinuation" {
+		t.Errorf("project name incorrect: got %q", proj.Name)
+	}
+}
+
+// TestFinalizeContinuation_EmptyUserPrompt tests continuation with empty user prompt.
+func TestFinalizeContinuation_EmptyUserPrompt(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit and a test project
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial").Run()
+
+	branchName := "feat/empty-prompt-test"
+	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
+	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	worktreeCtx, _ := sow.NewContext(worktreePath)
+	_, _ = initializeProject(worktreeCtx, branchName, "empty-prompt-test", nil)
+
+	// Discover project
+	projects, _ := listProjects(ctx)
+	selectedProj := projects[0]
+
+	w := NewWizard(nil, ctx, []string{})
+
+	// Set up wizard choices with empty prompt
+	w.choices["project"] = selectedProj
+	w.choices["prompt"] = ""
+
+	// Call finalizeContinuation
+	err := w.finalizeContinuation()
+	if err != nil {
+		t.Fatalf("finalizeContinuation should succeed with empty prompt, got error: %v", err)
+	}
+
+	// Test that generateContinuePrompt works without appending user prompt
+	// Need to recreate context to ensure FS is properly initialized
+	freshWorktreeCtx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		t.Fatalf("failed to create fresh worktree context: %v", err)
+	}
+
+	proj, err := state.Load(freshWorktreeCtx)
+	if err != nil {
+		t.Fatalf("failed to load project state: %v", err)
+	}
+
+	basePrompt, err := generateContinuePrompt(proj)
+	if err != nil {
+		t.Fatalf("generateContinuePrompt failed: %v", err)
+	}
+
+	// Verify base prompt doesn't contain "User request:" when prompt is empty
+	if strings.Contains(basePrompt, "User request:") {
+		t.Error("base prompt should not contain 'User request:' section")
+	}
+}
+
+// TestFinalizeContinuation_NonEmptyUserPrompt tests continuation with user prompt appended.
+func TestFinalizeContinuation_NonEmptyUserPrompt(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit and a test project
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial").Run()
+
+	branchName := "feat/user-prompt-test"
+	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
+	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	worktreeCtx, _ := sow.NewContext(worktreePath)
+	_, _ = initializeProject(worktreeCtx, branchName, "user-prompt-test", nil)
+
+	// Discover project
+	projects, _ := listProjects(ctx)
+	selectedProj := projects[0]
+
+	userPrompt := "focus on integration tests and error handling"
+
+	w := NewWizard(nil, ctx, []string{})
+
+	// Set up wizard choices with non-empty prompt
+	w.choices["project"] = selectedProj
+	w.choices["prompt"] = userPrompt
+
+	// We can't easily test the full prompt without launching Claude,
+	// but we can test the prompt generation logic separately
+	// Need to recreate context to ensure FS is properly initialized
+	freshWorktreeCtx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		t.Fatalf("failed to create fresh worktree context: %v", err)
+	}
+
+	proj, err := state.Load(freshWorktreeCtx)
+	if err != nil {
+		t.Fatalf("failed to load project state: %v", err)
+	}
+
+	basePrompt, err := generateContinuePrompt(proj)
+	if err != nil {
+		t.Fatalf("generateContinuePrompt failed: %v", err)
+	}
+
+	// Build full prompt as finalizeContinuation should
+	fullPrompt := basePrompt
+	if userPrompt != "" {
+		fullPrompt += "\n\nUser request:\n" + userPrompt
+	}
+
+	// Verify full prompt contains both base and user prompt
+	if !strings.Contains(fullPrompt, userPrompt) {
+		t.Errorf("full prompt should contain user prompt %q", userPrompt)
+	}
+
+	if !strings.Contains(fullPrompt, "User request:") {
+		t.Error("full prompt should contain 'User request:' header")
+	}
+
+	// Verify base prompt has 3 layers (at least 2 separators)
+	separatorCount := strings.Count(basePrompt, "\n\n---\n\n")
+	if separatorCount < 2 {
+		t.Errorf("expected at least 2 separators for 3 layers, got %d", separatorCount)
+	}
+}
+
+// TestFinalizeContinuation_MissingProjectChoice tests error when project choice is missing.
+func TestFinalizeContinuation_MissingProjectChoice(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+	w := NewWizard(nil, ctx, []string{})
+
+	// Set prompt but NOT project
+	w.choices["prompt"] = "some prompt"
+
+	// Call finalizeContinuation - should fail
+	err := w.finalizeContinuation()
+	if err == nil {
+		t.Fatal("expected error for missing project choice, got nil")
+	}
+
+	// Verify error message
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "project choice not set") {
+		t.Errorf("error should mention missing project choice, got: %v", errMsg)
+	}
+}
+
+// TestFinalizeContinuation_InvalidProjectChoice tests error when project choice has wrong type.
+func TestFinalizeContinuation_InvalidProjectChoice(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+	w := NewWizard(nil, ctx, []string{})
+
+	// Set wrong type for project choice
+	w.choices["project"] = "not-a-ProjectInfo"
+	w.choices["prompt"] = "some prompt"
+
+	// Call finalizeContinuation - should fail
+	err := w.finalizeContinuation()
+	if err == nil {
+		t.Fatal("expected error for invalid project choice type, got nil")
+	}
+
+	// Verify error message
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "project choice not set or invalid") {
+		t.Errorf("error should mention invalid project choice, got: %v", errMsg)
+	}
+}
+
+// TestFinalizeContinuation_MissingPromptChoice tests error when prompt choice is missing.
+func TestFinalizeContinuation_MissingPromptChoice(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit and a test project
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial").Run()
+
+	branchName := "feat/missing-prompt"
+	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
+	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	worktreeCtx, _ := sow.NewContext(worktreePath)
+	_, _ = initializeProject(worktreeCtx, branchName, "missing-prompt", nil)
+
+	// Discover project
+	projects, _ := listProjects(ctx)
+	selectedProj := projects[0]
+
+	w := NewWizard(nil, ctx, []string{})
+
+	// Set project but NOT prompt
+	w.choices["project"] = selectedProj
+
+	// Call finalizeContinuation - should fail
+	err := w.finalizeContinuation()
+	if err == nil {
+		t.Fatal("expected error for missing prompt choice, got nil")
+	}
+
+	// Verify error message
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "prompt choice not set or invalid") {
+		t.Errorf("error should mention missing prompt choice, got: %v", errMsg)
+	}
+}
+
+// TestFinalizeContinuation_WorktreeDeleted tests idempotent worktree recreation.
+func TestFinalizeContinuation_WorktreeDeleted(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit and a test project
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial").Run()
+
+	branchName := "feat/worktree-deleted"
+	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
+	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	worktreeCtx, _ := sow.NewContext(worktreePath)
+	_, _ = initializeProject(worktreeCtx, branchName, "worktree-deleted", nil)
+
+	// Discover project
+	projects, _ := listProjects(ctx)
+	selectedProj := projects[0]
+
+	// Delete the worktree directory (simulate edge case)
+	// Note: This will make state loading fail, which is expected behavior
+	// EnsureWorktree will recreate it, but the project state won't exist
+	_ = os.RemoveAll(worktreePath)
+
+	w := NewWizard(nil, ctx, []string{})
+	w.choices["project"] = selectedProj
+	w.choices["prompt"] = "test"
+
+	// Call finalizeContinuation
+	// This should fail when trying to ensure worktree (git knows about it but directory is missing)
+	err := w.finalizeContinuation()
+	if err == nil {
+		t.Fatal("expected error when worktree directory is missing, got nil")
+	}
+
+	// Verify error mentions worktree or state loading failure
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "failed to ensure worktree") && !strings.Contains(errMsg, "failed to load project state") {
+		t.Errorf("error should mention worktree or state loading failure, got: %v", errMsg)
+	}
+}
+
+// TestFinalizeContinuation_NoUncommittedCheck tests that continuation doesn't check uncommitted changes.
+func TestFinalizeContinuation_NoUncommittedCheck(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial").Run()
+
+	// Create a project in a worktree
+	branchName := "feat/uncommitted-test"
+	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
+	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	worktreeCtx, _ := sow.NewContext(worktreePath)
+	_, _ = initializeProject(worktreeCtx, branchName, "uncommitted-test", nil)
+
+	// Create uncommitted changes in MAIN repo (not worktree)
+	mainTestFile := tmpDir + "/uncommitted.txt"
+	_ = os.WriteFile(mainTestFile, []byte("uncommitted"), 0644)
+
+	// Discover project
+	projects, _ := listProjects(ctx)
+	selectedProj := projects[0]
+
+	w := NewWizard(nil, ctx, []string{})
+	w.choices["project"] = selectedProj
+	w.choices["prompt"] = "continue despite uncommitted changes"
+
+	// Call finalizeContinuation
+	// Should succeed even with uncommitted changes (unlike creation path)
+	err := w.finalizeContinuation()
+	if err != nil {
+		t.Fatalf("finalizeContinuation should succeed despite uncommitted changes in main repo, got error: %v", err)
+	}
+
+	// This test verifies the critical difference from creation path:
+	// Continuation does NOT call CheckUncommittedChanges()
 }

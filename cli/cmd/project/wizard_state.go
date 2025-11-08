@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
@@ -462,8 +463,26 @@ func (w *Wizard) handleContinuePrompt() error {
 	return nil
 }
 
-// finalize creates the project, initializes it in a worktree, and launches Claude Code.
+// finalize routes to the appropriate finalization method based on the action choice.
 func (w *Wizard) finalize() error {
+	// Determine which path we're on
+	action, ok := w.choices["action"].(string)
+	if !ok {
+		return fmt.Errorf("internal error: action choice not set")
+	}
+
+	switch action {
+	case "create":
+		return w.finalizeCreation()
+	case "continue":
+		return w.finalizeContinuation()
+	default:
+		return fmt.Errorf("internal error: unknown action: %s", action)
+	}
+}
+
+// finalizeCreation creates the project, initializes it in a worktree, and launches Claude Code.
+func (w *Wizard) finalizeCreation() error {
 	// Extract wizard choices
 	name, ok := w.choices["name"].(string)
 	if !ok {
@@ -527,6 +546,65 @@ func (w *Wizard) finalize() error {
 	// Note: w.cmd may be nil in tests, so we skip launch in that case
 	if w.cmd != nil {
 		if err := launchClaudeCode(w.cmd, worktreeCtx, prompt, w.claudeFlags); err != nil {
+			return fmt.Errorf("failed to launch Claude: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// finalizeContinuation loads an existing project, generates a continuation prompt, and launches Claude Code.
+// NOTE: Unlike creation, continuation does NOT check uncommitted changes.
+// The worktree already exists, so there's no risk of needing to switch branches in the main repo.
+// This is intentional and documented in issue #71.
+func (w *Wizard) finalizeContinuation() error {
+	// 1. Extract choices
+	proj, ok := w.choices["project"].(ProjectInfo)
+	if !ok {
+		return fmt.Errorf("internal error: project choice not set or invalid")
+	}
+
+	userPrompt, ok := w.choices["prompt"].(string)
+	if !ok {
+		return fmt.Errorf("internal error: prompt choice not set or invalid")
+	}
+
+	// 2. Ensure worktree exists (idempotent)
+	worktreePath := sow.WorktreePath(w.ctx.MainRepoRoot(), proj.Branch)
+	if err := sow.EnsureWorktree(w.ctx, worktreePath, proj.Branch); err != nil {
+		return fmt.Errorf("failed to ensure worktree: %w", err)
+	}
+
+	// 3. Create worktree context
+	worktreeCtx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		return fmt.Errorf("failed to create worktree context: %w", err)
+	}
+
+	// 4. Load fresh project state
+	projectState, err := state.Load(worktreeCtx)
+	if err != nil {
+		return fmt.Errorf("failed to load project state: %w", err)
+	}
+
+	// 5. Generate 3-layer continuation prompt
+	basePrompt, err := generateContinuePrompt(projectState)
+	if err != nil {
+		return fmt.Errorf("failed to generate continuation prompt: %w", err)
+	}
+
+	// 6. Append user prompt if provided
+	fullPrompt := basePrompt
+	if userPrompt != "" {
+		fullPrompt += "\n\nUser request:\n" + userPrompt
+	}
+
+	// 7. Success message
+	fmt.Fprintf(os.Stderr, "✓ Continuing project '%s' on branch %s\n", proj.Name, proj.Branch)
+
+	// 8. Launch Claude
+	if w.cmd != nil {
+		if err := launchClaudeCode(w.cmd, worktreeCtx, fullPrompt, w.claudeFlags); err != nil {
 			return fmt.Errorf("failed to launch Claude: %w", err)
 		}
 	}
