@@ -1385,7 +1385,7 @@ func TestValidateProjectExists(t *testing.T) {
 		},
 		{
 			name: "branch missing - error",
-			setup: func(t *testing.T, _ *sow.Context, tmpDir string, branchName string) {
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, _ string) {
 				createInitialCommit(t, tmpDir)
 				// Don't create branch
 			},
@@ -1433,7 +1433,7 @@ func TestValidateProjectExists(t *testing.T) {
 		},
 		{
 			name: "error includes branch name",
-			setup: func(t *testing.T, _ *sow.Context, tmpDir string, branchName string) {
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, _ string) {
 				createInitialCommit(t, tmpDir)
 				// Don't create anything
 			},
@@ -1443,7 +1443,7 @@ func TestValidateProjectExists(t *testing.T) {
 		},
 		{
 			name: "nothing exists - error mentions branch first",
-			setup: func(t *testing.T, _ *sow.Context, tmpDir string, branchName string) {
+			setup: func(t *testing.T, _ *sow.Context, tmpDir string, _ string) {
 				createInitialCommit(t, tmpDir)
 			},
 			branchName: "feat/nonexistent",
