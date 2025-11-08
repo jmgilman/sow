@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TestProjectCmd_Structure verifies that the project command has the correct structure
+// TestProjectCmd_Structure verifies that the project command has the correct structure.
 // after the wizard integration.
 func TestProjectCmd_Structure(t *testing.T) {
 	cmd := NewProjectCmd()
@@ -29,7 +29,7 @@ func TestProjectCmd_Structure(t *testing.T) {
 	}
 }
 
-// TestProjectCmd_HasCorrectSubcommands verifies that only set and delete subcommands exist
+// TestProjectCmd_HasCorrectSubcommands verifies that only set and delete subcommands exist.
 // (new and continue should be removed).
 func TestProjectCmd_HasCorrectSubcommands(t *testing.T) {
 	cmd := NewProjectCmd()
@@ -73,7 +73,7 @@ func TestProjectCmd_HasCorrectSubcommands(t *testing.T) {
 	}
 }
 
-// TestProjectCmd_LongDescription verifies the long description mentions the wizard
+// TestProjectCmd_LongDescription verifies the long description mentions the wizard.
 // and provides examples.
 func TestProjectCmd_LongDescription(t *testing.T) {
 	cmd := NewProjectCmd()
@@ -96,7 +96,7 @@ func TestProjectCmd_LongDescription(t *testing.T) {
 	}
 }
 
-// TestProjectCmd_OldCommandsRemoved verifies that old subcommands are truly gone
+// TestProjectCmd_OldCommandsRemoved verifies that old subcommands are truly gone.
 // by attempting to find them in the command tree.
 func TestProjectCmd_OldCommandsRemoved(t *testing.T) {
 	cmd := NewProjectCmd()
