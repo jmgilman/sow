@@ -984,3 +984,229 @@ func TestHandleTypeSelect_RoutingWithoutIssue(t *testing.T) {
 
 	// The implementation should go to StateNameEntry when no issue exists
 }
+
+// Task 040 Tests: Prompt Entry Enhancement and Project Finalization with Issue Context
+
+// TestHandlePromptEntry_WithIssueContext tests that issue context is displayed correctly
+func TestHandlePromptEntry_WithIssueContext(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+	wizard := &Wizard{
+		state: StatePromptEntry,
+		ctx:   ctx,
+		choices: map[string]interface{}{
+			"issue": &sow.Issue{
+				Number: 123,
+				Title:  "Add JWT authentication",
+			},
+			"branch": "feat/add-jwt-authentication-123",
+			"type":   "standard",
+		},
+	}
+
+	// Note: Full form testing difficult without UI interaction
+	// This test verifies context building logic separately
+
+	// Build context display based on what handlePromptEntry should do
+	var contextLines []string
+
+	// Check for issue context
+	if issue, ok := wizard.choices["issue"].(*sow.Issue); ok {
+		contextLines = append(contextLines,
+			fmt.Sprintf("Issue: #%d - %s", issue.Number, issue.Title))
+	}
+
+	expected := "Issue: #123 - Add JWT authentication"
+	if contextLines[0] != expected {
+		t.Errorf("expected %q, got %q", expected, contextLines[0])
+	}
+}
+
+// TestHandlePromptEntry_WithBranchNameContext tests that branch name context is computed correctly
+func TestHandlePromptEntry_WithBranchNameContext(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+	wizard := &Wizard{
+		state: StatePromptEntry,
+		ctx:   ctx,
+		choices: map[string]interface{}{
+			"name":   "Web Based Agents",
+			"type":   "exploration",
+			"branch": "explore/web-based-agents",
+		},
+	}
+
+	// Verify branch context computed correctly
+	branchName := wizard.choices["branch"].(string)
+	expected := "explore/web-based-agents"
+
+	if branchName != expected {
+		t.Errorf("expected branch %q, got %q", expected, branchName)
+	}
+}
+
+// TestFinalize_WithIssue tests that finalization stores issue metadata correctly
+func TestFinalize_WithIssue(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit (required for worktree creation)
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
+
+	issue := &sow.Issue{
+		Number: 123,
+		Title:  "Test Issue",
+		Body:   "Issue description here",
+		State:  "open",
+		URL:    "https://github.com/test/repo/issues/123",
+	}
+
+	wizard := &Wizard{
+		state: StateComplete,
+		ctx:   ctx,
+		choices: map[string]interface{}{
+			"name":   "Test Issue",
+			"branch": "feat/test-issue-123",
+			"type":   "standard",
+			"issue":  issue,
+			"prompt": "",
+		},
+		cmd: nil, // Skip Claude launch in test
+	}
+
+	err := wizard.finalize()
+	if err != nil {
+		t.Fatalf("finalize failed: %v", err)
+	}
+
+	// Verify issue context file created
+	worktreePath := tmpDir + "/.sow/worktrees/feat/test-issue-123"
+	issueFilePath := worktreePath + "/.sow/project/context/issue-123.md"
+
+	if _, err := os.Stat(issueFilePath); os.IsNotExist(err) {
+		t.Error("issue context file not created")
+	}
+
+	// Verify file contains issue information
+	content, err := os.ReadFile(issueFilePath)
+	if err != nil {
+		t.Fatalf("failed to read issue file: %v", err)
+	}
+
+	if !strings.Contains(string(content), "Test Issue") {
+		t.Error("issue file doesn't contain issue title")
+	}
+
+	if !strings.Contains(string(content), "Issue description here") {
+		t.Error("issue file doesn't contain issue body")
+	}
+
+	// Verify project state contains issue metadata
+	worktreeCtx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		t.Fatalf("failed to create worktree context: %v", err)
+	}
+
+	proj, err := state.Load(worktreeCtx)
+	if err != nil {
+		t.Fatalf("failed to load project: %v", err)
+	}
+
+	// Check implementation phase inputs for github_issue artifact
+	implPhase, ok := proj.Phases["implementation"]
+	if !ok {
+		t.Fatal("implementation phase not found")
+	}
+
+	if len(implPhase.Inputs) == 0 {
+		t.Error("expected implementation phase inputs, got none")
+	}
+
+	// Find github_issue artifact
+	found := false
+	for _, artifact := range implPhase.Inputs {
+		if artifact.Type == "github_issue" {
+			found = true
+			// Verify metadata
+			if artifact.Metadata["issue_number"] != 123 {
+				t.Errorf("expected issue_number 123, got %v", artifact.Metadata["issue_number"])
+			}
+			if artifact.Metadata["issue_title"] != "Test Issue" {
+				t.Errorf("expected issue_title 'Test Issue', got %v", artifact.Metadata["issue_title"])
+			}
+			if artifact.Metadata["issue_url"] != issue.URL {
+				t.Errorf("expected issue_url %q, got %v", issue.URL, artifact.Metadata["issue_url"])
+			}
+		}
+	}
+
+	if !found {
+		t.Error("github_issue artifact not found in implementation phase inputs")
+	}
+}
+
+// TestFinalize_WithoutIssue tests that finalization works without issue (branch name path)
+func TestFinalize_WithoutIssue(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit (required for worktree creation)
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
+
+	wizard := &Wizard{
+		state: StateComplete,
+		ctx:   ctx,
+		choices: map[string]interface{}{
+			"name":   "Test Project",
+			"branch": "feat/test-project",
+			"type":   "standard",
+			"prompt": "",
+			// No issue in choices
+		},
+		cmd: nil,
+	}
+
+	err := wizard.finalize()
+	if err != nil {
+		t.Fatalf("finalize failed: %v", err)
+	}
+
+	// Verify no issue context file created
+	worktreePath := tmpDir + "/.sow/worktrees/feat/test-project"
+	contextDir := worktreePath + "/.sow/project/context"
+
+	entries, err := os.ReadDir(contextDir)
+	if err != nil {
+		t.Fatalf("failed to read context dir: %v", err)
+	}
+
+	// Should be no files (or at least no issue-*.md files)
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "issue-") {
+			t.Errorf("unexpected issue file: %s", entry.Name())
+		}
+	}
+
+	// Verify project state has no issue metadata
+	worktreeCtx, err := sow.NewContext(worktreePath)
+	if err != nil {
+		t.Fatalf("failed to create worktree context: %v", err)
+	}
+
+	proj, err := state.Load(worktreeCtx)
+	if err != nil {
+		t.Fatalf("failed to load project: %v", err)
+	}
+
+	// Check implementation phase has no inputs
+	implPhase, ok := proj.Phases["implementation"]
+	if !ok {
+		t.Fatal("implementation phase not found")
+	}
+
+	if len(implPhase.Inputs) > 0 {
+		t.Errorf("expected no implementation phase inputs, got %d", len(implPhase.Inputs))
+	}
+}

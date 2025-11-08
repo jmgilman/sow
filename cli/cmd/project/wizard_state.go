@@ -408,24 +408,42 @@ func (w *Wizard) handleNameEntry() error {
 func (w *Wizard) handlePromptEntry() error {
 	var prompt string
 
-	projectType, ok := w.choices["type"].(string)
-	if !ok {
-		return fmt.Errorf("type choice not set or invalid")
-	}
-	branchName, ok := w.choices["branch"].(string)
-	if !ok {
-		return fmt.Errorf("branch choice not set or invalid")
+	// Build context display based on project source
+	var contextLines []string
+
+	// Check for issue context (GitHub issue path)
+	if issue, ok := w.choices["issue"].(*sow.Issue); ok {
+		contextLines = append(contextLines,
+			fmt.Sprintf("Issue: #%d - %s", issue.Number, issue.Title))
 	}
 
-	contextInfo := fmt.Sprintf(
-		"Type: %s\nBranch: %s\n\nPress Ctrl+E to open $EDITOR for multi-line input",
-		projectType, branchName)
+	// Show branch name
+	if branchName, ok := w.choices["branch"].(string); ok {
+		contextLines = append(contextLines, fmt.Sprintf("Branch: %s", branchName))
+	} else if name, ok := w.choices["name"].(string); ok {
+		// Branch name path - compute branch name for display
+		projectType := w.choices["type"].(string)
+		prefix := getTypePrefix(projectType)
+		normalized := normalizeName(name)
+		contextLines = append(contextLines,
+			fmt.Sprintf("Branch: %s%s", prefix, normalized))
+	}
+
+	// Add project type for clarity
+	if projectType, ok := w.choices["type"].(string); ok {
+		typeConfig := projectTypes[projectType]
+		contextLines = append(contextLines,
+			fmt.Sprintf("Type: %s", typeConfig.Description))
+	}
+
+	contextDisplay := strings.Join(contextLines, "\n")
+	instructionText := contextDisplay + "\n\nPress Ctrl+E to open $EDITOR for multi-line input"
 
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewText().
 				Title("Enter your task or question for Claude (optional):").
-				Description(contextInfo).
+				Description(instructionText).
 				CharLimit(10000).
 				Value(&prompt).
 				EditorExtension(".md"),
@@ -618,6 +636,12 @@ func (w *Wizard) finalize() error {
 		initialPrompt = prompt
 	}
 
+	// Extract issue if present (GitHub issue path)
+	var issue *sow.Issue
+	if issueData, ok := w.choices["issue"].(*sow.Issue); ok {
+		issue = issueData
+	}
+
 	// Step 1: Conditional uncommitted changes check
 	currentBranch, err := w.ctx.Git().CurrentBranch()
 	if err != nil {
@@ -642,13 +666,14 @@ func (w *Wizard) finalize() error {
 		return fmt.Errorf("failed to create worktree: %w", err)
 	}
 
-	// Step 3: Initialize project in worktree
+	// Step 3: Initialize project in worktree WITH issue metadata
 	worktreeCtx, err := sow.NewContext(worktreePath)
 	if err != nil {
 		return fmt.Errorf("failed to create worktree context: %w", err)
 	}
 
-	project, err := initializeProject(worktreeCtx, branch, name, nil)
+	// Pass issue to initializeProject (will be nil for branch name path)
+	project, err := initializeProject(worktreeCtx, branch, name, issue)
 	if err != nil {
 		return fmt.Errorf("failed to initialize project: %w", err)
 	}
@@ -661,6 +686,9 @@ func (w *Wizard) finalize() error {
 
 	// Step 5: Display success message
 	_, _ = fmt.Fprintf(os.Stdout, "✓ Initialized project '%s' on branch %s\n", name, branch)
+	if issue != nil {
+		_, _ = fmt.Fprintf(os.Stdout, "✓ Linked to issue #%d: %s\n", issue.Number, issue.Title)
+	}
 	_, _ = fmt.Fprintf(os.Stdout, "✓ Launching Claude in worktree...\n")
 
 	// Step 6: Launch Claude Code
