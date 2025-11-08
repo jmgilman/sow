@@ -564,10 +564,11 @@ func (w *Wizard) showIssueSelectScreen() error {
 	// Store issue in choices for next steps
 	w.choices["issue"] = issue
 
-	// Proceed to type selection
-	w.state = StateTypeSelect
+	// Task 070: Default GitHub issues to "standard" type and skip type selection
+	w.choices["type"] = "standard"
 
-	return nil
+	// Task 070: Proceed directly to branch creation (skip type selection screen)
+	return w.createLinkedBranch()
 }
 
 // createLinkedBranch generates a branch name from the issue and creates a linked branch.

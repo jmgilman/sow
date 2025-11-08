@@ -71,6 +71,7 @@ func TestCompleteGitHubIssueWorkflow(t *testing.T) {
 	t.Logf("✓ Fetched %d issue(s)", len(issues))
 
 	// === STEP 2: Validate issue and fetch details (simulate showIssueSelectScreen logic) ===
+	// Task 070: This step now includes automatic type setting and branch creation
 	wizard.choices["selectedIssueNumber"] = 123
 
 	// Check for linked branches
@@ -90,27 +91,26 @@ func TestCompleteGitHubIssueWorkflow(t *testing.T) {
 	}
 
 	wizard.choices["issue"] = issue
-	wizard.state = StateTypeSelect
 	t.Logf("✓ Validated issue #%d has no linked branch", issue.Number)
 
-	// === STEP 3: Create branch (simulate handleTypeSelect with issue) ===
+	// === STEP 3: Task 070 - Type defaulted to "standard", branch creation (no type selection screen) ===
+	// Task 070: GitHub issues automatically default to "standard" type
 	wizard.choices["type"] = "standard"
+	t.Logf("✓ Type automatically set to 'standard' for GitHub issue")
 
-	// Generate branch name from issue
-	prefix := getTypePrefix("standard")
-	slug := normalizeName(issue.Title)
-	branchName := fmt.Sprintf("%s%s-%d", prefix, slug, issue.Number)
-
-	// Create linked branch
-	createdBranch, err := wizard.github.CreateLinkedBranch(issue.Number, branchName, false)
+	// Create branch via createLinkedBranch (called directly from showIssueSelectScreen)
+	err = wizard.createLinkedBranch()
 	if err != nil {
-		t.Fatalf("CreateLinkedBranch failed: %v", err)
+		t.Fatalf("createLinkedBranch failed: %v", err)
 	}
 
-	wizard.choices["branch"] = createdBranch
-	wizard.choices["name"] = issue.Title // Set name for project initialization
-	wizard.state = StatePromptEntry
-	t.Logf("✓ Created branch %s", createdBranch)
+	// Verify state transitioned to StatePromptEntry (skipped StateTypeSelect)
+	if wizard.state != StatePromptEntry {
+		t.Errorf("expected state StatePromptEntry, got %v", wizard.state)
+	}
+
+	createdBranch := wizard.choices["branch"].(string)
+	t.Logf("✓ Created branch %s and skipped type selection", createdBranch)
 
 	// === STEP 4: Finalize project ===
 	wizard.choices["prompt"] = "Focus on middleware implementation"

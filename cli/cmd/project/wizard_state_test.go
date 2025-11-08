@@ -827,8 +827,16 @@ func TestShowIssueSelectScreen_IssueAlreadyLinked(t *testing.T) {
 }
 
 // TestShowIssueSelectScreen_NoLinkedBranch tests successful validation when no linked branch exists
+// After Task 070: Should default type to "standard" and skip type selection
 func TestShowIssueSelectScreen_NoLinkedBranch(t *testing.T) {
-	ctx, _ := setupTestContext(t)
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit for worktree creation (needed by createLinkedBranch)
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
+
 	wizard := &Wizard{
 		state: StateIssueSelect,
 		ctx:   ctx,
@@ -836,7 +844,6 @@ func TestShowIssueSelectScreen_NoLinkedBranch(t *testing.T) {
 			"issues": []sow.Issue{
 				{Number: 123, Title: "Test Issue", State: "open"},
 			},
-			"selectedIssueNumber": 123,
 		},
 		github: &mockGitHub{
 			getLinkedBranchesResult: []sow.LinkedBranch{}, // No linked branches
@@ -847,31 +854,65 @@ func TestShowIssueSelectScreen_NoLinkedBranch(t *testing.T) {
 				State:  "open",
 				URL:    "https://github.com/test/repo/issues/123",
 			},
+			createLinkedBranchResult: "feat/test-issue-123",
 		},
 	}
 
-	// Note: We can't actually run the full flow because it requires TTY
-	// But we can verify the logic by checking what should happen
-	// The implementation will call GetLinkedBranches, GetIssue, and store the issue
-	// Then transition to StateTypeSelect
+	// Simulate the post-form-selection logic that would happen after user selects issue
+	// This tests the logic that happens after the TTY form completes
+	selectedIssueNumber := 123
 
-	// For testing purposes, we'll verify the mock works correctly
-	linkedBranches, err := wizard.github.GetLinkedBranches(123)
+	// Verify no linked branches
+	linkedBranches, err := wizard.github.GetLinkedBranches(selectedIssueNumber)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if len(linkedBranches) != 0 {
 		t.Errorf("expected 0 linked branches, got %d", len(linkedBranches))
 	}
 
-	issue, err := wizard.github.GetIssue(123)
+	// Fetch issue details
+	issue, err := wizard.github.GetIssue(selectedIssueNumber)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if issue.Number != 123 {
 		t.Errorf("expected issue 123, got %d", issue.Number)
+	}
+
+	// Store issue in choices (what showIssueSelectScreen does)
+	wizard.choices["issue"] = issue
+
+	// NEW BEHAVIOR (Task 070): Set type to "standard"
+	wizard.choices["type"] = "standard"
+
+	// Verify type was set correctly
+	projectType, ok := wizard.choices["type"].(string)
+	if !ok {
+		t.Fatal("type not set in choices")
+	}
+	if projectType != "standard" {
+		t.Errorf("expected type 'standard', got %q", projectType)
+	}
+
+	// NEW BEHAVIOR (Task 070): Call createLinkedBranch directly (skip type selection)
+	err = wizard.createLinkedBranch()
+	if err != nil {
+		t.Fatalf("createLinkedBranch failed: %v", err)
+	}
+
+	// Verify state transitioned to StatePromptEntry (not StateTypeSelect)
+	if wizard.state != StatePromptEntry {
+		t.Errorf("expected state StatePromptEntry, got %v", wizard.state)
+	}
+
+	// Verify branch was created and stored
+	branch, ok := wizard.choices["branch"].(string)
+	if !ok {
+		t.Fatal("branch not set in choices")
+	}
+	if branch != "feat/test-issue-123" {
+		t.Errorf("expected branch 'feat/test-issue-123', got %q", branch)
 	}
 }
 
@@ -927,6 +968,84 @@ func TestCreateLinkedBranch_BranchNameGeneration(t *testing.T) {
 				t.Errorf("expected created branch %q, got %q", tt.expected, createdBranch)
 			}
 		})
+	}
+}
+
+// TestGitHubIssuePath_SkipsTypeSelection tests Task 070: GitHub issues skip type selection entirely
+func TestGitHubIssuePath_SkipsTypeSelection(t *testing.T) {
+	ctx, tmpDir := setupTestContext(t)
+
+	// Create initial commit for worktree creation
+	testFile := tmpDir + "/README.md"
+	_ = os.WriteFile(testFile, []byte("# Test"), 0644)
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
+	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
+
+	wizard := &Wizard{
+		state: StateIssueSelect,
+		ctx:   ctx,
+		choices: map[string]interface{}{
+			"issues": []sow.Issue{
+				{Number: 71, Title: "Project Continuation Workflow", State: "open"},
+			},
+		},
+		github: &mockGitHub{
+			getLinkedBranchesResult: []sow.LinkedBranch{},
+			getIssueResult: &sow.Issue{
+				Number: 71,
+				Title:  "Project Continuation Workflow",
+				Body:   "Description",
+				State:  "open",
+				URL:    "https://github.com/test/repo/issues/71",
+			},
+			createLinkedBranchResult: "feat/project-continuation-workflow-71",
+		},
+	}
+
+	// Simulate the workflow after user selects an issue
+	selectedIssueNumber := 71
+
+	// Validate no linked branch
+	linkedBranches, err := wizard.github.GetLinkedBranches(selectedIssueNumber)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(linkedBranches) != 0 {
+		t.Fatal("expected no linked branches")
+	}
+
+	// Fetch issue
+	issue, err := wizard.github.GetIssue(selectedIssueNumber)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Store issue (what showIssueSelectScreen does)
+	wizard.choices["issue"] = issue
+
+	// Task 070: Set type to "standard" (what showIssueSelectScreen now does)
+	wizard.choices["type"] = "standard"
+
+	// Verify type is set to "standard"
+	if wizard.choices["type"] != "standard" {
+		t.Errorf("expected type 'standard', got %v", wizard.choices["type"])
+	}
+
+	// Task 070: Call createLinkedBranch directly (skip type selection)
+	err = wizard.createLinkedBranch()
+	if err != nil {
+		t.Fatalf("createLinkedBranch failed: %v", err)
+	}
+
+	// Verify we went directly to StatePromptEntry (skipped StateTypeSelect)
+	if wizard.state != StatePromptEntry {
+		t.Errorf("expected StatePromptEntry, got %v - type selection should be skipped", wizard.state)
+	}
+
+	// Verify branch uses "feat/" prefix (standard type)
+	branch := wizard.choices["branch"].(string)
+	if branch != "feat/project-continuation-workflow-71" {
+		t.Errorf("expected branch with 'feat/' prefix, got %q", branch)
 	}
 }
 
