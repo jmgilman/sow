@@ -3,18 +3,19 @@ type: standard
 branch: 68-wizard-foundation-and-state-machine
 description: Wizard Foundation and State Machine
 created_at: 2025-11-07T15:26:26.191859-08:00
-updated_at: 2025-11-07T16:44:18.658667-08:00
+updated_at: 2025-11-07T16:44:32.531157-08:00
 phases:
     finalize:
-        status: in_progress
+        status: completed
         enabled: false
         created_at: 2025-11-07T15:26:26.191859-08:00
         started_at: 2025-11-07T16:35:21.155882-08:00
-        completed_at: 0001-01-01T00:00:00Z
+        completed_at: 2025-11-07T16:44:32.531157-08:00
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata:
             pr_checks_passed: true
+            project_deleted: true
         inputs: []
         outputs:
             - type: pr_body
@@ -302,5 +303,5 @@ phases:
                 iteration: 1
         tasks: []
 statechart:
-    current_state: FinalizeCleanup
-    updated_at: 2025-11-07T16:44:18.658667-08:00
+    current_state: NoProject
+    updated_at: 2025-11-07T16:44:32.531157-08:00

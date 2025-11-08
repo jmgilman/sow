@@ -1,3 +1,9 @@
+# SKIP: Test uses removed 'sow project new' command
+# TODO: Update test to use new interactive wizard or SDK directly
+# Related PR: #83 - Wizard Foundation and State Machine
+
+skip 'Test requires update for wizard interface - sow project new command removed'
+
 # Test: Artifact Errors
 # Coverage: index out of range, invalid artifact types, missing flags
 

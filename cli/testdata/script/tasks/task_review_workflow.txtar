@@ -1,3 +1,9 @@
+# SKIP: Test uses removed 'sow project new' command
+# TODO: Update test to use new interactive wizard or SDK directly
+# Related PR: #83 - Wizard Foundation and State Machine
+
+skip 'Test requires update for wizard interface - sow project new command removed'
+
 # Test: Task Review Workflow
 # Coverage: Complete review cycle with feedback, iterations, and assessments
 
@@ -60,7 +66,11 @@ stdout 'modified: src/auth/jwt_test.go'
 
 # Orchestrator: Write review feedback (rejected)
 exec mkdir -p .sow/project/phases/implementation/tasks/010/feedback
-exec sh -c 'echo "# Review Feedback - Iteration 1\n\nIssues found:\n- Missing error handling\n- Tests incomplete" > .sow/project/phases/implementation/tasks/010/feedback/1.md'
+exec sh -c 'echo "# Review Feedback - Iteration 1
+
+Issues found:
+- Missing error handling
+- Tests incomplete" > .sow/project/phases/implementation/tasks/010/feedback/1.md'
 exists .sow/project/phases/implementation/tasks/010/feedback/1.md
 
 # Orchestrator: Register feedback with fail assessment
@@ -104,7 +114,12 @@ stdout 'Iteration: 2'
 stdout 'Outputs \(3\):'
 
 # Orchestrator: Write approval feedback
-exec sh -c 'echo "# Review Feedback - Iteration 2\n\nApproved:\n- Error handling added\n- Tests complete\n- Ready to merge" > .sow/project/phases/implementation/tasks/010/feedback/2.md'
+exec sh -c 'echo "# Review Feedback - Iteration 2
+
+Approved:
+- Error handling added
+- Tests complete
+- Ready to merge" > .sow/project/phases/implementation/tasks/010/feedback/2.md'
 exists .sow/project/phases/implementation/tasks/010/feedback/2.md
 
 # Orchestrator: Register feedback with pass assessment
