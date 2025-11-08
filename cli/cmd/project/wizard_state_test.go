@@ -547,7 +547,9 @@ func TestFinalize_SkipsUncommittedCheckWhenDifferentBranch(t *testing.T) {
 
 // mockGitHub is a test double for GitHub operations
 type mockGitHub struct {
-	ensureErr error
+	ensureErr        error
+	listIssuesResult []sow.Issue
+	listIssuesErr    error
 }
 
 func (m *mockGitHub) Ensure() error {
@@ -555,7 +557,10 @@ func (m *mockGitHub) Ensure() error {
 }
 
 func (m *mockGitHub) ListIssues(label, state string) ([]sow.Issue, error) {
-	return nil, nil // Stub for future tasks
+	if m.listIssuesErr != nil {
+		return nil, m.listIssuesErr
+	}
+	return m.listIssuesResult, nil
 }
 
 func (m *mockGitHub) GetLinkedBranches(number int) ([]sow.LinkedBranch, error) {
@@ -629,22 +634,142 @@ func TestHandleIssueSelect_GitHubNotAuthenticated(t *testing.T) {
 
 // TestHandleIssueSelect_ValidationSuccess tests successful GitHub CLI validation
 func TestHandleIssueSelect_ValidationSuccess(t *testing.T) {
+	// This test now uses Task 020 implementation
+	mockIssues := []sow.Issue{
+		{Number: 100, Title: "Test issue", State: "open"},
+	}
+
 	ctx, _ := setupTestContext(t)
 	wizard := &Wizard{
 		state:   StateIssueSelect,
 		ctx:     ctx,
 		choices: make(map[string]interface{}),
-		github:  &mockGitHub{ensureErr: nil}, // No error = success
+		github: &mockGitHub{
+			ensureErr:        nil, // No error = success
+			listIssuesResult: mockIssues,
+		},
+	}
+
+	// Will error on TTY but that's okay
+	_ = wizard.handleIssueSelect()
+
+	// Verify issues were stored (happens before TTY error)
+	storedIssues, ok := wizard.choices["issues"].([]sow.Issue)
+	if !ok {
+		t.Error("expected issues to be stored in choices")
+	}
+
+	if len(storedIssues) != 1 {
+		t.Errorf("expected 1 issue, got %d", len(storedIssues))
+	}
+}
+
+// Task 020 Tests: Issue Listing Screen with Spinner
+
+// TestHandleIssueSelect_SuccessfulFetch tests that issues are fetched and stored
+func TestHandleIssueSelect_SuccessfulFetch(t *testing.T) {
+	mockIssues := []sow.Issue{
+		{Number: 123, Title: "Add JWT authentication", State: "open"},
+		{Number: 124, Title: "Refactor schema", State: "open"},
+	}
+
+	ctx, _ := setupTestContext(t)
+	wizard := &Wizard{
+		state:   StateIssueSelect,
+		ctx:     ctx,
+		choices: make(map[string]interface{}),
+		github:  &mockGitHub{listIssuesResult: mockIssues},
+	}
+
+	// Note: handleIssueSelect calls showIssueSelectScreen which requires TTY
+	// We test the logic by calling handleIssueSelect and catching the TTY error
+	// The important part is that issues are stored before showIssueSelectScreen is called
+	_ = wizard.handleIssueSelect()
+
+	// Verify issues stored (this happens before the TTY error)
+	storedIssues, ok := wizard.choices["issues"].([]sow.Issue)
+	if !ok {
+		t.Fatal("issues not stored in choices")
+	}
+
+	if len(storedIssues) != 2 {
+		t.Errorf("expected 2 issues, got %d", len(storedIssues))
+	}
+
+	// Verify first issue
+	if storedIssues[0].Number != 123 {
+		t.Errorf("expected issue number 123, got %d", storedIssues[0].Number)
+	}
+}
+
+// TestHandleIssueSelect_EmptyList tests handling when no issues are found
+func TestHandleIssueSelect_EmptyList(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+	wizard := &Wizard{
+		state:   StateIssueSelect,
+		ctx:     ctx,
+		choices: make(map[string]interface{}),
+		github:  &mockGitHub{listIssuesResult: []sow.Issue{}}, // Empty list
 	}
 
 	err := wizard.handleIssueSelect()
-
 	if err != nil {
 		t.Errorf("expected nil error, got %v", err)
 	}
 
-	// Should continue to completion (stub behavior for now)
-	if wizard.state != StateComplete {
-		t.Errorf("expected state %s, got %s", StateComplete, wizard.state)
+	// Should return to source selection
+	if wizard.state != StateCreateSource {
+		t.Errorf("expected state %s, got %s", StateCreateSource, wizard.state)
+	}
+}
+
+// TestHandleIssueSelect_FetchError tests handling when fetching fails
+func TestHandleIssueSelect_FetchError(t *testing.T) {
+	ctx, _ := setupTestContext(t)
+	wizard := &Wizard{
+		state:   StateIssueSelect,
+		ctx:     ctx,
+		choices: make(map[string]interface{}),
+		github: &mockGitHub{
+			listIssuesErr: errors.New("network timeout"),
+		},
+	}
+
+	err := wizard.handleIssueSelect()
+	if err != nil {
+		t.Errorf("expected nil error (wizard continues), got %v", err)
+	}
+
+	// Should return to source selection
+	if wizard.state != StateCreateSource {
+		t.Errorf("expected state %s, got %s", StateCreateSource, wizard.state)
+	}
+}
+
+// TestIssueWorkflow_ValidationToSelection tests the complete flow from validation through selection
+func TestIssueWorkflow_ValidationToSelection(t *testing.T) {
+	mockIssues := []sow.Issue{
+		{Number: 123, Title: "Test Issue", State: "open", URL: "https://github.com/test/repo/issues/123"},
+	}
+
+	ctx, _ := setupTestContext(t)
+	wizard := &Wizard{
+		state:   StateIssueSelect,
+		ctx:     ctx,
+		choices: make(map[string]interface{}),
+		github: &mockGitHub{
+			ensureErr:        nil, // Validation succeeds
+			listIssuesResult: mockIssues,
+			listIssuesErr:    nil,
+		},
+	}
+
+	// Run issue selection handler (will error on TTY but that's okay)
+	_ = wizard.handleIssueSelect()
+
+	// Verify issues stored for display (this happens before the TTY error)
+	storedIssues, ok := wizard.choices["issues"].([]sow.Issue)
+	if !ok || len(storedIssues) != 1 {
+		t.Errorf("expected 1 issue stored, got %d", len(storedIssues))
 	}
 }

@@ -180,18 +180,49 @@ func (w *Wizard) handleCreateSource() error {
 	return nil
 }
 
-// handleIssueSelect allows selecting a GitHub issue (stub for now).
+// handleIssueSelect allows selecting a GitHub issue.
 func (w *Wizard) handleIssueSelect() error {
 	// Validate GitHub CLI is available and authenticated
 	if err := w.github.Ensure(); err != nil {
 		return w.handleGitHubError(err)
 	}
 
-	// If validation passes, continue to issue fetching (Task 020)
-	// For now, stub until Task 020 implements issue listing
-	fmt.Println("GitHub CLI validated successfully")
-	w.state = StateComplete
-	return nil
+	// Fetch issues with 'sow' label using spinner
+	var issues []sow.Issue
+	var fetchErr error
+
+	err := withSpinner("Fetching issues from GitHub...", func() error {
+		issues, fetchErr = w.github.ListIssues("sow", "open")
+		return fetchErr
+	})
+
+	if err != nil {
+		errorMsg := fmt.Sprintf("Failed to fetch issues: %v\n\n"+
+			"This may be a network issue or a GitHub API problem.\n"+
+			"Please try again or select 'From branch name' instead.", err)
+		_ = showError(errorMsg)
+		w.state = StateCreateSource
+		return nil
+	}
+
+	// Handle empty issue list
+	if len(issues) == 0 {
+		errorMsg := "No issues found with 'sow' label\n\n" +
+			"To use GitHub issue integration:\n" +
+			"  1. Create an issue in your repository\n" +
+			"  2. Add the 'sow' label to the issue\n" +
+			"  3. Try again\n\n" +
+			"Or select 'From branch name' to continue without an issue."
+		_ = showError(errorMsg)
+		w.state = StateCreateSource
+		return nil
+	}
+
+	// Store issues in choices for next step (Task 030)
+	w.choices["issues"] = issues
+
+	// Proceed to issue selection (next screen)
+	return w.showIssueSelectScreen()
 }
 
 // handleGitHubError displays GitHub-related errors and offers fallback paths.
@@ -402,6 +433,60 @@ func (w *Wizard) handleProjectSelect() error {
 func (w *Wizard) handleContinuePrompt() error {
 	fmt.Println("Continue prompt screen (stub)")
 	w.state = StateComplete
+	return nil
+}
+
+// showIssueSelectScreen displays the issue selection prompt.
+// Issues are retrieved from w.choices["issues"] (set by handleIssueSelect).
+func (w *Wizard) showIssueSelectScreen() error {
+	issues, ok := w.choices["issues"].([]sow.Issue)
+	if !ok {
+		return fmt.Errorf("issues not found in choices")
+	}
+
+	var selectedIssueNumber int
+
+	// Build select options
+	options := make([]huh.Option[int], 0, len(issues)+1)
+	for _, issue := range issues {
+		label := fmt.Sprintf("#%d: %s", issue.Number, issue.Title)
+		options = append(options, huh.NewOption(label, issue.Number))
+	}
+
+	// Add cancel option
+	options = append(options, huh.NewOption("Cancel", -1))
+
+	// Create select form
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[int]().
+				Title("Select an issue (filtered by 'sow' label):").
+				Options(options...).
+				Value(&selectedIssueNumber),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			w.state = StateCancelled
+			return nil
+		}
+		return fmt.Errorf("issue selection error: %w", err)
+	}
+
+	// Handle cancel
+	if selectedIssueNumber == -1 {
+		w.state = StateCancelled
+		return nil
+	}
+
+	// Store selected issue number for next step (Task 030)
+	w.choices["selectedIssueNumber"] = selectedIssueNumber
+
+	// Next: Validate issue doesn't have linked branch (Task 030)
+	// For now, just mark complete
+	w.state = StateComplete
+
 	return nil
 }
 
