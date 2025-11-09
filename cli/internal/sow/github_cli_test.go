@@ -105,3 +105,300 @@ type MockError struct {
 func (e *MockError) Error() string {
 	return e.Message
 }
+
+// Tests for UpdatePullRequest
+
+func TestGitHubCLI_UpdatePullRequest_Success(t *testing.T) {
+	var capturedArgs []string
+
+	mock := &exec.MockExecutor{
+		ExistsFunc: func() bool { return true },
+		RunSilentFunc: func(_ ...string) error {
+			return nil // Auth check passes
+		},
+		RunFunc: func(args ...string) (string, string, error) {
+			capturedArgs = args
+			return "", "", nil // Success
+		},
+	}
+
+	gh := sow.NewGitHubCLI(mock)
+	err := gh.UpdatePullRequest(123, "New Title", "New Body")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify correct command was called
+	expected := []string{"pr", "edit", "123", "--title", "New Title", "--body", "New Body"}
+	if len(capturedArgs) != len(expected) {
+		t.Errorf("expected %d args, got %d", len(expected), len(capturedArgs))
+	}
+	for i, arg := range expected {
+		if i >= len(capturedArgs) || capturedArgs[i] != arg {
+			t.Errorf("arg %d: expected %q, got %q", i, arg, capturedArgs[i])
+		}
+	}
+}
+
+func TestGitHubCLI_UpdatePullRequest_NotInstalled(t *testing.T) {
+	mock := &exec.MockExecutor{
+		ExistsFunc: func() bool { return false },
+	}
+
+	gh := sow.NewGitHubCLI(mock)
+	err := gh.UpdatePullRequest(123, "Title", "Body")
+
+	if err == nil {
+		t.Fatal("expected error when gh not installed, got nil")
+	}
+
+	var notInstalled sow.ErrGHNotInstalled
+	if !errors.As(err, &notInstalled) {
+		t.Errorf("expected ErrGHNotInstalled, got %T", err)
+	}
+}
+
+func TestGitHubCLI_UpdatePullRequest_CommandFails(t *testing.T) {
+	mock := &exec.MockExecutor{
+		ExistsFunc: func() bool { return true },
+		RunSilentFunc: func(_ ...string) error {
+			return nil // Auth check passes
+		},
+		RunFunc: func(args ...string) (string, string, error) {
+			return "", "PR not found", &MockError{Message: "exit code 1"}
+		},
+	}
+
+	gh := sow.NewGitHubCLI(mock)
+	err := gh.UpdatePullRequest(999, "Title", "Body")
+
+	if err == nil {
+		t.Fatal("expected error when command fails, got nil")
+	}
+
+	var ghErr sow.ErrGHCommand
+	if !errors.As(err, &ghErr) {
+		t.Errorf("expected ErrGHCommand, got %T", err)
+	}
+}
+
+// Tests for MarkPullRequestReady
+
+func TestGitHubCLI_MarkPullRequestReady_Success(t *testing.T) {
+	var capturedArgs []string
+
+	mock := &exec.MockExecutor{
+		ExistsFunc: func() bool { return true },
+		RunSilentFunc: func(_ ...string) error {
+			return nil // Auth check passes
+		},
+		RunFunc: func(args ...string) (string, string, error) {
+			capturedArgs = args
+			return "", "", nil // Success
+		},
+	}
+
+	gh := sow.NewGitHubCLI(mock)
+	err := gh.MarkPullRequestReady(42)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify correct command was called
+	expected := []string{"pr", "ready", "42"}
+	if len(capturedArgs) != len(expected) {
+		t.Errorf("expected %d args, got %d", len(expected), len(capturedArgs))
+	}
+	for i, arg := range expected {
+		if i >= len(capturedArgs) || capturedArgs[i] != arg {
+			t.Errorf("arg %d: expected %q, got %q", i, arg, capturedArgs[i])
+		}
+	}
+}
+
+func TestGitHubCLI_MarkPullRequestReady_NotInstalled(t *testing.T) {
+	mock := &exec.MockExecutor{
+		ExistsFunc: func() bool { return false },
+	}
+
+	gh := sow.NewGitHubCLI(mock)
+	err := gh.MarkPullRequestReady(42)
+
+	if err == nil {
+		t.Fatal("expected error when gh not installed, got nil")
+	}
+
+	var notInstalled sow.ErrGHNotInstalled
+	if !errors.As(err, &notInstalled) {
+		t.Errorf("expected ErrGHNotInstalled, got %T", err)
+	}
+}
+
+func TestGitHubCLI_MarkPullRequestReady_CommandFails(t *testing.T) {
+	mock := &exec.MockExecutor{
+		ExistsFunc: func() bool { return true },
+		RunSilentFunc: func(_ ...string) error {
+			return nil // Auth check passes
+		},
+		RunFunc: func(args ...string) (string, string, error) {
+			return "", "PR is not a draft", &MockError{Message: "exit code 1"}
+		},
+	}
+
+	gh := sow.NewGitHubCLI(mock)
+	err := gh.MarkPullRequestReady(42)
+
+	if err == nil {
+		t.Fatal("expected error when command fails, got nil")
+	}
+
+	var ghErr sow.ErrGHCommand
+	if !errors.As(err, &ghErr) {
+		t.Errorf("expected ErrGHCommand, got %T", err)
+	}
+}
+
+// Tests for CreatePullRequest (enhanced with draft parameter)
+
+func TestGitHubCLI_CreatePullRequest_Draft(t *testing.T) {
+	var capturedArgs []string
+
+	mock := &exec.MockExecutor{
+		ExistsFunc: func() bool { return true },
+		RunSilentFunc: func(_ ...string) error {
+			return nil // Auth check passes
+		},
+		RunFunc: func(args ...string) (string, string, error) {
+			capturedArgs = args
+			return "https://github.com/owner/repo/pull/42\n", "", nil
+		},
+	}
+
+	gh := sow.NewGitHubCLI(mock)
+	number, url, err := gh.CreatePullRequest("Draft Title", "Draft Body", true)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify --draft flag is present
+	found := false
+	for _, arg := range capturedArgs {
+		if arg == "--draft" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected --draft flag in arguments")
+	}
+
+	// Verify PR number and URL are correct
+	if number != 42 {
+		t.Errorf("expected PR number 42, got %d", number)
+	}
+	if url != "https://github.com/owner/repo/pull/42" {
+		t.Errorf("expected URL 'https://github.com/owner/repo/pull/42', got %q", url)
+	}
+}
+
+func TestGitHubCLI_CreatePullRequest_NotDraft(t *testing.T) {
+	var capturedArgs []string
+
+	mock := &exec.MockExecutor{
+		ExistsFunc: func() bool { return true },
+		RunSilentFunc: func(_ ...string) error {
+			return nil // Auth check passes
+		},
+		RunFunc: func(args ...string) (string, string, error) {
+			capturedArgs = args
+			return "https://github.com/owner/repo/pull/100\n", "", nil
+		},
+	}
+
+	gh := sow.NewGitHubCLI(mock)
+	number, url, err := gh.CreatePullRequest("Ready Title", "Ready Body", false)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify --draft flag is NOT present
+	for _, arg := range capturedArgs {
+		if arg == "--draft" {
+			t.Error("did not expect --draft flag in arguments when draft=false")
+		}
+	}
+
+	// Verify PR number and URL are correct
+	if number != 100 {
+		t.Errorf("expected PR number 100, got %d", number)
+	}
+	if url != "https://github.com/owner/repo/pull/100" {
+		t.Errorf("expected URL 'https://github.com/owner/repo/pull/100', got %q", url)
+	}
+}
+
+func TestGitHubCLI_CreatePullRequest_ParseError(t *testing.T) {
+	mock := &exec.MockExecutor{
+		ExistsFunc: func() bool { return true },
+		RunSilentFunc: func(_ ...string) error {
+			return nil // Auth check passes
+		},
+		RunFunc: func(args ...string) (string, string, error) {
+			// Return invalid URL that can't be parsed
+			return "invalid-url\n", "", nil
+		},
+	}
+
+	gh := sow.NewGitHubCLI(mock)
+	_, _, err := gh.CreatePullRequest("Title", "Body", false)
+
+	if err == nil {
+		t.Fatal("expected error when URL cannot be parsed, got nil")
+	}
+}
+
+func TestGitHubCLI_CreatePullRequest_NotInstalled(t *testing.T) {
+	mock := &exec.MockExecutor{
+		ExistsFunc: func() bool { return false },
+	}
+
+	gh := sow.NewGitHubCLI(mock)
+	_, _, err := gh.CreatePullRequest("Title", "Body", false)
+
+	if err == nil {
+		t.Fatal("expected error when gh not installed, got nil")
+	}
+
+	var notInstalled sow.ErrGHNotInstalled
+	if !errors.As(err, &notInstalled) {
+		t.Errorf("expected ErrGHNotInstalled, got %T", err)
+	}
+}
+
+func TestGitHubCLI_CreatePullRequest_CommandFails(t *testing.T) {
+	mock := &exec.MockExecutor{
+		ExistsFunc: func() bool { return true },
+		RunSilentFunc: func(_ ...string) error {
+			return nil // Auth check passes
+		},
+		RunFunc: func(args ...string) (string, string, error) {
+			return "", "no commits to create PR", &MockError{Message: "exit code 1"}
+		},
+	}
+
+	gh := sow.NewGitHubCLI(mock)
+	_, _, err := gh.CreatePullRequest("Title", "Body", false)
+
+	if err == nil {
+		t.Fatal("expected error when command fails, got nil")
+	}
+
+	var ghErr sow.ErrGHCommand
+	if !errors.As(err, &ghErr) {
+		t.Errorf("expected ErrGHCommand, got %T", err)
+	}
+}

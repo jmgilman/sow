@@ -404,25 +404,35 @@ func (g *GitHubCLI) CreateIssue(title, body string, labels []string) (*Issue, er
 	}, nil
 }
 
-// CreatePullRequest creates a pull request using gh CLI.
+// CreatePullRequest creates a pull request using gh CLI, optionally as a draft.
+//
+// The PR is created from the current branch to the repository's default base branch.
 //
 // Parameters:
-//   - title: PR title
+//   - title: PR title (required, non-empty)
 //   - body: PR description (supports markdown)
+//   - draft: If true, creates the PR as a draft; if false, creates as ready for review
 //
-// Returns the PR URL on success.
-func (g *GitHubCLI) CreatePullRequest(title, body string) (string, error) {
+// Returns:
+//   - number: The PR number, which can be used with UpdatePullRequest and MarkPullRequestReady
+//   - url: Full GitHub URL to the pull request (e.g., "https://github.com/owner/repo/pull/42")
+//   - error: Any error during PR creation
+//
+// Draft PRs can be converted to ready for review using MarkPullRequestReady.
+func (g *GitHubCLI) CreatePullRequest(title, body string, draft bool) (int, string, error) {
 	if err := g.Ensure(); err != nil {
-		return "", err
+		return 0, "", err
 	}
 
-	stdout, stderr, err := g.gh.Run(
-		"pr", "create",
-		"--title", title,
-		"--body", body,
-	)
+	// Build command arguments
+	args := []string{"pr", "create", "--title", title, "--body", body}
+	if draft {
+		args = append(args, "--draft")
+	}
+
+	stdout, stderr, err := g.gh.Run(args...)
 	if err != nil {
-		return "", ErrGHCommand{
+		return 0, "", ErrGHCommand{
 			Command: "pr create",
 			Stderr:  stderr,
 			Err:     err,
@@ -433,7 +443,7 @@ func (g *GitHubCLI) CreatePullRequest(title, body string) (string, error) {
 	output := strings.TrimSpace(stdout)
 	lines := strings.Split(output, "\n")
 	if len(lines) == 0 {
-		return "", fmt.Errorf("unexpected empty output from gh pr create")
+		return 0, "", fmt.Errorf("unexpected empty output from gh pr create")
 	}
 
 	// The URL is typically the last line
@@ -441,10 +451,82 @@ func (g *GitHubCLI) CreatePullRequest(title, body string) (string, error) {
 
 	// Validate it looks like a URL
 	if !strings.HasPrefix(prURL, "http") {
-		return "", fmt.Errorf("unexpected pr create output (no URL found): %s", output)
+		return 0, "", fmt.Errorf("unexpected pr create output (no URL found): %s", output)
 	}
 
-	return prURL, nil
+	// Parse PR number from URL (format: https://github.com/owner/repo/pull/NUMBER)
+	parts := strings.Split(prURL, "/")
+	if len(parts) < 1 {
+		return 0, "", fmt.Errorf("could not parse PR number from URL: %s", prURL)
+	}
+	prNumberStr := parts[len(parts)-1]
+	prNumber := 0
+	_, err = fmt.Sscanf(prNumberStr, "%d", &prNumber)
+	if err != nil {
+		return 0, "", fmt.Errorf("could not parse PR number from URL: %s", prURL)
+	}
+
+	return prNumber, prURL, nil
+}
+
+// UpdatePullRequest updates an existing pull request's title and body.
+//
+// This is useful for updating PR descriptions as implementation progresses, or for
+// correcting the title after creation.
+//
+// Parameters:
+//   - number: PR number to update
+//   - title: New PR title (required, non-empty)
+//   - body: New PR description (supports markdown)
+func (g *GitHubCLI) UpdatePullRequest(number int, title, body string) error {
+	if err := g.Ensure(); err != nil {
+		return err
+	}
+
+	stdout, stderr, err := g.gh.Run(
+		"pr", "edit", fmt.Sprintf("%d", number),
+		"--title", title,
+		"--body", body,
+	)
+	_ = stdout // stdout not used but kept for consistency
+
+	if err != nil {
+		return ErrGHCommand{
+			Command: fmt.Sprintf("pr edit %d", number),
+			Stderr:  stderr,
+			Err:     err,
+		}
+	}
+
+	return nil
+}
+
+// MarkPullRequestReady converts a draft pull request to "ready for review" state.
+//
+// This operation is only valid for PRs that were created as drafts. Calling this
+// on a PR that is already ready for review may return an error.
+//
+// Parameters:
+//   - number: Draft PR number to mark as ready
+func (g *GitHubCLI) MarkPullRequestReady(number int) error {
+	if err := g.Ensure(); err != nil {
+		return err
+	}
+
+	stdout, stderr, err := g.gh.Run(
+		"pr", "ready", fmt.Sprintf("%d", number),
+	)
+	_ = stdout // stdout not used but kept for consistency
+
+	if err != nil {
+		return ErrGHCommand{
+			Command: fmt.Sprintf("pr ready %d", number),
+			Stderr:  stderr,
+			Err:     err,
+		}
+	}
+
+	return nil
 }
 
 // Helper functions
