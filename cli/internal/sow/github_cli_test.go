@@ -165,7 +165,7 @@ func TestGitHubCLI_UpdatePullRequest_CommandFails(t *testing.T) {
 		RunSilentFunc: func(_ ...string) error {
 			return nil // Auth check passes
 		},
-		RunFunc: func(args ...string) (string, string, error) {
+		RunFunc: func(_ ...string) (string, string, error) {
 			return "", "PR not found", &MockError{Message: "exit code 1"}
 		},
 	}
@@ -242,7 +242,7 @@ func TestGitHubCLI_MarkPullRequestReady_CommandFails(t *testing.T) {
 		RunSilentFunc: func(_ ...string) error {
 			return nil // Auth check passes
 		},
-		RunFunc: func(args ...string) (string, string, error) {
+		RunFunc: func(_ ...string) (string, string, error) {
 			return "", "PR is not a draft", &MockError{Message: "exit code 1"}
 		},
 	}
@@ -347,7 +347,7 @@ func TestGitHubCLI_CreatePullRequest_ParseError(t *testing.T) {
 		RunSilentFunc: func(_ ...string) error {
 			return nil // Auth check passes
 		},
-		RunFunc: func(args ...string) (string, string, error) {
+		RunFunc: func(_ ...string) (string, string, error) {
 			// Return invalid URL that can't be parsed
 			return "invalid-url\n", "", nil
 		},
@@ -385,7 +385,7 @@ func TestGitHubCLI_CreatePullRequest_CommandFails(t *testing.T) {
 		RunSilentFunc: func(_ ...string) error {
 			return nil // Auth check passes
 		},
-		RunFunc: func(args ...string) (string, string, error) {
+		RunFunc: func(_ ...string) (string, string, error) {
 			return "", "no commits to create PR", &MockError{Message: "exit code 1"}
 		},
 	}

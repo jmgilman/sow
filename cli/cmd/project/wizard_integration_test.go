@@ -59,16 +59,16 @@ func TestCompleteGitHubIssueWorkflow(t *testing.T) {
 			CheckAvailabilityFunc: func() error {
 				return nil
 			},
-			ListIssuesFunc: func(label, state string) ([]sow.Issue, error) {
+			ListIssuesFunc: func(_, _ string) ([]sow.Issue, error) {
 				return mockIssues, nil
 			},
-			GetLinkedBranchesFunc: func(number int) ([]sow.LinkedBranch, error) {
+			GetLinkedBranchesFunc: func(_ int) ([]sow.LinkedBranch, error) {
 				return []sow.LinkedBranch{}, nil // No linked branches
 			},
-			GetIssueFunc: func(number int) (*sow.Issue, error) {
+			GetIssueFunc: func(_ int) (*sow.Issue, error) {
 				return &mockIssue, nil
 			},
-			CreateLinkedBranchFunc: func(issueNumber int, branchName string, checkout bool) (string, error) {
+			CreateLinkedBranchFunc: func(_ int, _ string, _ bool) (string, error) {
 				return "feat/add-jwt-authentication-123", nil
 			},
 		},

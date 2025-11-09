@@ -10,8 +10,8 @@ import (
 func TestNewGitHubClient_WithoutToken(t *testing.T) {
 	// Ensure GITHUB_TOKEN is not set
 	oldToken := os.Getenv("GITHUB_TOKEN")
-	defer os.Setenv("GITHUB_TOKEN", oldToken)
-	os.Unsetenv("GITHUB_TOKEN")
+	defer func() { _ = os.Setenv("GITHUB_TOKEN", oldToken) }()
+	_ = os.Unsetenv("GITHUB_TOKEN")
 
 	client, err := sow.NewGitHubClient()
 
@@ -33,8 +33,8 @@ func TestNewGitHubClient_WithoutToken(t *testing.T) {
 func TestNewGitHubClient_WithToken(t *testing.T) {
 	// Set GITHUB_TOKEN environment variable
 	oldToken := os.Getenv("GITHUB_TOKEN")
-	defer os.Setenv("GITHUB_TOKEN", oldToken)
-	os.Setenv("GITHUB_TOKEN", "test-token")
+	defer func() { _ = os.Setenv("GITHUB_TOKEN", oldToken) }()
+	_ = os.Setenv("GITHUB_TOKEN", "test-token")
 
 	client, err := sow.NewGitHubClient()
 
@@ -62,8 +62,8 @@ func TestNewGitHubClient_WithToken(t *testing.T) {
 func TestNewGitHubClient_ReturnsInterface(t *testing.T) {
 	// Ensure GITHUB_TOKEN is not set
 	oldToken := os.Getenv("GITHUB_TOKEN")
-	defer os.Setenv("GITHUB_TOKEN", oldToken)
-	os.Unsetenv("GITHUB_TOKEN")
+	defer func() { _ = os.Setenv("GITHUB_TOKEN", oldToken) }()
+	_ = os.Unsetenv("GITHUB_TOKEN")
 
 	client, err := sow.NewGitHubClient()
 
@@ -73,7 +73,7 @@ func TestNewGitHubClient_ReturnsInterface(t *testing.T) {
 
 	// Verify the returned type implements GitHubClient interface
 	// This is mainly a compile-time check, but we can verify methods exist
-	var _ sow.GitHubClient = client
+	var _ = client
 
 	// Verify interface methods are available
 	if client == nil {

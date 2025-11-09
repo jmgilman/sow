@@ -35,6 +35,7 @@ func NewGitHubClient() (GitHubClient, error) {
 		// API client not yet implemented
 		// For now, fall back to CLI client
 		// TODO: return NewGitHubAPI(token), nil
+		_ = token // Suppress unused variable warning until API client is implemented
 	}
 
 	// Default to CLI client

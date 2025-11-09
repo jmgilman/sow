@@ -2388,7 +2388,7 @@ func TestCheckIssueLinkedBranch(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := &sow.MockGitHub{
-				GetLinkedBranchesFunc: func(number int) ([]sow.LinkedBranch, error) {
+				GetLinkedBranchesFunc: func(_ int) ([]sow.LinkedBranch, error) {
 					return tt.branches, tt.branchesErr
 				},
 			}

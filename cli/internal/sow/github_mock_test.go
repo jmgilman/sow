@@ -7,7 +7,7 @@ import (
 	"github.com/jmgilman/sow/cli/internal/sow"
 )
 
-func TestMockGitHub_ImplementsInterface(t *testing.T) {
+func TestMockGitHub_ImplementsInterface(_ *testing.T) {
 	var _ sow.GitHubClient = (*sow.MockGitHub)(nil)
 }
 
@@ -21,7 +21,7 @@ func TestMockGitHub_CheckAvailability_WithCustomFunc(t *testing.T) {
 
 	err := mock.CheckAvailability()
 
-	if err != expectedErr {
+	if err == nil || err.Error() != expectedErr.Error() {
 		t.Errorf("expected mock error, got %v", err)
 	}
 }
@@ -42,7 +42,7 @@ func TestMockGitHub_ListIssues_WithCustomFunc(t *testing.T) {
 		{Number: 2, Title: "Issue 2"},
 	}
 	mock := &sow.MockGitHub{
-		ListIssuesFunc: func(label, state string) ([]sow.Issue, error) {
+		ListIssuesFunc: func(_, _ string) ([]sow.Issue, error) {
 			return expectedIssues, nil
 		},
 	}
@@ -118,7 +118,7 @@ func TestMockGitHub_GetIssue_WithNilFunc(t *testing.T) {
 
 func TestMockGitHub_CreateIssue_WithCustomFunc(t *testing.T) {
 	mock := &sow.MockGitHub{
-		CreateIssueFunc: func(title, body string, labels []string) (*sow.Issue, error) {
+		CreateIssueFunc: func(title, body string, _ []string) (*sow.Issue, error) {
 			return &sow.Issue{
 				Number: 42,
 				Title:  title,
@@ -163,7 +163,7 @@ func TestMockGitHub_GetLinkedBranches_WithCustomFunc(t *testing.T) {
 		{Name: "branch-2", URL: "https://github.com/owner/repo/tree/branch-2"},
 	}
 	mock := &sow.MockGitHub{
-		GetLinkedBranchesFunc: func(number int) ([]sow.LinkedBranch, error) {
+		GetLinkedBranchesFunc: func(_ int) ([]sow.LinkedBranch, error) {
 			return expectedBranches, nil
 		},
 	}
@@ -199,7 +199,7 @@ func TestMockGitHub_GetLinkedBranches_WithNilFunc(t *testing.T) {
 
 func TestMockGitHub_CreateLinkedBranch_WithCustomFunc(t *testing.T) {
 	mock := &sow.MockGitHub{
-		CreateLinkedBranchFunc: func(issueNumber int, branchName string, checkout bool) (string, error) {
+		CreateLinkedBranchFunc: func(_ int, branchName string, _ bool) (string, error) {
 			if branchName == "" {
 				return "123-auto-generated-branch", nil
 			}
@@ -241,7 +241,7 @@ func TestMockGitHub_CreateLinkedBranch_WithNilFunc(t *testing.T) {
 
 func TestMockGitHub_CreatePullRequest_WithCustomFunc(t *testing.T) {
 	mock := &sow.MockGitHub{
-		CreatePullRequestFunc: func(title, body string, draft bool) (int, string, error) {
+		CreatePullRequestFunc: func(_, _ string, _ bool) (int, string, error) {
 			return 42, "https://github.com/owner/repo/pull/42", nil
 		},
 	}
@@ -278,7 +278,7 @@ func TestMockGitHub_CreatePullRequest_WithNilFunc(t *testing.T) {
 func TestMockGitHub_UpdatePullRequest_WithCustomFunc(t *testing.T) {
 	updateCalled := false
 	mock := &sow.MockGitHub{
-		UpdatePullRequestFunc: func(number int, title, body string) error {
+		UpdatePullRequestFunc: func(number int, _, _ string) error {
 			updateCalled = true
 			if number != 42 {
 				t.Errorf("expected number 42, got %d", number)
@@ -358,21 +358,21 @@ func TestMockGitHub_ErrorPropagation(t *testing.T) {
 		{
 			name: "ListIssues",
 			mock: &sow.MockGitHub{
-				ListIssuesFunc: func(label, state string) ([]sow.Issue, error) { return nil, expectedErr },
+				ListIssuesFunc: func(_, _ string) ([]sow.Issue, error) { return nil, expectedErr },
 			},
 			test: func(m *sow.MockGitHub) error { _, err := m.ListIssues("", ""); return err },
 		},
 		{
 			name: "GetIssue",
 			mock: &sow.MockGitHub{
-				GetIssueFunc: func(number int) (*sow.Issue, error) { return nil, expectedErr },
+				GetIssueFunc: func(_ int) (*sow.Issue, error) { return nil, expectedErr },
 			},
 			test: func(m *sow.MockGitHub) error { _, err := m.GetIssue(1); return err },
 		},
 		{
 			name: "CreateIssue",
 			mock: &sow.MockGitHub{
-				CreateIssueFunc: func(title, body string, labels []string) (*sow.Issue, error) {
+				CreateIssueFunc: func(_, _ string, _ []string) (*sow.Issue, error) {
 					return nil, expectedErr
 				},
 			},
@@ -381,14 +381,14 @@ func TestMockGitHub_ErrorPropagation(t *testing.T) {
 		{
 			name: "GetLinkedBranches",
 			mock: &sow.MockGitHub{
-				GetLinkedBranchesFunc: func(number int) ([]sow.LinkedBranch, error) { return nil, expectedErr },
+				GetLinkedBranchesFunc: func(_ int) ([]sow.LinkedBranch, error) { return nil, expectedErr },
 			},
 			test: func(m *sow.MockGitHub) error { _, err := m.GetLinkedBranches(1); return err },
 		},
 		{
 			name: "CreateLinkedBranch",
 			mock: &sow.MockGitHub{
-				CreateLinkedBranchFunc: func(issueNumber int, branchName string, checkout bool) (string, error) {
+				CreateLinkedBranchFunc: func(_ int, _ string, _ bool) (string, error) {
 					return "", expectedErr
 				},
 			},
@@ -397,7 +397,7 @@ func TestMockGitHub_ErrorPropagation(t *testing.T) {
 		{
 			name: "CreatePullRequest",
 			mock: &sow.MockGitHub{
-				CreatePullRequestFunc: func(title, body string, draft bool) (int, string, error) {
+				CreatePullRequestFunc: func(_, _ string, _ bool) (int, string, error) {
 					return 0, "", expectedErr
 				},
 			},
@@ -406,14 +406,14 @@ func TestMockGitHub_ErrorPropagation(t *testing.T) {
 		{
 			name: "UpdatePullRequest",
 			mock: &sow.MockGitHub{
-				UpdatePullRequestFunc: func(number int, title, body string) error { return expectedErr },
+				UpdatePullRequestFunc: func(_ int, _, _ string) error { return expectedErr },
 			},
 			test: func(m *sow.MockGitHub) error { return m.UpdatePullRequest(1, "", "") },
 		},
 		{
 			name: "MarkPullRequestReady",
 			mock: &sow.MockGitHub{
-				MarkPullRequestReadyFunc: func(number int) error { return expectedErr },
+				MarkPullRequestReadyFunc: func(_ int) error { return expectedErr },
 			},
 			test: func(m *sow.MockGitHub) error { return m.MarkPullRequestReady(1) },
 		},
@@ -422,7 +422,7 @@ func TestMockGitHub_ErrorPropagation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.test(tt.mock)
-			if err != expectedErr {
+			if err == nil || err.Error() != expectedErr.Error() {
 				t.Errorf("expected error %v, got %v", expectedErr, err)
 			}
 		})
