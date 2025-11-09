@@ -15,7 +15,7 @@ import (
 type Context struct {
 	fs       FS
 	repo     *Git
-	github   *GitHub
+	github   *GitHubCLI
 	repoRoot string
 
 	// Worktree support
@@ -121,9 +121,9 @@ func (c *Context) Git() *Git {
 }
 
 // GitHub returns the GitHub client (lazy-loaded).
-func (c *Context) GitHub() *GitHub {
+func (c *Context) GitHub() *GitHubCLI {
 	if c.github == nil {
-		c.github = &GitHub{}
+		c.github = &GitHubCLI{}
 	}
 	return c.github
 }

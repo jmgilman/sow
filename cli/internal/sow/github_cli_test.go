@@ -34,7 +34,7 @@ func Example() {
 	}
 
 	// Create GitHub client with mock executor
-	github := sow.NewGitHub(mock)
+	github := sow.NewGitHubCLI(mock)
 
 	// Now you can test GitHub operations without calling the real gh CLI
 	issue, err := github.GetIssue(123)
@@ -59,7 +59,7 @@ func TestGitHub_CheckInstalled_MockNotInstalled(t *testing.T) {
 		ExistsFunc: func() bool { return false },
 	}
 
-	github := sow.NewGitHub(mock)
+	github := sow.NewGitHubCLI(mock)
 
 	err := github.CheckInstalled()
 	if err == nil {
@@ -83,7 +83,7 @@ func TestGitHub_CheckAuthenticated_MockNotAuthenticated(t *testing.T) {
 		},
 	}
 
-	github := sow.NewGitHub(mock)
+	github := sow.NewGitHubCLI(mock)
 
 	err := github.CheckAuthenticated()
 	if err == nil {

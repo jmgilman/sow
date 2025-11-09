@@ -8,32 +8,40 @@ import (
 	"github.com/jmgilman/sow/cli/internal/exec"
 )
 
-// GitHub provides access to GitHub API operations via the gh CLI.
+// GitHubCLI implements GitHubClient using the gh CLI tool.
 //
 // All operations require the GitHub CLI (gh) to be installed and authenticated.
 // The client accepts an Executor interface, making it easy to mock in tests.
-type GitHub struct {
+//
+// For auto-detection between CLI and API clients, use NewGitHubClient() factory.
+type GitHubCLI struct {
 	gh exec.Executor
 }
 
-// NewGitHub creates a new GitHub client with the given executor.
+// NewGitHubCLI creates a new GitHub CLI client with the given executor.
 //
 // The executor should be configured for the "gh" command. For production use:
 //
 //	ghExec := exec.NewLocal("gh")
-//	github := sow.NewGitHub(ghExec)
+//	github := sow.NewGitHubCLI(ghExec)
 //
 // For testing with a mock:
 //
 //	mockExec := &MockExecutor{...}
-//	github := sow.NewGitHub(mockExec)
+//	github := sow.NewGitHubCLI(mockExec)
 //
 // Note: This does NOT check if gh is installed or authenticated.
 // Those checks happen on first operation via Ensure().
-func NewGitHub(executor exec.Executor) *GitHub {
-	return &GitHub{
+func NewGitHubCLI(executor exec.Executor) *GitHubCLI {
+	return &GitHubCLI{
 		gh: executor,
 	}
+}
+
+// NewGitHub creates a GitHub CLI client.
+// Deprecated: Use NewGitHubCLI() for explicit CLI client, or NewGitHubClient() for auto-detection.
+func NewGitHub(executor exec.Executor) *GitHubCLI {
+	return NewGitHubCLI(executor)
 }
 
 // Error types for GitHub operations
@@ -103,7 +111,7 @@ func (i *Issue) HasLabel(label string) bool {
 // Installation and authentication checks
 
 // CheckInstalled verifies that the gh CLI is installed and available.
-func (g *GitHub) CheckInstalled() error {
+func (g *GitHubCLI) CheckInstalled() error {
 	if !g.gh.Exists() {
 		return ErrGHNotInstalled{}
 	}
@@ -111,7 +119,7 @@ func (g *GitHub) CheckInstalled() error {
 }
 
 // CheckAuthenticated verifies that the gh CLI is authenticated.
-func (g *GitHub) CheckAuthenticated() error {
+func (g *GitHubCLI) CheckAuthenticated() error {
 	// gh auth status exits with code 1 if not authenticated
 	// but writes to stderr in both success and failure cases
 	if err := g.gh.RunSilent("auth", "status"); err != nil {
@@ -125,7 +133,7 @@ func (g *GitHub) CheckAuthenticated() error {
 //
 // This should be called before any GitHub operation to provide
 // clear error messages to the user.
-func (g *GitHub) Ensure() error {
+func (g *GitHubCLI) Ensure() error {
 	if err := g.CheckInstalled(); err != nil {
 		return err
 	}
@@ -133,6 +141,12 @@ func (g *GitHub) Ensure() error {
 		return err
 	}
 	return nil
+}
+
+// CheckAvailability implements GitHubClient.
+// For CLI client, this checks that gh is installed and authenticated.
+func (g *GitHubCLI) CheckAvailability() error {
+	return g.Ensure()
 }
 
 // Issue operations
@@ -144,7 +158,7 @@ func (g *GitHub) Ensure() error {
 //   - state: Filter by state ("open", "closed", or "all")
 //
 // Returns up to 1000 issues matching the criteria.
-func (g *GitHub) ListIssues(label, state string) ([]Issue, error) {
+func (g *GitHubCLI) ListIssues(label, state string) ([]Issue, error) {
 	if err := g.Ensure(); err != nil {
 		return nil, err
 	}
@@ -173,7 +187,7 @@ func (g *GitHub) ListIssues(label, state string) ([]Issue, error) {
 }
 
 // GetIssue retrieves a single issue by number.
-func (g *GitHub) GetIssue(number int) (*Issue, error) {
+func (g *GitHubCLI) GetIssue(number int) (*Issue, error) {
 	if err := g.Ensure(); err != nil {
 		return nil, err
 	}
@@ -201,7 +215,7 @@ func (g *GitHub) GetIssue(number int) (*Issue, error) {
 // GetLinkedBranches returns branches linked to an issue.
 //
 // Returns an empty slice if no branches are linked (not an error).
-func (g *GitHub) GetLinkedBranches(number int) ([]LinkedBranch, error) {
+func (g *GitHubCLI) GetLinkedBranches(number int) ([]LinkedBranch, error) {
 	if err := g.Ensure(); err != nil {
 		return nil, err
 	}
@@ -261,7 +275,7 @@ func (g *GitHub) GetLinkedBranches(number int) ([]LinkedBranch, error) {
 //   - checkout: Whether to checkout the branch after creation
 //
 // Returns the branch name that was created.
-func (g *GitHub) CreateLinkedBranch(issueNumber int, branchName string, checkout bool) (string, error) {
+func (g *GitHubCLI) CreateLinkedBranch(issueNumber int, branchName string, checkout bool) (string, error) {
 	if err := g.Ensure(); err != nil {
 		return "", err
 	}
@@ -332,7 +346,7 @@ func (g *GitHub) CreateLinkedBranch(issueNumber int, branchName string, checkout
 //   - labels: List of labels to add to the issue
 //
 // Returns the created Issue on success.
-func (g *GitHub) CreateIssue(title, body string, labels []string) (*Issue, error) {
+func (g *GitHubCLI) CreateIssue(title, body string, labels []string) (*Issue, error) {
 	if err := g.Ensure(); err != nil {
 		return nil, err
 	}
@@ -397,7 +411,7 @@ func (g *GitHub) CreateIssue(title, body string, labels []string) (*Issue, error
 //   - body: PR description (supports markdown)
 //
 // Returns the PR URL on success.
-func (g *GitHub) CreatePullRequest(title, body string) (string, error) {
+func (g *GitHubCLI) CreatePullRequest(title, body string) (string, error) {
 	if err := g.Ensure(); err != nil {
 		return "", err
 	}
