@@ -1,0 +1,268 @@
+name: github-client-interface-extraction-refactoring
+type: standard
+branch: feat/github-client-interface-extraction-refactoring-90
+description: GitHub Client Interface Extraction & Refactoring
+created_at: 2025-11-09T14:00:36.993399-08:00
+updated_at: 2025-11-09T15:02:16.53084-08:00
+phases:
+    finalize:
+        status: pending
+        enabled: false
+        created_at: 2025-11-09T14:00:36.993399-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+    implementation:
+        status: in_progress
+        enabled: false
+        created_at: 2025-11-09T14:00:36.993399-08:00
+        started_at: 2025-11-09T14:00:36.993435-08:00
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata:
+            planning_approved: true
+        inputs:
+            - type: github_issue
+              path: context/issue-90.md
+              approved: true
+              created_at: 2025-11-09T14:00:36.993388-08:00
+              metadata:
+                issue_number: 90
+                issue_title: GitHub Client Interface Extraction & Refactoring
+                issue_url: https://github.com/jmgilman/sow/issues/90
+        outputs: []
+        tasks:
+            - id: "010"
+              name: Define GitHubClient Interface
+              phase: implementation
+              status: pending
+              created_at: 2025-11-09T15:01:25.609003-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-09T15:01:53.571971-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: context/issue-90.md
+                  approved: false
+                  created_at: 2025-11-09T15:01:53.545578-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github.go
+                  approved: false
+                  created_at: 2025-11-09T15:01:53.554665-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/exec/executor.go
+                  approved: false
+                  created_at: 2025-11-09T15:01:53.563342-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-09T15:01:53.571971-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "020"
+              name: Rename Implementation to GitHubCLI
+              phase: implementation
+              status: pending
+              created_at: 2025-11-09T15:01:26.775157-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-09T15:01:56.565223-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: context/issue-90.md
+                  approved: false
+                  created_at: 2025-11-09T15:01:56.530629-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github.go
+                  approved: false
+                  created_at: 2025-11-09T15:01:56.539285-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_test.go
+                  approved: false
+                  created_at: 2025-11-09T15:01:56.547848-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_client.go
+                  approved: false
+                  created_at: 2025-11-09T15:01:56.556295-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/exec/executor.go
+                  approved: false
+                  created_at: 2025-11-09T15:01:56.565222-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "030"
+              name: Implement New GitHub Methods
+              phase: implementation
+              status: pending
+              created_at: 2025-11-09T15:01:28.035236-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-09T15:01:59.489742-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: context/issue-90.md
+                  approved: false
+                  created_at: 2025-11-09T15:01:59.446957-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_cli.go
+                  approved: false
+                  created_at: 2025-11-09T15:01:59.455841-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github.go
+                  approved: false
+                  created_at: 2025-11-09T15:01:59.463471-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_cli_test.go
+                  approved: false
+                  created_at: 2025-11-09T15:01:59.472249-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_test.go
+                  approved: false
+                  created_at: 2025-11-09T15:01:59.480996-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/exec/mock.go
+                  approved: false
+                  created_at: 2025-11-09T15:01:59.489742-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "040"
+              name: Create GitHub Factory with Auto-Detection
+              phase: implementation
+              status: pending
+              created_at: 2025-11-09T15:01:28.931445-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-09T15:02:02.45618-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: context/issue-90.md
+                  approved: false
+                  created_at: 2025-11-09T15:02:02.428091-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_cli.go
+                  approved: false
+                  created_at: 2025-11-09T15:02:02.437185-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_client.go
+                  approved: false
+                  created_at: 2025-11-09T15:02:02.446677-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/exec/executor.go
+                  approved: false
+                  created_at: 2025-11-09T15:02:02.456179-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "050"
+              name: Create GitHub Mock Implementation
+              phase: implementation
+              status: pending
+              created_at: 2025-11-09T15:01:30.4616-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-09T15:02:05.282507-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: context/issue-90.md
+                  approved: false
+                  created_at: 2025-11-09T15:02:05.25268-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_client.go
+                  approved: false
+                  created_at: 2025-11-09T15:02:05.263912-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/exec/mock.go
+                  approved: false
+                  created_at: 2025-11-09T15:02:05.273385-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-09T15:02:05.282506-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "060"
+              name: Update Wizard Local Interface Usage
+              phase: implementation
+              status: pending
+              created_at: 2025-11-09T15:01:31.394653-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-09T15:02:08.276123-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: context/issue-90.md
+                  approved: false
+                  created_at: 2025-11-09T15:02:08.237215-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-11-09T15:02:08.251302-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_client.go
+                  approved: false
+                  created_at: 2025-11-09T15:02:08.265401-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_cli.go
+                  approved: false
+                  created_at: 2025-11-09T15:02:08.276123-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+    review:
+        status: pending
+        enabled: false
+        created_at: 2025-11-09T14:00:36.993399-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+statechart:
+    current_state: ImplementationDraftPRCreation
+    updated_at: 2025-11-09T15:02:16.53084-08:00
