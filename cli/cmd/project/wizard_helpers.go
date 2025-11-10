@@ -872,46 +872,6 @@ func wrapValidationError(err error, context string) error {
 	return err
 }
 
-// checkGitHubCLI validates that gh CLI is installed and authenticated.
-// Returns nil if both checks pass, or user-friendly error if not.
-//
-// This is called before any GitHub operation to provide clear error
-// messages instead of cryptic command failures.
-func checkGitHubCLI(github GitHubClient) error {
-	// Check installation
-	if err := github.CheckInstalled(); err != nil {
-		var notInstalled sow.ErrGHNotInstalled
-		if errors.As(err, &notInstalled) {
-			return errors.New(errorGitHubCLIMissing())
-		}
-		return fmt.Errorf("failed to check gh installation: %w", err)
-	}
-
-	// Check authentication
-	if err := github.CheckAuthenticated(); err != nil {
-		var notAuthenticated sow.ErrGHNotAuthenticated
-		if errors.As(err, &notAuthenticated) {
-			return errors.New(errorGitHubNotAuthenticated())
-		}
-		return fmt.Errorf("failed to check gh authentication: %w", err)
-	}
-
-	return nil
-}
-
-// errorGitHubNotAuthenticated returns the formatted error message when
-// gh CLI is installed but not authenticated.
-func errorGitHubNotAuthenticated() string {
-	return formatError(
-		"GitHub CLI not authenticated",
-		"The 'gh' command is installed but you're not logged in.",
-		"To authenticate:\n"+
-			"  Run: gh auth login\n"+
-			"  Follow the prompts to log in\n\n"+
-			"Or select \"From branch name\" instead.",
-	)
-}
-
 // formatGitHubError converts GitHub command errors to user-friendly messages.
 // Handles specific error cases by parsing stderr output.
 //
@@ -977,7 +937,7 @@ func formatGitHubError(err error) string {
 // Returns:
 //   - nil if no linked branches (OK to create)
 //   - formatted error if linked branch exists
-func checkIssueLinkedBranch(github GitHubClient, issueNumber int) error {
+func checkIssueLinkedBranch(github sow.GitHubClient, issueNumber int) error {
 	branches, err := github.GetLinkedBranches(issueNumber)
 	if err != nil {
 		// Format the GitHub error for user display
@@ -1009,20 +969,6 @@ func filterIssuesBySowLabel(issues []sow.Issue) []sow.Issue {
 	}
 
 	return filtered
-}
-
-// ensureGitHubAvailable checks that GitHub CLI is available and working.
-// Returns nil if OK, or displays error and returns error.
-//
-// This is a convenience function that combines checkGitHubCLI with error display.
-// Use this at the start of GitHub-dependent flows.
-//nolint:unused // Will be used by wizard flows in future work units
-func ensureGitHubAvailable(github GitHubClient) error {
-	err := checkGitHubCLI(github)
-	if err != nil {
-		_ = showError(err.Error())
-	}
-	return err
 }
 
 // discoverKnowledgeFiles walks the knowledge directory tree and returns all file paths.

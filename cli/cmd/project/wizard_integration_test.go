@@ -55,12 +55,22 @@ func TestCompleteGitHubIssueWorkflow(t *testing.T) {
 		state:   StateCreateSource,
 		ctx:     ctx,
 		choices: make(map[string]interface{}),
-		github: &mockGitHub{
-			ensureErr:                nil,
-			listIssuesResult:         mockIssues,
-			getLinkedBranchesResult:  []sow.LinkedBranch{}, // No linked branches
-			getIssueResult:           &mockIssue,
-			createLinkedBranchResult: "feat/add-jwt-authentication-123",
+		github: &sow.MockGitHub{
+			CheckAvailabilityFunc: func() error {
+				return nil
+			},
+			ListIssuesFunc: func(_, _ string) ([]sow.Issue, error) {
+				return mockIssues, nil
+			},
+			GetLinkedBranchesFunc: func(_ int) ([]sow.LinkedBranch, error) {
+				return []sow.LinkedBranch{}, nil // No linked branches
+			},
+			GetIssueFunc: func(_ int) (*sow.Issue, error) {
+				return &mockIssue, nil
+			},
+			CreateLinkedBranchFunc: func(_ int, _ string, _ bool) (string, error) {
+				return "feat/add-jwt-authentication-123", nil
+			},
 		},
 		cmd: nil, // Skip Claude launch
 	}
@@ -70,9 +80,9 @@ func TestCompleteGitHubIssueWorkflow(t *testing.T) {
 	wizard.state = StateIssueSelect
 
 	// Verify GitHub client is available
-	err := wizard.github.Ensure()
+	err := wizard.github.CheckAvailability()
 	if err != nil {
-		t.Fatalf("GitHub ensure failed: %v", err)
+		t.Fatalf("GitHub availability check failed: %v", err)
 	}
 
 	// Fetch issues
@@ -286,7 +296,7 @@ func TestBranchNamePathStillWorks(t *testing.T) {
 		state:   StateComplete,
 		ctx:     ctx,
 		choices: make(map[string]interface{}),
-		github:  &mockGitHub{}, // Mock but unused
+		github:  &sow.MockGitHub{}, // Mock but unused
 		cmd:     nil,
 	}
 
@@ -342,7 +352,7 @@ func TestFileSelection_WithKnowledgeFiles(t *testing.T) {
 		state:   StateFileSelect,
 		ctx:     ctx,
 		choices: make(map[string]interface{}),
-		github:  &mockGitHub{},
+		github:  &sow.MockGitHub{},
 		cmd:     nil,
 	}
 
@@ -376,7 +386,7 @@ func TestFileSelection_EmptyDirectory(t *testing.T) {
 		state:   StateFileSelect,
 		ctx:     ctx,
 		choices: make(map[string]interface{}),
-		github:  &mockGitHub{},
+		github:  &sow.MockGitHub{},
 		cmd:     nil,
 	}
 
@@ -400,7 +410,7 @@ func TestFileSelection_NonExistentDirectory(t *testing.T) {
 		state:   StateFileSelect,
 		ctx:     ctx,
 		choices: make(map[string]interface{}),
-		github:  &mockGitHub{},
+		github:  &sow.MockGitHub{},
 		cmd:     nil,
 	}
 
@@ -452,7 +462,7 @@ func TestHandleNameEntry_TransitionsToFileSelect(t *testing.T) {
 		choices: map[string]interface{}{
 			"type": "standard",
 		},
-		github: &mockGitHub{},
+		github: &sow.MockGitHub{},
 		cmd:    nil,
 	}
 

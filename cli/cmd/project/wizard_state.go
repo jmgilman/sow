@@ -32,18 +32,6 @@ const (
 	StateCancelled      WizardState = "cancelled"
 )
 
-// GitHubClient defines the interface for GitHub operations used by the wizard.
-// This interface allows for easy mocking in tests.
-type GitHubClient interface {
-	Ensure() error
-	CheckInstalled() error
-	CheckAuthenticated() error
-	ListIssues(label, state string) ([]sow.Issue, error)
-	GetLinkedBranches(number int) ([]sow.LinkedBranch, error)
-	CreateLinkedBranch(issueNumber int, branchName string, checkout bool) (string, error)
-	GetIssue(number int) (*sow.Issue, error)
-}
-
 // Wizard manages the interactive project creation/continuation workflow.
 type Wizard struct {
 	state       WizardState
@@ -51,8 +39,8 @@ type Wizard struct {
 	choices     map[string]interface{}
 	claudeFlags []string
 	cmd         *cobra.Command
-	github      GitHubClient // GitHub client for issue operations
-	testMode    bool         //nolint:unused // Will be used by wizard flows for test mode
+	github      sow.GitHubClient // GitHub client for issue operations
+	testMode    bool             //nolint:unused // Will be used by wizard flows for test mode
 }
 
 // NewWizard creates a new wizard instance.
@@ -197,7 +185,7 @@ func (w *Wizard) handleIssueSelect() error {
 	debugLog("Wizard", "State=%s", w.state)
 
 	// Validate GitHub CLI is available and authenticated
-	if err := w.github.Ensure(); err != nil {
+	if err := w.github.CheckAvailability(); err != nil {
 		return w.handleGitHubError(err)
 	}
 

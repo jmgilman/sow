@@ -8,32 +8,40 @@ import (
 	"github.com/jmgilman/sow/cli/internal/exec"
 )
 
-// GitHub provides access to GitHub API operations via the gh CLI.
+// GitHubCLI implements GitHubClient using the gh CLI tool.
 //
 // All operations require the GitHub CLI (gh) to be installed and authenticated.
 // The client accepts an Executor interface, making it easy to mock in tests.
-type GitHub struct {
+//
+// For auto-detection between CLI and API clients, use NewGitHubClient() factory.
+type GitHubCLI struct {
 	gh exec.Executor
 }
 
-// NewGitHub creates a new GitHub client with the given executor.
+// NewGitHubCLI creates a new GitHub CLI client with the given executor.
 //
 // The executor should be configured for the "gh" command. For production use:
 //
 //	ghExec := exec.NewLocal("gh")
-//	github := sow.NewGitHub(ghExec)
+//	github := sow.NewGitHubCLI(ghExec)
 //
 // For testing with a mock:
 //
 //	mockExec := &MockExecutor{...}
-//	github := sow.NewGitHub(mockExec)
+//	github := sow.NewGitHubCLI(mockExec)
 //
 // Note: This does NOT check if gh is installed or authenticated.
 // Those checks happen on first operation via Ensure().
-func NewGitHub(executor exec.Executor) *GitHub {
-	return &GitHub{
+func NewGitHubCLI(executor exec.Executor) *GitHubCLI {
+	return &GitHubCLI{
 		gh: executor,
 	}
+}
+
+// NewGitHub creates a GitHub CLI client.
+// Deprecated: Use NewGitHubCLI() for explicit CLI client, or NewGitHubClient() for auto-detection.
+func NewGitHub(executor exec.Executor) *GitHubCLI {
+	return NewGitHubCLI(executor)
 }
 
 // Error types for GitHub operations
@@ -103,7 +111,7 @@ func (i *Issue) HasLabel(label string) bool {
 // Installation and authentication checks
 
 // CheckInstalled verifies that the gh CLI is installed and available.
-func (g *GitHub) CheckInstalled() error {
+func (g *GitHubCLI) CheckInstalled() error {
 	if !g.gh.Exists() {
 		return ErrGHNotInstalled{}
 	}
@@ -111,7 +119,7 @@ func (g *GitHub) CheckInstalled() error {
 }
 
 // CheckAuthenticated verifies that the gh CLI is authenticated.
-func (g *GitHub) CheckAuthenticated() error {
+func (g *GitHubCLI) CheckAuthenticated() error {
 	// gh auth status exits with code 1 if not authenticated
 	// but writes to stderr in both success and failure cases
 	if err := g.gh.RunSilent("auth", "status"); err != nil {
@@ -125,7 +133,7 @@ func (g *GitHub) CheckAuthenticated() error {
 //
 // This should be called before any GitHub operation to provide
 // clear error messages to the user.
-func (g *GitHub) Ensure() error {
+func (g *GitHubCLI) Ensure() error {
 	if err := g.CheckInstalled(); err != nil {
 		return err
 	}
@@ -133,6 +141,12 @@ func (g *GitHub) Ensure() error {
 		return err
 	}
 	return nil
+}
+
+// CheckAvailability implements GitHubClient.
+// For CLI client, this checks that gh is installed and authenticated.
+func (g *GitHubCLI) CheckAvailability() error {
+	return g.Ensure()
 }
 
 // Issue operations
@@ -144,7 +158,7 @@ func (g *GitHub) Ensure() error {
 //   - state: Filter by state ("open", "closed", or "all")
 //
 // Returns up to 1000 issues matching the criteria.
-func (g *GitHub) ListIssues(label, state string) ([]Issue, error) {
+func (g *GitHubCLI) ListIssues(label, state string) ([]Issue, error) {
 	if err := g.Ensure(); err != nil {
 		return nil, err
 	}
@@ -173,7 +187,7 @@ func (g *GitHub) ListIssues(label, state string) ([]Issue, error) {
 }
 
 // GetIssue retrieves a single issue by number.
-func (g *GitHub) GetIssue(number int) (*Issue, error) {
+func (g *GitHubCLI) GetIssue(number int) (*Issue, error) {
 	if err := g.Ensure(); err != nil {
 		return nil, err
 	}
@@ -201,7 +215,7 @@ func (g *GitHub) GetIssue(number int) (*Issue, error) {
 // GetLinkedBranches returns branches linked to an issue.
 //
 // Returns an empty slice if no branches are linked (not an error).
-func (g *GitHub) GetLinkedBranches(number int) ([]LinkedBranch, error) {
+func (g *GitHubCLI) GetLinkedBranches(number int) ([]LinkedBranch, error) {
 	if err := g.Ensure(); err != nil {
 		return nil, err
 	}
@@ -261,7 +275,7 @@ func (g *GitHub) GetLinkedBranches(number int) ([]LinkedBranch, error) {
 //   - checkout: Whether to checkout the branch after creation
 //
 // Returns the branch name that was created.
-func (g *GitHub) CreateLinkedBranch(issueNumber int, branchName string, checkout bool) (string, error) {
+func (g *GitHubCLI) CreateLinkedBranch(issueNumber int, branchName string, checkout bool) (string, error) {
 	if err := g.Ensure(); err != nil {
 		return "", err
 	}
@@ -332,7 +346,7 @@ func (g *GitHub) CreateLinkedBranch(issueNumber int, branchName string, checkout
 //   - labels: List of labels to add to the issue
 //
 // Returns the created Issue on success.
-func (g *GitHub) CreateIssue(title, body string, labels []string) (*Issue, error) {
+func (g *GitHubCLI) CreateIssue(title, body string, labels []string) (*Issue, error) {
 	if err := g.Ensure(); err != nil {
 		return nil, err
 	}
@@ -390,25 +404,35 @@ func (g *GitHub) CreateIssue(title, body string, labels []string) (*Issue, error
 	}, nil
 }
 
-// CreatePullRequest creates a pull request using gh CLI.
+// CreatePullRequest creates a pull request using gh CLI, optionally as a draft.
+//
+// The PR is created from the current branch to the repository's default base branch.
 //
 // Parameters:
-//   - title: PR title
+//   - title: PR title (required, non-empty)
 //   - body: PR description (supports markdown)
+//   - draft: If true, creates the PR as a draft; if false, creates as ready for review
 //
-// Returns the PR URL on success.
-func (g *GitHub) CreatePullRequest(title, body string) (string, error) {
+// Returns:
+//   - number: The PR number, which can be used with UpdatePullRequest and MarkPullRequestReady
+//   - url: Full GitHub URL to the pull request (e.g., "https://github.com/owner/repo/pull/42")
+//   - error: Any error during PR creation
+//
+// Draft PRs can be converted to ready for review using MarkPullRequestReady.
+func (g *GitHubCLI) CreatePullRequest(title, body string, draft bool) (int, string, error) {
 	if err := g.Ensure(); err != nil {
-		return "", err
+		return 0, "", err
 	}
 
-	stdout, stderr, err := g.gh.Run(
-		"pr", "create",
-		"--title", title,
-		"--body", body,
-	)
+	// Build command arguments
+	args := []string{"pr", "create", "--title", title, "--body", body}
+	if draft {
+		args = append(args, "--draft")
+	}
+
+	stdout, stderr, err := g.gh.Run(args...)
 	if err != nil {
-		return "", ErrGHCommand{
+		return 0, "", ErrGHCommand{
 			Command: "pr create",
 			Stderr:  stderr,
 			Err:     err,
@@ -419,7 +443,7 @@ func (g *GitHub) CreatePullRequest(title, body string) (string, error) {
 	output := strings.TrimSpace(stdout)
 	lines := strings.Split(output, "\n")
 	if len(lines) == 0 {
-		return "", fmt.Errorf("unexpected empty output from gh pr create")
+		return 0, "", fmt.Errorf("unexpected empty output from gh pr create")
 	}
 
 	// The URL is typically the last line
@@ -427,10 +451,82 @@ func (g *GitHub) CreatePullRequest(title, body string) (string, error) {
 
 	// Validate it looks like a URL
 	if !strings.HasPrefix(prURL, "http") {
-		return "", fmt.Errorf("unexpected pr create output (no URL found): %s", output)
+		return 0, "", fmt.Errorf("unexpected pr create output (no URL found): %s", output)
 	}
 
-	return prURL, nil
+	// Parse PR number from URL (format: https://github.com/owner/repo/pull/NUMBER)
+	parts := strings.Split(prURL, "/")
+	if len(parts) < 1 {
+		return 0, "", fmt.Errorf("could not parse PR number from URL: %s", prURL)
+	}
+	prNumberStr := parts[len(parts)-1]
+	prNumber := 0
+	_, err = fmt.Sscanf(prNumberStr, "%d", &prNumber)
+	if err != nil {
+		return 0, "", fmt.Errorf("could not parse PR number from URL: %s", prURL)
+	}
+
+	return prNumber, prURL, nil
+}
+
+// UpdatePullRequest updates an existing pull request's title and body.
+//
+// This is useful for updating PR descriptions as implementation progresses, or for
+// correcting the title after creation.
+//
+// Parameters:
+//   - number: PR number to update
+//   - title: New PR title (required, non-empty)
+//   - body: New PR description (supports markdown)
+func (g *GitHubCLI) UpdatePullRequest(number int, title, body string) error {
+	if err := g.Ensure(); err != nil {
+		return err
+	}
+
+	stdout, stderr, err := g.gh.Run(
+		"pr", "edit", fmt.Sprintf("%d", number),
+		"--title", title,
+		"--body", body,
+	)
+	_ = stdout // stdout not used but kept for consistency
+
+	if err != nil {
+		return ErrGHCommand{
+			Command: fmt.Sprintf("pr edit %d", number),
+			Stderr:  stderr,
+			Err:     err,
+		}
+	}
+
+	return nil
+}
+
+// MarkPullRequestReady converts a draft pull request to "ready for review" state.
+//
+// This operation is only valid for PRs that were created as drafts. Calling this
+// on a PR that is already ready for review may return an error.
+//
+// Parameters:
+//   - number: Draft PR number to mark as ready
+func (g *GitHubCLI) MarkPullRequestReady(number int) error {
+	if err := g.Ensure(); err != nil {
+		return err
+	}
+
+	stdout, stderr, err := g.gh.Run(
+		"pr", "ready", fmt.Sprintf("%d", number),
+	)
+	_ = stdout // stdout not used but kept for consistency
+
+	if err != nil {
+		return ErrGHCommand{
+			Command: fmt.Sprintf("pr ready %d", number),
+			Stderr:  stderr,
+			Err:     err,
+		}
+	}
+
+	return nil
 }
 
 // Helper functions
