@@ -99,11 +99,11 @@ func TestAgentFieldsNotEmpty(t *testing.T) {
 // TestStandardAgentDefinitions verifies the specific definitions of each standard agent.
 func TestStandardAgentDefinitions(t *testing.T) {
 	tests := []struct {
-		name         string
-		agent        *Agent
-		wantDesc     string
-		wantCaps     string
-		wantPath     string
+		name     string
+		agent    *Agent
+		wantDesc string
+		wantCaps string
+		wantPath string
 	}{
 		{
 			name:     "Implementer",
