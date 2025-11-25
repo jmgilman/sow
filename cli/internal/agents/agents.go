@@ -11,9 +11,9 @@
 // Example usage:
 //
 //	// Access a standard agent
-//	agent := agents.Implementer
-//	fmt.Printf("Agent: %s\n", agent.Name)
-//	fmt.Printf("Description: %s\n", agent.Description)
+//	impl := agents.Implementer
+//	fmt.Printf("Agent: %s\n", impl.Name)
+//	fmt.Printf("Description: %s\n", impl.Description)
 //
 //	// Get all standard agents
 //	for _, agent := range agents.StandardAgents() {
