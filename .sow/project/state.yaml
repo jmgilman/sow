@@ -3,7 +3,7 @@ type: standard
 branch: feat/agent-system-core-97
 description: Agent System Core
 created_at: 2025-11-24T19:49:52.341727-08:00
-updated_at: 2025-11-24T20:04:08.714551-08:00
+updated_at: 2025-11-24T20:10:33.896509-08:00
 phases:
     finalize:
         status: pending
@@ -26,7 +26,10 @@ phases:
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata:
+            draft_pr_created: true
             planning_approved: true
+            pr_number: 102
+            pr_url: https://github.com/jmgilman/sow/pull/102
         inputs:
             - type: github_issue
               path: context/issue-97.md
@@ -48,10 +51,10 @@ phases:
             - id: "010"
               name: Agent Struct and Definitions
               phase: implementation
-              status: pending
+              status: completed
               created_at: 2025-11-24T20:03:33.164972-08:00
               started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-11-24T20:04:00.380147-08:00
+              updated_at: 2025-11-24T20:10:33.896508-08:00
               completed_at: 0001-01-01T00:00:00Z
               iteration: 1
               assigned_agent: implementer
@@ -96,7 +99,22 @@ phases:
                   approved: false
                   created_at: 2025-11-24T20:04:00.380147-08:00
                   metadata: {}
-              outputs: []
+                - type: feedback
+                  path: project/phases/implementation/tasks/010/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-24T20:10:32.976491-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: cli/internal/agents/agents.go
+                  approved: false
+                  created_at: 2025-11-24T20:09:20.072116-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/agents/agents_test.go
+                  approved: false
+                  created_at: 2025-11-24T20:09:21.235618-08:00
+                  metadata: {}
               metadata: {}
             - id: "020"
               name: Agent Registry Implementation
@@ -197,5 +215,5 @@ phases:
         outputs: []
         tasks: []
 statechart:
-    current_state: ImplementationDraftPRCreation
-    updated_at: 2025-11-24T20:04:08.714551-08:00
+    current_state: ImplementationExecuting
+    updated_at: 2025-11-24T20:10:33.896509-08:00
