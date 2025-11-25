@@ -1,0 +1,201 @@
+name: agent-system-core
+type: standard
+branch: feat/agent-system-core-97
+description: Agent System Core
+created_at: 2025-11-24T19:49:52.341727-08:00
+updated_at: 2025-11-24T20:04:08.714551-08:00
+phases:
+    finalize:
+        status: pending
+        enabled: false
+        created_at: 2025-11-24T19:49:52.341727-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+    implementation:
+        status: in_progress
+        enabled: false
+        created_at: 2025-11-24T19:49:52.341727-08:00
+        started_at: 2025-11-24T19:49:52.341758-08:00
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata:
+            planning_approved: true
+        inputs:
+            - type: github_issue
+              path: context/issue-97.md
+              approved: true
+              created_at: 2025-11-24T19:49:52.341717-08:00
+              metadata:
+                issue_number: 97
+                issue_title: Agent System Core
+                issue_url: https://github.com/jmgilman/sow/issues/97
+            - type: reference
+              path: ../../knowledge/designs/multi-agent-architecture.md
+              approved: true
+              created_at: 2025-11-24T19:49:52.341725-08:00
+              metadata:
+                description: Knowledge file selected during project creation
+                source: user_selected
+        outputs: []
+        tasks:
+            - id: "010"
+              name: Agent Struct and Definitions
+              phase: implementation
+              status: pending
+              created_at: 2025-11-24T20:03:33.164972-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-24T20:04:00.380147-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: .claude/agents/implementer.md
+                  approved: false
+                  created_at: 2025-11-24T20:04:00.323407-08:00
+                  metadata: {}
+                - type: reference
+                  path: .claude/agents/planner.md
+                  approved: false
+                  created_at: 2025-11-24T20:04:00.332921-08:00
+                  metadata: {}
+                - type: reference
+                  path: .claude/agents/reviewer.md
+                  approved: false
+                  created_at: 2025-11-24T20:04:00.342248-08:00
+                  metadata: {}
+                - type: reference
+                  path: .claude/agents/researcher.md
+                  approved: false
+                  created_at: 2025-11-24T20:04:00.351051-08:00
+                  metadata: {}
+                - type: reference
+                  path: .claude/agents/decomposer.md
+                  approved: false
+                  created_at: 2025-11-24T20:04:00.359-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/multi-agent-architecture.md
+                  approved: false
+                  created_at: 2025-11-24T20:04:00.366378-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/state/registry.go
+                  approved: false
+                  created_at: 2025-11-24T20:04:00.373413-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/state/registry_test.go
+                  approved: false
+                  created_at: 2025-11-24T20:04:00.380147-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "020"
+              name: Agent Registry Implementation
+              phase: implementation
+              status: pending
+              created_at: 2025-11-24T20:03:33.934282-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-24T20:04:02.17908-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/refs/registry.go
+                  approved: false
+                  created_at: 2025-11-24T20:04:02.141973-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/refs/registry_test.go
+                  approved: false
+                  created_at: 2025-11-24T20:04:02.153173-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/state/registry.go
+                  approved: false
+                  created_at: 2025-11-24T20:04:02.162288-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sdks/project/state/registry_test.go
+                  approved: false
+                  created_at: 2025-11-24T20:04:02.171254-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/multi-agent-architecture.md
+                  approved: false
+                  created_at: 2025-11-24T20:04:02.17908-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "030"
+              name: Template Loading and Migration
+              phase: implementation
+              status: pending
+              created_at: 2025-11-24T20:03:34.917578-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-11-24T20:04:03.252697-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/prompts/prompts.go
+                  approved: false
+                  created_at: 2025-11-24T20:04:03.201225-08:00
+                  metadata: {}
+                - type: reference
+                  path: .claude/agents/implementer.md
+                  approved: false
+                  created_at: 2025-11-24T20:04:03.211168-08:00
+                  metadata: {}
+                - type: reference
+                  path: .claude/agents/planner.md
+                  approved: false
+                  created_at: 2025-11-24T20:04:03.220036-08:00
+                  metadata: {}
+                - type: reference
+                  path: .claude/agents/reviewer.md
+                  approved: false
+                  created_at: 2025-11-24T20:04:03.227841-08:00
+                  metadata: {}
+                - type: reference
+                  path: .claude/agents/researcher.md
+                  approved: false
+                  created_at: 2025-11-24T20:04:03.235595-08:00
+                  metadata: {}
+                - type: reference
+                  path: .claude/agents/decomposer.md
+                  approved: false
+                  created_at: 2025-11-24T20:04:03.244079-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/knowledge/designs/multi-agent-architecture.md
+                  approved: false
+                  created_at: 2025-11-24T20:04:03.252696-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+    review:
+        status: pending
+        enabled: false
+        created_at: 2025-11-24T19:49:52.341727-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+statechart:
+    current_state: ImplementationDraftPRCreation
+    updated_at: 2025-11-24T20:04:08.714551-08:00
