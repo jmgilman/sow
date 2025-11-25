@@ -3,7 +3,7 @@ type: standard
 branch: feat/agent-system-core-97
 description: Agent System Core
 created_at: 2025-11-24T19:49:52.341727-08:00
-updated_at: 2025-11-24T20:15:32.136887-08:00
+updated_at: 2025-11-24T20:21:54.291054-08:00
 phases:
     finalize:
         status: pending
@@ -172,10 +172,10 @@ phases:
             - id: "030"
               name: Template Loading and Migration
               phase: implementation
-              status: pending
+              status: completed
               created_at: 2025-11-24T20:03:34.917578-08:00
               started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-11-24T20:04:03.252697-08:00
+              updated_at: 2025-11-24T20:21:54.291053-08:00
               completed_at: 0001-01-01T00:00:00Z
               iteration: 1
               assigned_agent: implementer
@@ -215,7 +215,52 @@ phases:
                   approved: false
                   created_at: 2025-11-24T20:04:03.252696-08:00
                   metadata: {}
-              outputs: []
+                - type: feedback
+                  path: project/phases/implementation/tasks/030/feedback/001.md
+                  approved: false
+                  created_at: 2025-11-24T20:21:54.278313-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: cli/internal/agents/templates.go
+                  approved: false
+                  created_at: 2025-11-24T20:20:27.010538-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/agents/templates_test.go
+                  approved: false
+                  created_at: 2025-11-24T20:20:27.813551-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/agents/templates/implementer.md
+                  approved: false
+                  created_at: 2025-11-24T20:20:29.197107-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/agents/templates/planner.md
+                  approved: false
+                  created_at: 2025-11-24T20:20:30.205239-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/agents/templates/reviewer.md
+                  approved: false
+                  created_at: 2025-11-24T20:20:31.201776-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/agents/templates/researcher.md
+                  approved: false
+                  created_at: 2025-11-24T20:20:32.216191-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/agents/templates/decomposer.md
+                  approved: false
+                  created_at: 2025-11-24T20:20:33.330188-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/agents/templates/architect.md
+                  approved: false
+                  created_at: 2025-11-24T20:20:34.382019-08:00
+                  metadata: {}
               metadata: {}
     review:
         status: pending
@@ -231,4 +276,4 @@ phases:
         tasks: []
 statechart:
     current_state: ImplementationExecuting
-    updated_at: 2025-11-24T20:15:32.136887-08:00
+    updated_at: 2025-11-24T20:21:54.291053-08:00
