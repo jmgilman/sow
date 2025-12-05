@@ -9,7 +9,7 @@ import (
 )
 
 // TestGetUserConfigPath tests that GetUserConfigPath returns the correct path
-// using os.UserConfigDir() for cross-platform compatibility.
+// using XDG-style paths (~/.config/ on Unix, %APPDATA% on Windows).
 func TestGetUserConfigPath(t *testing.T) {
 	path, err := GetUserConfigPath()
 	if err != nil {
@@ -26,14 +26,32 @@ func TestGetUserConfigPath(t *testing.T) {
 		t.Errorf("expected parent directory to be 'sow', got %s", filepath.Base(dir))
 	}
 
-	// Verify it uses the system config directory
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatalf("failed to get user config dir: %v", err)
+	// On Unix systems, verify it uses ~/.config/
+	if os.PathSeparator != '\\' {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			t.Fatalf("failed to get home dir: %v", err)
+		}
+		expectedPath := filepath.Join(home, ".config", "sow", "config.yaml")
+		if path != expectedPath {
+			t.Errorf("expected path %s, got %s", expectedPath, path)
+		}
 	}
-	expectedPath := filepath.Join(configDir, "sow", "config.yaml")
-	if path != expectedPath {
-		t.Errorf("expected path %s, got %s", expectedPath, path)
+}
+
+// TestGetUserConfigPath_XDGOverride tests that XDG_CONFIG_HOME is respected.
+func TestGetUserConfigPath_XDGOverride(t *testing.T) {
+	// Set XDG_CONFIG_HOME
+	t.Setenv("XDG_CONFIG_HOME", "/custom/config")
+
+	path, err := GetUserConfigPath()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := filepath.Join("/custom/config", "sow", "config.yaml")
+	if path != expected {
+		t.Errorf("expected path %s, got %s", expected, path)
 	}
 }
 

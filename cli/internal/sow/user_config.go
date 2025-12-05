@@ -13,15 +13,30 @@ import (
 const DefaultExecutorName = "claude-code"
 
 // GetUserConfigPath returns the path to the user configuration file.
-// Uses os.UserConfigDir() for cross-platform compatibility:
-// - Linux/Mac: ~/.config/sow/config.yaml
-// - Windows: %APPDATA%\sow\config.yaml.
+// Uses XDG-style paths for consistency:
+// - Linux/Mac: ~/.config/sow/config.yaml (or $XDG_CONFIG_HOME/sow/config.yaml)
+// - Windows: %APPDATA%\sow\config.yaml
 func GetUserConfigPath() (string, error) {
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get user config directory: %w", err)
+	// Check for XDG_CONFIG_HOME first (works on all platforms)
+	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
+		return filepath.Join(xdgConfig, "sow", "config.yaml"), nil
 	}
-	return filepath.Join(configDir, "sow", "config.yaml"), nil
+
+	// On Windows, use the native config dir
+	if os.PathSeparator == '\\' {
+		configDir, err := os.UserConfigDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to get user config directory: %w", err)
+		}
+		return filepath.Join(configDir, "sow", "config.yaml"), nil
+	}
+
+	// On Unix-like systems (Linux, macOS), use ~/.config/
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+	return filepath.Join(home, ".config", "sow", "config.yaml"), nil
 }
 
 // LoadUserConfig loads the user configuration from the standard location.
