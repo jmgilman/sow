@@ -9,7 +9,7 @@ import (
 )
 
 // TestGetUserConfigPath tests that GetUserConfigPath returns the correct path
-// using os.UserConfigDir() for cross-platform compatibility.
+// using XDG-style paths (~/.config/ on Unix, %APPDATA% on Windows).
 func TestGetUserConfigPath(t *testing.T) {
 	path, err := GetUserConfigPath()
 	if err != nil {
@@ -26,14 +26,32 @@ func TestGetUserConfigPath(t *testing.T) {
 		t.Errorf("expected parent directory to be 'sow', got %s", filepath.Base(dir))
 	}
 
-	// Verify it uses the system config directory
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatalf("failed to get user config dir: %v", err)
+	// On Unix systems, verify it uses ~/.config/
+	if os.PathSeparator != '\\' {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			t.Fatalf("failed to get home dir: %v", err)
+		}
+		expectedPath := filepath.Join(home, ".config", "sow", "config.yaml")
+		if path != expectedPath {
+			t.Errorf("expected path %s, got %s", expectedPath, path)
+		}
 	}
-	expectedPath := filepath.Join(configDir, "sow", "config.yaml")
-	if path != expectedPath {
-		t.Errorf("expected path %s, got %s", expectedPath, path)
+}
+
+// TestGetUserConfigPath_XDGOverride tests that XDG_CONFIG_HOME is respected.
+func TestGetUserConfigPath_XDGOverride(t *testing.T) {
+	// Set XDG_CONFIG_HOME
+	t.Setenv("XDG_CONFIG_HOME", "/custom/config")
+
+	path, err := GetUserConfigPath()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := filepath.Join("/custom/config", "sow", "config.yaml")
+	if path != expected {
+		t.Errorf("expected path %s, got %s", expected, path)
 	}
 }
 
@@ -44,7 +62,7 @@ func TestLoadUserConfig_MissingFile(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Use a loader with custom path for testing
-	config, err := loadUserConfigFromPath(filepath.Join(tempDir, "sow", "config.yaml"))
+	config, err := LoadUserConfigFromPath(filepath.Join(tempDir, "sow", "config.yaml"))
 	if err != nil {
 		t.Fatalf("expected no error for missing file, got: %v", err)
 	}
@@ -107,7 +125,7 @@ func TestLoadUserConfig_ValidYAML(t *testing.T) {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	config, err := loadUserConfigFromPath(configPath)
+	config, err := LoadUserConfigFromPath(configPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -162,7 +180,7 @@ func TestLoadUserConfig_InvalidYAML(t *testing.T) {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	config, err := loadUserConfigFromPath(configPath)
+	config, err := LoadUserConfigFromPath(configPath)
 	if err == nil {
 		t.Fatal("expected error for invalid YAML, got nil")
 	}
@@ -401,7 +419,7 @@ func TestLoadUserConfig_PermissionDenied(t *testing.T) {
 	}
 	defer func() { _ = os.Chmod(configPath, 0644) }() // Restore permissions for cleanup
 
-	_, err := loadUserConfigFromPath(configPath)
+	_, err := LoadUserConfigFromPath(configPath)
 	if err == nil {
 		t.Fatal("expected error for unreadable file, got nil")
 	}
@@ -422,7 +440,7 @@ func TestLoadUserConfig_EmptyFile(t *testing.T) {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	config, err := loadUserConfigFromPath(configPath)
+	config, err := LoadUserConfigFromPath(configPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -754,7 +772,7 @@ func TestLoadUserConfig_EnvOverridesFile(t *testing.T) {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	config, err := loadUserConfigFromPath(configPath)
+	config, err := LoadUserConfigFromPath(configPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -773,7 +791,7 @@ func TestLoadUserConfig_EnvOverridesNoFile(t *testing.T) {
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "nonexistent", "config.yaml")
 
-	config, err := loadUserConfigFromPath(configPath)
+	config, err := LoadUserConfigFromPath(configPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -809,7 +827,7 @@ func TestLoadUserConfig_InvalidConfig(t *testing.T) {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	_, err := loadUserConfigFromPath(configPath)
+	_, err := LoadUserConfigFromPath(configPath)
 	if err == nil {
 		t.Fatal("expected validation error for invalid executor type")
 	}
@@ -840,7 +858,7 @@ func TestLoadUserConfig_InvalidBinding(t *testing.T) {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	_, err := loadUserConfigFromPath(configPath)
+	_, err := LoadUserConfigFromPath(configPath)
 	if err == nil {
 		t.Fatal("expected validation error for binding to undefined executor")
 	}
@@ -877,7 +895,7 @@ func TestLoadUserConfig_PriorityOrder(t *testing.T) {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	config, err := loadUserConfigFromPath(configPath)
+	config, err := LoadUserConfigFromPath(configPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

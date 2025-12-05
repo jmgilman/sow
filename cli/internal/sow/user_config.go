@@ -13,15 +13,30 @@ import (
 const DefaultExecutorName = "claude-code"
 
 // GetUserConfigPath returns the path to the user configuration file.
-// Uses os.UserConfigDir() for cross-platform compatibility:
-// - Linux/Mac: ~/.config/sow/config.yaml
-// - Windows: %APPDATA%\sow\config.yaml.
+// Uses XDG-style paths for consistency:
+//   - Linux/Mac: ~/.config/sow/config.yaml (or $XDG_CONFIG_HOME/sow/config.yaml)
+//   - Windows: %APPDATA%\sow\config.yaml.
 func GetUserConfigPath() (string, error) {
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get user config directory: %w", err)
+	// Check for XDG_CONFIG_HOME first (works on all platforms)
+	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
+		return filepath.Join(xdgConfig, "sow", "config.yaml"), nil
 	}
-	return filepath.Join(configDir, "sow", "config.yaml"), nil
+
+	// On Windows, use the native config dir
+	if os.PathSeparator == '\\' {
+		configDir, err := os.UserConfigDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to get user config directory: %w", err)
+		}
+		return filepath.Join(configDir, "sow", "config.yaml"), nil
+	}
+
+	// On Unix-like systems (Linux, macOS), use ~/.config/
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+	return filepath.Join(home, ".config", "sow", "config.yaml"), nil
 }
 
 // LoadUserConfig loads the user configuration from the standard location.
@@ -33,17 +48,17 @@ func LoadUserConfig() (*schemas.UserConfig, error) {
 		// If we can't determine the path, return defaults
 		return getDefaultUserConfig(), nil
 	}
-	return loadUserConfigFromPath(path)
+	return LoadUserConfigFromPath(path)
 }
 
-// loadUserConfigFromPath loads user configuration from a specific path.
+// LoadUserConfigFromPath loads user configuration from a specific path.
 // This is used internally and for testing.
 // The full loading pipeline is:
 // 1. Read and parse YAML
 // 2. Validate (before applying defaults)
 // 3. Apply defaults for missing values
 // 4. Apply environment overrides (highest priority).
-func loadUserConfigFromPath(path string) (*schemas.UserConfig, error) {
+func LoadUserConfigFromPath(path string) (*schemas.UserConfig, error) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		// Config doesn't exist, return defaults with env overrides
