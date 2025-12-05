@@ -30,7 +30,7 @@ func TestNewPathCmd_HasExistsFlag(t *testing.T) {
 	cmd := newPathCmd()
 	flag := cmd.Flags().Lookup("exists")
 	if flag == nil {
-		t.Error("expected --exists flag")
+		t.Fatal("expected --exists flag")
 	}
 
 	// Verify it's a bool flag
@@ -104,10 +104,7 @@ func TestRunPath_ExistsFlag_FileExists(t *testing.T) {
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 
-	err := runPathWithOptions(cmd, configPath, true)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	runPathWithOptions(cmd, configPath, true)
 
 	output := strings.TrimSpace(buf.String())
 	if output != "true" {
@@ -125,10 +122,7 @@ func TestRunPath_ExistsFlag_FileNotExists(t *testing.T) {
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 
-	err := runPathWithOptions(cmd, configPath, true)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	runPathWithOptions(cmd, configPath, true)
 
 	output := strings.TrimSpace(buf.String())
 	if output != "false" {
@@ -173,11 +167,7 @@ func TestRunPath_ExistsFlag_NoError(t *testing.T) {
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 
-			// Should never return an error
-			err := runPathWithOptions(cmd, configPath, true)
-			if err != nil {
-				t.Errorf("expected no error, got: %v", err)
-			}
+			runPathWithOptions(cmd, configPath, true)
 
 			output := strings.TrimSpace(buf.String())
 			if output != tc.wantOutput {
@@ -197,10 +187,7 @@ func TestRunPath_ShowsPath_WithCustomPath(t *testing.T) {
 	cmd.SetOut(&buf)
 
 	// checkExists = false means just print the path
-	err := runPathWithOptions(cmd, configPath, false)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	runPathWithOptions(cmd, configPath, false)
 
 	output := strings.TrimSpace(buf.String())
 	if output != configPath {
@@ -225,10 +212,7 @@ func TestRunPath_OutputCleanForScripting(t *testing.T) {
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 
-	err := runPathWithOptions(cmd, configPath, true)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	runPathWithOptions(cmd, configPath, true)
 
 	output := buf.String()
 

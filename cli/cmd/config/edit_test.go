@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -43,8 +44,9 @@ func TestRunEditWithPath_CreatesFileIfMissing(t *testing.T) {
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "sow", "config.yaml")
 
-	// Create a command with custom output buffer
+	// Create a command with custom output buffer and context
 	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 
@@ -76,6 +78,7 @@ func TestRunEditWithPath_OutputsCreationMessage(t *testing.T) {
 	configPath := filepath.Join(tempDir, "sow", "config.yaml")
 
 	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 
@@ -108,6 +111,7 @@ func TestRunEditWithPath_DoesNotOutputCreationMessageForExisting(t *testing.T) {
 	}
 
 	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 
@@ -138,6 +142,7 @@ func TestRunEditWithPath_UsesExistingFile(t *testing.T) {
 	}
 
 	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 
@@ -163,6 +168,7 @@ func TestRunEditWithPath_CreatesParentDirectories(t *testing.T) {
 	configPath := filepath.Join(tempDir, "deeply", "nested", "sow", "config.yaml")
 
 	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 
@@ -183,6 +189,7 @@ func TestRunEditWithPath_FilePermissions(t *testing.T) {
 	configPath := filepath.Join(tempDir, "sow", "config.yaml")
 
 	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 
@@ -208,6 +215,7 @@ func TestRunEditWithPath_DirectoryPermissions(t *testing.T) {
 	configPath := filepath.Join(tempDir, "sow", "config.yaml")
 
 	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 
@@ -233,6 +241,7 @@ func TestRunEditWithPath_EditorError(t *testing.T) {
 	configPath := filepath.Join(tempDir, "sow", "config.yaml")
 
 	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 
@@ -253,6 +262,7 @@ func TestRunEditWithPath_NonExistentEditor(t *testing.T) {
 	configPath := filepath.Join(tempDir, "sow", "config.yaml")
 
 	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 

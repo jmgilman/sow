@@ -52,7 +52,7 @@ func runPath(cmd *cobra.Command, checkExists bool) error {
 }
 
 // runPathWithOptions is a helper that allows testing with custom paths.
-func runPathWithOptions(cmd *cobra.Command, path string, checkExists bool) error {
+func runPathWithOptions(cmd *cobra.Command, path string, checkExists bool) {
 	if checkExists {
 		_, err := os.Stat(path)
 		if err == nil {
@@ -60,9 +60,8 @@ func runPathWithOptions(cmd *cobra.Command, path string, checkExists bool) error
 		} else {
 			cmd.Println("false")
 		}
-		return nil
+		return
 	}
 
 	cmd.Println(path)
-	return nil
 }

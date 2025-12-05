@@ -56,7 +56,7 @@ func runEditWithPath(cmd *cobra.Command, path string, editor string) error {
 	}
 
 	// Open editor
-	editCmd := exec.Command(editor, path)
+	editCmd := exec.CommandContext(cmd.Context(), editor, path)
 	editCmd.Stdin = os.Stdin
 	editCmd.Stdout = os.Stdout
 	editCmd.Stderr = os.Stderr
