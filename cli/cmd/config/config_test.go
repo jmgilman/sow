@@ -193,6 +193,24 @@ func TestNewConfigCmd_HasEditSubcommand(t *testing.T) {
 	}
 }
 
+// TestNewConfigCmd_HasResetSubcommand verifies reset subcommand is registered.
+func TestNewConfigCmd_HasResetSubcommand(t *testing.T) {
+	cmd := NewConfigCmd()
+
+	// Verify reset subcommand exists
+	subcommands := cmd.Commands()
+	found := false
+	for _, sub := range subcommands {
+		if sub.Use == "reset" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected 'reset' subcommand to be registered")
+	}
+}
+
 // containsSubstring checks if a string contains a substring.
 func containsSubstring(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {

@@ -32,6 +32,7 @@ Commands:
 	cmd.AddCommand(newShowCmd())
 	cmd.AddCommand(newValidateCmd())
 	cmd.AddCommand(newEditCmd())
+	cmd.AddCommand(newResetCmd())
 
 	return cmd
 }
