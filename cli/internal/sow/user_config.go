@@ -9,13 +9,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Default executor name for all agent bindings.
+// DefaultExecutorName is the default executor name for all agent bindings.
 const DefaultExecutorName = "claude-code"
 
 // GetUserConfigPath returns the path to the user configuration file.
 // Uses os.UserConfigDir() for cross-platform compatibility:
 // - Linux/Mac: ~/.config/sow/config.yaml
-// - Windows: %APPDATA%\sow\config.yaml
+// - Windows: %APPDATA%\sow\config.yaml.
 func GetUserConfigPath() (string, error) {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
@@ -42,7 +42,7 @@ func LoadUserConfig() (*schemas.UserConfig, error) {
 // 1. Read and parse YAML
 // 2. Validate (before applying defaults)
 // 3. Apply defaults for missing values
-// 4. Apply environment overrides (highest priority)
+// 4. Apply environment overrides (highest priority).
 func loadUserConfigFromPath(path string) (*schemas.UserConfig, error) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
@@ -310,7 +310,7 @@ func ValidateUserConfig(config *schemas.UserConfig) error {
 // applyEnvOverrides applies environment variable overrides to the configuration.
 // Environment variables take precedence over file configuration.
 // Format: SOW_AGENTS_{ROLE}={executor_name}
-// Example: SOW_AGENTS_IMPLEMENTER=cursor
+// Example: SOW_AGENTS_IMPLEMENTER=cursor.
 func applyEnvOverrides(config *schemas.UserConfig) {
 	// Ensure config.Agents exists
 	if config.Agents == nil {

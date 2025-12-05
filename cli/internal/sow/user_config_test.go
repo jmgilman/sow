@@ -399,7 +399,7 @@ func TestLoadUserConfig_PermissionDenied(t *testing.T) {
 	if err := os.WriteFile(configPath, []byte("agents: {}"), 0000); err != nil {
 		t.Fatalf("failed to write config: %v", err)
 	}
-	defer os.Chmod(configPath, 0644) // Restore permissions for cleanup
+	defer func() { _ = os.Chmod(configPath, 0644) }() // Restore permissions for cleanup
 
 	_, err := loadUserConfigFromPath(configPath)
 	if err == nil {
@@ -852,7 +852,7 @@ func TestLoadUserConfig_InvalidBinding(t *testing.T) {
 }
 
 // TestLoadUserConfig_PriorityOrder tests the full priority order:
-// env vars > file config > defaults
+// env vars > file config > defaults.
 func TestLoadUserConfig_PriorityOrder(t *testing.T) {
 	t.Setenv("SOW_AGENTS_IMPLEMENTER", "env-value")
 
