@@ -151,19 +151,22 @@ func TestClaudeExecutor_Spawn_LoadPromptError(t *testing.T) {
 	}
 }
 
-// TestClaudeExecutor_Spawn_RunnerError verifies that runner errors are returned as-is.
+// TestClaudeExecutor_Spawn_RunnerError verifies that runner errors are wrapped with context.
 func TestClaudeExecutor_Spawn_RunnerError(t *testing.T) {
 	expectedErr := errors.New("runner failed")
 	runner := &MockCommandRunner{
-		RunFunc: func(ctx context.Context, name string, args []string, stdin io.Reader) error {
+		RunFunc: func(_ context.Context, _ string, _ []string, _ io.Reader) error {
 			return expectedErr
 		},
 	}
 	executor := NewClaudeExecutorWithRunner(false, "", runner)
 
 	err := executor.Spawn(context.Background(), Implementer, "test", "")
-	if err != expectedErr {
-		t.Errorf("Spawn() error = %v, want %v", err, expectedErr)
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("Spawn() error = %v, want wrapped %v", err, expectedErr)
+	}
+	if !strings.Contains(err.Error(), "claude spawn failed") {
+		t.Errorf("error should contain context: %v", err)
 	}
 }
 
@@ -204,19 +207,22 @@ func TestClaudeExecutor_Resume_PassesPromptViaStdin(t *testing.T) {
 	}
 }
 
-// TestClaudeExecutor_Resume_RunnerError verifies that Resume returns runner errors.
+// TestClaudeExecutor_Resume_RunnerError verifies that Resume returns wrapped runner errors.
 func TestClaudeExecutor_Resume_RunnerError(t *testing.T) {
 	expectedErr := errors.New("resume failed")
 	runner := &MockCommandRunner{
-		RunFunc: func(ctx context.Context, name string, args []string, stdin io.Reader) error {
+		RunFunc: func(_ context.Context, _ string, _ []string, _ io.Reader) error {
 			return expectedErr
 		},
 	}
 	executor := NewClaudeExecutorWithRunner(false, "", runner)
 
 	err := executor.Resume(context.Background(), "session-123", "feedback")
-	if err != expectedErr {
-		t.Errorf("Resume() error = %v, want %v", err, expectedErr)
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("Resume() error = %v, want wrapped %v", err, expectedErr)
+	}
+	if !strings.Contains(err.Error(), "claude resume failed") {
+		t.Errorf("error should contain context: %v", err)
 	}
 }
 
@@ -245,6 +251,6 @@ func TestNewClaudeExecutor_UsesDefaultRunner(t *testing.T) {
 // TestClaudeExecutor_InterfaceCompliance verifies compile-time interface compliance.
 // This is a compile-time check - if ClaudeExecutor doesn't implement Executor,
 // this file won't compile.
-func TestClaudeExecutor_InterfaceCompliance(t *testing.T) {
+func TestClaudeExecutor_InterfaceCompliance(_ *testing.T) {
 	var _ Executor = (*ClaudeExecutor)(nil)
 }

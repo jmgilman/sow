@@ -97,7 +97,10 @@ func (e *ClaudeExecutor) Spawn(ctx context.Context, agent *Agent, prompt string,
 	}
 
 	// Execute
-	return e.runner.Run(ctx, "claude", args, strings.NewReader(fullPrompt))
+	if err = e.runner.Run(ctx, "claude", args, strings.NewReader(fullPrompt)); err != nil {
+		return fmt.Errorf("claude spawn failed: %w", err)
+	}
+	return nil
 }
 
 // Resume continues an existing Claude session with additional prompt.
@@ -113,7 +116,10 @@ func (e *ClaudeExecutor) Spawn(ctx context.Context, agent *Agent, prompt string,
 // Returns error if subprocess execution fails.
 func (e *ClaudeExecutor) Resume(ctx context.Context, sessionID string, prompt string) error {
 	args := []string{"--resume", sessionID}
-	return e.runner.Run(ctx, "claude", args, strings.NewReader(prompt))
+	if err := e.runner.Run(ctx, "claude", args, strings.NewReader(prompt)); err != nil {
+		return fmt.Errorf("claude resume failed: %w", err)
+	}
+	return nil
 }
 
 // SupportsResumption indicates that Claude Code supports session resumption.

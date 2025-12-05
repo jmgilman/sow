@@ -76,7 +76,10 @@ func (e *CursorExecutor) Spawn(ctx context.Context, agent *Agent, prompt string,
 	}
 
 	// Execute
-	return e.runner.Run(ctx, "cursor-agent", args, strings.NewReader(fullPrompt))
+	if err = e.runner.Run(ctx, "cursor-agent", args, strings.NewReader(fullPrompt)); err != nil {
+		return fmt.Errorf("cursor-agent spawn failed: %w", err)
+	}
+	return nil
 }
 
 // Resume continues an existing Cursor session with additional prompt.
@@ -86,7 +89,10 @@ func (e *CursorExecutor) Spawn(ctx context.Context, agent *Agent, prompt string,
 // Blocks until the subprocess exits.
 func (e *CursorExecutor) Resume(ctx context.Context, sessionID string, prompt string) error {
 	args := []string{"agent", "--resume", sessionID}
-	return e.runner.Run(ctx, "cursor-agent", args, strings.NewReader(prompt))
+	if err := e.runner.Run(ctx, "cursor-agent", args, strings.NewReader(prompt)); err != nil {
+		return fmt.Errorf("cursor-agent resume failed: %w", err)
+	}
+	return nil
 }
 
 // SupportsResumption indicates that Cursor supports session resumption.

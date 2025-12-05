@@ -10,7 +10,7 @@ import (
 )
 
 // TestCursorExecutor_InterfaceCompliance verifies CursorExecutor implements Executor.
-func TestCursorExecutor_InterfaceCompliance(t *testing.T) {
+func TestCursorExecutor_InterfaceCompliance(_ *testing.T) {
 	// Compile-time check that CursorExecutor implements Executor.
 	var _ Executor = (*CursorExecutor)(nil)
 }
@@ -133,11 +133,11 @@ func TestCursorExecutor_Spawn_LoadPromptError(t *testing.T) {
 	}
 }
 
-// TestCursorExecutor_Spawn_RunnerError verifies Spawn returns runner errors as-is.
+// TestCursorExecutor_Spawn_RunnerError verifies Spawn returns wrapped runner errors.
 func TestCursorExecutor_Spawn_RunnerError(t *testing.T) {
 	expectedErr := errors.New("runner failed")
 	runner := &MockCommandRunner{
-		RunFunc: func(ctx context.Context, name string, args []string, stdin io.Reader) error {
+		RunFunc: func(_ context.Context, _ string, _ []string, _ io.Reader) error {
 			return expectedErr
 		},
 	}
@@ -146,7 +146,10 @@ func TestCursorExecutor_Spawn_RunnerError(t *testing.T) {
 	err := executor.Spawn(context.Background(), Implementer, "test prompt", "")
 
 	if !errors.Is(err, expectedErr) {
-		t.Errorf("Spawn() = %v, want %v", err, expectedErr)
+		t.Errorf("Spawn() = %v, want wrapped %v", err, expectedErr)
+	}
+	if !strings.Contains(err.Error(), "cursor-agent spawn failed") {
+		t.Errorf("error should contain context: %v", err)
 	}
 }
 
@@ -185,11 +188,11 @@ func TestCursorExecutor_Resume_PassesPromptViaStdin(t *testing.T) {
 	}
 }
 
-// TestCursorExecutor_Resume_RunnerError verifies Resume returns runner errors as-is.
+// TestCursorExecutor_Resume_RunnerError verifies Resume returns wrapped runner errors.
 func TestCursorExecutor_Resume_RunnerError(t *testing.T) {
 	expectedErr := errors.New("resume runner failed")
 	runner := &MockCommandRunner{
-		RunFunc: func(ctx context.Context, name string, args []string, stdin io.Reader) error {
+		RunFunc: func(_ context.Context, _ string, _ []string, _ io.Reader) error {
 			return expectedErr
 		},
 	}
@@ -198,7 +201,10 @@ func TestCursorExecutor_Resume_RunnerError(t *testing.T) {
 	err := executor.Resume(context.Background(), "session-123", "feedback")
 
 	if !errors.Is(err, expectedErr) {
-		t.Errorf("Resume() = %v, want %v", err, expectedErr)
+		t.Errorf("Resume() = %v, want wrapped %v", err, expectedErr)
+	}
+	if !strings.Contains(err.Error(), "cursor-agent resume failed") {
+		t.Errorf("error should contain context: %v", err)
 	}
 }
 
