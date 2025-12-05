@@ -33,17 +33,17 @@ func LoadUserConfig() (*schemas.UserConfig, error) {
 		// If we can't determine the path, return defaults
 		return getDefaultUserConfig(), nil
 	}
-	return loadUserConfigFromPath(path)
+	return LoadUserConfigFromPath(path)
 }
 
-// loadUserConfigFromPath loads user configuration from a specific path.
+// LoadUserConfigFromPath loads user configuration from a specific path.
 // This is used internally and for testing.
 // The full loading pipeline is:
 // 1. Read and parse YAML
 // 2. Validate (before applying defaults)
 // 3. Apply defaults for missing values
 // 4. Apply environment overrides (highest priority).
-func loadUserConfigFromPath(path string) (*schemas.UserConfig, error) {
+func LoadUserConfigFromPath(path string) (*schemas.UserConfig, error) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		// Config doesn't exist, return defaults with env overrides
