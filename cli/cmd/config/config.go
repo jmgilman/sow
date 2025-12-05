@@ -31,6 +31,7 @@ Commands:
 	cmd.AddCommand(newPathCmd())
 	cmd.AddCommand(newShowCmd())
 	cmd.AddCommand(newValidateCmd())
+	cmd.AddCommand(newEditCmd())
 
 	return cmd
 }

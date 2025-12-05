@@ -175,6 +175,24 @@ func TestNewConfigCmd_HasValidateSubcommand(t *testing.T) {
 	}
 }
 
+// TestNewConfigCmd_HasEditSubcommand verifies edit subcommand is registered.
+func TestNewConfigCmd_HasEditSubcommand(t *testing.T) {
+	cmd := NewConfigCmd()
+
+	// Verify edit subcommand exists
+	subcommands := cmd.Commands()
+	found := false
+	for _, sub := range subcommands {
+		if sub.Use == "edit" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected 'edit' subcommand to be registered")
+	}
+}
+
 // containsSubstring checks if a string contains a substring.
 func containsSubstring(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
