@@ -3,7 +3,7 @@ type: standard
 branch: feat/executor-system-99
 description: Executor System
 created_at: 2025-12-05T09:51:37.871657-08:00
-updated_at: 2025-12-05T10:15:19.062698-08:00
+updated_at: 2025-12-05T10:23:32.138682-08:00
 phases:
     finalize:
         status: pending
@@ -104,10 +104,10 @@ phases:
             - id: "020"
               name: Executor Registry
               phase: implementation
-              status: pending
+              status: completed
               created_at: 2025-12-05T10:06:01.443432-08:00
               started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-12-05T10:06:33.746911-08:00
+              updated_at: 2025-12-05T10:23:32.119469-08:00
               completed_at: 0001-01-01T00:00:00Z
               iteration: 1
               assigned_agent: implementer
@@ -127,15 +127,30 @@ phases:
                   approved: false
                   created_at: 2025-12-05T10:06:33.746911-08:00
                   metadata: {}
-              outputs: []
+                - type: feedback
+                  path: project/phases/implementation/tasks/020/feedback/001.md
+                  approved: false
+                  created_at: 2025-12-05T10:23:25.961573-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: cli/internal/agents/executor_registry.go
+                  approved: false
+                  created_at: 2025-12-05T10:20:40.883424-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/agents/executor_registry_test.go
+                  approved: false
+                  created_at: 2025-12-05T10:20:41.889536-08:00
+                  metadata: {}
               metadata: {}
             - id: "030"
               name: Claude Executor
               phase: implementation
-              status: pending
+              status: completed
               created_at: 2025-12-05T10:06:02.562832-08:00
               started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-12-05T10:06:35.586976-08:00
+              updated_at: 2025-12-05T10:23:32.129232-08:00
               completed_at: 0001-01-01T00:00:00Z
               iteration: 1
               assigned_agent: implementer
@@ -155,15 +170,30 @@ phases:
                   approved: false
                   created_at: 2025-12-05T10:06:35.586976-08:00
                   metadata: {}
-              outputs: []
+                - type: feedback
+                  path: project/phases/implementation/tasks/030/feedback/001.md
+                  approved: false
+                  created_at: 2025-12-05T10:23:25.972443-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: cli/internal/agents/executor_claude.go
+                  approved: false
+                  created_at: 2025-12-05T10:20:39.047364-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/agents/executor_claude_test.go
+                  approved: false
+                  created_at: 2025-12-05T10:20:40.092735-08:00
+                  metadata: {}
               metadata: {}
             - id: "040"
               name: Cursor Executor
               phase: implementation
-              status: pending
+              status: completed
               created_at: 2025-12-05T10:06:04.214835-08:00
               started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-12-05T10:06:37.905935-08:00
+              updated_at: 2025-12-05T10:23:32.138682-08:00
               completed_at: 0001-01-01T00:00:00Z
               iteration: 1
               assigned_agent: implementer
@@ -183,7 +213,22 @@ phases:
                   approved: false
                   created_at: 2025-12-05T10:06:37.905935-08:00
                   metadata: {}
-              outputs: []
+                - type: feedback
+                  path: project/phases/implementation/tasks/040/feedback/001.md
+                  approved: false
+                  created_at: 2025-12-05T10:23:25.981634-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: cli/internal/agents/executor_cursor.go
+                  approved: false
+                  created_at: 2025-12-05T10:22:07.250291-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/agents/executor_cursor_test.go
+                  approved: false
+                  created_at: 2025-12-05T10:22:09.085704-08:00
+                  metadata: {}
               metadata: {}
             - id: "050"
               name: Task Schema Update
@@ -247,4 +292,4 @@ phases:
         tasks: []
 statechart:
     current_state: ImplementationExecuting
-    updated_at: 2025-12-05T10:15:19.062698-08:00
+    updated_at: 2025-12-05T10:23:32.138682-08:00
