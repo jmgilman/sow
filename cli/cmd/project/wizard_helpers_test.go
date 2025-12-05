@@ -2136,107 +2136,6 @@ func TestWrapValidationError(t *testing.T) {
 	}
 }
 
-// Mock GitHubClient for testing GitHub error handling functions.
-type mockGitHubClient struct {
-	checkInstalledErr     error
-	checkAuthenticatedErr error
-	linkedBranches        []sow.LinkedBranch
-	linkedBranchesErr     error
-}
-
-func (m *mockGitHubClient) Ensure() error {
-	return nil
-}
-
-func (m *mockGitHubClient) CheckInstalled() error {
-	return m.checkInstalledErr
-}
-
-func (m *mockGitHubClient) CheckAuthenticated() error {
-	return m.checkAuthenticatedErr
-}
-
-func (m *mockGitHubClient) ListIssues(_, _ string) ([]sow.Issue, error) {
-	return nil, nil
-}
-
-func (m *mockGitHubClient) GetLinkedBranches(_ int) ([]sow.LinkedBranch, error) {
-	return m.linkedBranches, m.linkedBranchesErr
-}
-
-func (m *mockGitHubClient) CreateLinkedBranch(_ int, _ string, _ bool) (string, error) {
-	return "", nil
-}
-
-func (m *mockGitHubClient) GetIssue(_ int) (*sow.Issue, error) {
-	return nil, nil
-}
-
-// TestCheckGitHubCLI tests the checkGitHubCLI function.
-func TestCheckGitHubCLI(t *testing.T) {
-	tests := []struct {
-		name        string
-		installErr  error
-		authErr     error
-		wantErr     bool
-		errContains string
-	}{
-		{
-			name:       "both checks pass",
-			installErr: nil,
-			authErr:    nil,
-			wantErr:    false,
-		},
-		{
-			name:        "not installed",
-			installErr:  sow.ErrGHNotInstalled{},
-			wantErr:     true,
-			errContains: "not found",
-		},
-		{
-			name:        "not authenticated",
-			installErr:  nil,
-			authErr:     sow.ErrGHNotAuthenticated{},
-			wantErr:     true,
-			errContains: "not authenticated",
-		},
-		{
-			name:        "generic installation error",
-			installErr:  errors.New("generic error"),
-			wantErr:     true,
-			errContains: "failed to check gh installation",
-		},
-		{
-			name:        "generic authentication error",
-			installErr:  nil,
-			authErr:     errors.New("generic auth error"),
-			wantErr:     true,
-			errContains: "failed to check gh authentication",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mock := &mockGitHubClient{
-				checkInstalledErr:     tt.installErr,
-				checkAuthenticatedErr: tt.authErr,
-			}
-
-			err := checkGitHubCLI(mock)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("checkGitHubCLI() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			if err != nil && tt.errContains != "" {
-				if !strings.Contains(err.Error(), tt.errContains) {
-					t.Errorf("error message %q does not contain %q",
-						err.Error(), tt.errContains)
-				}
-			}
-		})
-	}
-}
 
 // TestFormatGitHubError_RateLimit tests rate limit error formatting.
 func TestFormatGitHubError_RateLimit(t *testing.T) {
@@ -2488,9 +2387,10 @@ func TestCheckIssueLinkedBranch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := &mockGitHubClient{
-				linkedBranches:    tt.branches,
-				linkedBranchesErr: tt.branchesErr,
+			mock := &sow.MockGitHub{
+				GetLinkedBranchesFunc: func(_ int) ([]sow.LinkedBranch, error) {
+					return tt.branches, tt.branchesErr
+				},
 			}
 
 			err := checkIssueLinkedBranch(mock, 123)
@@ -2611,24 +2511,6 @@ func TestFilterIssuesBySowLabel(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-// TestErrorGitHubNotAuthenticated tests the errorGitHubNotAuthenticated function.
-func TestErrorGitHubNotAuthenticated(t *testing.T) {
-	result := errorGitHubNotAuthenticated()
-
-	expectedParts := []string{
-		"GitHub CLI not authenticated",
-		"not logged in",
-		"gh auth login",
-		"From branch name",
-	}
-
-	for _, part := range expectedParts {
-		if !strings.Contains(result, part) {
-			t.Errorf("errorGitHubNotAuthenticated() result does not contain %q\nGot: %s", part, result)
-		}
 	}
 }
 
