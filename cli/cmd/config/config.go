@@ -30,8 +30,7 @@ Commands:
 	cmd.AddCommand(newInitCmd())
 	cmd.AddCommand(newPathCmd())
 	cmd.AddCommand(newShowCmd())
-	// Additional subcommands will be added in subsequent tasks
-	// etc.
+	cmd.AddCommand(newValidateCmd())
 
 	return cmd
 }
