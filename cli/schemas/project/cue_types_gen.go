@@ -105,6 +105,7 @@ type TaskState struct {
 
 	// status indicates the current state of the task.
 	// Must be one of: "pending" (not started), "in_progress" (actively working),
+	// "paused" (blocked, waiting for orchestrator input),
 	// "needs_review" (worker finished, awaiting orchestrator review),
 	// "completed" (successfully finished), "abandoned" (cancelled/obsolete).
 	Status string `json:"status"`
@@ -133,6 +134,12 @@ type TaskState struct {
 	// Must be non-empty. Examples: "implementer", "architect", "reviewer"
 	// Determines which agent type is spawned to execute the task.
 	Assigned_agent string `json:"assigned_agent"`
+
+	// session_id is the optional session identifier for resumable agent conversations.
+	// Set when a worker is spawned, persists through review iterations.
+	// Only cleared when task reaches a terminal state (completed, abandoned).
+	// Used by executors that support session resumption (claude, cursor).
+	Session_id string `json:"session_id,omitempty"`
 
 	// inputs is the list of artifacts that this task consumes.
 	// These provide context and requirements for completing the task.

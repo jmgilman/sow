@@ -3,7 +3,7 @@ type: standard
 branch: feat/executor-system-99
 description: Executor System
 created_at: 2025-12-05T09:51:37.871657-08:00
-updated_at: 2025-12-05T10:06:55.698964-08:00
+updated_at: 2025-12-05T10:15:19.062698-08:00
 phases:
     finalize:
         status: pending
@@ -26,7 +26,10 @@ phases:
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata:
+            draft_pr_created: true
             planning_approved: true
+            pr_number: 104
+            pr_url: https://github.com/jmgilman/sow/pull/104
         inputs:
             - type: github_issue
               path: context/issue-99.md
@@ -48,10 +51,10 @@ phases:
             - id: "010"
               name: Executor Interface
               phase: implementation
-              status: pending
+              status: completed
               created_at: 2025-12-05T10:06:00.652109-08:00
               started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-12-05T10:06:31.531436-08:00
+              updated_at: 2025-12-05T10:15:19.052601-08:00
               completed_at: 0001-01-01T00:00:00Z
               iteration: 1
               assigned_agent: implementer
@@ -76,7 +79,27 @@ phases:
                   approved: false
                   created_at: 2025-12-05T10:06:31.531436-08:00
                   metadata: {}
-              outputs: []
+                - type: feedback
+                  path: project/phases/implementation/tasks/010/feedback/001.md
+                  approved: false
+                  created_at: 2025-12-05T10:15:12.060647-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: cli/internal/agents/executor.go
+                  approved: false
+                  created_at: 2025-12-05T10:13:57.324116-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/agents/executor_mock.go
+                  approved: false
+                  created_at: 2025-12-05T10:13:59.375095-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/internal/agents/executor_test.go
+                  approved: false
+                  created_at: 2025-12-05T10:14:00.664332-08:00
+                  metadata: {}
               metadata: {}
             - id: "020"
               name: Executor Registry
@@ -165,10 +188,10 @@ phases:
             - id: "050"
               name: Task Schema Update
               phase: implementation
-              status: pending
+              status: completed
               created_at: 2025-12-05T10:06:05.026921-08:00
               started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-12-05T10:06:39.850853-08:00
+              updated_at: 2025-12-05T10:15:19.062697-08:00
               completed_at: 0001-01-01T00:00:00Z
               iteration: 1
               assigned_agent: implementer
@@ -188,7 +211,27 @@ phases:
                   approved: false
                   created_at: 2025-12-05T10:06:39.850853-08:00
                   metadata: {}
-              outputs: []
+                - type: feedback
+                  path: project/phases/implementation/tasks/050/feedback/001.md
+                  approved: false
+                  created_at: 2025-12-05T10:15:12.071162-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: cli/schemas/project/task.cue
+                  approved: false
+                  created_at: 2025-12-05T10:11:15.982278-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/schemas/project/cue_types_gen.go
+                  approved: false
+                  created_at: 2025-12-05T10:11:17.215343-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/schemas/project/schemas_test.go
+                  approved: false
+                  created_at: 2025-12-05T10:11:18.950138-08:00
+                  metadata: {}
               metadata: {}
     review:
         status: pending
@@ -203,5 +246,5 @@ phases:
         outputs: []
         tasks: []
 statechart:
-    current_state: ImplementationDraftPRCreation
-    updated_at: 2025-12-05T10:06:55.698964-08:00
+    current_state: ImplementationExecuting
+    updated_at: 2025-12-05T10:15:19.062698-08:00

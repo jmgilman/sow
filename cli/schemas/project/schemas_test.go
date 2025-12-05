@@ -1193,3 +1193,126 @@ func TestInvalidTask_MissingUpdatedAt(t *testing.T) {
 // Note: inputs and outputs arrays have default values ([]) in CUE,
 // so they can be omitted and will be filled in with empty arrays.
 // This is correct behavior per the schema definition.
+
+func TestValidTaskState_PausedStatus(t *testing.T) {
+	now := time.Now().Format(time.RFC3339)
+	data := map[string]any{
+		"id":             "001",
+		"name":           "Test Task",
+		"phase":          "implementation",
+		"status":         "paused",
+		"created_at":     now,
+		"updated_at":     now,
+		"iteration":      1,
+		"assigned_agent": "implementer",
+		"inputs":         []any{},
+		"outputs":        []any{},
+	}
+
+	err := validateSchema(t, "#TaskState", data)
+	if err != nil {
+		t.Errorf("task with status 'paused' should pass validation: %v", err)
+	}
+}
+
+func TestValidTaskState_WithSessionID(t *testing.T) {
+	now := time.Now().Format(time.RFC3339)
+	data := map[string]any{
+		"id":             "001",
+		"name":           "Test Task",
+		"phase":          "implementation",
+		"status":         "in_progress",
+		"created_at":     now,
+		"updated_at":     now,
+		"iteration":      1,
+		"assigned_agent": "implementer",
+		"session_id":     "550e8400-e29b-41d4-a716-446655440000",
+		"inputs":         []any{},
+		"outputs":        []any{},
+	}
+
+	err := validateSchema(t, "#TaskState", data)
+	if err != nil {
+		t.Errorf("task with session_id should pass validation: %v", err)
+	}
+}
+
+func TestValidTaskState_WithoutSessionID(t *testing.T) {
+	// Verifies backward compatibility - session_id is optional
+	now := time.Now().Format(time.RFC3339)
+	data := map[string]any{
+		"id":             "001",
+		"name":           "Test Task",
+		"phase":          "implementation",
+		"status":         "in_progress",
+		"created_at":     now,
+		"updated_at":     now,
+		"iteration":      1,
+		"assigned_agent": "implementer",
+		"inputs":         []any{},
+		"outputs":        []any{},
+	}
+
+	err := validateSchema(t, "#TaskState", data)
+	if err != nil {
+		t.Errorf("task without session_id should pass validation (backward compatible): %v", err)
+	}
+}
+
+func TestValidTaskState_AllStatusesIncludingPaused(t *testing.T) {
+	// Comprehensive test that includes the new "paused" status
+	statuses := []string{
+		"pending",
+		"in_progress",
+		"paused",
+		"needs_review",
+		"completed",
+		"abandoned",
+	}
+
+	now := time.Now().Format(time.RFC3339)
+	for _, status := range statuses {
+		t.Run(status, func(t *testing.T) {
+			data := map[string]any{
+				"id":             "001",
+				"name":           "Test Task",
+				"phase":          "implementation",
+				"status":         status,
+				"created_at":     now,
+				"updated_at":     now,
+				"iteration":      1,
+				"assigned_agent": "implementer",
+				"inputs":         []any{},
+				"outputs":        []any{},
+			}
+
+			err := validateSchema(t, "#TaskState", data)
+			if err != nil {
+				t.Errorf("task with status '%s' should pass validation: %v", status, err)
+			}
+		})
+	}
+}
+
+func TestValidTaskState_PausedStatusWithSessionID(t *testing.T) {
+	// Test the combination of paused status with session_id
+	now := time.Now().Format(time.RFC3339)
+	data := map[string]any{
+		"id":             "010",
+		"name":           "Implement executor interface",
+		"phase":          "implementation",
+		"status":         "paused",
+		"created_at":     now,
+		"updated_at":     now,
+		"iteration":      1,
+		"assigned_agent": "implementer",
+		"session_id":     "550e8400-e29b-41d4-a716-446655440000",
+		"inputs":         []any{},
+		"outputs":        []any{},
+	}
+
+	err := validateSchema(t, "#TaskState", data)
+	if err != nil {
+		t.Errorf("task with paused status and session_id should pass validation: %v", err)
+	}
+}
