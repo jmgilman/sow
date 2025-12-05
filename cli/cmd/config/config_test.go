@@ -103,18 +103,21 @@ func TestNewConfigCmd_HelpOutput(t *testing.T) {
 	}
 }
 
-// TestNewConfigCmd_NoSubcommandsYet verifies no subcommands are added yet.
-// Subcommands will be added in subsequent tasks.
-func TestNewConfigCmd_NoSubcommandsYet(t *testing.T) {
+// TestNewConfigCmd_HasInitSubcommand verifies init subcommand is registered.
+func TestNewConfigCmd_HasInitSubcommand(t *testing.T) {
 	cmd := NewConfigCmd()
 
-	// Verify no subcommands exist yet (they'll be added in other tasks)
+	// Verify init subcommand exists
 	subcommands := cmd.Commands()
-	if len(subcommands) != 0 {
-		t.Errorf("expected 0 subcommands (not implemented yet), got %d", len(subcommands))
-		for _, sub := range subcommands {
-			t.Logf("  found subcommand: %s", sub.Use)
+	found := false
+	for _, sub := range subcommands {
+		if sub.Use == "init" {
+			found = true
+			break
 		}
+	}
+	if !found {
+		t.Error("expected 'init' subcommand to be registered")
 	}
 }
 

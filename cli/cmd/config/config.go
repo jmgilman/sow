@@ -26,8 +26,9 @@ Commands:
   reset     Remove configuration file`,
 	}
 
-	// Subcommands will be added in subsequent tasks
-	// cmd.AddCommand(newInitCmd())
+	// Add subcommands
+	cmd.AddCommand(newInitCmd())
+	// Additional subcommands will be added in subsequent tasks
 	// cmd.AddCommand(newPathCmd())
 	// etc.
 
