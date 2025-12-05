@@ -227,3 +227,48 @@ type RefsLocalIndex struct {
 	// Uses same structure as committed refs
 	Refs []Ref `json:"refs"`
 }
+
+// UserConfig defines the schema for the user configuration file at:
+// ~/.config/sow/config.yaml
+//
+// This allows users to configure which AI CLI executors handle which agent roles.
+type UserConfig struct {
+	// Agent configuration
+	Agents *struct {
+		// Executor definitions
+		// Keys are executor names (e.g., "claude-code", "cursor")
+		Executors map[string]struct {
+			// Type of executor
+			Type string `json:"type"`
+
+			// Executor settings
+			Settings *struct {
+				// Skip permission prompts
+				Yolo_mode *bool `json:"yolo_mode,omitempty"`
+
+				// AI model to use (only meaningful for claude type)
+				Model *string `json:"model,omitempty"`
+			} `json:"settings,omitempty"`
+
+			// Additional CLI arguments
+			Custom_args []string `json:"custom_args,omitempty"`
+		} `json:"executors,omitempty"`
+
+		// Bindings from agent roles to executor names
+		Bindings *struct {
+			Orchestrator *string `json:"orchestrator,omitempty"`
+
+			Implementer *string `json:"implementer,omitempty"`
+
+			Architect *string `json:"architect,omitempty"`
+
+			Reviewer *string `json:"reviewer,omitempty"`
+
+			Planner *string `json:"planner,omitempty"`
+
+			Researcher *string `json:"researcher,omitempty"`
+
+			Decomposer *string `json:"decomposer,omitempty"`
+		} `json:"bindings,omitempty"`
+	} `json:"agents,omitempty"`
+}
