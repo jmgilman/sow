@@ -1,0 +1,233 @@
+name: config-cli-commands
+type: standard
+branch: feat/config-cli-commands-100
+description: Config CLI Commands
+created_at: 2025-12-05T11:05:06.307742-08:00
+updated_at: 2025-12-05T11:32:41.99838-08:00
+phases:
+    finalize:
+        status: pending
+        enabled: false
+        created_at: 2025-12-05T11:05:06.307742-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+    implementation:
+        status: in_progress
+        enabled: false
+        created_at: 2025-12-05T11:05:06.307742-08:00
+        started_at: 2025-12-05T11:05:06.307775-08:00
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata:
+            planning_approved: true
+        inputs:
+            - type: github_issue
+              path: context/issue-100.md
+              approved: true
+              created_at: 2025-12-05T11:05:06.307734-08:00
+              metadata:
+                issue_number: 100
+                issue_title: Config CLI Commands
+                issue_url: https://github.com/jmgilman/sow/issues/100
+            - type: reference
+              path: ../../knowledge/designs/multi-agent-architecture.md
+              approved: true
+              created_at: 2025-12-05T11:05:06.307741-08:00
+              metadata:
+                description: Knowledge file selected during project creation
+                source: user_selected
+        outputs: []
+        tasks:
+            - id: "010"
+              name: Parent config command and root integration
+              phase: implementation
+              status: pending
+              created_at: 2025-12-05T11:31:34.773501-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-05T11:32:19.262321-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/cmd/root.go
+                  approved: false
+                  created_at: 2025-12-05T11:32:19.237241-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/refs/refs.go
+                  approved: false
+                  created_at: 2025-12-05T11:32:19.24647-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/project.go
+                  approved: false
+                  created_at: 2025-12-05T11:32:19.254428-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/user_config.go
+                  approved: false
+                  created_at: 2025-12-05T11:32:19.26232-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "020"
+              name: Config init command
+              phase: implementation
+              status: pending
+              created_at: 2025-12-05T11:31:35.77696-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-05T11:32:20.727078-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/user_config.go
+                  approved: false
+                  created_at: 2025-12-05T11:32:20.708192-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/user_config.cue
+                  approved: false
+                  created_at: 2025-12-05T11:32:20.718092-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-100.md
+                  approved: false
+                  created_at: 2025-12-05T11:32:20.727078-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "030"
+              name: Config path command
+              phase: implementation
+              status: pending
+              created_at: 2025-12-05T11:31:37.522833-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-05T11:32:22.095982-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/user_config.go
+                  approved: false
+                  created_at: 2025-12-05T11:32:22.087425-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/user_config_test.go
+                  approved: false
+                  created_at: 2025-12-05T11:32:22.095982-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "040"
+              name: Config show command
+              phase: implementation
+              status: pending
+              created_at: 2025-12-05T11:31:38.440784-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-05T11:32:24.301059-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/user_config.go
+                  approved: false
+                  created_at: 2025-12-05T11:32:24.291858-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/user_config_test.go
+                  approved: false
+                  created_at: 2025-12-05T11:32:24.301059-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "050"
+              name: Config validate command
+              phase: implementation
+              status: pending
+              created_at: 2025-12-05T11:31:39.499758-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-05T11:32:25.386227-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/user_config.go
+                  approved: false
+                  created_at: 2025-12-05T11:32:25.368517-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/user_config_test.go
+                  approved: false
+                  created_at: 2025-12-05T11:32:25.377636-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/user_config.cue
+                  approved: false
+                  created_at: 2025-12-05T11:32:25.386226-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "060"
+              name: Config edit command
+              phase: implementation
+              status: pending
+              created_at: 2025-12-05T11:31:40.879993-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-05T11:32:26.145223-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/user_config.go
+                  approved: false
+                  created_at: 2025-12-05T11:32:26.145223-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "070"
+              name: Config reset command
+              phase: implementation
+              status: pending
+              created_at: 2025-12-05T11:31:42.416578-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-05T11:32:26.896383-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/user_config.go
+                  approved: false
+                  created_at: 2025-12-05T11:32:26.896383-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+    review:
+        status: pending
+        enabled: false
+        created_at: 2025-12-05T11:05:06.307742-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+statechart:
+    current_state: ImplementationDraftPRCreation
+    updated_at: 2025-12-05T11:32:41.99838-08:00
