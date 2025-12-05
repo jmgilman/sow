@@ -22,9 +22,10 @@ import "time"
 
 	// status indicates the current state of the task.
 	// Must be one of: "pending" (not started), "in_progress" (actively working),
+	// "paused" (blocked, waiting for orchestrator input),
 	// "needs_review" (worker finished, awaiting orchestrator review),
 	// "completed" (successfully finished), "abandoned" (cancelled/obsolete).
-	status: "pending" | "in_progress" | "needs_review" | "completed" | "abandoned"
+	status: "pending" | "in_progress" | "paused" | "needs_review" | "completed" | "abandoned"
 
 	// created_at is the timestamp when this task was created.
 	created_at: time.Time
@@ -50,6 +51,12 @@ import "time"
 	// Must be non-empty. Examples: "implementer", "architect", "reviewer"
 	// Determines which agent type is spawned to execute the task.
 	assigned_agent: string & !=""
+
+	// session_id is the optional session identifier for resumable agent conversations.
+	// Set when a worker is spawned, persists through review iterations.
+	// Only cleared when task reaches a terminal state (completed, abandoned).
+	// Used by executors that support session resumption (claude, cursor).
+	session_id?: string
 
 	// inputs is the list of artifacts that this task consumes.
 	// These provide context and requirements for completing the task.
