@@ -14,8 +14,8 @@ const DefaultExecutorName = "claude-code"
 
 // GetUserConfigPath returns the path to the user configuration file.
 // Uses XDG-style paths for consistency:
-// - Linux/Mac: ~/.config/sow/config.yaml (or $XDG_CONFIG_HOME/sow/config.yaml)
-// - Windows: %APPDATA%\sow\config.yaml
+//   - Linux/Mac: ~/.config/sow/config.yaml (or $XDG_CONFIG_HOME/sow/config.yaml)
+//   - Windows: %APPDATA%\sow\config.yaml.
 func GetUserConfigPath() (string, error) {
 	// Check for XDG_CONFIG_HOME first (works on all platforms)
 	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
