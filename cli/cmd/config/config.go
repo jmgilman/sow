@@ -28,8 +28,8 @@ Commands:
 
 	// Add subcommands
 	cmd.AddCommand(newInitCmd())
+	cmd.AddCommand(newPathCmd())
 	// Additional subcommands will be added in subsequent tasks
-	// cmd.AddCommand(newPathCmd())
 	// etc.
 
 	return cmd

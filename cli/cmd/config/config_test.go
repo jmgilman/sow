@@ -121,6 +121,24 @@ func TestNewConfigCmd_HasInitSubcommand(t *testing.T) {
 	}
 }
 
+// TestNewConfigCmd_HasPathSubcommand verifies path subcommand is registered.
+func TestNewConfigCmd_HasPathSubcommand(t *testing.T) {
+	cmd := NewConfigCmd()
+
+	// Verify path subcommand exists
+	subcommands := cmd.Commands()
+	found := false
+	for _, sub := range subcommands {
+		if sub.Use == "path" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected 'path' subcommand to be registered")
+	}
+}
+
 // containsSubstring checks if a string contains a substring.
 func containsSubstring(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
