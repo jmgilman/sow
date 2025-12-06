@@ -316,6 +316,9 @@ Spawn the decomposer for the task:
 # Spawn decomposer for task 001
 sow agent spawn 001
 
+# Spawn with additional context via --prompt
+sow agent spawn 001 --prompt "Focus on API contracts and integration points"
+
 # The decomposer will self-initialize via sow prompt guidance/decomposer/base
 ```
 

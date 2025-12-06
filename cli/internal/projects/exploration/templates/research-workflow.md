@@ -153,7 +153,9 @@ Now spawning researcher agent...
 ```
 
 ```bash
+# Spawn with optional custom prompt for additional context
 sow agent spawn 020
+sow agent spawn 020 --prompt "Focus on security implications"
 ```
 
 The agent will:

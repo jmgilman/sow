@@ -12,6 +12,7 @@ import (
 	"github.com/jmgilman/sow/cli/internal/agents"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/jmgilman/sow/cli/schemas/project"
 	"gopkg.in/yaml.v3"
 
@@ -23,8 +24,8 @@ import (
 func TestNewResumeCmd_Structure(t *testing.T) {
 	cmd := newResumeCmd()
 
-	if cmd.Use != "resume <task-id> <prompt>" {
-		t.Errorf("expected Use='resume <task-id> <prompt>', got '%s'", cmd.Use)
+	if cmd.Use != "resume [task-id] <prompt>" {
+		t.Errorf("expected Use='resume [task-id] <prompt>', got '%s'", cmd.Use)
 	}
 
 	if cmd.Short == "" {
@@ -36,11 +37,11 @@ func TestNewResumeCmd_Structure(t *testing.T) {
 	}
 }
 
-// TestNewResumeCmd_RequiresExactlyTwoArgs verifies resume requires task ID and prompt.
-func TestNewResumeCmd_RequiresExactlyTwoArgs(t *testing.T) {
+// TestNewResumeCmd_AcceptsOneOrTwoArgs verifies resume accepts 1 or 2 args.
+func TestNewResumeCmd_AcceptsOneOrTwoArgs(t *testing.T) {
 	cmd := newResumeCmd()
 
-	// The Args field should be set to require exactly 2 args
+	// The Args field should be set to accept 1 or 2 args
 	if cmd.Args == nil {
 		t.Error("expected Args to be set")
 	}
@@ -53,6 +54,54 @@ func TestNewResumeCmd_HasPhaseFlag(t *testing.T) {
 	phaseFlag := cmd.Flags().Lookup("phase")
 	if phaseFlag == nil {
 		t.Error("expected --phase flag to be defined")
+	}
+}
+
+// TestNewResumeCmd_HasAgentFlag verifies --agent flag exists.
+func TestNewResumeCmd_HasAgentFlag(t *testing.T) {
+	cmd := newResumeCmd()
+
+	agentFlag := cmd.Flags().Lookup("agent")
+	if agentFlag == nil {
+		t.Error("expected --agent flag to be defined")
+	}
+}
+
+// TestRunResume_TaskModeRequiresTwoArgs tests validation in task mode.
+func TestRunResume_TaskModeRequiresTwoArgs(t *testing.T) {
+	sowCtx, _, cleanup := setupTestProject(t, []project.TaskState{})
+	defer cleanup()
+
+	cmd := newResumeCmd()
+	ctx := cmdutil.WithContext(context.Background(), sowCtx)
+	cmd.SetContext(ctx)
+
+	// Run with only one arg in task mode (no --agent flag)
+	err := runResume(cmd, []string{"010"}, "", "")
+	if err == nil {
+		t.Fatal("expected error when task mode has only one arg")
+	}
+	if !strings.Contains(err.Error(), "requires two arguments") {
+		t.Errorf("expected 'requires two arguments' error, got: %v", err)
+	}
+}
+
+// TestRunResume_TasklessModeRequiresOneArg tests validation in taskless mode.
+func TestRunResume_TasklessModeRequiresOneArg(t *testing.T) {
+	sowCtx, _, cleanup := setupTestProject(t, []project.TaskState{})
+	defer cleanup()
+
+	cmd := newResumeCmd()
+	ctx := cmdutil.WithContext(context.Background(), sowCtx)
+	cmd.SetContext(ctx)
+
+	// Run with two args in taskless mode
+	err := runResume(cmd, []string{"arg1", "arg2"}, "", "planner")
+	if err == nil {
+		t.Fatal("expected error when taskless mode has two args")
+	}
+	if !strings.Contains(err.Error(), "requires exactly one argument") {
+		t.Errorf("expected 'requires exactly one argument' error, got: %v", err)
 	}
 }
 
@@ -69,9 +118,14 @@ func TestRunResume_TaskNotFound(t *testing.T) {
 	}
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newResumeCmd()
@@ -79,7 +133,7 @@ func TestRunResume_TaskNotFound(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run with non-existent task
-	err := runResume(cmd, []string{"999", "feedback prompt"}, "implementation")
+	err := runResume(cmd, []string{"999", "feedback prompt"}, "implementation", "")
 	if err == nil {
 		t.Fatal("expected error for task not found")
 	}
@@ -121,9 +175,14 @@ func TestRunResume_NoSessionID(t *testing.T) {
 	}
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newResumeCmd()
@@ -131,7 +190,7 @@ func TestRunResume_NoSessionID(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run resume on task with no session
-	err := runResume(cmd, []string{"010", "feedback prompt"}, "implementation")
+	err := runResume(cmd, []string{"010", "feedback prompt"}, "implementation", "")
 	if err == nil {
 		t.Fatal("expected error for missing session")
 	}
@@ -173,9 +232,14 @@ func TestRunResume_ExecutorNoResumption(t *testing.T) {
 	}
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newResumeCmd()
@@ -183,7 +247,7 @@ func TestRunResume_ExecutorNoResumption(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run resume
-	err := runResume(cmd, []string{"010", "feedback prompt"}, "implementation")
+	err := runResume(cmd, []string{"010", "feedback prompt"}, "implementation", "")
 	if err == nil {
 		t.Fatal("expected error for no resumption support")
 	}
@@ -232,9 +296,14 @@ func TestRunResume_CallsExecutorResume(t *testing.T) {
 	}
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newResumeCmd()
@@ -242,7 +311,7 @@ func TestRunResume_CallsExecutorResume(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run resume
-	err := runResume(cmd, []string{"010", "feedback prompt"}, "implementation")
+	err := runResume(cmd, []string{"010", "feedback prompt"}, "implementation", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -296,9 +365,14 @@ func TestRunResume_PassesCorrectPrompt(t *testing.T) {
 	}
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newResumeCmd()
@@ -307,7 +381,7 @@ func TestRunResume_PassesCorrectPrompt(t *testing.T) {
 
 	// Test with a multi-word prompt
 	multiWordPrompt := "Use RS256 algorithm for JWT signing. Please add error handling."
-	err := runResume(cmd, []string{"020", multiWordPrompt}, "implementation")
+	err := runResume(cmd, []string{"020", multiWordPrompt}, "implementation", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -342,7 +416,7 @@ func TestRunResume_NotInitialized(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run resume
-	err = runResume(cmd, []string{"010", "feedback"}, "")
+	err = runResume(cmd, []string{"010", "feedback"}, "", "")
 	if err == nil {
 		t.Fatal("expected error when sow not initialized")
 	}
@@ -382,7 +456,7 @@ func TestRunResume_NoProject(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run resume
-	err = runResume(cmd, []string{"010", "feedback"}, "")
+	err = runResume(cmd, []string{"010", "feedback"}, "", "")
 	if err == nil {
 		t.Fatal("expected error when no project exists")
 	}
@@ -425,9 +499,14 @@ func TestRunResume_WithPhaseFlag(t *testing.T) {
 	}
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newResumeCmd()
@@ -435,7 +514,7 @@ func TestRunResume_WithPhaseFlag(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run resume with explicit phase
-	err := runResume(cmd, []string{"010", "feedback"}, "implementation")
+	err := runResume(cmd, []string{"010", "feedback"}, "implementation", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -477,9 +556,14 @@ func TestRunResume_ReturnsExecutorError(t *testing.T) {
 	}
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newResumeCmd()
@@ -487,7 +571,7 @@ func TestRunResume_ReturnsExecutorError(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run resume
-	err := runResume(cmd, []string{"010", "feedback"}, "implementation")
+	err := runResume(cmd, []string{"010", "feedback"}, "implementation", "")
 	if err == nil {
 		t.Fatal("expected error from executor to be propagated")
 	}
@@ -529,9 +613,14 @@ func TestRunResume_DoesNotModifySessionID(t *testing.T) {
 	}
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newResumeCmd()
@@ -539,7 +628,7 @@ func TestRunResume_DoesNotModifySessionID(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run resume
-	err := runResume(cmd, []string{"010", "feedback"}, "implementation")
+	err := runResume(cmd, []string{"010", "feedback"}, "implementation", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -562,5 +651,134 @@ func TestRunResume_DoesNotModifySessionID(t *testing.T) {
 	if phase.Tasks[0].Session_id != existingSessionID {
 		t.Errorf("expected session ID to remain '%s', got '%s'",
 			existingSessionID, phase.Tasks[0].Session_id)
+	}
+}
+
+// TestRunResume_TasklessMode tests resuming without task.
+func TestRunResume_TasklessMode(t *testing.T) {
+	sowCtx, tmpDir, cleanup := setupTestProject(t, []project.TaskState{})
+	defer cleanup()
+
+	// Manually add agent_sessions to state
+	existingSessionID := "existing-planner-session"
+	stateData, _ := os.ReadFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"))
+	var savedState project.ProjectState
+	_ = yaml.Unmarshal(stateData, &savedState)
+	savedState.Agent_sessions = map[string]string{"planner": existingSessionID}
+	newData, _ := yaml.Marshal(savedState)
+	_ = os.WriteFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"), newData, 0644)
+
+	var resumedSessionID string
+	var resumedPrompt string
+	mockExec := &agents.MockExecutor{
+		SupportsResumptionFunc: func() bool { return true },
+		ResumeFunc: func(_ context.Context, sessionID string, prompt string) error {
+			resumedSessionID = sessionID
+			resumedPrompt = prompt
+			return nil
+		},
+	}
+
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
+
+	cmd := newResumeCmd()
+	ctx := cmdutil.WithContext(context.Background(), sowCtx)
+	cmd.SetContext(ctx)
+
+	// Run taskless resume
+	err := runResume(cmd, []string{"Continue planning"}, "", "planner")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify correct session ID used
+	if resumedSessionID != existingSessionID {
+		t.Errorf("expected session ID %s, got %s", existingSessionID, resumedSessionID)
+	}
+
+	// Verify prompt
+	if resumedPrompt != "Continue planning" {
+		t.Errorf("expected prompt 'Continue planning', got '%s'", resumedPrompt)
+	}
+}
+
+// TestRunResume_TasklessModeNoSession tests error when no session exists.
+func TestRunResume_TasklessModeNoSession(t *testing.T) {
+	sowCtx, _, cleanup := setupTestProject(t, []project.TaskState{})
+	defer cleanup()
+
+	mockExec := &agents.MockExecutor{
+		SupportsResumptionFunc: func() bool { return true },
+	}
+
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
+
+	cmd := newResumeCmd()
+	ctx := cmdutil.WithContext(context.Background(), sowCtx)
+	cmd.SetContext(ctx)
+
+	// Run taskless resume without existing session
+	err := runResume(cmd, []string{"Continue"}, "", "planner")
+	if err == nil {
+		t.Fatal("expected error for missing session")
+	}
+	if !strings.Contains(err.Error(), "no session found") {
+		t.Errorf("expected 'no session found' error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "planner") {
+		t.Errorf("expected error to mention agent name 'planner', got: %v", err)
+	}
+}
+
+// TestRunResume_TasklessModeNoResumptionSupport tests error when executor doesn't support resume.
+func TestRunResume_TasklessModeNoResumptionSupport(t *testing.T) {
+	sowCtx, tmpDir, cleanup := setupTestProject(t, []project.TaskState{})
+	defer cleanup()
+
+	// Add agent session
+	stateData, _ := os.ReadFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"))
+	var savedState project.ProjectState
+	_ = yaml.Unmarshal(stateData, &savedState)
+	savedState.Agent_sessions = map[string]string{"planner": "some-session"}
+	newData, _ := yaml.Marshal(savedState)
+	_ = os.WriteFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"), newData, 0644)
+
+	mockExec := &agents.MockExecutor{
+		SupportsResumptionFunc: func() bool { return false },
+	}
+
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
+
+	cmd := newResumeCmd()
+	ctx := cmdutil.WithContext(context.Background(), sowCtx)
+	cmd.SetContext(ctx)
+
+	err := runResume(cmd, []string{"Continue"}, "", "planner")
+	if err == nil {
+		t.Fatal("expected error for no resumption support")
+	}
+	if !strings.Contains(err.Error(), "does not support session resumption") {
+		t.Errorf("expected 'does not support session resumption' error, got: %v", err)
 	}
 }

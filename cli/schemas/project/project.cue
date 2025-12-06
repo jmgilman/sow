@@ -37,6 +37,12 @@ import "time"
 	// statechart tracks the current position in the project state machine.
 	// This determines which operations are valid at any given time.
 	statechart: #StatechartState
+
+	// agent_sessions maps agent names to active session IDs for taskless spawns.
+	// Used when orchestrator spawns agents directly (e.g., planner, researcher)
+	// without an associated task. Keys are agent names, values are session UUIDs.
+	// Example: {"planner": "550e8400-e29b-41d4-a716-446655440000"}
+	agent_sessions?: [string]: string
 }
 
 // StatechartState represents the current position in a project's state machine.

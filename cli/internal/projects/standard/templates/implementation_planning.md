@@ -26,19 +26,13 @@ WORKFLOW:
    - Create comprehensive task description files
    - Identify relevant inputs for each task
 
-   First, create a planning task:
    ```bash
-   sow task add "Create implementation task breakdown" --agent planner --id 001
-   ```
-
-   Then spawn the planner:
-   ```bash
-   sow agent spawn 001
+   sow agent spawn --agent planner --prompt "<optional additional prompt>"
    ```
 
    The planner receives:
    - Agent prompt template (embedded in sow)
-   - Task location: `.sow/project/phases/implementation/tasks/001/`
+   - Task location (if task mode): `.sow/project/phases/implementation/tasks/001/`
    - Project context from description.md
 
    The planner will self-initialize by running `sow prompt guidance/planner/base`

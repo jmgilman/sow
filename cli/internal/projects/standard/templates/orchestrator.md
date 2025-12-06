@@ -291,6 +291,19 @@ When providing feedback to agents:
    ```
    Worker continues with full conversation context and reads new feedback.
 
+### Taskless Agent Spawning
+
+For agents that operate outside of tasks (e.g., planner creating tasks):
+```bash
+# Spawn planner without a task
+sow agent spawn --agent planner --prompt "Create implementation plan for auth feature"
+
+# Resume taskless session with additional context
+sow agent resume --agent planner "Focus on the login flow first"
+```
+
+Session IDs for taskless agents are stored in project state under `agent_sessions`.
+
 ---
 
 ## State Transition Logic
