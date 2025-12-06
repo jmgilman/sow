@@ -223,7 +223,7 @@ func TestRunResume_CallsExecutorResume(t *testing.T) {
 	var resumedPrompt string
 	mockExec := &agents.MockExecutor{
 		SupportsResumptionFunc: func() bool { return true },
-		ResumeFunc: func(ctx context.Context, sessionID string, prompt string) error {
+		ResumeFunc: func(_ context.Context, sessionID string, prompt string) error {
 			resumeCalled = true
 			resumedSessionID = sessionID
 			resumedPrompt = prompt
@@ -289,7 +289,7 @@ func TestRunResume_PassesCorrectPrompt(t *testing.T) {
 	var capturedPrompt string
 	mockExec := &agents.MockExecutor{
 		SupportsResumptionFunc: func() bool { return true },
-		ResumeFunc: func(ctx context.Context, sessionID string, prompt string) error {
+		ResumeFunc: func(_ context.Context, _ string, prompt string) error {
 			capturedPrompt = prompt
 			return nil
 		},
@@ -325,7 +325,7 @@ func TestRunResume_NotInitialized(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Initialize git repo (required for sow.NewContext)
 	initGitRepo(t, tmpDir)
@@ -359,7 +359,7 @@ func TestRunResume_NoProject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Initialize git repo (required for sow.NewContext)
 	initGitRepo(t, tmpDir)
@@ -418,7 +418,7 @@ func TestRunResume_WithPhaseFlag(t *testing.T) {
 	var resumeCalled bool
 	mockExec := &agents.MockExecutor{
 		SupportsResumptionFunc: func() bool { return true },
-		ResumeFunc: func(ctx context.Context, sessionID string, prompt string) error {
+		ResumeFunc: func(_ context.Context, _ string, _ string) error {
 			resumeCalled = true
 			return nil
 		},
@@ -471,7 +471,7 @@ func TestRunResume_ReturnsExecutorError(t *testing.T) {
 	// Create mock executor that returns an error from Resume
 	mockExec := &agents.MockExecutor{
 		SupportsResumptionFunc: func() bool { return true },
-		ResumeFunc: func(ctx context.Context, sessionID string, prompt string) error {
+		ResumeFunc: func(_ context.Context, _ string, _ string) error {
 			return fmt.Errorf("executor resume error")
 		},
 	}
@@ -523,7 +523,7 @@ func TestRunResume_DoesNotModifySessionID(t *testing.T) {
 	// Create mock executor that supports resumption
 	mockExec := &agents.MockExecutor{
 		SupportsResumptionFunc: func() bool { return true },
-		ResumeFunc: func(ctx context.Context, sessionID string, prompt string) error {
+		ResumeFunc: func(_ context.Context, _ string, _ string) error {
 			return nil
 		},
 	}

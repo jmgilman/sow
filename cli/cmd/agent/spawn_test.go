@@ -172,7 +172,7 @@ func setupTestProject(t *testing.T, tasks []project.TaskState) (*sow.Context, st
 	// Create .sow directory
 	sowDir := filepath.Join(tmpDir, ".sow")
 	if err := os.MkdirAll(filepath.Join(sowDir, "project"), 0755); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to create .sow/project: %v", err)
 	}
 
@@ -205,13 +205,13 @@ func setupTestProject(t *testing.T, tasks []project.TaskState) (*sow.Context, st
 	// Write state.yaml
 	stateData, err := yaml.Marshal(projectState)
 	if err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to marshal project state: %v", err)
 	}
 
 	statePath := filepath.Join(sowDir, "project", "state.yaml")
 	if err := os.WriteFile(statePath, stateData, 0644); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to write state.yaml: %v", err)
 	}
 
@@ -219,19 +219,19 @@ func setupTestProject(t *testing.T, tasks []project.TaskState) (*sow.Context, st
 	for _, task := range tasks {
 		taskDir := filepath.Join(sowDir, "project", "phases", task.Phase, "tasks", task.Id)
 		if err := os.MkdirAll(filepath.Join(taskDir, "feedback"), 0755); err != nil {
-			os.RemoveAll(tmpDir)
+			_ = os.RemoveAll(tmpDir)
 			t.Fatalf("failed to create task dir: %v", err)
 		}
 		// Create description.md
 		descPath := filepath.Join(taskDir, "description.md")
 		if err := os.WriteFile(descPath, []byte("# Test Task\n"), 0644); err != nil {
-			os.RemoveAll(tmpDir)
+			_ = os.RemoveAll(tmpDir)
 			t.Fatalf("failed to create description.md: %v", err)
 		}
 		// Create log.md
 		logPath := filepath.Join(taskDir, "log.md")
 		if err := os.WriteFile(logPath, []byte("# Task Log\n"), 0644); err != nil {
-			os.RemoveAll(tmpDir)
+			_ = os.RemoveAll(tmpDir)
 			t.Fatalf("failed to create log.md: %v", err)
 		}
 	}
@@ -239,12 +239,12 @@ func setupTestProject(t *testing.T, tasks []project.TaskState) (*sow.Context, st
 	// Create sow.Context
 	ctx, err := sow.NewContext(tmpDir)
 	if err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("failed to create sow context: %v", err)
 	}
 
 	cleanup := func() {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 	}
 
 	return ctx, tmpDir, cleanup
@@ -366,7 +366,7 @@ func TestRunSpawn_GeneratesSessionID(t *testing.T) {
 	// Track if spawn was called
 	var spawnedSessionID string
 	mockExec := &agents.MockExecutor{
-		SpawnFunc: func(ctx context.Context, agent *agents.Agent, prompt string, sessionID string) error {
+		SpawnFunc: func(_ context.Context, _ *agents.Agent, _ string, sessionID string) error {
 			spawnedSessionID = sessionID
 			return nil
 		},
@@ -445,7 +445,7 @@ func TestRunSpawn_PreservesExistingSessionID(t *testing.T) {
 	// Track what session ID was passed to spawn
 	var spawnedSessionID string
 	mockExec := &agents.MockExecutor{
-		SpawnFunc: func(ctx context.Context, agent *agents.Agent, prompt string, sessionID string) error {
+		SpawnFunc: func(_ context.Context, _ *agents.Agent, _ string, sessionID string) error {
 			spawnedSessionID = sessionID
 			return nil
 		},
@@ -500,7 +500,7 @@ func TestRunSpawn_PersistsSessionBeforeSpawn(t *testing.T) {
 	var callOrder []string
 
 	mockExec := &agents.MockExecutor{
-		SpawnFunc: func(ctx context.Context, agent *agents.Agent, prompt string, sessionID string) error {
+		SpawnFunc: func(_ context.Context, _ *agents.Agent, _ string, sessionID string) error {
 			// At the time spawn is called, check if state was already saved
 			stateData, err := os.ReadFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"))
 			if err != nil {
@@ -518,11 +518,12 @@ func TestRunSpawn_PersistsSessionBeforeSpawn(t *testing.T) {
 			}
 
 			// Verify session ID was persisted BEFORE spawn was called
-			if phase.Tasks[0].Session_id == "" {
+			switch phase.Tasks[0].Session_id {
+			case "":
 				callOrder = append(callOrder, "spawn_without_saved_session")
-			} else if phase.Tasks[0].Session_id == sessionID {
+			case sessionID:
 				callOrder = append(callOrder, "spawn_with_saved_session")
-			} else {
+			default:
 				callOrder = append(callOrder, "spawn_with_different_session")
 			}
 
@@ -578,7 +579,7 @@ func TestRunSpawn_CallsExecutorSpawn(t *testing.T) {
 	var spawnedAgent *agents.Agent
 	var spawnedPrompt string
 	mockExec := &agents.MockExecutor{
-		SpawnFunc: func(ctx context.Context, agent *agents.Agent, prompt string, sessionID string) error {
+		SpawnFunc: func(_ context.Context, agent *agents.Agent, prompt string, _ string) error {
 			spawnCalled = true
 			spawnedAgent = agent
 			spawnedPrompt = prompt
@@ -648,7 +649,7 @@ func TestRunSpawn_BuildsCorrectPrompt(t *testing.T) {
 	// Track spawn call
 	var spawnedPrompt string
 	mockExec := &agents.MockExecutor{
-		SpawnFunc: func(ctx context.Context, agent *agents.Agent, prompt string, sessionID string) error {
+		SpawnFunc: func(_ context.Context, _ *agents.Agent, prompt string, _ string) error {
 			spawnedPrompt = prompt
 			return nil
 		},
@@ -685,7 +686,7 @@ func TestRunSpawn_NotInitialized(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Initialize git repo (required for sow.NewContext)
 	initGitRepo(t, tmpDir)
@@ -719,7 +720,7 @@ func TestRunSpawn_NoProject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Initialize git repo (required for sow.NewContext)
 	initGitRepo(t, tmpDir)
@@ -776,7 +777,7 @@ func TestRunSpawn_WithPhaseFlag(t *testing.T) {
 	// Track spawn call
 	var spawnedPrompt string
 	mockExec := &agents.MockExecutor{
-		SpawnFunc: func(ctx context.Context, agent *agents.Agent, prompt string, sessionID string) error {
+		SpawnFunc: func(_ context.Context, _ *agents.Agent, prompt string, _ string) error {
 			spawnedPrompt = prompt
 			return nil
 		},
