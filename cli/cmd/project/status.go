@@ -5,6 +5,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	projschema "github.com/jmgilman/sow/cli/schemas/project"
 	"github.com/spf13/cobra"
 )
 
@@ -55,15 +56,9 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 		}
 
 		// Count completed tasks
-		completed := 0
-		total := len(phase.Tasks)
-		for _, task := range phase.Tasks {
-			if task.Status == "completed" {
-				completed++
-			}
-		}
+		completed, total := countTasksByStatus(phase)
 
-		fmt.Fprintf(out, "  %s  [%s]  %d/%d tasks completed\n", phaseName, phase.Status, completed, total)
+		fmt.Fprint(out, formatPhaseLine(phaseName, phase.Status, completed, total))
 	}
 	fmt.Fprintln(out)
 
@@ -72,11 +67,39 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	if phase, exists := proj.Phases[currentPhase]; exists && len(phase.Tasks) > 0 {
 		fmt.Fprintf(out, "Tasks (%s):\n", currentPhase)
 		for _, task := range phase.Tasks {
-			fmt.Fprintf(out, "  [%s]  %s  %s\n", task.Status, task.Id, task.Name)
+			fmt.Fprint(out, formatTaskLine(task.Status, task.Id, task.Name))
 		}
 	}
 
 	return nil
+}
+
+// countTasksByStatus counts completed and total tasks in a phase.
+func countTasksByStatus(phase projschema.PhaseState) (completed, total int) {
+	for _, task := range phase.Tasks {
+		total++
+		if task.Status == "completed" {
+			completed++
+		}
+	}
+	return
+}
+
+// formatPhaseLine formats a phase line with consistent alignment.
+// Format: "  {phase_name}  [{status}]  {X}/{Y} tasks completed\n"
+// Phase names are padded to 15 chars (longest is "implementation" at 14).
+// Status is padded to 11 chars (longest is "in_progress" at 11).
+func formatPhaseLine(phaseName, status string, completed, total int) string {
+	return fmt.Sprintf("  %-15s  [%-11s]  %d/%d tasks completed\n",
+		phaseName, status, completed, total)
+}
+
+// formatTaskLine formats a task line with consistent alignment.
+// Format: "  [{status}]  {id}  {name}\n"
+// Status is padded to 12 chars (longest is "needs_review" at 12).
+// ID is always 3 digits.
+func formatTaskLine(status, id, name string) string {
+	return fmt.Sprintf("  [%-12s]  %s  %s\n", status, id, name)
 }
 
 // inferCurrentPhase extracts the phase name from a statechart state.

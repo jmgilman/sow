@@ -3,7 +3,7 @@ type: standard
 branch: feat/testing
 description: testing
 created_at: 2025-12-05T23:09:13.391101-08:00
-updated_at: 2025-12-06T13:28:39.619881-08:00
+updated_at: 2025-12-06T14:52:03.345328-08:00
 phases:
     finalize:
         status: pending
@@ -121,16 +121,41 @@ phases:
             - id: "020"
               name: Status output formatting
               phase: implementation
-              status: pending
+              status: completed
               created_at: 2025-12-06T12:54:23.580002-08:00
               started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-12-06T12:54:23.580002-08:00
+              updated_at: 2025-12-06T14:52:03.345328-08:00
               completed_at: 0001-01-01T00:00:00Z
               iteration: 1
               assigned_agent: implementer
-              session_id: ""
-              inputs: []
-              outputs: []
+              session_id: cbbb8f4c-dd90-4eca-81ab-b6d770e61a4b
+              inputs:
+                - type: reference
+                  path: cli/cmd/project/status.go
+                  approved: false
+                  created_at: 2025-12-06T14:45:51.652799-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/delete.go
+                  approved: false
+                  created_at: 2025-12-06T14:45:51.663929-08:00
+                  metadata: {}
+                - type: feedback
+                  path: project/phases/implementation/tasks/020/feedback/001.md
+                  approved: false
+                  created_at: 2025-12-06T14:52:03.33413-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: cli/cmd/project/status.go
+                  approved: false
+                  created_at: 2025-12-06T14:50:49.264404-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/cmd/project/status_test.go
+                  approved: false
+                  created_at: 2025-12-06T14:50:53.307044-08:00
+                  metadata: {}
               metadata: {}
             - id: "030"
               name: Status command tests
@@ -160,5 +185,5 @@ phases:
         tasks: []
 statechart:
     current_state: ImplementationExecuting
-    updated_at: 2025-12-06T13:28:39.619881-08:00
+    updated_at: 2025-12-06T14:52:03.345328-08:00
 agent_sessions: {}
