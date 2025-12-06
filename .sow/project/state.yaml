@@ -3,7 +3,7 @@ type: standard
 branch: feat/agent-cli-commands-101
 description: Agent CLI Commands
 created_at: 2025-12-05T15:53:56.339369-08:00
-updated_at: 2025-12-05T16:57:43.569685-08:00
+updated_at: 2025-12-05T17:02:00.104991-08:00
 phases:
     finalize:
         status: pending
@@ -18,11 +18,11 @@ phases:
         outputs: []
         tasks: []
     implementation:
-        status: in_progress
+        status: completed
         enabled: false
         created_at: 2025-12-05T15:53:56.339369-08:00
         started_at: 2025-12-05T15:53:56.339408-08:00
-        completed_at: 0001-01-01T00:00:00Z
+        completed_at: 2025-12-05T16:58:08.589383-08:00
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata:
@@ -323,17 +323,22 @@ phases:
                   metadata: {}
               metadata: {}
     review:
-        status: pending
+        status: in_progress
         enabled: false
         created_at: 2025-12-05T15:53:56.339369-08:00
-        started_at: 0001-01-01T00:00:00Z
+        started_at: 2025-12-05T16:58:08.589384-08:00
         completed_at: 0001-01-01T00:00:00Z
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata: {}
         inputs: []
-        outputs: []
+        outputs:
+            - type: review
+              path: phases/review/reports/001.md
+              approved: true
+              created_at: 2025-12-05T17:02:00.104991-08:00
+              metadata: {}
         tasks: []
 statechart:
-    current_state: ImplementationExecuting
-    updated_at: 2025-12-05T16:57:43.569684-08:00
+    current_state: ReviewActive
+    updated_at: 2025-12-05T17:02:00.104991-08:00
