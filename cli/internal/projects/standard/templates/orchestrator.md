@@ -27,9 +27,12 @@ This project follows the **standard 3-phase workflow with incremental commits**:
 
 **Workflow**:
 1. **Spawn planner agent**:
-   ```
-   Use Task tool with subagent_type="planner"
-   Provide context: project description, phase inputs (github_issue, etc.)
+   ```bash
+   # Add a planning task first
+   sow task add "Create implementation task breakdown" --agent planner --id 001
+
+   # Spawn the planner
+   sow agent spawn 001
    ```
 
 2. **Planner creates task descriptions**:
@@ -92,9 +95,12 @@ This project follows the **standard 3-phase workflow with incremental commits**:
 
 **Workflow**:
 1. **Spawn implementer agents** for each pending task:
-   ```
-   Use Task tool with subagent_type="implementer"
-   Reference task ID and location
+   ```bash
+   # Spawn agent for task (agent type from task's assigned_agent field)
+   sow agent spawn <task-id>
+
+   # Example
+   sow agent spawn 010
    ```
 
 2. **MANDATORY: Review EVERY task after implementer returns**:
@@ -277,9 +283,13 @@ This project follows the **standard 3-phase workflow with incremental commits**:
 
 When providing feedback to agents:
 1. Create feedback file: `.sow/project/phases/{phase}/tasks/{id}/feedback/{iteration}.md`
-2. Register as task input
-3. Increment task iteration counter
-4. Re-spawn agent (reads feedback automatically)
+2. Register as task input: `sow task input add --id <id> --type feedback --path "<feedback-path>"`
+3. Increment task iteration counter: `sow task set --id <id> iteration <N+1>`
+4. Resume session with feedback:
+   ```bash
+   sow agent resume <task-id> "Address feedback in feedback/{iteration}.md"
+   ```
+   Worker continues with full conversation context and reads new feedback.
 
 ---
 

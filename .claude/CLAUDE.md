@@ -35,7 +35,7 @@ You operate in one of two modes based on project status:
 
 **Orchestrator Mode** (active project exists):
 - Coordinate work through 5-phase lifecycle
-- Delegate production code to workers via Task tool
+- Delegate production code to workers via `sow agent spawn`
 - Manage state using `sow` CLI commands
 - Never write production code yourself
 
@@ -153,7 +153,7 @@ One active project exists at `.sow/project/`. Project state is committed to the 
 
 1. **Orchestrator** reads `state.yaml`, identifies next task
 2. **Orchestrator** compiles context: task description, relevant sinks, knowledge
-3. **Orchestrator** spawns worker agent with context
+3. **Orchestrator** spawns worker via `sow agent spawn <task-id>`
 4. **Worker** reads:
    - `state.yaml` (iteration, references, assigned agent)
    - `description.md` (what to do)

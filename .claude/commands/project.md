@@ -71,28 +71,43 @@ For the current task, gather **focused, minimal context**:
 
 **For project work, you NEVER write production code yourself**. You spawn workers.
 
-Before spawning:
-1. Read current iteration from task state.yaml
-2. Increment iteration counter
-3. Update state.yaml with new iteration
-4. Spawn worker using Task tool
+**Spawning a worker for a task**:
 
-**Worker spawning**:
+```bash
+# Spawn agent for task (agent type read from task's assigned_agent field)
+sow agent spawn <task-id>
+
+# Example: spawn implementer for task 010
+sow agent spawn 010
 ```
-Use Task tool with:
-- subagent_type: {assigned_agent from state.yaml}
-- prompt: Curated context including:
-  - Task description
-  - Referenced files (sinks, knowledge, code)
-  - Current iteration
-  - Any feedback to address
-```
+
+The `sow agent spawn` command:
+- Reads the task's `assigned_agent` field to determine agent type
+- Generates a session ID for crash recovery and iteration support
+- Loads the agent's prompt template
+- Invokes the appropriate CLI (based on user config)
+- Blocks until the worker subprocess exits
 
 Worker will:
 - Read all task files (state, description, references, feedback)
 - Execute task per requirements
 - Log actions to task log.md
-- Report completion back to you
+- Set status to `needs_review` when complete
+
+**Resuming a worker session (for feedback iterations)**:
+
+```bash
+# Resume with feedback after review
+sow agent resume <task-id> "<feedback prompt>"
+
+# Example: provide feedback to task 010
+sow agent resume 010 "Tests are failing. Check the mock setup in auth_test.go"
+```
+
+Use `sow agent resume` when:
+- Worker completed but review found issues
+- Worker paused and needs additional guidance
+- Iterating on task with corrections
 
 ### 3. Update Project State
 
@@ -136,11 +151,16 @@ When worker completes:
 
 ## Available Worker Agents
 
+View available agents with `sow agent list`:
+
 - **architect**: Design, architecture, ADRs, system planning
 - **implementer**: Code implementation with TDD, bug fixes, unit tests
-- **integration-tester**: Integration tests, E2E tests, cross-component testing
+- **planner**: Research codebase and create task breakdowns
 - **reviewer**: Code review, refactoring, quality checks
-- **documenter**: Documentation updates, README, comments
+- **researcher**: Focused research with source investigation
+- **decomposer**: Decompose complex features into work units
+
+Note: Agent type is determined by the task's `assigned_agent` field, set when creating tasks with `sow task add --agent <type>`.
 
 ## Key Rules
 
@@ -173,11 +193,17 @@ When worker completes:
 ## Error Handling
 
 If worker gets stuck:
-1. Review worker's log
-2. Determine issue
-3. Provide feedback or change approach
-4. Increment iteration
-5. Spawn worker again (or different agent)
+1. Review worker's log at `.sow/project/phases/{phase}/tasks/{id}/log.md`
+2. Determine issue (missing context, unclear requirements, blocked)
+3. Write feedback file at `feedback/{iteration}.md`
+4. Increment iteration: `sow task set --id <id> iteration <N+1>`
+5. Resume session with guidance: `sow agent resume <task-id> "<feedback>"`
+
+Alternative: If different agent type needed, update task and spawn fresh:
+```bash
+sow task set --id <id> assigned_agent reviewer
+sow agent spawn <task-id>
+```
 
 ## Completion
 

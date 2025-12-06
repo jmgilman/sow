@@ -246,17 +246,20 @@ Created description.md for task 020.
 Added relevant inputs to task.
 
 Now spawning researcher agent...
-[Use Task tool to spawn researcher agent for task 020]
+```
+
+```bash
+sow agent spawn 020
+```
 
 The agent will:
 1. Review task inputs (reference materials you provided)
 2. Read description.md (research requirements)
-3. Load researcher guidance
+3. Load researcher guidance via `sow prompt guidance/researcher/base`
 4. Conduct research following guidance
 5. Document findings with citations
 6. Register findings as task output
 7. Complete the task
-```
 
 **Either way (direct or spawned)**:
 - Findings documented in task directory: `.sow/project/phases/exploration/tasks/{id}/findings.md`

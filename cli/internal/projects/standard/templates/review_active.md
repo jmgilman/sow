@@ -16,27 +16,24 @@ WORKFLOW:
 
   1. SPAWN REVIEWER AGENT
 
-     Use the Task tool to spawn a specialized reviewer agent:
-
+     First, create a review task:
+     ```bash
+     sow task add "Review implementation" --agent reviewer --id 001 --phase review
      ```
-     Use Task tool with subagent_type="reviewer"
 
-     Provide project context:
-     "Review implementation for project: {{.Name}}
-
-     Project location: .sow/project/
-     Implementation phase has {{len .Phases.implementation.Tasks}} completed tasks.
+     Then spawn the reviewer:
+     ```bash
+     sow agent spawn 001 --phase review
+     ```
 
      The reviewer agent will:
+     - Read task context from `.sow/project/phases/review/tasks/001/`
      - Understand original project goals
      - Review all code changes
      - Check for duplicated/incomplete work
      - Validate test quality
      - Run test suite
      - Generate comprehensive review report with PASS/FAIL assessment
-
-     Execute autonomous review."
-     ```
 
   2. WAIT FOR REVIEWER COMPLETION
 
