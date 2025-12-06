@@ -60,8 +60,9 @@ func TestNewAgentCmd_HasSubcommands(t *testing.T) {
 
 	// Check for expected subcommands
 	expectedSubcmds := map[string]bool{
-		"list":                      false,
-		"spawn <agent-name> <task-id>": false,
+		"list":             false,
+		"spawn <task-id>":  false,
+		"resume <task-id> <prompt>": false,
 	}
 
 	for _, sub := range subcommands {

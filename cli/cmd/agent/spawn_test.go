@@ -23,8 +23,8 @@ import (
 func TestNewSpawnCmd_Structure(t *testing.T) {
 	cmd := newSpawnCmd()
 
-	if cmd.Use != "spawn <agent-name> <task-id>" {
-		t.Errorf("expected Use='spawn <agent-name> <task-id>', got '%s'", cmd.Use)
+	if cmd.Use != "spawn <task-id>" {
+		t.Errorf("expected Use='spawn <task-id>', got '%s'", cmd.Use)
 	}
 
 	if cmd.Short == "" {
@@ -36,11 +36,11 @@ func TestNewSpawnCmd_Structure(t *testing.T) {
 	}
 }
 
-// TestNewSpawnCmd_RequiresExactlyTwoArgs verifies spawn requires agent name and task ID.
-func TestNewSpawnCmd_RequiresExactlyTwoArgs(t *testing.T) {
+// TestNewSpawnCmd_RequiresExactlyOneArg verifies spawn requires task ID.
+func TestNewSpawnCmd_RequiresExactlyOneArg(t *testing.T) {
 	cmd := newSpawnCmd()
 
-	// The Args field should be set to require exactly 2 args
+	// The Args field should be set to require exactly 1 arg
 	// We verify by checking the command setup, not by running it
 	if cmd.Args == nil {
 		t.Error("expected Args to be set")
@@ -250,9 +250,9 @@ func setupTestProject(t *testing.T, tasks []project.TaskState) (*sow.Context, st
 	return ctx, tmpDir, cleanup
 }
 
-// TestRunSpawn_UnknownAgent tests error for non-existent agent.
-func TestRunSpawn_UnknownAgent(t *testing.T) {
-	// Setup test project with a task
+// TestRunSpawn_TaskHasUnknownAgent tests error when task has invalid assigned_agent.
+func TestRunSpawn_TaskHasUnknownAgent(t *testing.T) {
+	// Setup test project with a task that has an unknown agent
 	tasks := []project.TaskState{
 		{
 			Id:             "010",
@@ -260,7 +260,7 @@ func TestRunSpawn_UnknownAgent(t *testing.T) {
 			Phase:          "implementation",
 			Status:         "pending",
 			Iteration:      1,
-			Assigned_agent: "implementer",
+			Assigned_agent: "badagent", // Unknown agent
 			Created_at:     time.Now(),
 			Updated_at:     time.Now(),
 			Inputs:         []project.ArtifactState{},
@@ -283,15 +283,18 @@ func TestRunSpawn_UnknownAgent(t *testing.T) {
 	ctx := cmdutil.WithContext(context.Background(), sowCtx)
 	cmd.SetContext(ctx)
 
-	// Run with unknown agent
-	err := runSpawn(cmd, []string{"badagent", "010"}, "")
+	// Run spawn - agent comes from task's assigned_agent field
+	err := runSpawn(cmd, []string{"010"}, "")
 	if err == nil {
 		t.Fatal("expected error for unknown agent")
 	}
 
-	// Check error message
-	if !strings.Contains(err.Error(), "unknown agent: badagent") {
-		t.Errorf("expected error to contain 'unknown agent: badagent', got: %v", err)
+	// Check error message mentions task and unknown agent
+	if !strings.Contains(err.Error(), "010") {
+		t.Errorf("expected error to contain task ID '010', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "badagent") {
+		t.Errorf("expected error to contain 'badagent', got: %v", err)
 	}
 
 	// Check that available agents are listed
@@ -323,8 +326,8 @@ func TestRunSpawn_TaskNotFound(t *testing.T) {
 	ctx := cmdutil.WithContext(context.Background(), sowCtx)
 	cmd.SetContext(ctx)
 
-	// Run with valid agent but non-existent task
-	err := runSpawn(cmd, []string{"implementer", "999"}, "implementation")
+	// Run with non-existent task
+	err := runSpawn(cmd, []string{"999"}, "implementation")
 	if err == nil {
 		t.Fatal("expected error for task not found")
 	}
@@ -380,7 +383,7 @@ func TestRunSpawn_GeneratesSessionID(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err := runSpawn(cmd, []string{"implementer", "010"}, "implementation")
+	err := runSpawn(cmd, []string{"010"}, "implementation")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -459,7 +462,7 @@ func TestRunSpawn_PreservesExistingSessionID(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err := runSpawn(cmd, []string{"implementer", "010"}, "implementation")
+	err := runSpawn(cmd, []string{"010"}, "implementation")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -538,7 +541,7 @@ func TestRunSpawn_PersistsSessionBeforeSpawn(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err := runSpawn(cmd, []string{"implementer", "010"}, "implementation")
+	err := runSpawn(cmd, []string{"010"}, "implementation")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -594,7 +597,7 @@ func TestRunSpawn_CallsExecutorSpawn(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err := runSpawn(cmd, []string{"implementer", "010"}, "implementation")
+	err := runSpawn(cmd, []string{"010"}, "implementation")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -662,7 +665,7 @@ func TestRunSpawn_BuildsCorrectPrompt(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err := runSpawn(cmd, []string{"architect", "020"}, "implementation")
+	err := runSpawn(cmd, []string{"020"}, "implementation")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -699,7 +702,7 @@ func TestRunSpawn_NotInitialized(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err = runSpawn(cmd, []string{"implementer", "010"}, "")
+	err = runSpawn(cmd, []string{"010"}, "")
 	if err == nil {
 		t.Fatal("expected error when sow not initialized")
 	}
@@ -739,7 +742,7 @@ func TestRunSpawn_NoProject(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err = runSpawn(cmd, []string{"implementer", "010"}, "")
+	err = runSpawn(cmd, []string{"010"}, "")
 	if err == nil {
 		t.Fatal("expected error when no project exists")
 	}
@@ -790,7 +793,7 @@ func TestRunSpawn_WithPhaseFlag(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn with explicit phase
-	err := runSpawn(cmd, []string{"implementer", "010"}, "implementation")
+	err := runSpawn(cmd, []string{"010"}, "implementation")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

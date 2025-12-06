@@ -23,15 +23,17 @@ func newSpawnCmd() *cobra.Command {
 	var phase string
 
 	cmd := &cobra.Command{
-		Use:   "spawn <agent-name> <task-id>",
+		Use:   "spawn <task-id>",
 		Short: "Spawn an agent to execute a task",
 		Long: `Spawn an agent to execute a task.
 
 The spawn command is used by the orchestrator to delegate work to specialized
-worker agents. It performs the following steps:
+worker agents. The agent type is determined by the task's assigned_agent field.
 
-  1. Looks up the agent by name from the registry
-  2. Finds the task by ID in the project state
+It performs the following steps:
+
+  1. Finds the task by ID in the project state
+  2. Looks up the agent from the task's assigned_agent field
   3. Generates a session ID if not present (for crash recovery)
   4. Persists the session ID to task state BEFORE spawning
   5. Invokes the agent subprocess with the task prompt
@@ -44,15 +46,12 @@ Session IDs are persisted before spawning to support crash recovery. If the
 orchestrator crashes, it can resume the session by reading the persisted ID.
 
 Examples:
-  # Spawn implementer for task 010 (auto-detect phase)
-  sow agent spawn implementer 010
+  # Spawn agent for task 010 (uses task's assigned_agent)
+  sow agent spawn 010
 
   # Spawn with explicit phase
-  sow agent spawn implementer 010 --phase implementation
-
-  # Spawn architect for a different task
-  sow agent spawn architect 020 --phase planning`,
-		Args: cobra.ExactArgs(2),
+  sow agent spawn 010 --phase implementation`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSpawn(cmd, args, phase)
 		},
@@ -65,8 +64,7 @@ Examples:
 
 // runSpawn implements the spawn command logic.
 func runSpawn(cmd *cobra.Command, args []string, explicitPhase string) error {
-	agentName := args[0]
-	taskID := args[1]
+	taskID := args[0]
 
 	// Get sow context
 	ctx := cmdutil.GetContext(cmd.Context())
@@ -83,20 +81,6 @@ func runSpawn(cmd *cobra.Command, args []string, explicitPhase string) error {
 			return fmt.Errorf("no active project found")
 		}
 		return fmt.Errorf("failed to load project: %w", err)
-	}
-
-	// Look up agent by name
-	registry := agents.NewAgentRegistry()
-	agent, err := registry.Get(agentName)
-	if err != nil {
-		// Build list of available agents for helpful error message
-		availableAgents := registry.List()
-		names := make([]string, len(availableAgents))
-		for i, a := range availableAgents {
-			names[i] = a.Name
-		}
-		sort.Strings(names)
-		return fmt.Errorf("unknown agent: %s\nAvailable agents: %s", agentName, strings.Join(names, ", "))
 	}
 
 	// Resolve which phase to use
@@ -125,6 +109,24 @@ func runSpawn(cmd *cobra.Command, args []string, explicitPhase string) error {
 	}
 
 	task := &phaseState.Tasks[taskIndex]
+
+	// Get agent name from task's assigned_agent field
+	// (CUE schema ensures this is never empty)
+	agentName := task.Assigned_agent
+
+	// Look up agent by name
+	registry := agents.NewAgentRegistry()
+	agent, err := registry.Get(agentName)
+	if err != nil {
+		// Build list of available agents for helpful error message
+		availableAgents := registry.List()
+		names := make([]string, len(availableAgents))
+		for i, a := range availableAgents {
+			names[i] = a.Name
+		}
+		sort.Strings(names)
+		return fmt.Errorf("task %s has unknown assigned agent: %s\nAvailable agents: %s", taskID, agentName, strings.Join(names, ", "))
+	}
 
 	// Handle session ID
 	sessionID := task.Session_id
