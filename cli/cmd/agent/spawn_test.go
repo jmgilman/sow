@@ -12,6 +12,7 @@ import (
 	"github.com/jmgilman/sow/cli/internal/agents"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/jmgilman/sow/cli/schemas/project"
 	"gopkg.in/yaml.v3"
 
@@ -23,8 +24,8 @@ import (
 func TestNewSpawnCmd_Structure(t *testing.T) {
 	cmd := newSpawnCmd()
 
-	if cmd.Use != "spawn <task-id>" {
-		t.Errorf("expected Use='spawn <task-id>', got '%s'", cmd.Use)
+	if cmd.Use != "spawn [task-id]" {
+		t.Errorf("expected Use='spawn [task-id]', got '%s'", cmd.Use)
 	}
 
 	if cmd.Short == "" {
@@ -36,12 +37,11 @@ func TestNewSpawnCmd_Structure(t *testing.T) {
 	}
 }
 
-// TestNewSpawnCmd_RequiresExactlyOneArg verifies spawn requires task ID.
-func TestNewSpawnCmd_RequiresExactlyOneArg(t *testing.T) {
+// TestNewSpawnCmd_AcceptsOptionalArg verifies spawn accepts 0 or 1 args.
+func TestNewSpawnCmd_AcceptsOptionalArg(t *testing.T) {
 	cmd := newSpawnCmd()
 
-	// The Args field should be set to require exactly 1 arg
-	// We verify by checking the command setup, not by running it
+	// The Args field should be set to accept 0 or 1 arg
 	if cmd.Args == nil {
 		t.Error("expected Args to be set")
 	}
@@ -54,6 +54,26 @@ func TestNewSpawnCmd_HasPhaseFlag(t *testing.T) {
 	phaseFlag := cmd.Flags().Lookup("phase")
 	if phaseFlag == nil {
 		t.Error("expected --phase flag to be defined")
+	}
+}
+
+// TestNewSpawnCmd_HasAgentFlag verifies --agent flag exists.
+func TestNewSpawnCmd_HasAgentFlag(t *testing.T) {
+	cmd := newSpawnCmd()
+
+	agentFlag := cmd.Flags().Lookup("agent")
+	if agentFlag == nil {
+		t.Error("expected --agent flag to be defined")
+	}
+}
+
+// TestNewSpawnCmd_HasPromptFlag verifies --prompt flag exists.
+func TestNewSpawnCmd_HasPromptFlag(t *testing.T) {
+	cmd := newSpawnCmd()
+
+	promptFlag := cmd.Flags().Lookup("prompt")
+	if promptFlag == nil {
+		t.Error("expected --prompt flag to be defined")
 	}
 }
 
@@ -250,6 +270,25 @@ func setupTestProject(t *testing.T, tasks []project.TaskState) (*sow.Context, st
 	return ctx, tmpDir, cleanup
 }
 
+// TestRunSpawn_RequiresTaskIDOrAgentFlag tests validation.
+func TestRunSpawn_RequiresTaskIDOrAgentFlag(t *testing.T) {
+	sowCtx, _, cleanup := setupTestProject(t, []project.TaskState{})
+	defer cleanup()
+
+	cmd := newSpawnCmd()
+	ctx := cmdutil.WithContext(context.Background(), sowCtx)
+	cmd.SetContext(ctx)
+
+	// Run without task-id or --agent
+	err := runSpawn(cmd, []string{}, "", "", "")
+	if err == nil {
+		t.Fatal("expected error when neither task-id nor --agent provided")
+	}
+	if !strings.Contains(err.Error(), "must provide either") {
+		t.Errorf("expected validation error, got: %v", err)
+	}
+}
+
 // TestRunSpawn_TaskHasUnknownAgent tests error when task has invalid assigned_agent.
 func TestRunSpawn_TaskHasUnknownAgent(t *testing.T) {
 	// Setup test project with a task that has an unknown agent
@@ -270,13 +309,17 @@ func TestRunSpawn_TaskHasUnknownAgent(t *testing.T) {
 	sowCtx, _, cleanup := setupTestProject(t, tasks)
 	defer cleanup()
 
-	// Create mock executor
+	// Create mock registry with mock executor
 	mockExec := &agents.MockExecutor{}
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newSpawnCmd()
@@ -284,7 +327,7 @@ func TestRunSpawn_TaskHasUnknownAgent(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn - agent comes from task's assigned_agent field
-	err := runSpawn(cmd, []string{"010"}, "")
+	err := runSpawn(cmd, []string{"010"}, "", "", "")
 	if err == nil {
 		t.Fatal("expected error for unknown agent")
 	}
@@ -313,13 +356,17 @@ func TestRunSpawn_TaskNotFound(t *testing.T) {
 	sowCtx, _, cleanup := setupTestProject(t, tasks)
 	defer cleanup()
 
-	// Create mock executor
+	// Create mock registry with mock executor
 	mockExec := &agents.MockExecutor{}
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newSpawnCmd()
@@ -327,7 +374,7 @@ func TestRunSpawn_TaskNotFound(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run with non-existent task
-	err := runSpawn(cmd, []string{"999"}, "implementation")
+	err := runSpawn(cmd, []string{"999"}, "implementation", "", "")
 	if err == nil {
 		t.Fatal("expected error for task not found")
 	}
@@ -371,11 +418,15 @@ func TestRunSpawn_GeneratesSessionID(t *testing.T) {
 			return nil
 		},
 	}
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newSpawnCmd()
@@ -383,7 +434,7 @@ func TestRunSpawn_GeneratesSessionID(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err := runSpawn(cmd, []string{"010"}, "implementation")
+	err := runSpawn(cmd, []string{"010"}, "implementation", "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -450,11 +501,15 @@ func TestRunSpawn_PreservesExistingSessionID(t *testing.T) {
 			return nil
 		},
 	}
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newSpawnCmd()
@@ -462,7 +517,7 @@ func TestRunSpawn_PreservesExistingSessionID(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err := runSpawn(cmd, []string{"010"}, "implementation")
+	err := runSpawn(cmd, []string{"010"}, "implementation", "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -530,11 +585,15 @@ func TestRunSpawn_PersistsSessionBeforeSpawn(t *testing.T) {
 			return nil
 		},
 	}
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newSpawnCmd()
@@ -542,7 +601,7 @@ func TestRunSpawn_PersistsSessionBeforeSpawn(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err := runSpawn(cmd, []string{"010"}, "implementation")
+	err := runSpawn(cmd, []string{"010"}, "implementation", "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -586,11 +645,15 @@ func TestRunSpawn_CallsExecutorSpawn(t *testing.T) {
 			return nil
 		},
 	}
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newSpawnCmd()
@@ -598,7 +661,7 @@ func TestRunSpawn_CallsExecutorSpawn(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err := runSpawn(cmd, []string{"010"}, "implementation")
+	err := runSpawn(cmd, []string{"010"}, "implementation", "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -654,11 +717,15 @@ func TestRunSpawn_BuildsCorrectPrompt(t *testing.T) {
 			return nil
 		},
 	}
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newSpawnCmd()
@@ -666,7 +733,7 @@ func TestRunSpawn_BuildsCorrectPrompt(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err := runSpawn(cmd, []string{"020"}, "implementation")
+	err := runSpawn(cmd, []string{"020"}, "implementation", "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -703,7 +770,7 @@ func TestRunSpawn_NotInitialized(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err = runSpawn(cmd, []string{"010"}, "")
+	err = runSpawn(cmd, []string{"010"}, "", "", "")
 	if err == nil {
 		t.Fatal("expected error when sow not initialized")
 	}
@@ -743,7 +810,7 @@ func TestRunSpawn_NoProject(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn
-	err = runSpawn(cmd, []string{"010"}, "")
+	err = runSpawn(cmd, []string{"010"}, "", "", "")
 	if err == nil {
 		t.Fatal("expected error when no project exists")
 	}
@@ -782,11 +849,15 @@ func TestRunSpawn_WithPhaseFlag(t *testing.T) {
 			return nil
 		},
 	}
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
 
 	// Save original and restore after test
-	originalNewExecutor := newExecutor
-	defer func() { newExecutor = originalNewExecutor }()
-	newExecutor = func() agents.Executor { return mockExec }
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
 
 	// Create command with context
 	cmd := newSpawnCmd()
@@ -794,7 +865,7 @@ func TestRunSpawn_WithPhaseFlag(t *testing.T) {
 	cmd.SetContext(ctx)
 
 	// Run spawn with explicit phase
-	err := runSpawn(cmd, []string{"010"}, "implementation")
+	err := runSpawn(cmd, []string{"010"}, "implementation", "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -802,5 +873,287 @@ func TestRunSpawn_WithPhaseFlag(t *testing.T) {
 	// Verify prompt uses the specified phase
 	if !strings.Contains(spawnedPrompt, "implementation") {
 		t.Error("expected prompt to contain phase 'implementation'")
+	}
+}
+
+// TestRunSpawn_TaskModeWithAgentOverride tests --agent override in task mode.
+func TestRunSpawn_TaskModeWithAgentOverride(t *testing.T) {
+	// Setup with implementer task
+	now := time.Now()
+	tasks := []project.TaskState{
+		{
+			Id:             "010",
+			Name:           "Test Task",
+			Phase:          "implementation",
+			Status:         "pending",
+			Iteration:      1,
+			Assigned_agent: "implementer",
+			Created_at:     now,
+			Updated_at:     now,
+			Inputs:         []project.ArtifactState{},
+			Outputs:        []project.ArtifactState{},
+		},
+	}
+	sowCtx, _, cleanup := setupTestProject(t, tasks)
+	defer cleanup()
+
+	var spawnedAgent *agents.Agent
+	mockExec := &agents.MockExecutor{
+		SpawnFunc: func(_ context.Context, agent *agents.Agent, _ string, _ string) error {
+			spawnedAgent = agent
+			return nil
+		},
+	}
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
+
+	cmd := newSpawnCmd()
+	ctx := cmdutil.WithContext(context.Background(), sowCtx)
+	cmd.SetContext(ctx)
+
+	// Run with --agent override
+	err := runSpawn(cmd, []string{"010"}, "implementation", "reviewer", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify override worked
+	if spawnedAgent == nil || spawnedAgent.Name != "reviewer" {
+		t.Error("expected reviewer agent (override), not implementer")
+	}
+}
+
+// TestRunSpawn_TaskModeWithCustomPrompt tests --prompt flag in task mode.
+func TestRunSpawn_TaskModeWithCustomPrompt(t *testing.T) {
+	now := time.Now()
+	tasks := []project.TaskState{
+		{
+			Id:             "010",
+			Name:           "Test Task",
+			Phase:          "implementation",
+			Status:         "pending",
+			Iteration:      1,
+			Assigned_agent: "implementer",
+			Created_at:     now,
+			Updated_at:     now,
+			Inputs:         []project.ArtifactState{},
+			Outputs:        []project.ArtifactState{},
+		},
+	}
+	sowCtx, _, cleanup := setupTestProject(t, tasks)
+	defer cleanup()
+
+	var spawnedPrompt string
+	mockExec := &agents.MockExecutor{
+		SpawnFunc: func(_ context.Context, _ *agents.Agent, prompt string, _ string) error {
+			spawnedPrompt = prompt
+			return nil
+		},
+	}
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
+
+	cmd := newSpawnCmd()
+	ctx := cmdutil.WithContext(context.Background(), sowCtx)
+	cmd.SetContext(ctx)
+
+	customPrompt := "Focus on error handling and edge cases"
+	err := runSpawn(cmd, []string{"010"}, "implementation", "", customPrompt)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify custom prompt was appended
+	if !strings.Contains(spawnedPrompt, customPrompt) {
+		t.Errorf("expected prompt to contain custom prompt '%s', got:\n%s", customPrompt, spawnedPrompt)
+	}
+
+	// Verify task prompt is still there
+	if !strings.Contains(spawnedPrompt, "010") {
+		t.Error("expected prompt to still contain task ID")
+	}
+}
+
+// TestRunSpawn_TasklessMode tests spawning without task.
+func TestRunSpawn_TasklessMode(t *testing.T) {
+	sowCtx, tmpDir, cleanup := setupTestProject(t, []project.TaskState{})
+	defer cleanup()
+
+	var spawnedSessionID string
+	var spawnedAgent *agents.Agent
+	var spawnedPrompt string
+	mockExec := &agents.MockExecutor{
+		SpawnFunc: func(_ context.Context, agent *agents.Agent, prompt string, sessionID string) error {
+			spawnedSessionID = sessionID
+			spawnedAgent = agent
+			spawnedPrompt = prompt
+			return nil
+		},
+	}
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
+
+	cmd := newSpawnCmd()
+	ctx := cmdutil.WithContext(context.Background(), sowCtx)
+	cmd.SetContext(ctx)
+
+	// Run taskless spawn
+	err := runSpawn(cmd, []string{}, "", "planner", "Create a plan for auth feature")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify agent
+	if spawnedAgent == nil || spawnedAgent.Name != "planner" {
+		t.Error("expected planner agent to be spawned")
+	}
+
+	// Verify prompt
+	if !strings.Contains(spawnedPrompt, "Create a plan for auth feature") {
+		t.Error("expected prompt to contain custom prompt")
+	}
+
+	// Verify session ID generated
+	if len(spawnedSessionID) != 36 {
+		t.Errorf("expected UUID session ID, got: %s", spawnedSessionID)
+	}
+
+	// Verify persisted to state file
+	stateData, _ := os.ReadFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"))
+	var savedState project.ProjectState
+	yaml.Unmarshal(stateData, &savedState)
+
+	if savedState.Agent_sessions == nil {
+		t.Fatal("expected agent_sessions to be set")
+	}
+	if savedState.Agent_sessions["planner"] != spawnedSessionID {
+		t.Errorf("expected session ID to be persisted")
+	}
+}
+
+// TestRunSpawn_TasklessModeUnknownAgent tests error for unknown agent in taskless mode.
+func TestRunSpawn_TasklessModeUnknownAgent(t *testing.T) {
+	sowCtx, _, cleanup := setupTestProject(t, []project.TaskState{})
+	defer cleanup()
+
+	cmd := newSpawnCmd()
+	ctx := cmdutil.WithContext(context.Background(), sowCtx)
+	cmd.SetContext(ctx)
+
+	// Run taskless spawn with unknown agent
+	err := runSpawn(cmd, []string{}, "", "badagent", "some prompt")
+	if err == nil {
+		t.Fatal("expected error for unknown agent")
+	}
+
+	if !strings.Contains(err.Error(), "badagent") {
+		t.Errorf("expected error to contain 'badagent', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Available agents") {
+		t.Errorf("expected error to list available agents, got: %v", err)
+	}
+}
+
+// TestRunSpawn_TasklessModeDefaultPrompt tests default prompt in taskless mode.
+func TestRunSpawn_TasklessModeDefaultPrompt(t *testing.T) {
+	sowCtx, _, cleanup := setupTestProject(t, []project.TaskState{})
+	defer cleanup()
+
+	var spawnedPrompt string
+	mockExec := &agents.MockExecutor{
+		SpawnFunc: func(_ context.Context, _ *agents.Agent, prompt string, _ string) error {
+			spawnedPrompt = prompt
+			return nil
+		},
+	}
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
+
+	cmd := newSpawnCmd()
+	ctx := cmdutil.WithContext(context.Background(), sowCtx)
+	cmd.SetContext(ctx)
+
+	// Run taskless spawn without custom prompt
+	err := runSpawn(cmd, []string{}, "", "planner", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify default prompt was used
+	if spawnedPrompt == "" {
+		t.Error("expected non-empty prompt")
+	}
+	if !strings.Contains(spawnedPrompt, "spawned") {
+		t.Errorf("expected default prompt about being spawned, got: %s", spawnedPrompt)
+	}
+}
+
+// TestRunSpawn_TasklessModePreservesExistingSession tests reusing existing session.
+func TestRunSpawn_TasklessModePreservesExistingSession(t *testing.T) {
+	sowCtx, tmpDir, cleanup := setupTestProject(t, []project.TaskState{})
+	defer cleanup()
+
+	// Manually add agent_sessions to state
+	existingSessionID := "existing-planner-session-uuid"
+	stateData, _ := os.ReadFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"))
+	var savedState project.ProjectState
+	yaml.Unmarshal(stateData, &savedState)
+	savedState.Agent_sessions = map[string]string{"planner": existingSessionID}
+	newData, _ := yaml.Marshal(savedState)
+	os.WriteFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"), newData, 0644)
+
+	var spawnedSessionID string
+	mockExec := &agents.MockExecutor{
+		SpawnFunc: func(_ context.Context, _ *agents.Agent, _ string, sessionID string) error {
+			spawnedSessionID = sessionID
+			return nil
+		},
+	}
+	mockRegistry := agents.NewExecutorRegistry()
+	mockRegistry.RegisterNamed("claude-code", mockExec)
+
+	originalLoadRegistry := loadExecutorRegistry
+	defer func() { loadExecutorRegistry = originalLoadRegistry }()
+	loadExecutorRegistry = func(_ *schemas.UserConfig, _ string) (*agents.ExecutorRegistry, error) {
+		return mockRegistry, nil
+	}
+
+	cmd := newSpawnCmd()
+	ctx := cmdutil.WithContext(context.Background(), sowCtx)
+	cmd.SetContext(ctx)
+
+	// Run taskless spawn - should reuse existing session
+	err := runSpawn(cmd, []string{}, "", "planner", "Continue planning")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify existing session ID was used
+	if spawnedSessionID != existingSessionID {
+		t.Errorf("expected existing session ID '%s', got '%s'", existingSessionID, spawnedSessionID)
 	}
 }

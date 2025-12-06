@@ -11,7 +11,7 @@ package schemas
 		// Keys are executor names (e.g., "claude-code", "cursor")
 		executors?: [string]: {
 			// Type of executor
-			type: "claude" | "cursor" | "windsurf"
+			type: "claude" | "cursor"
 
 			// Executor settings
 			settings?: {

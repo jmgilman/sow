@@ -18,7 +18,7 @@ WORKFLOW:
 
      First, create a review task:
      ```bash
-     sow task add "Review implementation" --agent reviewer --id 001 --phase review
+     sow task add "Review implementation" --agent reviewer --prompt "<optional prompt>"
      ```
 
      Then spawn the reviewer:
