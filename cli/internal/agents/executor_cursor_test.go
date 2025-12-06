@@ -448,6 +448,7 @@ func TestCursorExecutor_Resume_WithCustomArgs(t *testing.T) {
 
 // TestCursorExecutor_ValidateAvailability verifies the validation method exists.
 func TestCursorExecutor_ValidateAvailability(t *testing.T) {
+	t.Helper()
 	executor := NewCursorExecutor(false, "", nil)
 
 	// Just verify the method exists and returns either nil or an error

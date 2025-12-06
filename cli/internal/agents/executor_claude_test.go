@@ -403,6 +403,7 @@ func TestClaudeExecutor_Resume_WithCustomArgs(t *testing.T) {
 // Note: We can't easily test the actual exec.LookPath behavior without mocking,
 // but we can verify the method exists and returns an error type.
 func TestClaudeExecutor_ValidateAvailability(t *testing.T) {
+	t.Helper()
 	executor := NewClaudeExecutor(false, "", "", nil)
 
 	// Just verify the method exists and returns either nil or an error

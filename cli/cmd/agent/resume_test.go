@@ -663,10 +663,10 @@ func TestRunResume_TasklessMode(t *testing.T) {
 	existingSessionID := "existing-planner-session"
 	stateData, _ := os.ReadFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"))
 	var savedState project.ProjectState
-	yaml.Unmarshal(stateData, &savedState)
+	_ = yaml.Unmarshal(stateData, &savedState)
 	savedState.Agent_sessions = map[string]string{"planner": existingSessionID}
 	newData, _ := yaml.Marshal(savedState)
-	os.WriteFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"), newData, 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"), newData, 0644)
 
 	var resumedSessionID string
 	var resumedPrompt string
@@ -752,10 +752,10 @@ func TestRunResume_TasklessModeNoResumptionSupport(t *testing.T) {
 	// Add agent session
 	stateData, _ := os.ReadFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"))
 	var savedState project.ProjectState
-	yaml.Unmarshal(stateData, &savedState)
+	_ = yaml.Unmarshal(stateData, &savedState)
 	savedState.Agent_sessions = map[string]string{"planner": "some-session"}
 	newData, _ := yaml.Marshal(savedState)
-	os.WriteFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"), newData, 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"), newData, 0644)
 
 	mockExec := &agents.MockExecutor{
 		SupportsResumptionFunc: func() bool { return false },

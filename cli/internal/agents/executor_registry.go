@@ -187,40 +187,44 @@ func (r *ExecutorRegistry) GetAgentExecutor(agentName string, bindings *struct {
 	Researcher   *string `json:"researcher,omitempty"`
 	Decomposer   *string `json:"decomposer,omitempty"`
 }) (Executor, error) {
-	// Determine executor name from bindings
-	executorName := DefaultExecutorName
-	if bindings != nil {
-		switch agentName {
-		case "orchestrator":
-			if bindings.Orchestrator != nil {
-				executorName = *bindings.Orchestrator
-			}
-		case "implementer":
-			if bindings.Implementer != nil {
-				executorName = *bindings.Implementer
-			}
-		case "architect":
-			if bindings.Architect != nil {
-				executorName = *bindings.Architect
-			}
-		case "reviewer":
-			if bindings.Reviewer != nil {
-				executorName = *bindings.Reviewer
-			}
-		case "planner":
-			if bindings.Planner != nil {
-				executorName = *bindings.Planner
-			}
-		case "researcher":
-			if bindings.Researcher != nil {
-				executorName = *bindings.Researcher
-			}
-		case "decomposer":
-			if bindings.Decomposer != nil {
-				executorName = *bindings.Decomposer
-			}
-		}
+	executorName := resolveExecutorName(agentName, bindings)
+	return r.Get(executorName)
+}
+
+// resolveExecutorName determines the executor name for an agent based on bindings.
+func resolveExecutorName(agentName string, bindings *struct {
+	Orchestrator *string `json:"orchestrator,omitempty"`
+	Implementer  *string `json:"implementer,omitempty"`
+	Architect    *string `json:"architect,omitempty"`
+	Reviewer     *string `json:"reviewer,omitempty"`
+	Planner      *string `json:"planner,omitempty"`
+	Researcher   *string `json:"researcher,omitempty"`
+	Decomposer   *string `json:"decomposer,omitempty"`
+}) string {
+	if bindings == nil {
+		return DefaultExecutorName
 	}
 
-	return r.Get(executorName)
+	var bound *string
+	switch agentName {
+	case "orchestrator":
+		bound = bindings.Orchestrator
+	case "implementer":
+		bound = bindings.Implementer
+	case "architect":
+		bound = bindings.Architect
+	case "reviewer":
+		bound = bindings.Reviewer
+	case "planner":
+		bound = bindings.Planner
+	case "researcher":
+		bound = bindings.Researcher
+	case "decomposer":
+		bound = bindings.Decomposer
+	}
+
+	if bound != nil {
+		return *bound
+	}
+	return DefaultExecutorName
 }

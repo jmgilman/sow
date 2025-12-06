@@ -3,6 +3,8 @@ package logformat
 import (
 	"bufio"
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"sync"
 )
@@ -45,7 +47,7 @@ func (w *FormattingWriter) Write(p []byte) (n int, err error) {
 	// Process complete lines
 	for {
 		line, err := w.buffer.ReadBytes('\n')
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			// Incomplete line, put it back
 			w.buffer.Write(line)
 			break
@@ -87,7 +89,7 @@ func (w *FormattingWriter) processLine(line []byte) {
 
 	formatted := w.formatter.Format(event)
 	if formatted != "" {
-		w.output.Write([]byte(formatted))
+		_, _ = w.output.Write([]byte(formatted))
 	}
 }
 
@@ -116,12 +118,15 @@ func FormatFile(input io.Reader, output io.Writer) error {
 		formatted := formatter.Format(event)
 		if formatted != "" {
 			if _, err := output.Write([]byte(formatted)); err != nil {
-				return err
+				return fmt.Errorf("failed to write formatted output: %w", err)
 			}
 		}
 	}
 
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("failed to scan input: %w", err)
+	}
+	return nil
 }
 
 // DualWriter writes to both a raw JSON file and a formatted output.
@@ -145,11 +150,11 @@ func (w *DualWriter) Write(p []byte) (n int, err error) {
 	// Write to raw first
 	n, err = w.raw.Write(p)
 	if err != nil {
-		return n, err
+		return n, fmt.Errorf("failed to write to raw output: %w", err)
 	}
 
-	// Then to formatted
-	w.formatted.Write(p)
+	// Then to formatted (ignore error as formatted output is best-effort)
+	_, _ = w.formatted.Write(p)
 	return n, nil
 }
 

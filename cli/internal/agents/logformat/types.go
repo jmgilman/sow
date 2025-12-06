@@ -11,11 +11,15 @@
 //   - result: Final summary (duration, cost, turns, outcome)
 package logformat
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // EventType represents the type of stream-json event.
 type EventType string
 
+// Event type constants for stream-json events.
 const (
 	EventTypeSystem    EventType = "system"
 	EventTypeAssistant EventType = "assistant"
@@ -131,7 +135,7 @@ type Usage struct {
 func ParseEvent(line []byte) (*Event, error) {
 	var event Event
 	if err := json.Unmarshal(line, &event); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse event: %w", err)
 	}
 	return &event, nil
 }
@@ -165,7 +169,7 @@ func (cb *ContentBlock) ParseToolInput() (*ToolInput, error) {
 	}
 	var input ToolInput
 	if err := json.Unmarshal(cb.Input, &input); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse tool input: %w", err)
 	}
 	return &input, nil
 }

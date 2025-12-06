@@ -118,14 +118,14 @@ func (r *DefaultCommandRunner) Run(ctx context.Context, name string, args []stri
 		if err != nil {
 			return fmt.Errorf("failed to open raw output file: %w", err)
 		}
-		defer rawFile.Close()
+		defer func() { _ = rawFile.Close() }()
 
 		// Open formatted output file for appending
 		formattedFile, err := os.OpenFile(formattedPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			return fmt.Errorf("failed to open formatted output file: %w", err)
 		}
-		defer formattedFile.Close()
+		defer func() { _ = formattedFile.Close() }()
 
 		// Create a dual writer that writes raw JSON and formatted output
 		dualWriter = logformat.NewDualWriter(rawFile, formattedFile)
@@ -142,7 +142,7 @@ func (r *DefaultCommandRunner) Run(ctx context.Context, name string, args []stri
 
 	// Flush any buffered formatted output before returning
 	if dualWriter != nil {
-		dualWriter.Flush()
+		_ = dualWriter.Flush()
 	}
 
 	if runErr != nil {

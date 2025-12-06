@@ -119,53 +119,73 @@ func (f *Formatter) formatToolCall(block *ContentBlock) string {
 
 	input, _ := block.ParseToolInput()
 	if input != nil {
-		switch block.Name {
-		case "Bash":
-			if input.Description != "" {
-				b.WriteString(fmt.Sprintf("  Description: %s\n", input.Description))
-			}
-			if input.Command != "" {
-				b.WriteString(fmt.Sprintf("  Command: %s\n", f.truncateLine(input.Command, 200)))
-			}
-		case "Read":
-			b.WriteString(fmt.Sprintf("  File: %s\n", input.FilePath))
-		case "Write":
-			b.WriteString(fmt.Sprintf("  File: %s\n", input.FilePath))
-			if input.Content != "" {
-				lines := strings.Count(input.Content, "\n") + 1
-				b.WriteString(fmt.Sprintf("  Content: %d lines\n", lines))
-			}
-		case "Edit":
-			b.WriteString(fmt.Sprintf("  File: %s\n", input.FilePath))
-			if input.OldString != "" {
-				b.WriteString(fmt.Sprintf("  Replacing: %s\n", f.truncateLine(input.OldString, 100)))
-			}
-		case "Glob":
-			b.WriteString(fmt.Sprintf("  Pattern: %s\n", input.Pattern))
-			if input.Path != "" {
-				b.WriteString(fmt.Sprintf("  Path: %s\n", input.Path))
-			}
-		case "Grep":
-			b.WriteString(fmt.Sprintf("  Pattern: %s\n", input.Pattern))
-			if input.Path != "" {
-				b.WriteString(fmt.Sprintf("  Path: %s\n", input.Path))
-			}
-		case "TodoWrite":
-			if len(input.Todos) > 0 {
-				b.WriteString("  Todos:\n")
-				for _, todo := range input.Todos {
-					status := statusIcon(todo.Status)
-					b.WriteString(fmt.Sprintf("    %s %s\n", status, todo.Content))
-				}
-			}
-		default:
-			// For other tools, show raw input summary
-			b.WriteString(fmt.Sprintf("  Input: %s\n", f.truncateLine(string(block.Input), 200)))
-		}
+		f.writeToolInput(&b, block.Name, input, block.Input)
 	}
 	b.WriteString("\n")
 
 	return b.String()
+}
+
+// writeToolInput writes formatted tool input details to the builder.
+func (f *Formatter) writeToolInput(b *strings.Builder, toolName string, input *ToolInput, rawInput []byte) {
+	switch toolName {
+	case "Bash":
+		f.writeBashInput(b, input)
+	case "Read":
+		fmt.Fprintf(b, "  File: %s\n", input.FilePath)
+	case "Write":
+		f.writeWriteInput(b, input)
+	case "Edit":
+		f.writeEditInput(b, input)
+	case "Glob", "Grep":
+		f.writeSearchInput(b, input)
+	case "TodoWrite":
+		f.writeTodoInput(b, input)
+	default:
+		fmt.Fprintf(b, "  Input: %s\n", f.truncateLine(string(rawInput), 200))
+	}
+}
+
+func (f *Formatter) writeBashInput(b *strings.Builder, input *ToolInput) {
+	if input.Description != "" {
+		fmt.Fprintf(b, "  Description: %s\n", input.Description)
+	}
+	if input.Command != "" {
+		fmt.Fprintf(b, "  Command: %s\n", f.truncateLine(input.Command, 200))
+	}
+}
+
+func (f *Formatter) writeWriteInput(b *strings.Builder, input *ToolInput) {
+	fmt.Fprintf(b, "  File: %s\n", input.FilePath)
+	if input.Content != "" {
+		lines := strings.Count(input.Content, "\n") + 1
+		fmt.Fprintf(b, "  Content: %d lines\n", lines)
+	}
+}
+
+func (f *Formatter) writeEditInput(b *strings.Builder, input *ToolInput) {
+	fmt.Fprintf(b, "  File: %s\n", input.FilePath)
+	if input.OldString != "" {
+		fmt.Fprintf(b, "  Replacing: %s\n", f.truncateLine(input.OldString, 100))
+	}
+}
+
+func (f *Formatter) writeSearchInput(b *strings.Builder, input *ToolInput) {
+	fmt.Fprintf(b, "  Pattern: %s\n", input.Pattern)
+	if input.Path != "" {
+		fmt.Fprintf(b, "  Path: %s\n", input.Path)
+	}
+}
+
+func (f *Formatter) writeTodoInput(b *strings.Builder, input *ToolInput) {
+	if len(input.Todos) == 0 {
+		return
+	}
+	b.WriteString("  Todos:\n")
+	for _, todo := range input.Todos {
+		status := statusIcon(todo.Status)
+		fmt.Fprintf(b, "    %s %s\n", status, todo.Content)
+	}
 }
 
 // formatToolResult formats the result of a tool execution.

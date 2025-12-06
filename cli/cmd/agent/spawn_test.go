@@ -1039,7 +1039,7 @@ func TestRunSpawn_TasklessMode(t *testing.T) {
 	// Verify persisted to state file
 	stateData, _ := os.ReadFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"))
 	var savedState project.ProjectState
-	yaml.Unmarshal(stateData, &savedState)
+	_ = yaml.Unmarshal(stateData, &savedState)
 
 	if savedState.Agent_sessions == nil {
 		t.Fatal("expected agent_sessions to be set")
@@ -1121,10 +1121,10 @@ func TestRunSpawn_TasklessModePreservesExistingSession(t *testing.T) {
 	existingSessionID := "existing-planner-session-uuid"
 	stateData, _ := os.ReadFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"))
 	var savedState project.ProjectState
-	yaml.Unmarshal(stateData, &savedState)
+	_ = yaml.Unmarshal(stateData, &savedState)
 	savedState.Agent_sessions = map[string]string{"planner": existingSessionID}
 	newData, _ := yaml.Marshal(savedState)
-	os.WriteFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"), newData, 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, ".sow", "project", "state.yaml"), newData, 0644)
 
 	var spawnedSessionID string
 	mockExec := &agents.MockExecutor{
