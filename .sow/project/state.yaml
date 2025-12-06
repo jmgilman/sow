@@ -3,7 +3,7 @@ type: standard
 branch: feat/agent-cli-commands-101
 description: Agent CLI Commands
 created_at: 2025-12-05T15:53:56.339369-08:00
-updated_at: 2025-12-05T16:42:15.978978-08:00
+updated_at: 2025-12-05T16:52:16.766385-08:00
 phases:
     finalize:
         status: pending
@@ -134,10 +134,10 @@ phases:
             - id: "020"
               name: Spawn Command Implementation
               phase: implementation
-              status: pending
+              status: completed
               created_at: 2025-12-05T16:34:21.217836-08:00
               started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-12-05T16:34:56.967726-08:00
+              updated_at: 2025-12-05T16:52:16.766384-08:00
               completed_at: 0001-01-01T00:00:00Z
               iteration: 1
               assigned_agent: implementer
@@ -207,7 +207,32 @@ phases:
                   approved: false
                   created_at: 2025-12-05T16:34:56.967725-08:00
                   metadata: {}
-              outputs: []
+                - type: feedback
+                  path: project/phases/implementation/tasks/020/feedback/001.md
+                  approved: false
+                  created_at: 2025-12-05T16:52:16.755812-08:00
+                  metadata: {}
+              outputs:
+                - type: modified
+                  path: cli/cmd/agent/spawn.go
+                  approved: false
+                  created_at: 2025-12-05T16:50:53.577267-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/cmd/agent/spawn_test.go
+                  approved: false
+                  created_at: 2025-12-05T16:50:58.02492-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/cmd/agent/agent.go
+                  approved: false
+                  created_at: 2025-12-05T16:51:02.028827-08:00
+                  metadata: {}
+                - type: modified
+                  path: cli/cmd/agent/agent_test.go
+                  approved: false
+                  created_at: 2025-12-05T16:51:06.528597-08:00
+                  metadata: {}
               metadata: {}
             - id: "030"
               name: Resume Command Implementation
@@ -291,4 +316,4 @@ phases:
         tasks: []
 statechart:
     current_state: ImplementationExecuting
-    updated_at: 2025-12-05T16:42:15.978978-08:00
+    updated_at: 2025-12-05T16:52:16.766385-08:00

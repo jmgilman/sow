@@ -39,6 +39,7 @@ func TestNewAgentCmd_LongDescription(t *testing.T) {
 	expectedPhrases := []string{
 		"agent",
 		"list",
+		"spawn",
 	}
 
 	for _, phrase := range expectedPhrases {
@@ -57,16 +58,21 @@ func TestNewAgentCmd_HasSubcommands(t *testing.T) {
 		t.Fatal("expected agent command to have subcommands")
 	}
 
-	// Check for list subcommand
-	var hasListCmd bool
+	// Check for expected subcommands
+	expectedSubcmds := map[string]bool{
+		"list":                      false,
+		"spawn <agent-name> <task-id>": false,
+	}
+
 	for _, sub := range subcommands {
-		if sub.Use == "list" {
-			hasListCmd = true
-			break
+		if _, expected := expectedSubcmds[sub.Use]; expected {
+			expectedSubcmds[sub.Use] = true
 		}
 	}
 
-	if !hasListCmd {
-		t.Error("expected 'list' subcommand to be registered")
+	for subcmd, found := range expectedSubcmds {
+		if !found {
+			t.Errorf("expected '%s' subcommand to be registered", subcmd)
+		}
 	}
 }

@@ -17,11 +17,13 @@ spawned by the orchestrator to perform specialized tasks. Each agent
 has specific capabilities and prompts tailored to its role.
 
 Commands:
-  list      List available agents`,
+  list      List available agents
+  spawn     Spawn an agent to execute a task`,
 	}
 
 	// Add subcommands
 	cmd.AddCommand(newListCmd())
+	cmd.AddCommand(newSpawnCmd())
 
 	return cmd
 }
