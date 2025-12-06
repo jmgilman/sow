@@ -1,12 +1,12 @@
-# Agent CLI Commands
+# Add `sow project status` Command
 
 ## Intent
 
-Implement CLI commands (`sow agent spawn`, `sow agent resume`, `sow agent list`) for the sow orchestrator to spawn and resume worker agents. This enables task delegation to specialized agents through the session management protocol, supporting bidirectional orchestrator-worker communication.
+Add a new CLI command that displays a pretty-printed overview of the current project state, showing project metadata, phase progress, and task status. This helps users quickly understand where their project stands without manually inspecting state files.
 
 ## Status
 
-**Draft** - Implementation in progress
+🚧 **Draft** - Implementation in progress
 
 ## Progress
 
@@ -19,4 +19,4 @@ Implement CLI commands (`sow agent spawn`, `sow agent resume`, `sow agent list`)
 
 _This PR body will be updated with full details before marking ready for review._
 
-Generated with [sow](https://github.com/jmgilman/sow)
+🤖 Generated with [sow](https://github.com/jmgilman/sow)

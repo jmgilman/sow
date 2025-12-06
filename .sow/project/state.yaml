@@ -1,15 +1,15 @@
-name: agent-cli-commands
+name: testing
 type: standard
-branch: feat/agent-cli-commands-101
-description: Agent CLI Commands
-created_at: 2025-12-05T15:53:56.339369-08:00
-updated_at: 2025-12-05T17:02:00.104991-08:00
+branch: feat/testing
+description: testing
+created_at: 2025-12-05T23:09:13.391101-08:00
+updated_at: 2025-12-06T12:54:42.567953-08:00
 phases:
     finalize:
-        status: in_progress
-        enabled: true
-        created_at: 2025-12-05T15:53:56.339369-08:00
-        started_at: 2025-12-05T17:15:00.000000-08:00
+        status: pending
+        enabled: false
+        created_at: 2025-12-05T23:09:13.391101-08:00
+        started_at: 0001-01-01T00:00:00Z
         completed_at: 0001-01-01T00:00:00Z
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
@@ -18,327 +18,129 @@ phases:
         outputs: []
         tasks: []
     implementation:
-        status: completed
+        status: in_progress
         enabled: false
-        created_at: 2025-12-05T15:53:56.339369-08:00
-        started_at: 2025-12-05T15:53:56.339408-08:00
-        completed_at: 2025-12-05T16:58:08.589383-08:00
+        created_at: 2025-12-05T23:09:13.391101-08:00
+        started_at: 2025-12-05T23:09:13.391196-08:00
+        completed_at: 0001-01-01T00:00:00Z
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata:
-            draft_pr_created: true
             planning_approved: true
-            pr_number: 106
-            pr_url: https://github.com/jmgilman/sow/pull/106
         inputs:
-            - type: github_issue
-              path: context/issue-101.md
-              approved: true
-              created_at: 2025-12-05T15:53:56.339359-08:00
-              metadata:
-                issue_number: 101
-                issue_title: Agent CLI Commands
-                issue_url: https://github.com/jmgilman/sow/issues/101
             - type: reference
               path: ../../knowledge/designs/multi-agent-architecture.md
               approved: true
-              created_at: 2025-12-05T15:53:56.339367-08:00
+              created_at: 2025-12-05T23:09:13.391092-08:00
               metadata:
                 description: Knowledge file selected during project creation
                 source: user_selected
         outputs: []
         tasks:
-            - id: "010"
-              name: Agent Command Package and List Subcommand
+            - id: "001"
+              name: Create implementation task breakdown for sow project status command
               phase: implementation
-              status: completed
-              created_at: 2025-12-05T16:34:20.137123-08:00
+              status: pending
+              created_at: 2025-12-06T10:10:58.590268-08:00
               started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-12-05T16:42:15.978977-08:00
+              updated_at: 2025-12-06T12:32:31.135184-08:00
               completed_at: 0001-01-01T00:00:00Z
               iteration: 1
-              assigned_agent: implementer
+              assigned_agent: planner
+              session_id: ec80e252-712a-4cf1-9ce0-af1dd141c496
               inputs:
                 - type: reference
-                  path: cli/cmd/config/config.go
+                  path: cli/cmd/project/project.go
                   approved: false
-                  created_at: 2025-12-05T16:34:55.280949-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/cmd/config/init.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:55.290161-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/cmd/config/init_test.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:55.298569-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/cmd/refs/refs.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:55.306508-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/cmd/root.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:55.314247-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/internal/agents/agents.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:55.322217-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/internal/agents/registry.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:55.329433-08:00
-                  metadata: {}
-                - type: reference
-                  path: .sow/project/context/issue-101.md
-                  approved: false
-                  created_at: 2025-12-05T16:34:55.336521-08:00
-                  metadata: {}
-                - type: feedback
-                  path: project/phases/implementation/tasks/010/feedback/001.md
-                  approved: false
-                  created_at: 2025-12-05T16:42:15.968267-08:00
-                  metadata: {}
-              outputs:
-                - type: modified
-                  path: cli/cmd/agent/agent.go
-                  approved: false
-                  created_at: 2025-12-05T16:40:43.217291-08:00
-                  metadata: {}
-                - type: modified
-                  path: cli/cmd/agent/agent_test.go
-                  approved: false
-                  created_at: 2025-12-05T16:40:43.227253-08:00
-                  metadata: {}
-                - type: modified
-                  path: cli/cmd/agent/list.go
-                  approved: false
-                  created_at: 2025-12-05T16:40:43.236373-08:00
-                  metadata: {}
-                - type: modified
-                  path: cli/cmd/agent/list_test.go
-                  approved: false
-                  created_at: 2025-12-05T16:40:43.244931-08:00
-                  metadata: {}
-                - type: modified
-                  path: cli/cmd/root.go
-                  approved: false
-                  created_at: 2025-12-05T16:40:43.254127-08:00
-                  metadata: {}
-              metadata: {}
-            - id: "020"
-              name: Spawn Command Implementation
-              phase: implementation
-              status: completed
-              created_at: 2025-12-05T16:34:21.217836-08:00
-              started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-12-05T16:52:16.766384-08:00
-              completed_at: 0001-01-01T00:00:00Z
-              iteration: 1
-              assigned_agent: implementer
-              inputs:
-                - type: reference
-                  path: cli/cmd/agent/agent.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:56.871112-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/cmd/task.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:56.88163-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/cmd/helpers.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:56.891365-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/internal/agents/executor.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:56.900499-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/internal/agents/executor_claude.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:56.909075-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/internal/agents/executor_mock.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:56.916778-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/internal/agents/registry.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:56.924301-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/internal/sdks/project/state/loader.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:56.9315-08:00
+                  created_at: 2025-12-06T10:11:35.80879-08:00
                   metadata: {}
                 - type: reference
                   path: cli/internal/sdks/project/state/project.go
                   approved: false
-                  created_at: 2025-12-05T16:34:56.939061-08:00
+                  created_at: 2025-12-06T10:11:36.454767-08:00
                   metadata: {}
-                - type: reference
-                  path: cli/schemas/project/cue_types_gen.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:56.946152-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/internal/cmdutil/context.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:56.953103-08:00
-                  metadata: {}
-                - type: reference
-                  path: .sow/knowledge/designs/multi-agent-architecture.md
-                  approved: false
-                  created_at: 2025-12-05T16:34:56.960657-08:00
-                  metadata: {}
-                - type: reference
-                  path: .sow/project/context/issue-101.md
-                  approved: false
-                  created_at: 2025-12-05T16:34:56.967725-08:00
-                  metadata: {}
-                - type: feedback
-                  path: project/phases/implementation/tasks/020/feedback/001.md
-                  approved: false
-                  created_at: 2025-12-05T16:52:16.755812-08:00
-                  metadata: {}
-              outputs:
-                - type: modified
-                  path: cli/cmd/agent/spawn.go
-                  approved: false
-                  created_at: 2025-12-05T16:50:53.577267-08:00
-                  metadata: {}
-                - type: modified
-                  path: cli/cmd/agent/spawn_test.go
-                  approved: false
-                  created_at: 2025-12-05T16:50:58.02492-08:00
-                  metadata: {}
-                - type: modified
-                  path: cli/cmd/agent/agent.go
-                  approved: false
-                  created_at: 2025-12-05T16:51:02.028827-08:00
-                  metadata: {}
-                - type: modified
-                  path: cli/cmd/agent/agent_test.go
-                  approved: false
-                  created_at: 2025-12-05T16:51:06.528597-08:00
-                  metadata: {}
+              outputs: []
               metadata: {}
-            - id: "030"
-              name: Resume Command Implementation
+            - id: "010"
+              name: Implement sow project status command
               phase: implementation
-              status: completed
-              created_at: 2025-12-05T16:34:21.993027-08:00
+              status: pending
+              created_at: 2025-12-06T12:54:15.549897-08:00
               started_at: 0001-01-01T00:00:00Z
-              updated_at: 2025-12-05T16:57:43.569684-08:00
+              updated_at: 2025-12-06T12:54:37.932606-08:00
               completed_at: 0001-01-01T00:00:00Z
               iteration: 1
               assigned_agent: implementer
+              session_id: ""
               inputs:
                 - type: reference
-                  path: cli/cmd/agent/agent.go
+                  path: cli/cmd/project/project.go
                   approved: false
-                  created_at: 2025-12-05T16:34:58.475782-08:00
+                  created_at: 2025-12-06T12:54:37.895391-08:00
                   metadata: {}
                 - type: reference
-                  path: cli/cmd/agent/spawn.go
+                  path: cli/cmd/project/delete.go
                   approved: false
-                  created_at: 2025-12-05T16:34:58.484611-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/cmd/task.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:58.493052-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/cmd/helpers.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:58.501157-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/internal/agents/executor.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:58.509314-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/internal/agents/executor_claude.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:58.516988-08:00
-                  metadata: {}
-                - type: reference
-                  path: cli/internal/agents/executor_mock.go
-                  approved: false
-                  created_at: 2025-12-05T16:34:58.524592-08:00
+                  created_at: 2025-12-06T12:54:37.905061-08:00
                   metadata: {}
                 - type: reference
                   path: cli/internal/sdks/project/state/loader.go
                   approved: false
-                  created_at: 2025-12-05T16:34:58.532049-08:00
+                  created_at: 2025-12-06T12:54:37.914648-08:00
                   metadata: {}
                 - type: reference
-                  path: cli/schemas/project/cue_types_gen.go
+                  path: cli/internal/sdks/project/state/project.go
                   approved: false
-                  created_at: 2025-12-05T16:34:58.539488-08:00
+                  created_at: 2025-12-06T12:54:37.923681-08:00
                   metadata: {}
                 - type: reference
-                  path: .sow/knowledge/designs/multi-agent-architecture.md
+                  path: cli/internal/cmdutil/context.go
                   approved: false
-                  created_at: 2025-12-05T16:34:58.546547-08:00
+                  created_at: 2025-12-06T12:54:37.932606-08:00
                   metadata: {}
-                - type: reference
-                  path: .sow/project/context/issue-101.md
-                  approved: false
-                  created_at: 2025-12-05T16:34:58.554102-08:00
-                  metadata: {}
-                - type: feedback
-                  path: project/phases/implementation/tasks/030/feedback/001.md
-                  approved: false
-                  created_at: 2025-12-05T16:57:43.558602-08:00
-                  metadata: {}
-              outputs:
-                - type: modified
-                  path: cli/cmd/agent/resume.go
-                  approved: false
-                  created_at: 2025-12-05T16:56:50.890214-08:00
-                  metadata: {}
-                - type: modified
-                  path: cli/cmd/agent/resume_test.go
-                  approved: false
-                  created_at: 2025-12-05T16:56:51.860686-08:00
-                  metadata: {}
-                - type: modified
-                  path: cli/cmd/agent/agent.go
-                  approved: false
-                  created_at: 2025-12-05T16:56:52.754215-08:00
-                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "020"
+              name: Status output formatting
+              phase: implementation
+              status: pending
+              created_at: 2025-12-06T12:54:23.580002-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-06T12:54:23.580002-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs: []
+              outputs: []
+              metadata: {}
+            - id: "030"
+              name: Status command tests
+              phase: implementation
+              status: pending
+              created_at: 2025-12-06T12:54:24.500905-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-06T12:54:24.500905-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs: []
+              outputs: []
               metadata: {}
     review:
-        status: completed
+        status: pending
         enabled: false
-        created_at: 2025-12-05T15:53:56.339369-08:00
-        started_at: 2025-12-05T16:58:08.589384-08:00
-        completed_at: 2025-12-05T17:15:00.000000-08:00
+        created_at: 2025-12-05T23:09:13.391101-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata: {}
         inputs: []
-        outputs:
-            - type: review
-              path: phases/review/reports/001.md
-              approved: true
-              created_at: 2025-12-05T17:02:00.104991-08:00
-              metadata: {}
+        outputs: []
         tasks: []
 statechart:
-    current_state: FinalizeReady
-    updated_at: 2025-12-05T17:15:00.000000-08:00
+    current_state: ImplementationDraftPRCreation
+    updated_at: 2025-12-06T12:54:42.567953-08:00
+agent_sessions: {}
