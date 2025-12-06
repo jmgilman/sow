@@ -6,10 +6,10 @@ created_at: 2025-12-05T15:53:56.339369-08:00
 updated_at: 2025-12-05T17:02:00.104991-08:00
 phases:
     finalize:
-        status: pending
-        enabled: false
+        status: in_progress
+        enabled: true
         created_at: 2025-12-05T15:53:56.339369-08:00
-        started_at: 0001-01-01T00:00:00Z
+        started_at: 2025-12-05T17:15:00.000000-08:00
         completed_at: 0001-01-01T00:00:00Z
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
@@ -323,11 +323,11 @@ phases:
                   metadata: {}
               metadata: {}
     review:
-        status: in_progress
+        status: completed
         enabled: false
         created_at: 2025-12-05T15:53:56.339369-08:00
         started_at: 2025-12-05T16:58:08.589384-08:00
-        completed_at: 0001-01-01T00:00:00Z
+        completed_at: 2025-12-05T17:15:00.000000-08:00
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata: {}
@@ -340,5 +340,5 @@ phases:
               metadata: {}
         tasks: []
 statechart:
-    current_state: ReviewActive
-    updated_at: 2025-12-05T17:02:00.104991-08:00
+    current_state: FinalizeReady
+    updated_at: 2025-12-05T17:15:00.000000-08:00
