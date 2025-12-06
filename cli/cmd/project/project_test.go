@@ -30,7 +30,7 @@ func TestProjectCmd_Structure(t *testing.T) {
 	}
 }
 
-// TestProjectCmd_HasCorrectSubcommands verifies that only set and delete subcommands exist.
+// TestProjectCmd_HasCorrectSubcommands verifies that set, delete, and status subcommands exist.
 // (new and continue should be removed).
 func TestProjectCmd_HasCorrectSubcommands(t *testing.T) {
 	cmd := NewProjectCmd()
@@ -48,8 +48,8 @@ func TestProjectCmd_HasCorrectSubcommands(t *testing.T) {
 		return false
 	}
 
-	// Verify 'set' and 'delete' exist (check by prefix since they may have args in Use)
-	expectedCommands := []string{"set", "delete"}
+	// Verify 'set', 'delete', and 'status' exist (check by prefix since they may have args in Use)
+	expectedCommands := []string{"set", "delete", "status"}
 	for _, expected := range expectedCommands {
 		if !hasCommandWithPrefix(expected) {
 			t.Errorf("Expected subcommand starting with '%s' to exist, but it doesn't", expected)
@@ -64,9 +64,9 @@ func TestProjectCmd_HasCorrectSubcommands(t *testing.T) {
 		}
 	}
 
-	// Verify we have exactly 2 subcommands (set and delete)
-	if len(subcommands) != 2 {
-		t.Errorf("Expected exactly 2 subcommands (set and delete), got %d", len(subcommands))
+	// Verify we have exactly 3 subcommands (set, delete, and status)
+	if len(subcommands) != 3 {
+		t.Errorf("Expected exactly 3 subcommands (set, delete, and status), got %d", len(subcommands))
 		t.Log("Subcommands found:")
 		for _, subcmd := range subcommands {
 			t.Logf("  - %s", subcmd.Use)

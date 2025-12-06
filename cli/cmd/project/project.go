@@ -33,6 +33,7 @@ Examples:
 	// Keep set and delete subcommands
 	cmd.AddCommand(newSetCmd())
 	cmd.AddCommand(newDeleteCmd())
+	cmd.AddCommand(newStatusCmd())
 
 	return cmd
 }
