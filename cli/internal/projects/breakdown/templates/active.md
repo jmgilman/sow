@@ -311,10 +311,12 @@ Then we'll review the spec together. Sound good?
 
 **Step 4: Spawn decomposer agent**
 
-Use the Task tool to spawn decomposer agent:
-```
-Spawning decomposer agent for task 001...
-[Use Task tool with decomposer subagent type]
+Spawn the decomposer for the task:
+```bash
+# Spawn decomposer for task 001
+sow agent spawn 001
+
+# The decomposer will self-initialize via sow prompt guidance/decomposer/base
 ```
 
 The decomposer will:
@@ -418,10 +420,12 @@ Would you like to review it? Any concerns or changes needed?
 If user requests changes:
 
 ```bash
-# Mark task as in_progress
-sow task set 001 status in_progress
+# Mark task as in_progress and increment iteration
+sow task set --id 001 status in_progress
+sow task set --id 001 iteration 2
 
-# Provide feedback and re-spawn decomposer with updates
+# Resume session with feedback
+sow agent resume 001 "Please revise the specification. Changes needed: <details>"
 ```
 
 Tell the user:

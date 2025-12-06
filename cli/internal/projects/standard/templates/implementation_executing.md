@@ -43,10 +43,11 @@ AUTONOMY BOUNDARIES:
     • Major scope changes
 
 RESPONSIBILITIES:
-  - Spawn implementer agents for tasks
+  - Spawn agents via `sow agent spawn <task-id>` for tasks
   - Monitor task progress and provide feedback
-  - **CRITICAL: Review ALL tasks after implementer finishes** (see TASK REVIEW WORKFLOW)
+  - **CRITICAL: Review ALL tasks after agent finishes** (see TASK REVIEW WORKFLOW)
   - Write feedback files with pass/fail assessment for each task
+  - Resume sessions with `sow agent resume` when iteration needed
   - Mark tasks completed only after review approval
   - Handle normal execution issues autonomously
   - Request approval only for exceptional situations
@@ -90,12 +91,16 @@ MANDATORY REVIEW PROCESS:
      IF FAIL OR BLOCKED:
        sow task set --id <id> iteration <N+1>
        sow task set --id <id> status in_progress
-       → Re-spawn implementer (will read feedback/<iteration>.md)
+       → Resume session: `sow agent resume <task-id> "Address feedback"`
 
 HANDLING BLOCKED WORKERS:
   If implementer reports being blocked:
   1. Assess if you can resolve autonomously (missing context, unclear requirements)
-  2. If yes: Provide clarification via feedback and re-invoke
+  2. If yes: Write feedback, increment iteration, resume session:
+     ```bash
+     sow task set --id <id> iteration <N+1>
+     sow agent resume <task-id> "Clarification: <details>"
+     ```
   3. If no (needs human decision): Pause task, request human input
 
 TRACKING TASK STATE:
@@ -175,8 +180,11 @@ TASK REVIEW WORKFLOW (Detailed):
      IF ASSESSMENT = FAIL (or implementer blocked):
        sow task set --id <id> iteration <N+1>
        sow task set --id <id> status in_progress
-       → Re-spawn implementer agent
-       → Implementer will read feedback/<iteration>.md and address issues
+       → Resume session with guidance:
+         ```bash
+         sow agent resume <task-id> "Address issues documented in feedback/<iteration>.md"
+         ```
+       → Worker continues with full context and reads feedback
 
   CRITICAL: Feedback file numbering
     - Task iteration 1: You write feedback/001.md after review
@@ -189,10 +197,13 @@ EXECUTION WORKFLOW (Step by Step):
   For each task, follow this exact cycle:
 
   1. SPAWN implementer for pending task:
-     Use Task tool with subagent_type="implementer"
-     Message: "Execute task <id>. Context at .sow/project/phases/implementation/tasks/<id>/"
+     ```bash
+     sow agent spawn <task-id>
+     ```
+     The agent type is determined from the task's `assigned_agent` field.
+     The command blocks until the worker subprocess exits.
 
-  2. WAIT for implementer to return
+  2. WAIT for implementer to return (command blocks until complete)
 
   3. ALWAYS write feedback file:
      Create: .sow/project/phases/implementation/tasks/<id>/feedback/<iteration>.md
@@ -209,7 +220,11 @@ EXECUTION WORKFLOW (Step by Step):
      IF assessment = fail or blocked:
        Increment iteration: sow task set --id <id> iteration <N+1>
        Set in_progress: sow task set --id <id> status in_progress
-       Re-spawn implementer (go back to step 1 for same task)
+       Resume session with feedback:
+       ```bash
+       sow agent resume <task-id> "Address feedback in feedback/<iteration>.md"
+       ```
+       Worker continues with full conversation context.
 
   CRITICAL RULES:
   - You MUST write and register feedback for every iteration
@@ -313,6 +328,11 @@ GIT WORKFLOW (Commit and Push After Task Completion):
   - If conflicts: resolve manually, then push
   - If auth fails: check gh auth status
 
-Reference: PHASES/IMPLEMENTATION.md, AGENTS.md (implementer)
+Reference: PHASES/IMPLEMENTATION.md
+
+Agent commands:
+  sow agent list              # View available agents
+  sow agent spawn <task-id>   # Spawn agent for task
+  sow agent resume <task-id> "<prompt>"  # Resume with feedback
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
