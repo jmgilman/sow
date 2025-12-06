@@ -18,12 +18,14 @@ has specific capabilities and prompts tailored to its role.
 
 Commands:
   list      List available agents
-  spawn     Spawn an agent to execute a task`,
+  spawn     Spawn an agent to execute a task
+  resume    Resume a paused agent session`,
 	}
 
 	// Add subcommands
 	cmd.AddCommand(newListCmd())
 	cmd.AddCommand(newSpawnCmd())
+	cmd.AddCommand(newResumeCmd())
 
 	return cmd
 }
