@@ -39,15 +39,15 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	out := cmd.OutOrStdout()
 
 	// Project header
-	fmt.Fprintf(out, "Project: %s\n", proj.Name)
-	fmt.Fprintf(out, "Branch: %s\n", proj.Branch)
-	fmt.Fprintf(out, "Type: %s\n", proj.Type)
-	fmt.Fprintln(out)
-	fmt.Fprintf(out, "State: %s\n", proj.Statechart.Current_state)
-	fmt.Fprintln(out)
+	_, _ = fmt.Fprintf(out, "Project: %s\n", proj.Name)
+	_, _ = fmt.Fprintf(out, "Branch: %s\n", proj.Branch)
+	_, _ = fmt.Fprintf(out, "Type: %s\n", proj.Type)
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintf(out, "State: %s\n", proj.Statechart.Current_state)
+	_, _ = fmt.Fprintln(out)
 
 	// Phases section
-	fmt.Fprintln(out, "Phases:")
+	_, _ = fmt.Fprintln(out, "Phases:")
 	phaseOrder := []string{"implementation", "review", "finalize"}
 	for _, phaseName := range phaseOrder {
 		phase, exists := proj.Phases[phaseName]
@@ -58,16 +58,16 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 		// Count completed tasks
 		completed, total := countTasksByStatus(phase)
 
-		fmt.Fprint(out, formatPhaseLine(phaseName, phase.Status, completed, total))
+		_, _ = fmt.Fprint(out, formatPhaseLine(phaseName, phase.Status, completed, total))
 	}
-	fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out)
 
 	// Tasks section for current phase
 	currentPhase := inferCurrentPhase(proj.Statechart.Current_state)
 	if phase, exists := proj.Phases[currentPhase]; exists && len(phase.Tasks) > 0 {
-		fmt.Fprintf(out, "Tasks (%s):\n", currentPhase)
+		_, _ = fmt.Fprintf(out, "Tasks (%s):\n", currentPhase)
 		for _, task := range phase.Tasks {
-			fmt.Fprint(out, formatTaskLine(task.Status, task.Id, task.Name))
+			_, _ = fmt.Fprint(out, formatTaskLine(task.Status, task.Id, task.Name))
 		}
 	}
 
