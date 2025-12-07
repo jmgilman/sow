@@ -3,6 +3,8 @@ package agents
 import (
 	"context"
 	"fmt"
+	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -15,15 +17,17 @@ import (
 //
 // Example usage:
 //
-//	executor := NewClaudeExecutor(true, "sonnet")
+//	executor := NewClaudeExecutor(true, "sonnet", ".sow/project/agent-outputs")
 //	err := executor.Spawn(ctx, agents.Implementer, "Execute task", sessionID)
 //	if err != nil {
 //	    return fmt.Errorf("failed to spawn: %w", err)
 //	}
 type ClaudeExecutor struct {
-	yoloMode bool   // When true, adds --dangerously-skip-permissions flag
-	model    string // Model to use (e.g., "sonnet", "opus"), empty for default
-	runner   CommandRunner
+	yoloMode   bool     // When true, adds --dangerously-skip-permissions flag
+	model      string   // Model to use (e.g., "sonnet", "opus"), empty for default
+	outputDir  string   // Directory for output logs (empty disables logging)
+	customArgs []string // Additional CLI arguments from user config
+	runner     CommandRunner
 }
 
 // NewClaudeExecutor creates a ClaudeExecutor with the given configuration.
@@ -32,11 +36,15 @@ type ClaudeExecutor struct {
 // Parameters:
 //   - yoloMode: if true, skips permission prompts (--dangerously-skip-permissions)
 //   - model: model name to use (empty string uses default)
-func NewClaudeExecutor(yoloMode bool, model string) *ClaudeExecutor {
+//   - outputDir: directory for output logs (empty string disables output logging)
+//   - customArgs: additional CLI arguments from user config (can be nil)
+func NewClaudeExecutor(yoloMode bool, model string, outputDir string, customArgs []string) *ClaudeExecutor {
 	return &ClaudeExecutor{
-		yoloMode: yoloMode,
-		model:    model,
-		runner:   &DefaultCommandRunner{},
+		yoloMode:   yoloMode,
+		model:      model,
+		outputDir:  outputDir,
+		customArgs: customArgs,
+		runner:     &DefaultCommandRunner{},
 	}
 }
 
@@ -46,12 +54,16 @@ func NewClaudeExecutor(yoloMode bool, model string) *ClaudeExecutor {
 // Parameters:
 //   - yoloMode: if true, skips permission prompts (--dangerously-skip-permissions)
 //   - model: model name to use (empty string uses default)
+//   - outputDir: directory for output logs (empty string disables output logging)
+//   - customArgs: additional CLI arguments from user config (can be nil)
 //   - runner: custom CommandRunner for subprocess execution
-func NewClaudeExecutorWithRunner(yoloMode bool, model string, runner CommandRunner) *ClaudeExecutor {
+func NewClaudeExecutorWithRunner(yoloMode bool, model string, outputDir string, customArgs []string, runner CommandRunner) *ClaudeExecutor {
 	return &ClaudeExecutor{
-		yoloMode: yoloMode,
-		model:    model,
-		runner:   runner,
+		yoloMode:   yoloMode,
+		model:      model,
+		outputDir:  outputDir,
+		customArgs: customArgs,
+		runner:     runner,
 	}
 }
 
@@ -61,11 +73,24 @@ func (e *ClaudeExecutor) Name() string {
 	return "claude-code"
 }
 
+// outputPath returns the path for saving output logs for a given session.
+// Returns empty string if outputDir is not configured.
+func (e *ClaudeExecutor) outputPath(sessionID string) string {
+	if e.outputDir == "" || sessionID == "" {
+		return ""
+	}
+	return filepath.Join(e.outputDir, sessionID+".log")
+}
+
 // Spawn invokes the Claude CLI with the given agent and prompt.
 // It loads the agent's prompt template, combines it with the task prompt,
 // builds the appropriate CLI arguments, and executes the claude command.
 //
 // The method blocks until the subprocess exits.
+//
+// The --print flag is always used to run in non-interactive mode.
+// This ensures the agent processes the prompt and exits without waiting
+// for user input, which is required for subprocess-based agent execution.
 //
 // Parameters:
 //   - ctx: context for cancellation
@@ -84,8 +109,10 @@ func (e *ClaudeExecutor) Spawn(ctx context.Context, agent *Agent, prompt string,
 	// Combine prompts
 	fullPrompt := agentPrompt + "\n\n" + prompt
 
-	// Build args
-	args := []string{}
+	// Build args - always use --print for non-interactive mode
+	// Use stream-json for real-time output to log files (requires --verbose)
+	// Use acceptEdits permission mode to allow file writes without full bypass
+	args := []string{"--print", "--verbose", "--output-format", "stream-json", "--permission-mode", "acceptEdits"}
 	if e.yoloMode {
 		args = append(args, "--dangerously-skip-permissions")
 	}
@@ -96,8 +123,13 @@ func (e *ClaudeExecutor) Spawn(ctx context.Context, agent *Agent, prompt string,
 		args = append(args, "--session-id", sessionID)
 	}
 
-	// Execute
-	if err = e.runner.Run(ctx, "claude", args, strings.NewReader(fullPrompt)); err != nil {
+	// Append custom arguments from user config
+	if len(e.customArgs) > 0 {
+		args = append(args, e.customArgs...)
+	}
+
+	// Execute with output capture
+	if err = e.runner.Run(ctx, "claude", args, strings.NewReader(fullPrompt), e.outputPath(sessionID)); err != nil {
 		return fmt.Errorf("claude spawn failed: %w", err)
 	}
 	return nil
@@ -108,6 +140,10 @@ func (e *ClaudeExecutor) Spawn(ctx context.Context, agent *Agent, prompt string,
 //
 // The method blocks until the subprocess exits.
 //
+// The --print flag is always used to run in non-interactive mode.
+// This ensures the agent processes the prompt and exits without waiting
+// for user input, which is required for subprocess-based agent execution.
+//
 // Parameters:
 //   - ctx: context for cancellation
 //   - sessionID: session identifier to resume
@@ -115,8 +151,21 @@ func (e *ClaudeExecutor) Spawn(ctx context.Context, agent *Agent, prompt string,
 //
 // Returns error if subprocess execution fails.
 func (e *ClaudeExecutor) Resume(ctx context.Context, sessionID string, prompt string) error {
-	args := []string{"--resume", sessionID}
-	if err := e.runner.Run(ctx, "claude", args, strings.NewReader(prompt)); err != nil {
+	// Build args - always use --print for non-interactive mode
+	// Use stream-json for real-time output to log files (requires --verbose)
+	// Use acceptEdits permission mode to allow file writes without full bypass
+	args := []string{"--print", "--verbose", "--output-format", "stream-json", "--permission-mode", "acceptEdits", "--resume", sessionID}
+	if e.yoloMode {
+		args = append(args, "--dangerously-skip-permissions")
+	}
+
+	// Append custom arguments from user config
+	if len(e.customArgs) > 0 {
+		args = append(args, e.customArgs...)
+	}
+
+	// Execute with output capture (appends to same session log)
+	if err := e.runner.Run(ctx, "claude", args, strings.NewReader(prompt), e.outputPath(sessionID)); err != nil {
 		return fmt.Errorf("claude resume failed: %w", err)
 	}
 	return nil
@@ -126,6 +175,16 @@ func (e *ClaudeExecutor) Resume(ctx context.Context, sessionID string, prompt st
 // Claude Code's --resume flag allows continuing existing sessions.
 func (e *ClaudeExecutor) SupportsResumption() bool {
 	return true
+}
+
+// ValidateAvailability checks if the claude CLI binary is available on PATH.
+// Returns nil if available, error with installation guidance if not.
+func (e *ClaudeExecutor) ValidateAvailability() error {
+	_, err := exec.LookPath("claude")
+	if err != nil {
+		return fmt.Errorf("claude CLI not found on PATH: %w\n\nInstall: npm install -g @anthropic-ai/claude-code", err)
+	}
+	return nil
 }
 
 // Compile-time check that ClaudeExecutor implements Executor.

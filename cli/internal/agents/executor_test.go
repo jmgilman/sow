@@ -139,7 +139,7 @@ func TestMockCommandRunner_Defaults(t *testing.T) {
 	mock := &MockCommandRunner{}
 
 	t.Run("Run returns nil by default", func(t *testing.T) {
-		err := mock.Run(context.Background(), "test-cmd", []string{"arg1"}, nil)
+		err := mock.Run(context.Background(), "test-cmd", []string{"arg1"}, nil, "")
 		if err != nil {
 			t.Errorf("Run() = %v, want nil", err)
 		}
@@ -154,14 +154,14 @@ func TestMockCommandRunner_FunctionFields(t *testing.T) {
 		expectedErr := errors.New("run error")
 
 		mock := &MockCommandRunner{
-			RunFunc: func(_ context.Context, name string, args []string, _ io.Reader) error {
+			RunFunc: func(_ context.Context, name string, args []string, _ io.Reader, _ string) error {
 				capturedName = name
 				capturedArgs = args
 				return expectedErr
 			},
 		}
 
-		err := mock.Run(context.Background(), "my-cmd", []string{"--flag", "value"}, nil)
+		err := mock.Run(context.Background(), "my-cmd", []string{"--flag", "value"}, nil, "")
 		if !errors.Is(err, expectedErr) {
 			t.Errorf("Run() = %v, want %v", err, expectedErr)
 		}
@@ -177,14 +177,14 @@ func TestMockCommandRunner_FunctionFields(t *testing.T) {
 		var capturedStdin io.Reader
 
 		mock := &MockCommandRunner{
-			RunFunc: func(_ context.Context, _ string, _ []string, stdin io.Reader) error {
+			RunFunc: func(_ context.Context, _ string, _ []string, stdin io.Reader, _ string) error {
 				capturedStdin = stdin
 				return nil
 			},
 		}
 
 		stdinContent := bytes.NewBufferString("input data")
-		err := mock.Run(context.Background(), "cmd", nil, stdinContent)
+		err := mock.Run(context.Background(), "cmd", nil, stdinContent, "")
 		if err != nil {
 			t.Errorf("Run() = %v, want nil", err)
 		}
@@ -199,7 +199,7 @@ func TestMockCommandRunner_CapturesCall(t *testing.T) {
 	mock := &MockCommandRunner{}
 
 	stdinContent := bytes.NewBufferString("test input")
-	err := mock.Run(context.Background(), "captured-cmd", []string{"arg1", "arg2"}, stdinContent)
+	err := mock.Run(context.Background(), "captured-cmd", []string{"arg1", "arg2"}, stdinContent, "/path/to/output.log")
 	if err != nil {
 		t.Errorf("Run() = %v, want nil", err)
 	}
@@ -213,13 +213,16 @@ func TestMockCommandRunner_CapturesCall(t *testing.T) {
 	if mock.LastStdin != "test input" {
 		t.Errorf("LastStdin = %q, want %q", mock.LastStdin, "test input")
 	}
+	if mock.LastOutputPath != "/path/to/output.log" {
+		t.Errorf("LastOutputPath = %q, want %q", mock.LastOutputPath, "/path/to/output.log")
+	}
 }
 
 // TestMockCommandRunner_CapturesCallWithNilStdin tests stdin capture with nil input.
 func TestMockCommandRunner_CapturesCallWithNilStdin(t *testing.T) {
 	mock := &MockCommandRunner{}
 
-	err := mock.Run(context.Background(), "cmd", nil, nil)
+	err := mock.Run(context.Background(), "cmd", nil, nil, "")
 	if err != nil {
 		t.Errorf("Run() = %v, want nil", err)
 	}
@@ -239,4 +242,51 @@ func TestDefaultCommandRunner_StructExists(t *testing.T) {
 	// The fact that we can instantiate it is sufficient for this test.
 	// Compile-time interface check is in executor.go.
 	t.Log("DefaultCommandRunner instantiated successfully")
+}
+
+// TestSplitOutputPaths tests the output path splitting logic.
+func TestSplitOutputPaths(t *testing.T) {
+	tests := []struct {
+		name             string
+		input            string
+		wantRaw          string
+		wantFormatted    string
+	}{
+		{
+			name:          ".log extension is replaced with .json for raw",
+			input:         "/path/to/session-123.log",
+			wantRaw:       "/path/to/session-123.json",
+			wantFormatted: "/path/to/session-123.log",
+		},
+		{
+			name:          "other extension gets both suffixes",
+			input:         "/path/to/output.txt",
+			wantRaw:       "/path/to/output.txt.json",
+			wantFormatted: "/path/to/output.txt.log",
+		},
+		{
+			name:          "no extension gets both suffixes",
+			input:         "/path/to/output",
+			wantRaw:       "/path/to/output.json",
+			wantFormatted: "/path/to/output.log",
+		},
+		{
+			name:          "simple filename with .log",
+			input:         "session.log",
+			wantRaw:       "session.json",
+			wantFormatted: "session.log",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotRaw, gotFormatted := splitOutputPaths(tt.input)
+			if gotRaw != tt.wantRaw {
+				t.Errorf("splitOutputPaths(%q) raw = %q, want %q", tt.input, gotRaw, tt.wantRaw)
+			}
+			if gotFormatted != tt.wantFormatted {
+				t.Errorf("splitOutputPaths(%q) formatted = %q, want %q", tt.input, gotFormatted, tt.wantFormatted)
+			}
+		})
+	}
 }

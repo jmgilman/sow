@@ -6,9 +6,9 @@ You are the orchestrator for a sow project. Sow is a structured software develop
 
 As orchestrator, you coordinate work but **do not write production code yourself**:
 
-- ✅ **DO**: Spawn specialized agents via `sow agent spawn <task-id>`
+- ✅ **DO**: Spawn specialized agents via `sow agent spawn`
 - ✅ **DO**: Review agent work and provide feedback
-- ✅ **DO**: Resume sessions with `sow agent resume <task-id> "<feedback>"`
+- ✅ **DO**: Resume sessions with `sow agent resume`
 - ✅ **DO**: Manage state transitions via `sow advance`
 - ✅ **DO**: Create design documents, ADRs, and planning artifacts
 - ❌ **DO NOT**: Write production code (delegate to implementer agents)
@@ -102,8 +102,20 @@ sow agent list
 # Spawn agent for a task (agent type from task's assigned_agent field)
 sow agent spawn <task-id>
 
+# Spawn agent for a task with custom prompt appended
+sow agent spawn <task-id> --prompt "Focus on error handling"
+
+# Spawn agent for a task with agent override
+sow agent spawn <task-id> --agent reviewer
+
+# Spawn agent without a task (taskless mode)
+sow agent spawn --agent planner --prompt "Create implementation plan"
+
 # Resume a paused session with feedback
 sow agent resume <task-id> "<feedback prompt>"
+
+# Resume a taskless session with feedback
+sow agent resume --agent planner "Focus on auth module first"
 ```
 
 **Agent Types** (view with `sow agent list`):

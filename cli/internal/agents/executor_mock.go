@@ -24,11 +24,13 @@ import (
 //   - Spawn() returns nil
 //   - Resume() returns nil
 //   - SupportsResumption() returns false
+//   - ValidateAvailability() returns nil
 type MockExecutor struct {
-	NameFunc               func() string
-	SpawnFunc              func(ctx context.Context, agent *Agent, prompt string, sessionID string) error
-	ResumeFunc             func(ctx context.Context, sessionID string, prompt string) error
-	SupportsResumptionFunc func() bool
+	NameFunc                  func() string
+	SpawnFunc                 func(ctx context.Context, agent *Agent, prompt string, sessionID string) error
+	ResumeFunc                func(ctx context.Context, sessionID string, prompt string) error
+	SupportsResumptionFunc    func() bool
+	ValidateAvailabilityFunc  func() error
 }
 
 // Name calls the mock function if set, otherwise returns empty string.
@@ -63,6 +65,14 @@ func (m *MockExecutor) SupportsResumption() bool {
 	return false
 }
 
+// ValidateAvailability calls the mock function if set, otherwise returns nil.
+func (m *MockExecutor) ValidateAvailability() error {
+	if m.ValidateAvailabilityFunc != nil {
+		return m.ValidateAvailabilityFunc()
+	}
+	return nil
+}
+
 // Compile-time check that MockExecutor implements Executor.
 var _ Executor = (*MockExecutor)(nil)
 
@@ -73,7 +83,7 @@ var _ Executor = (*MockExecutor)(nil)
 // Usage in tests:
 //
 //	runner := &MockCommandRunner{
-//	    RunFunc: func(ctx context.Context, name string, args []string, stdin io.Reader) error {
+//	    RunFunc: func(ctx context.Context, name string, args []string, stdin io.Reader, outputPath string) error {
 //	        if name != "claude" {
 //	            t.Errorf("wrong command: got %s, want claude", name)
 //	        }
@@ -83,7 +93,7 @@ var _ Executor = (*MockExecutor)(nil)
 //
 // After calling Run, you can verify the captured parameters:
 //
-//	runner.Run(ctx, "cmd", []string{"arg1"}, strings.NewReader("input"))
+//	runner.Run(ctx, "cmd", []string{"arg1"}, strings.NewReader("input"), "/path/to/output.log")
 //	if runner.LastName != "cmd" {
 //	    t.Errorf("LastName = %q, want %q", runner.LastName, "cmd")
 //	}
@@ -91,21 +101,23 @@ var _ Executor = (*MockExecutor)(nil)
 //	    t.Errorf("LastStdin = %q, want %q", runner.LastStdin, "input")
 //	}
 type MockCommandRunner struct {
-	RunFunc func(ctx context.Context, name string, args []string, stdin io.Reader) error
+	RunFunc func(ctx context.Context, name string, args []string, stdin io.Reader, outputPath string) error
 
 	// Captured parameters from the last Run call for verification.
-	LastName  string
-	LastArgs  []string
-	LastStdin string
+	LastName       string
+	LastArgs       []string
+	LastStdin      string
+	LastOutputPath string
 }
 
 // Run captures call parameters and calls the mock function if set.
 // If RunFunc is nil, returns nil.
 // stdin is read into LastStdin; if stdin is nil, LastStdin is set to "".
-func (m *MockCommandRunner) Run(ctx context.Context, name string, args []string, stdin io.Reader) error {
+func (m *MockCommandRunner) Run(ctx context.Context, name string, args []string, stdin io.Reader, outputPath string) error {
 	// Capture call parameters.
 	m.LastName = name
 	m.LastArgs = args
+	m.LastOutputPath = outputPath
 	if stdin != nil {
 		data, _ := io.ReadAll(stdin)
 		m.LastStdin = string(data)
@@ -114,7 +126,7 @@ func (m *MockCommandRunner) Run(ctx context.Context, name string, args []string,
 	}
 
 	if m.RunFunc != nil {
-		return m.RunFunc(ctx, name, args, stdin)
+		return m.RunFunc(ctx, name, args, stdin, outputPath)
 	}
 	return nil
 }

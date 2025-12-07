@@ -331,8 +331,11 @@ GIT WORKFLOW (Commit and Push After Task Completion):
 Reference: PHASES/IMPLEMENTATION.md
 
 Agent commands:
-  sow agent list              # View available agents
-  sow agent spawn <task-id>   # Spawn agent for task
-  sow agent resume <task-id> "<prompt>"  # Resume with feedback
+  sow agent list                           # View available agents
+  sow agent spawn <task-id>                # Spawn agent for task
+  sow agent spawn <task-id> --prompt "..." # Spawn with custom prompt
+  sow agent spawn --agent <name> --prompt "..."  # Spawn without task (taskless mode)
+  sow agent resume <task-id> "<prompt>"    # Resume task session with feedback
+  sow agent resume --agent <name> "<prompt>"     # Resume taskless session
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

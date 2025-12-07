@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -9,63 +10,79 @@ import (
 	"github.com/jmgilman/sow/cli/internal/agents"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/cli/schemas"
 	"github.com/spf13/cobra"
 )
 
-// newExecutor is a package-level variable that creates an Executor.
-// This allows tests to inject a mock executor.
-var newExecutor = func() agents.Executor {
-	return agents.NewClaudeExecutor(false, "")
+// loadExecutorRegistry is a package-level variable that creates an ExecutorRegistry.
+// This allows tests to inject a mock registry.
+// Parameters:
+//   - userConfig: user configuration with executor definitions
+//   - outputDir: where agent output logs are saved
+var loadExecutorRegistry = func(userConfig *schemas.UserConfig, outputDir string) (*agents.ExecutorRegistry, error) {
+	return agents.LoadExecutorRegistry(userConfig, outputDir)
 }
 
 // newSpawnCmd creates the spawn subcommand.
 func newSpawnCmd() *cobra.Command {
 	var phase string
+	var agentName string
+	var customPrompt string
 
 	cmd := &cobra.Command{
-		Use:   "spawn <task-id>",
-		Short: "Spawn an agent to execute a task",
-		Long: `Spawn an agent to execute a task.
+		Use:   "spawn [task-id]",
+		Short: "Spawn an agent to execute work",
+		Long: `Spawn an agent to execute work.
 
-The spawn command is used by the orchestrator to delegate work to specialized
-worker agents. The agent type is determined by the task's assigned_agent field.
+The spawn command has two modes:
 
-It performs the following steps:
+TASK MODE (with task-id):
+  Spawns an agent to execute a specific task. The agent is determined by the
+  task's assigned_agent field unless overridden with --agent.
 
-  1. Finds the task by ID in the project state
-  2. Looks up the agent from the task's assigned_agent field
-  3. Generates a session ID if not present (for crash recovery)
-  4. Persists the session ID to task state BEFORE spawning
-  5. Invokes the agent subprocess with the task prompt
-  6. Blocks until the subprocess exits
+  sow agent spawn 010                     # Use task's assigned agent
+  sow agent spawn 010 --agent reviewer    # Override with different agent
+  sow agent spawn 010 --prompt "Focus on error handling"
 
-The command blocks until the spawned agent completes its work. This is
-intentional - the orchestrator waits for workers to finish before continuing.
+TASKLESS MODE (with --agent only):
+  Spawns an agent directly without a task. Useful for orchestrator to spawn
+  planning or research agents before tasks exist.
 
-Session IDs are persisted before spawning to support crash recovery. If the
-orchestrator crashes, it can resume the session by reading the persisted ID.
+  sow agent spawn --agent planner --prompt "Create implementation plan"
+  sow agent spawn --agent researcher --prompt "Research auth libraries"
+
+Session IDs are persisted before spawning to support crash recovery. For task
+mode, session IDs are stored in the task state. For taskless mode, session IDs
+are stored in the project's agent_sessions map.
 
 Examples:
-  # Spawn agent for task 010 (uses task's assigned_agent)
+  # Task mode: spawn agent for task 010
   sow agent spawn 010
 
-  # Spawn with explicit phase
-  sow agent spawn 010 --phase implementation`,
-		Args: cobra.ExactArgs(1),
+  # Task mode with custom prompt
+  sow agent spawn 010 --prompt "Focus on performance"
+
+  # Task mode with agent override
+  sow agent spawn 010 --agent reviewer
+
+  # Taskless mode: spawn planner directly
+  sow agent spawn --agent planner --prompt "Plan the auth feature"`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSpawn(cmd, args, phase)
+			return runSpawn(cmd, args, phase, agentName, customPrompt)
 		},
 	}
 
 	cmd.Flags().StringVar(&phase, "phase", "", "Target phase (defaults to smart resolution)")
+	cmd.Flags().StringVar(&agentName, "agent", "", "Agent name (required when no task-id, optional override when task-id provided)")
+	cmd.Flags().StringVar(&customPrompt, "prompt", "", "Additional prompt context to append")
 
 	return cmd
 }
 
 // runSpawn implements the spawn command logic.
-func runSpawn(cmd *cobra.Command, args []string, explicitPhase string) error {
-	taskID := args[0]
-
+func runSpawn(cmd *cobra.Command, args []string, explicitPhase, agentFlag, customPrompt string) error {
 	// Get sow context
 	ctx := cmdutil.GetContext(cmd.Context())
 
@@ -74,7 +91,16 @@ func runSpawn(cmd *cobra.Command, args []string, explicitPhase string) error {
 		return fmt.Errorf("sow not initialized. Run 'sow init' first")
 	}
 
-	// Load project state
+	// Determine mode based on arguments
+	hasTaskID := len(args) > 0
+	hasAgentFlag := agentFlag != ""
+
+	// Validation: need at least one of task-id or --agent
+	if !hasTaskID && !hasAgentFlag {
+		return fmt.Errorf("must provide either <task-id> or --agent flag")
+	}
+
+	// Load project state (required for both modes)
 	proj, err := state.Load(ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such file") {
@@ -83,6 +109,51 @@ func runSpawn(cmd *cobra.Command, args []string, explicitPhase string) error {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
 
+	// Load user config for executor settings
+	userConfig, err := sow.LoadUserConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load user config: %w", err)
+	}
+
+	// Compute output directory for agent logs
+	outputDir := filepath.Join(ctx.RepoRoot(), ".sow", "project", "agent-outputs")
+
+	// Create executor registry from user config
+	executorRegistry, err := loadExecutorRegistry(userConfig, outputDir)
+	if err != nil {
+		return fmt.Errorf("failed to load executor registry: %w", err)
+	}
+
+	// Get bindings for executor lookup
+	var bindings *struct {
+		Orchestrator *string `json:"orchestrator,omitempty"`
+		Implementer  *string `json:"implementer,omitempty"`
+		Architect    *string `json:"architect,omitempty"`
+		Reviewer     *string `json:"reviewer,omitempty"`
+		Planner      *string `json:"planner,omitempty"`
+		Researcher   *string `json:"researcher,omitempty"`
+		Decomposer   *string `json:"decomposer,omitempty"`
+	}
+	if userConfig != nil && userConfig.Agents != nil {
+		bindings = userConfig.Agents.Bindings
+	}
+
+	if hasTaskID {
+		return runSpawnWithTask(cmd, proj, args[0], explicitPhase, agentFlag, customPrompt, executorRegistry, bindings)
+	}
+	return runSpawnTaskless(cmd, proj, agentFlag, customPrompt, executorRegistry, bindings)
+}
+
+// runSpawnWithTask handles spawning an agent for a specific task.
+func runSpawnWithTask(cmd *cobra.Command, proj *state.Project, taskID, explicitPhase, agentOverride, customPrompt string, executorRegistry *agents.ExecutorRegistry, bindings *struct {
+	Orchestrator *string `json:"orchestrator,omitempty"`
+	Implementer  *string `json:"implementer,omitempty"`
+	Architect    *string `json:"architect,omitempty"`
+	Reviewer     *string `json:"reviewer,omitempty"`
+	Planner      *string `json:"planner,omitempty"`
+	Researcher   *string `json:"researcher,omitempty"`
+	Decomposer   *string `json:"decomposer,omitempty"`
+}) error {
 	// Resolve which phase to use
 	phaseName, err := resolveTaskPhase(proj, explicitPhase)
 	if err != nil {
@@ -110,22 +181,23 @@ func runSpawn(cmd *cobra.Command, args []string, explicitPhase string) error {
 
 	task := &phaseState.Tasks[taskIndex]
 
-	// Get agent name from task's assigned_agent field
-	// (CUE schema ensures this is never empty)
+	// Determine agent: use override if provided, otherwise use task's assigned_agent
 	agentName := task.Assigned_agent
+	if agentOverride != "" {
+		agentName = agentOverride
+	}
 
 	// Look up agent by name
-	registry := agents.NewAgentRegistry()
-	agent, err := registry.Get(agentName)
+	agentRegistry := agents.NewAgentRegistry()
+	agent, err := agentRegistry.Get(agentName)
 	if err != nil {
-		// Build list of available agents for helpful error message
-		availableAgents := registry.List()
-		names := make([]string, len(availableAgents))
-		for i, a := range availableAgents {
-			names[i] = a.Name
-		}
-		sort.Strings(names)
-		return fmt.Errorf("task %s has unknown assigned agent: %s\nAvailable agents: %s", taskID, agentName, strings.Join(names, ", "))
+		return buildAgentNotFoundError(agentName, taskID, agentRegistry)
+	}
+
+	// Look up executor for this agent
+	executor, err := executorRegistry.GetAgentExecutor(agentName, bindings)
+	if err != nil {
+		return fmt.Errorf("failed to get executor for agent %s: %w", agentName, err)
 	}
 
 	// Handle session ID
@@ -145,16 +217,94 @@ func runSpawn(cmd *cobra.Command, args []string, explicitPhase string) error {
 		}
 	}
 
-	// Build task prompt
+	// Build task prompt with optional custom prompt
 	prompt := buildTaskPrompt(taskID, phaseName)
+	if customPrompt != "" {
+		prompt += "\n\n" + customPrompt
+	}
 
-	// Create executor and spawn
-	executor := newExecutor()
+	// Validate and spawn
+	if err := executor.ValidateAvailability(); err != nil {
+		return fmt.Errorf("executor not available: %w", err)
+	}
 	if err := executor.Spawn(cmd.Context(), agent, prompt, sessionID); err != nil {
 		return fmt.Errorf("spawn failed: %w", err)
 	}
 
 	return nil
+}
+
+// runSpawnTaskless handles spawning an agent without a task.
+func runSpawnTaskless(cmd *cobra.Command, proj *state.Project, agentName, customPrompt string, executorRegistry *agents.ExecutorRegistry, bindings *struct {
+	Orchestrator *string `json:"orchestrator,omitempty"`
+	Implementer  *string `json:"implementer,omitempty"`
+	Architect    *string `json:"architect,omitempty"`
+	Reviewer     *string `json:"reviewer,omitempty"`
+	Planner      *string `json:"planner,omitempty"`
+	Researcher   *string `json:"researcher,omitempty"`
+	Decomposer   *string `json:"decomposer,omitempty"`
+}) error {
+	// Look up agent by name
+	agentRegistry := agents.NewAgentRegistry()
+	agent, err := agentRegistry.Get(agentName)
+	if err != nil {
+		return buildAgentNotFoundError(agentName, "", agentRegistry)
+	}
+
+	// Look up executor for this agent
+	executor, err := executorRegistry.GetAgentExecutor(agentName, bindings)
+	if err != nil {
+		return fmt.Errorf("failed to get executor for agent %s: %w", agentName, err)
+	}
+
+	// Initialize agent_sessions map if nil
+	if proj.Agent_sessions == nil {
+		proj.Agent_sessions = make(map[string]string)
+	}
+
+	// Handle session ID: use existing or generate new
+	sessionID := proj.Agent_sessions[agentName]
+	if sessionID == "" {
+		sessionID = uuid.New().String()
+		proj.Agent_sessions[agentName] = sessionID
+
+		// CRITICAL: Save before spawning (crash recovery)
+		if err := proj.Save(); err != nil {
+			return fmt.Errorf("failed to save session ID: %w", err)
+		}
+	}
+
+	// Build prompt: just custom prompt for taskless spawn
+	// The executor will prepend the agent template
+	prompt := customPrompt
+	if prompt == "" {
+		prompt = "You have been spawned. Follow your agent instructions."
+	}
+
+	// Validate and spawn
+	if err := executor.ValidateAvailability(); err != nil {
+		return fmt.Errorf("executor not available: %w", err)
+	}
+	if err := executor.Spawn(cmd.Context(), agent, prompt, sessionID); err != nil {
+		return fmt.Errorf("spawn failed: %w", err)
+	}
+
+	return nil
+}
+
+// buildAgentNotFoundError creates a helpful error message when an agent is not found.
+func buildAgentNotFoundError(agentName, taskID string, registry *agents.AgentRegistry) error {
+	availableAgents := registry.List()
+	names := make([]string, len(availableAgents))
+	for i, a := range availableAgents {
+		names[i] = a.Name
+	}
+	sort.Strings(names)
+
+	if taskID != "" {
+		return fmt.Errorf("task %s has unknown assigned agent: %s\nAvailable agents: %s", taskID, agentName, strings.Join(names, ", "))
+	}
+	return fmt.Errorf("unknown agent: %s\nAvailable agents: %s", agentName, strings.Join(names, ", "))
 }
 
 // buildTaskPrompt creates the prompt to send to the spawned agent.
