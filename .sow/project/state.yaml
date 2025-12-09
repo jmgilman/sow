@@ -3,19 +3,24 @@ type: standard
 branch: feat/libsschemas-module-114
 description: libs/schemas module
 created_at: 2025-12-09T13:58:04.091425-08:00
-updated_at: 2025-12-09T14:53:20.372224-08:00
+updated_at: 2025-12-09T15:09:56.741791-08:00
 phases:
     finalize:
-        status: pending
+        status: in_progress
         enabled: false
         created_at: 2025-12-09T13:58:04.091425-08:00
-        started_at: 0001-01-01T00:00:00Z
+        started_at: 2025-12-09T15:06:08.027753-08:00
         completed_at: 0001-01-01T00:00:00Z
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata: {}
         inputs: []
-        outputs: []
+        outputs:
+            - type: pr_body
+              path: phases/finalize/pr_body.md
+              approved: true
+              created_at: 2025-12-09T15:07:22.890145-08:00
+              metadata: {}
         tasks: []
     implementation:
         status: completed
@@ -399,11 +404,11 @@ phases:
                   metadata: {}
               metadata: {}
     review:
-        status: in_progress
+        status: completed
         enabled: false
         created_at: 2025-12-09T13:58:04.091425-08:00
         started_at: 2025-12-09T14:50:06.058049-08:00
-        completed_at: 0001-01-01T00:00:00Z
+        completed_at: 2025-12-09T15:06:08.027752-08:00
         failed_at: 0001-01-01T00:00:00Z
         iteration: 0
         metadata: {}
@@ -421,8 +426,8 @@ phases:
               metadata: {}
         tasks: []
 statechart:
-    current_state: ReviewActive
-    updated_at: 2025-12-09T14:53:20.372224-08:00
+    current_state: FinalizePRReady
+    updated_at: 2025-12-09T15:09:56.741791-08:00
 agent_sessions:
     planner: 930aa141-7d6f-4129-b637-95e692425624
     reviewer: 1bd906dc-99a2-43fe-9516-650433460c96
