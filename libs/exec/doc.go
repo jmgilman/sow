@@ -1,5 +1,3 @@
-//go:generate go run go.uber.org/mock/mockgen@latest -source=executor.go -destination=mock_executor.go -package=exec
-
 // Package exec provides a clean command execution abstraction using the
 // ports and adapters pattern.
 //
@@ -41,26 +39,22 @@
 //
 // # Testing
 //
-// Use the generated mock for testing:
+// Use the generated mock from the mocks subpackage for testing:
 //
-//	mock := exec.NewMockExecutor(ctrl)
-//	mock.EXPECT().Exists().Return(true)
-//	mock.EXPECT().Run("issue", "list").Return(`[{"number": 1}]`, "", nil)
+//	import "github.com/jmgilman/sow/libs/exec/mocks"
 //
-// Or create a custom mock implementation:
-//
-//	type testExecutor struct {
-//	    runFunc func(args ...string) (string, string, error)
-//	}
-//	func (t *testExecutor) Run(args ...string) (string, string, error) {
-//	    return t.runFunc(args...)
+//	mock := &mocks.ExecutorMock{
+//	    ExistsFunc: func() bool { return true },
+//	    RunFunc: func(args ...string) (string, string, error) {
+//	        return `[{"number": 1}]`, "", nil
+//	    },
 //	}
 //
 // # Implementations
 //
 // This package provides:
 //   - [LocalExecutor]: Executes commands on the local system using os/exec
-//   - Generated mock via go:generate for testing
+//   - Generated mock via moq in the mocks subpackage for testing
 //
 // See README.md for more examples.
 package exec

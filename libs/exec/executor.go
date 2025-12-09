@@ -1,5 +1,7 @@
 package exec
 
+//go:generate go run github.com/matryer/moq@latest -out mocks/executor.go -pkg mocks . Executor
+
 import "context"
 
 // Executor defines the interface for executing shell commands.
