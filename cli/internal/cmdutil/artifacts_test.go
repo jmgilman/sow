@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	"github.com/jmgilman/sow/cli/schemas/project"
+	"github.com/jmgilman/sow/libs/schemas/project"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

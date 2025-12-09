@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	projschema "github.com/jmgilman/sow/cli/schemas/project"
+	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
 // TestConfigurePrompts verifies that configurePrompts properly registers all prompt generators.

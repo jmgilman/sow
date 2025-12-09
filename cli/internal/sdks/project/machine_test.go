@@ -5,7 +5,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	stateMachine "github.com/jmgilman/sow/cli/internal/sdks/state"
-	projectSchemas "github.com/jmgilman/sow/cli/schemas/project"
+	projectSchemas "github.com/jmgilman/sow/libs/schemas/project"
 )
 
 // TestBuildMachineCreatesInitializedMachine tests that BuildMachine creates a state machine

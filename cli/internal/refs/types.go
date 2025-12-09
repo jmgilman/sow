@@ -4,7 +4,7 @@ package refs
 import (
 	"context"
 
-	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/libs/schemas"
 )
 
 // RefType defines the interface that all reference types must implement.

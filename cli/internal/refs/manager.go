@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/libs/schemas"
 )
 
 // CacheManager orchestrates ref caching and workspace symlinking.

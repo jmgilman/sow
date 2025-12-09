@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	projschema "github.com/jmgilman/sow/cli/schemas/project"
+	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
 //go:embed testdata/*.md

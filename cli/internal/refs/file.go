@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/libs/schemas"
 )
 
 // FileType implements RefType for local file references.

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/libs/schemas"
 )
 
 func TestFileType_Name(t *testing.T) {

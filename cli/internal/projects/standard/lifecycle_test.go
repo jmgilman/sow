@@ -8,7 +8,7 @@ import (
 	"github.com/jmgilman/sow/cli/internal/sdks/project"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
-	projschema "github.com/jmgilman/sow/cli/schemas/project"
+	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
 // TestFullLifecycle tests complete project lifecycle from start to finish.

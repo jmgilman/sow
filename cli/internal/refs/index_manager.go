@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/libs/schemas"
 )
 
 // Manager is the high-level manager for refs operations.

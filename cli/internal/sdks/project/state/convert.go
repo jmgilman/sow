@@ -1,7 +1,7 @@
 package state
 
 import (
-	"github.com/jmgilman/sow/cli/schemas/project"
+	"github.com/jmgilman/sow/libs/schemas/project"
 )
 
 // convertArtifacts converts CUE-generated ArtifactState slice to ArtifactCollection.
