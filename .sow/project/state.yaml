@@ -1,0 +1,264 @@
+name: libsschemas-module
+type: standard
+branch: feat/libsschemas-module-114
+description: libs/schemas module
+created_at: 2025-12-09T13:58:04.091425-08:00
+updated_at: 2025-12-09T14:17:15.779799-08:00
+phases:
+    finalize:
+        status: pending
+        enabled: false
+        created_at: 2025-12-09T13:58:04.091425-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+    implementation:
+        status: in_progress
+        enabled: false
+        created_at: 2025-12-09T13:58:04.091425-08:00
+        started_at: 2025-12-09T13:58:04.091452-08:00
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata:
+            planning_approved: true
+        inputs:
+            - type: github_issue
+              path: context/issue-114.md
+              approved: true
+              created_at: 2025-12-09T13:58:04.091414-08:00
+              metadata:
+                issue_number: 114
+                issue_title: libs/schemas module
+                issue_url: https://github.com/jmgilman/sow/issues/114
+            - type: reference
+              path: ../../knowledge/explorations/libs-refactoring-summary.md
+              approved: true
+              created_at: 2025-12-09T13:58:04.091423-08:00
+              metadata:
+                description: Knowledge file selected during project creation
+                source: user_selected
+        outputs: []
+        tasks:
+            - id: "010"
+              name: Create libs/schemas Go module structure
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T14:15:40.323354-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T14:16:24.783866-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/schemas/go.mod
+                  approved: false
+                  created_at: 2025-12-09T14:16:11.775635-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/cue.mod/module.cue
+                  approved: false
+                  created_at: 2025-12-09T14:16:13.252676-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/embed.go
+                  approved: false
+                  created_at: 2025-12-09T14:16:14.557033-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/config.cue
+                  approved: false
+                  created_at: 2025-12-09T14:16:16.136204-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/user_config.cue
+                  approved: false
+                  created_at: 2025-12-09T14:16:17.034599-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/refs_cache.cue
+                  approved: false
+                  created_at: 2025-12-09T14:16:18.522318-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/refs_committed.cue
+                  approved: false
+                  created_at: 2025-12-09T14:16:19.569928-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/refs_local.cue
+                  approved: false
+                  created_at: 2025-12-09T14:16:21.906198-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/knowledge_index.cue
+                  approved: false
+                  created_at: 2025-12-09T14:16:22.752521-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/cue_types_gen.go
+                  approved: false
+                  created_at: 2025-12-09T14:16:23.984216-08:00
+                  metadata: {}
+                - type: reference
+                  path: .golangci.yml
+                  approved: false
+                  created_at: 2025-12-09T14:16:24.783865-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "020"
+              name: Migrate project schemas to libs/schemas/project
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T14:15:41.702865-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T14:16:39.418733-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/schemas/project/project.cue
+                  approved: false
+                  created_at: 2025-12-09T14:16:33.772146-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/project/phase.cue
+                  approved: false
+                  created_at: 2025-12-09T14:16:34.859357-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/project/task.cue
+                  approved: false
+                  created_at: 2025-12-09T14:16:35.649944-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/project/artifact.cue
+                  approved: false
+                  created_at: 2025-12-09T14:16:36.699099-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/project/test_helper.cue
+                  approved: false
+                  created_at: 2025-12-09T14:16:37.687845-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/project/cue_types_gen.go
+                  approved: false
+                  created_at: 2025-12-09T14:16:38.658024-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/project/schemas_test.go
+                  approved: false
+                  created_at: 2025-12-09T14:16:39.418733-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "030"
+              name: Update consumer import paths
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T14:15:42.443797-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T14:16:45.234325-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/go.mod
+                  approved: false
+                  created_at: 2025-12-09T14:16:44.170846-08:00
+                  metadata: {}
+                - type: reference
+                  path: .golangci.yml
+                  approved: false
+                  created_at: 2025-12-09T14:16:45.234324-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "040"
+              name: Add README.md and doc.go documentation
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T14:15:43.353251-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T14:16:54.761592-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: .standards/READMES.md
+                  approved: false
+                  created_at: 2025-12-09T14:16:51.702365-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/STYLE.md
+                  approved: false
+                  created_at: 2025-12-09T14:16:52.58899-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/README.md
+                  approved: false
+                  created_at: 2025-12-09T14:16:53.897001-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/schemas/doc.go
+                  approved: false
+                  created_at: 2025-12-09T14:16:54.761592-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "050"
+              name: Verify lint, tests, and clean up old schemas
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T14:15:44.407748-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T14:17:01.581341-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: .golangci.yml
+                  approved: false
+                  created_at: 2025-12-09T14:17:00.347682-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/.golangci.yml
+                  approved: false
+                  created_at: 2025-12-09T14:17:01.581341-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+    review:
+        status: pending
+        enabled: false
+        created_at: 2025-12-09T13:58:04.091425-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+statechart:
+    current_state: ImplementationDraftPRCreation
+    updated_at: 2025-12-09T14:17:15.779799-08:00
+agent_sessions:
+    planner: 930aa141-7d6f-4129-b637-95e692425624
