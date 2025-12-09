@@ -1,0 +1,984 @@
+================================================================================
+SESSION STARTED
+================================================================================
+  Session ID: eb38a4c9-0ee1-4c04-8fc9-55a5ecb759e4
+  Model: claude-opus-4-5-20251101
+  Working Dir: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115
+  Claude Code: v2.0.62
+  Permission Mode: bypassPermissions
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Load base implementer instructions
+  Command: sow prompt guidance/implementer/base
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  # Implementer Agent - Base Instructions
+
+  You are a software implementer. Your sole purpose is to implement what is specified—nothing more, nothing less.
+
+  ## Immediate Actions
+
+  Follow these steps in order:
+
+  ### 1. Read Task State
+
+  Read: `.sow/project/phases/implementation/tasks/{id}/state.yaml`
+
+  Or use command: `sow task status --id {id}`
+
+  Check:
+  - **iteration**: What iteration are you on? (1 = first attempt, 2+ = addressing feedback)
+  - **assigned_agent**: Confirm you're the right agent
+  - **inputs**: Context files and feedback the orchestrator wants you to review
+    - Look for inputs with `type: reference` (context files)
+    - Look for inputs with `type: feedback` (review feedback from previous iterations)
+
+  ### 2. Read Requirements
+
+  Read: `.sow/project/phases/implementation/tasks/{id}/description.md`
+
+  Understand:
+  - What needs to be done
+  - Acceptance criteria
+  - Any specific constraints or requirements
+  - Task scenario type (see detection heuristics below)
+
+  **CRITICAL: Validate Task Descri
+    ... [truncated, 8887 total chars]
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me read the task state and description:
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/.sow/project/phases/implementation/tasks/040/state.yaml
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/.sow/project/phases/implementation/tasks/040/description.md
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Let me check the task state:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Get task 040 status
+  Command: sow task status --id 040
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Task: 040 - Migrate consumers to libs/exec
+  Phase: implementation
+  Status: pending
+  Iteration: 1
+  Assigned Agent: implementer
+
+  Timestamps:
+    Created:   2025-12-09 15:28:35
+    Updated:   2025-12-09 15:28:43
+
+  Inputs (11):
+    [0] reference: cli/internal/sow/github_cli.go
+    [1] reference: cli/internal/sow/github_cli_test.go
+    [2] reference: cli/internal/sow/github_factory.go
+    [3] reference: cli/cmd/project/wizard_state.go
+    [4] reference: cli/cmd/project/shared.go
+    [5] reference: cli/cmd/issue/show.go
+    [6] reference: cli/cmd/issue/list.go
+    [7] reference: cli/cmd/issue/check.go
+    [8] reference: libs/exec/executor.go
+    [9] reference: libs/exec/local.go
+    [10] reference: cli/go.mod
+
+  Files:
+    Description: .sow/project/phases/implementation/tasks/040/description.md
+    Log:         .sow/project/phases/implementation/tasks/040/log.md
+    Feedback:    .sow/project/phases/implementation/tasks/040/feedback/
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Good, this is iteration 1 (first attempt) with no feedback. This is a FEATURE task (migrating consumers to use a new module). Let me load the TDD and feature guidance:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Load TDD guidance
+  Command: sow prompt guidance/implementer/tdd
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Load feature guidance
+  Command: sow prompt guidance/implementer/feature
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  # Test-Driven Development (TDD) Methodology
+
+  This guidance is **mandatory** for all implementer work. TDD is non-negotiable.
+
+  ## Core TDD Principles
+
+  ### 1. Test First, Always
+
+  Write tests before writing implementation code. Tests define the behavior you must implement. No exceptions.
+
+  **The Red-Green-Refactor Cycle:**
+
+  1. **Red**: Write a failing test
+  2. **Green**: Write minimal code to make it pass
+  3. **Refactor**: Improve code quality without changing behavior
+  4. Repeat
+
+  ### 2. Test Behavior, Not Implementation
+
+  Tests verify **what code does**, not **how it does it**.
+
+  Test outcomes and public APIs. Internal implementation details are irrelevant to tests.
+
+  ```python
+  # ❌ BAD: Tests internal calls (implementation detail)
+  def test_calls_internal_method():
+      service.process()
+      assert service._internal_method.called
+
+  # ✅ GOOD: Tests outcome (observable behavior)
+  def test_process_returns_correct_result():
+      result = service.process()
+      assert result.value == expected_value
+  ``
+    ... [truncated, 9404 total chars]
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  # Feature Implementation Workflow
+
+  Use this guidance when implementing **new functionality** that doesn't exist yet in the codebase.
+
+  ## Feature Implementation Process
+
+  ### Phase 1: Understand the Requirement
+
+  Before writing any code, ensure you understand:
+
+  1. **What** needs to be built (functional requirements)
+  2. **Why** it's needed (context, use case)
+  3. **How** it should behave (acceptance criteria)
+  4. **Where** it fits in the existing architecture
+
+  Read description.md carefully. If anything is unclear, stop and escalate.
+
+  ### Phase 2: Break Down into Testable Units
+
+  Decompose the feature into small, independently testable units:
+
+  **Example**: "Implement JWT authentication middleware"
+
+  Break down:
+  1. Token parsing from Authorization header
+  2. Token signature validation
+  3. Token expiration checking
+  4. User context extraction from token
+  5. Request rejection on invalid token
+  6. Request continuation on valid token
+
+  Each unit becomes a test (or set of tests).
+
+  ### Phase 3: Identify Int
+    ... [truncated, 7309 total chars]
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Good. Now I understand the task. This is a migration task - updating import paths from the old `cli/internal/exec` to the new `libs/exec` module. Since this is just a refactoring of import paths (behavior should stay exactly the same), I need to:
+
+  1. Update imports in all 8 consumer files
+  2. Change constructor calls from `NewLocal` to `NewLocalExecutor`
+  3. Update test files to use `mocks.ExecutorMock` instead of `exec.MockExecutor`
+  4. Update `cli/go.mod`
+  5. Verify everything compiles and tests p
+    ... [truncated, 598 total chars]
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [>] Read all 8 consumer files to understand current state
+    [ ] Update cli/go.mod with libs/exec dependency
+    [ ] Update cli/internal/sow/github_cli.go imports
+    [ ] Update cli/internal/sow/github_cli_test.go imports and mocks
+    [ ] Update cli/internal/sow/github_factory.go imports and constructor
+    [ ] Update cli/cmd/project/wizard_state.go imports and constructor
+    [ ] Update cli/cmd/project/shared.go imports and constructor
+    [ ] Update cli/cmd/issue/show.go imports and constructor
+    [ ] Update cli/cmd/issue/list.go imports and constructor
+    [ ] Update cli/cmd/issue/check.go imports and constructor
+    [ ] Verify build succeeds
+    [ ] Verify tests pass
+    [ ] Run golangci-lint
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Log task start
+  Command: sow agent log -a "Started task 040" -r "Migration of 8 consumer files from cli/internal/exec to libs/exec"
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/internal/sow/github_cli.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/internal/sow/github_cli_test.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/internal/sow/github_factory.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/project/wizard_state.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/project/shared.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/issue/show.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/issue/list.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/issue/check.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/go.mod
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  I've now read all 8 consumer files plus the `cli/go.mod`. Let me also check the new `libs/exec` module to understand the exact interface and constructor:
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/libs/exec/executor.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/libs/exec/local.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/libs/exec/mocks/executor.go
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now I have a clear understanding of what needs to be done. Let me update the todo list and start the migration:
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Read all 8 consumer files to understand current state
+    [>] Update cli/go.mod with libs/exec dependency
+    [ ] Update cli/internal/sow/github_cli.go imports
+    [ ] Update cli/internal/sow/github_cli_test.go imports and mocks
+    [ ] Update cli/internal/sow/github_factory.go imports and constructor
+    [ ] Update cli/cmd/project/wizard_state.go imports and constructor
+    [ ] Update cli/cmd/project/shared.go imports and constructor
+    [ ] Update cli/cmd/issue/show.go imports and constructor
+    [ ] Update cli/cmd/issue/list.go imports and constructor
+    [ ] Update cli/cmd/issue/check.go imports and constructor
+    [ ] Verify build succeeds
+    [ ] Verify tests pass
+    [ ] Run golangci-lint
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me start by updating the `cli/go.mod` file first:
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/go.mod
+  Replacing: require ( 	cuelang.org/go v0.15.1 	github.com/charmbracelet/huh v0.8.0 	github.com/charmbracelet/huh...
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/go.mod
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/go.mod
+  Replacing: 	github.com/jmgilman/sow/libs/schemas v0.0.0
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/go.mod
+  Replacing: replace github.com/jmgilman/sow/libs/schemas => ../libs/schemas
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me update the todo and start updating the consumer files:
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Read all 8 consumer files to understand current state
+    [x] Update cli/go.mod with libs/exec dependency
+    [>] Update cli/internal/sow/github_cli.go imports
+    [ ] Update cli/internal/sow/github_cli_test.go imports and mocks
+    [ ] Update cli/internal/sow/github_factory.go imports and constructor
+    [ ] Update cli/cmd/project/wizard_state.go imports and constructor
+    [ ] Update cli/cmd/project/shared.go imports and constructor
+    [ ] Update cli/cmd/issue/show.go imports and constructor
+    [ ] Update cli/cmd/issue/list.go imports and constructor
+    [ ] Update cli/cmd/issue/check.go imports and constructor
+    [ ] Verify build succeeds
+    [ ] Verify tests pass
+    [ ] Run golangci-lint
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me update all 8 consumer files. I'll do them in batches:
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/internal/sow/github_cli.go
+  Replacing: github.com/jmgilman/sow/cli/internal/exec
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/internal/sow/github_factory.go
+  Replacing: github.com/jmgilman/sow/cli/internal/exec
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/internal/sow/github_factory.go
+  Replacing: 	ghExec := exec.NewLocal("gh")
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/internal/sow/github_cli_test.go
+  Replacing: 	"github.com/jmgilman/sow/cli/internal/exec" 	"github.com/jmgilman/sow/cli/internal/sow"
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now I need to update all the `&exec.MockExecutor{` to `&mocks.ExecutorMock{`:
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/internal/sow/github_cli_test.go
+  Replacing: &exec.MockExecutor{
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me update the remaining files:
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/project/wizard_state.go
+  Replacing: 	sowexec "github.com/jmgilman/sow/cli/internal/exec"
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/project/wizard_state.go
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/project/wizard_state.go
+  Replacing: 	"github.com/charmbracelet/huh" 	sowexec "github.com/jmgilman/sow/cli/internal/exec" 	"github.com/jm...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/project/wizard_state.go
+  Replacing: 	ghExec := sowexec.NewLocal("gh")
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/project/shared.go
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  I see that `shared.go` has both `os/exec` (standard library) and `sowexec "github.com/jmgilman/sow/cli/internal/exec"`. I need to handle this case carefully. Let me read more of the file to see how `sowexec` is used:
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/project/shared.go
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  I see the issue. This file uses both:
+  - `os/exec` (stdlib) as `exec` for `exec.CommandContext`
+  - `sowexec "github.com/jmgilman/sow/cli/internal/exec"` for `sowexec.NewLocal`
+
+  Since the new import will be `github.com/jmgilman/sow/libs/exec`, it will conflict with `os/exec`. I need to use an alias for one of them. Looking at the pattern in the description, I should remove the alias from the new import and instead alias the stdlib exec package. Let me update:
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/project/shared.go
+  Replacing: import ( 	"fmt" 	"os" 	"os/exec" 	"path/filepath" 	"strings" 	"time"  	sowexec "github.com/jmgilman/...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now I need to update the usages. `sowexec.NewLocal` becomes `exec.NewLocalExecutor` and `exec.CommandContext` becomes `osExec.CommandContext`:
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/project/shared.go
+  Replacing: 	claude := sowexec.NewLocal("claude")
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/project/shared.go
+  Replacing: 	claudeCmd := exec.CommandContext(cmd.Context(), claude.Command(), args...)
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me update the issue command files. Let me read them first:
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/issue/show.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/issue/list.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/issue/check.go
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now I can see all 3 issue files have the same pattern. Let me update them all:
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/issue/show.go
+  Replacing: 	"github.com/jmgilman/sow/cli/internal/exec" 	"github.com/jmgilman/sow/cli/internal/sow" 	"github.co...
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/issue/show.go
+  Replacing: 			// Create GitHub client 			ghExec := exec.NewLocal("gh") 			gh := sow.NewGitHub(ghExec)
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/issue/list.go
+  Replacing: 	"github.com/jmgilman/sow/cli/internal/exec" 	"github.com/jmgilman/sow/cli/internal/sow" 	"github.co...
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/issue/list.go
+  Replacing: 			// Create GitHub client 			ghExec := exec.NewLocal("gh") 			gh := sow.NewGitHub(ghExec)
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/issue/check.go
+  Replacing: 	"github.com/jmgilman/sow/cli/internal/exec" 	"github.com/jmgilman/sow/cli/internal/sow" 	"github.co...
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/cmd/issue/check.go
+  Replacing: 			// Create GitHub client 			ghExec := exec.NewLocal("gh") 			gh := sow.NewGitHub(ghExec)
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me update the todo and verify the build:
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Read all 8 consumer files to understand current state
+    [x] Update cli/go.mod with libs/exec dependency
+    [x] Update cli/internal/sow/github_cli.go imports
+    [x] Update cli/internal/sow/github_cli_test.go imports and mocks
+    [x] Update cli/internal/sow/github_factory.go imports and constructor
+    [x] Update cli/cmd/project/wizard_state.go imports and constructor
+    [x] Update cli/cmd/project/shared.go imports and constructor
+    [x] Update cli/cmd/issue/show.go imports and constructor
+    [x] Update cli/cmd/issue/list.go imports and constructor
+    [x] Update cli/cmd/issue/check.go imports and constructor
+    [>] Verify build succeeds
+    [ ] Verify tests pass
+    [ ] Run golangci-lint
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Build cli module to verify changes
+  Command: cd /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli && go build ./...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  The build succeeds. Now let me run the tests:
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Read all 8 consumer files to understand current state
+    [x] Update cli/go.mod with libs/exec dependency
+    [x] Update cli/internal/sow/github_cli.go imports
+    [x] Update cli/internal/sow/github_cli_test.go imports and mocks
+    [x] Update cli/internal/sow/github_factory.go imports and constructor
+    [x] Update cli/cmd/project/wizard_state.go imports and constructor
+    [x] Update cli/cmd/project/shared.go imports and constructor
+    [x] Update cli/cmd/issue/show.go imports and constructor
+    [x] Update cli/cmd/issue/list.go imports and constructor
+    [x] Update cli/cmd/issue/check.go imports and constructor
+    [x] Verify build succeeds
+    [>] Verify tests pass
+    [ ] Run golangci-lint
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Run cli module tests
+  Command: go test ./...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  ok  	github.com/jmgilman/sow/cli	2.756s
+  ok  	github.com/jmgilman/sow/cli/cmd	0.396s
+  ok  	github.com/jmgilman/sow/cli/cmd/agent	1.788s
+  ok  	github.com/jmgilman/sow/cli/cmd/config	0.750s
+  ?   	github.com/jmgilman/sow/cli/cmd/issue	[no test files]
+  ok  	github.com/jmgilman/sow/cli/cmd/project	11.577s
+  ?   	github.com/jmgilman/sow/cli/cmd/refs	[no test files]
+  ok  	github.com/jmgilman/sow/cli/internal	1.204s
+  ok  	github.com/jmgilman/sow/cli/internal/agents	0.895s
+  ok  	github.com/jmgilman/sow/cli/internal/agents/logformat	1.864s
+  ok  	github.com/jmgilman/sow/cli/internal/cmdutil	1.578s
+  ?   	github.com/jmgilman/sow/cli/internal/exec	[no test files]
+  ?   	github.com/jmgilman/sow/cli/internal/logging	[no test files]
+  ok  	github.com/jmgilman/sow/cli/internal/projects/breakdown	1.405s
+  ok  	github.com/jmgilman/sow/cli/internal/projects/design	1.095s
+  ok  	github.com/jmgilman/sow/cli/internal/projects/exploration	1.762s
+  ok  	github.com/jmgilman/sow/cli/internal/projects/standard	2.032s
+  ?   	github.com/jm
+    ... [truncated, 1484 total chars]
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  All tests pass. Now let me run golangci-lint:
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Read all 8 consumer files to understand current state
+    [x] Update cli/go.mod with libs/exec dependency
+    [x] Update cli/internal/sow/github_cli.go imports
+    [x] Update cli/internal/sow/github_cli_test.go imports and mocks
+    [x] Update cli/internal/sow/github_factory.go imports and constructor
+    [x] Update cli/cmd/project/wizard_state.go imports and constructor
+    [x] Update cli/cmd/project/shared.go imports and constructor
+    [x] Update cli/cmd/issue/show.go imports and constructor
+    [x] Update cli/cmd/issue/list.go imports and constructor
+    [x] Update cli/cmd/issue/check.go imports and constructor
+    [x] Verify build succeeds
+    [x] Verify tests pass
+    [>] Run golangci-lint
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Run golangci-lint on cli module
+  Command: golangci-lint run
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  0 issues.
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  All checks pass. Let me log the task completion and track the modified files:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Track modified files for task 040
+  Command: cd /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115 && sow task output add --id 040 --type modified --path "cli/go.mod" && sow task output add --id 040 --type modified --path "cli/internal...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Added output artifact [0] to task [040]
+  Added output artifact [1] to task [040]
+  Added output artifact [2] to task [040]
+  Added output artifact [3] to task [040]
+  Added output artifact [4] to task [040]
+  Added output artifact [5] to task [040]
+  Added output artifact [6] to task [040]
+  Added output artifact [7] to task [040]
+  Added output artifact [8] to task [040]
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/.sow/project/phases/implementation/tasks/040/log.md
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/.sow/project/phases/implementation/tasks/040/log.md
+  Replacing: # Task Log  Worker actions will be logged here.
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me mark the task as needs_review:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Mark task 040 as needs_review
+  Command: sow task set --id 040 status needs_review
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Set status on task [040] in phase implementation
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Read all 8 consumer files to understand current state
+    [x] Update cli/go.mod with libs/exec dependency
+    [x] Update cli/internal/sow/github_cli.go imports
+    [x] Update cli/internal/sow/github_cli_test.go imports and mocks
+    [x] Update cli/internal/sow/github_factory.go imports and constructor
+    [x] Update cli/cmd/project/wizard_state.go imports and constructor
+    [x] Update cli/cmd/project/shared.go imports and constructor
+    [x] Update cli/cmd/issue/show.go imports and constructor
+    [x] Update cli/cmd/issue/list.go imports and constructor
+    [x] Update cli/cmd/issue/check.go imports and constructor
+    [x] Verify build succeeds
+    [x] Verify tests pass
+    [x] Run golangci-lint
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Task 040 is complete. Here's a summary of what was done:
+
+  ## Task 040 - Migrate Consumers to libs/exec
+
+  ### Summary
+  Successfully migrated all 8 consumer files from importing `cli/internal/exec` to `github.com/jmgilman/sow/libs/exec`.
+
+  ### Files Modified (9 total)
+  1. **cli/go.mod** - Added new dependency and replace directive
+  2. **cli/internal/sow/github_cli.go** - Updated import path
+  3. **cli/internal/sow/github_cli_test.go** - Updated import, changed `MockExecutor` to `mocks.ExecutorMock`
+  4. **
+    ... [truncated, 1367 total chars]
+
+================================================================================
+SESSION COMPLETE
+================================================================================
+  Duration: 4m 54s (API: 5m 1s)
+  Turns: 61
+  Cost: $2.95
+
+  FINAL RESULT:
+  Task 040 is complete. Here's a summary of what was done:
+
+  ## Task 040 - Migrate Consumers to libs/exec
+
+  ### Summary
+  Successfully migrated all 8 consumer files from importing `cli/internal/exec` to `github.com/jmgilman/sow/libs/exec`.
+
+  ### Files Modified (9 total)
+  1. **cli/go.mod** - Added new dependency and replace directive
+  2. **cli/internal/sow/github_cli.go** - Updated import path
+  3. **cli/internal/sow/github_cli_test.go** - Updated import, changed `MockExecutor` to `mocks.ExecutorMock`
+  4. **cli/internal/sow/github_factory.go** - Updated import, changed `NewLocal` to `NewLocalExecutor`
+  5. **cli/cmd/project/wizard_state.go** - Removed alias, updated import and constructor
+  6. **cli/cmd/project/shared.go** - Used `osExec` alias for stdlib to avoid conflict, updated imports
+  7. **cli/cmd/issue/show.go** - Updated import and constructor
+  8. **cli/cmd/issue/list.go** - Updated import and constructor
+  9. **cli/cmd/issue/check.go** - Updated import and constructor
+
+  ### Key Changes
+  - Import path: `cli/internal/exec` → `libs/exec`
+  - Constructor: `exec.NewLocal(cmd)` → `exec.NewLocalExecutor(cmd)`
+  - Mock type: `&exec.MockExecutor{}` → `&mocks.ExecutorMock{}`
+  - Where needed, used `osExec` alias for `os/exec` to avoid naming conflict
+
+  ### Verification
+  - `go build ./...` - Success
+  - `go test ./...` - All 24 packages pass
+  - `golangci-lint run` - 0 issues

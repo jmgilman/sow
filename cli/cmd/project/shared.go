@@ -3,18 +3,19 @@ package project
 import (
 	"fmt"
 	"os"
-	"os/exec"
+	osExec "os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
-	sowexec "github.com/jmgilman/sow/cli/internal/exec"
+	"github.com/spf13/cobra"
+
 	"github.com/jmgilman/sow/cli/internal/prompts"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/templates"
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/exec"
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
-	"github.com/spf13/cobra"
 )
 
 // initializeProject creates a new project in the given context.
@@ -235,7 +236,7 @@ func launchClaudeCode(
 	prompt string,
 	claudeFlags []string,
 ) error {
-	claude := sowexec.NewLocal("claude")
+	claude := exec.NewLocalExecutor("claude")
 	if !claude.Exists() {
 		fmt.Fprintln(os.Stderr, "Error: Claude Code CLI not found")
 		fmt.Fprintln(os.Stderr, "Install from: https://claude.com/download")
@@ -246,7 +247,7 @@ func launchClaudeCode(
 	args := []string{prompt}
 	args = append(args, claudeFlags...)
 
-	claudeCmd := exec.CommandContext(cmd.Context(), claude.Command(), args...)
+	claudeCmd := osExec.CommandContext(cmd.Context(), claude.Command(), args...)
 	claudeCmd.Stdin = os.Stdin
 	claudeCmd.Stdout = os.Stdout
 	claudeCmd.Stderr = os.Stderr

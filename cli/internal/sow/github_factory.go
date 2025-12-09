@@ -3,7 +3,7 @@ package sow
 import (
 	"os"
 
-	"github.com/jmgilman/sow/cli/internal/exec"
+	"github.com/jmgilman/sow/libs/exec"
 )
 
 // NewGitHubClient creates a GitHub client with automatic environment detection.
@@ -39,6 +39,6 @@ func NewGitHubClient() (GitHubClient, error) {
 	}
 
 	// Default to CLI client
-	ghExec := exec.NewLocal("gh")
+	ghExec := exec.NewLocalExecutor("gh")
 	return NewGitHubCLI(ghExec), nil
 }

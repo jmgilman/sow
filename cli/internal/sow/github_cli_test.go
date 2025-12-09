@@ -5,14 +5,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jmgilman/sow/cli/internal/exec"
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/exec/mocks"
 )
 
 // Example demonstrates how to test GitHub functionality using MockExecutor.
 func Example() {
 	// Create a mock executor that simulates gh CLI responses
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return true },
 		RunSilentFunc: func(_ ...string) error {
 			// Simulate successful authentication
@@ -55,7 +55,7 @@ func Example() {
 
 func TestGitHub_CheckInstalled_MockNotInstalled(t *testing.T) {
 	// Test that CheckInstalled correctly detects when gh is not available
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return false },
 	}
 
@@ -75,7 +75,7 @@ func TestGitHub_CheckInstalled_MockNotInstalled(t *testing.T) {
 
 func TestGitHub_CheckAuthenticated_MockNotAuthenticated(t *testing.T) {
 	// Test that CheckAuthenticated correctly detects authentication failure
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return true },
 		RunSilentFunc: func(_ ...string) error {
 			// Simulate gh auth status failing
@@ -111,7 +111,7 @@ func (e *MockError) Error() string {
 func TestGitHubCLI_UpdatePullRequest_Success(t *testing.T) {
 	var capturedArgs []string
 
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return true },
 		RunSilentFunc: func(_ ...string) error {
 			return nil // Auth check passes
@@ -142,7 +142,7 @@ func TestGitHubCLI_UpdatePullRequest_Success(t *testing.T) {
 }
 
 func TestGitHubCLI_UpdatePullRequest_NotInstalled(t *testing.T) {
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return false },
 	}
 
@@ -160,7 +160,7 @@ func TestGitHubCLI_UpdatePullRequest_NotInstalled(t *testing.T) {
 }
 
 func TestGitHubCLI_UpdatePullRequest_CommandFails(t *testing.T) {
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return true },
 		RunSilentFunc: func(_ ...string) error {
 			return nil // Auth check passes
@@ -188,7 +188,7 @@ func TestGitHubCLI_UpdatePullRequest_CommandFails(t *testing.T) {
 func TestGitHubCLI_MarkPullRequestReady_Success(t *testing.T) {
 	var capturedArgs []string
 
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return true },
 		RunSilentFunc: func(_ ...string) error {
 			return nil // Auth check passes
@@ -219,7 +219,7 @@ func TestGitHubCLI_MarkPullRequestReady_Success(t *testing.T) {
 }
 
 func TestGitHubCLI_MarkPullRequestReady_NotInstalled(t *testing.T) {
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return false },
 	}
 
@@ -237,7 +237,7 @@ func TestGitHubCLI_MarkPullRequestReady_NotInstalled(t *testing.T) {
 }
 
 func TestGitHubCLI_MarkPullRequestReady_CommandFails(t *testing.T) {
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return true },
 		RunSilentFunc: func(_ ...string) error {
 			return nil // Auth check passes
@@ -265,7 +265,7 @@ func TestGitHubCLI_MarkPullRequestReady_CommandFails(t *testing.T) {
 func TestGitHubCLI_CreatePullRequest_Draft(t *testing.T) {
 	var capturedArgs []string
 
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return true },
 		RunSilentFunc: func(_ ...string) error {
 			return nil // Auth check passes
@@ -307,7 +307,7 @@ func TestGitHubCLI_CreatePullRequest_Draft(t *testing.T) {
 func TestGitHubCLI_CreatePullRequest_NotDraft(t *testing.T) {
 	var capturedArgs []string
 
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return true },
 		RunSilentFunc: func(_ ...string) error {
 			return nil // Auth check passes
@@ -342,7 +342,7 @@ func TestGitHubCLI_CreatePullRequest_NotDraft(t *testing.T) {
 }
 
 func TestGitHubCLI_CreatePullRequest_ParseError(t *testing.T) {
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return true },
 		RunSilentFunc: func(_ ...string) error {
 			return nil // Auth check passes
@@ -362,7 +362,7 @@ func TestGitHubCLI_CreatePullRequest_ParseError(t *testing.T) {
 }
 
 func TestGitHubCLI_CreatePullRequest_NotInstalled(t *testing.T) {
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return false },
 	}
 
@@ -380,7 +380,7 @@ func TestGitHubCLI_CreatePullRequest_NotInstalled(t *testing.T) {
 }
 
 func TestGitHubCLI_CreatePullRequest_CommandFails(t *testing.T) {
-	mock := &exec.MockExecutor{
+	mock := &mocks.ExecutorMock{
 		ExistsFunc: func() bool { return true },
 		RunSilentFunc: func(_ ...string) error {
 			return nil // Auth check passes

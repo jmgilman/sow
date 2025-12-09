@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/exec"
-	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
+
+	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/exec"
 )
 
 func newListCmd() *cobra.Command {
@@ -31,8 +32,8 @@ Examples:
   sow issue list --state closed`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Create GitHub client
-			ghExec := exec.NewLocal("gh")
-			gh := sow.NewGitHub(ghExec)
+			ghExec := exec.NewLocalExecutor("gh")
+			gh := sow.NewGitHubCLI(ghExec)
 
 			issues, err := gh.ListIssues("sow", state)
 			if err != nil {
