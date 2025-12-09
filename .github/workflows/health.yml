@@ -71,7 +71,7 @@ jobs:
         with:
           version: latest
           working-directory: ./libs/schemas
-          args: --config=../.golangci.yml
+          args: --config=${{ github.workspace }}/.golangci.yml
 
   cue-validation:
     name: CUE Schema Validation

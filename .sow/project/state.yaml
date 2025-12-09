@@ -3,7 +3,7 @@ type: standard
 branch: feat/libsschemas-module-114
 description: libs/schemas module
 created_at: 2025-12-09T13:58:04.091425-08:00
-updated_at: 2025-12-09T15:09:56.741791-08:00
+updated_at: 2025-12-09T15:10:34.108838-08:00
 phases:
     finalize:
         status: in_progress
@@ -426,8 +426,8 @@ phases:
               metadata: {}
         tasks: []
 statechart:
-    current_state: FinalizePRReady
-    updated_at: 2025-12-09T15:09:56.741791-08:00
+    current_state: FinalizePRChecks
+    updated_at: 2025-12-09T15:10:34.108838-08:00
 agent_sessions:
     planner: 930aa141-7d6f-4129-b637-95e692425624
     reviewer: 1bd906dc-99a2-43fe-9516-650433460c96
