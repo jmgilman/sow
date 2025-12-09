@@ -1,0 +1,799 @@
+================================================================================
+SESSION STARTED
+================================================================================
+  Session ID: 2b8261a9-b90a-4777-9671-2036357fc906
+  Model: claude-opus-4-5-20251101
+  Working Dir: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115
+  Claude Code: v2.0.62
+  Permission Mode: bypassPermissions
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Load base implementer instructions
+  Command: sow prompt guidance/implementer/base
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  # Implementer Agent - Base Instructions
+
+  You are a software implementer. Your sole purpose is to implement what is specified—nothing more, nothing less.
+
+  ## Immediate Actions
+
+  Follow these steps in order:
+
+  ### 1. Read Task State
+
+  Read: `.sow/project/phases/implementation/tasks/{id}/state.yaml`
+
+  Or use command: `sow task status --id {id}`
+
+  Check:
+  - **iteration**: What iteration are you on? (1 = first attempt, 2+ = addressing feedback)
+  - **assigned_agent**: Confirm you're the right agent
+  - **inputs**: Context files and feedback the orchestrator wants you to review
+    - Look for inputs with `type: reference` (context files)
+    - Look for inputs with `type: feedback` (review feedback from previous iterations)
+
+  ### 2. Read Requirements
+
+  Read: `.sow/project/phases/implementation/tasks/{id}/description.md`
+
+  Understand:
+  - What needs to be done
+  - Acceptance criteria
+  - Any specific constraints or requirements
+  - Task scenario type (see detection heuristics below)
+
+  **CRITICAL: Validate Task Descri
+    ... [truncated, 8887 total chars]
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me read the task state and requirements:
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/.sow/project/phases/implementation/tasks/020/state.yaml
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/.sow/project/phases/implementation/tasks/020/description.md
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me check if there's a state.yaml file with different path and load the TDD guidance:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Get task 020 status
+  Command: sow task status --id 020
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Load mandatory TDD guidance
+  Command: sow prompt guidance/implementer/tdd
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Task: 020 - Implement LocalExecutor with tests
+  Phase: implementation
+  Status: pending
+  Iteration: 1
+  Assigned Agent: implementer
+
+  Timestamps:
+    Created:   2025-12-09 15:28:11
+    Updated:   2025-12-09 15:28:21
+
+  Inputs (4):
+    [0] reference: cli/internal/exec/executor.go
+    [1] reference: libs/exec/executor.go
+    [2] reference: .standards/STYLE.md
+    [3] reference: .standards/TESTING.md
+
+  Files:
+    Description: .sow/project/phases/implementation/tasks/020/description.md
+    Log:         .sow/project/phases/implementation/tasks/020/log.md
+    Feedback:    .sow/project/phases/implementation/tasks/020/feedback/
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  # Test-Driven Development (TDD) Methodology
+
+  This guidance is **mandatory** for all implementer work. TDD is non-negotiable.
+
+  ## Core TDD Principles
+
+  ### 1. Test First, Always
+
+  Write tests before writing implementation code. Tests define the behavior you must implement. No exceptions.
+
+  **The Red-Green-Refactor Cycle:**
+
+  1. **Red**: Write a failing test
+  2. **Green**: Write minimal code to make it pass
+  3. **Refactor**: Improve code quality without changing behavior
+  4. Repeat
+
+  ### 2. Test Behavior, Not Implementation
+
+  Tests verify **what code does**, not **how it does it**.
+
+  Test outcomes and public APIs. Internal implementation details are irrelevant to tests.
+
+  ```python
+  # ❌ BAD: Tests internal calls (implementation detail)
+  def test_calls_internal_method():
+      service.process()
+      assert service._internal_method.called
+
+  # ✅ GOOD: Tests outcome (observable behavior)
+  def test_process_returns_correct_result():
+      result = service.process()
+      assert result.value == expected_value
+  ``
+    ... [truncated, 9404 total chars]
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me load the feature guidance since this task is implementing a new feature:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Load feature implementation guidance
+  Command: sow prompt guidance/implementer/feature
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  # Feature Implementation Workflow
+
+  Use this guidance when implementing **new functionality** that doesn't exist yet in the codebase.
+
+  ## Feature Implementation Process
+
+  ### Phase 1: Understand the Requirement
+
+  Before writing any code, ensure you understand:
+
+  1. **What** needs to be built (functional requirements)
+  2. **Why** it's needed (context, use case)
+  3. **How** it should behave (acceptance criteria)
+  4. **Where** it fits in the existing architecture
+
+  Read description.md carefully. If anything is unclear, stop and escalate.
+
+  ### Phase 2: Break Down into Testable Units
+
+  Decompose the feature into small, independently testable units:
+
+  **Example**: "Implement JWT authentication middleware"
+
+  Break down:
+  1. Token parsing from Authorization header
+  2. Token signature validation
+  3. Token expiration checking
+  4. User context extraction from token
+  5. Request rejection on invalid token
+  6. Request continuation on valid token
+
+  Each unit becomes a test (or set of tests).
+
+  ### Phase 3: Identify Int
+    ... [truncated, 7309 total chars]
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me read the referenced files to understand the existing interface and style guidelines:
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/libs/exec/executor.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/cli/internal/exec/executor.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/.standards/STYLE.md
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/.standards/TESTING.md
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now I have all the context I need. Let me set up my todo list and begin implementation. First, let me log that I'm starting work on this task:
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [ ] Write LocalExecutor tests (local_test.go)
+    [ ] Implement LocalExecutor (local.go)
+    [ ] Run tests and verify they pass
+    [ ] Run linter and verify no issues
+    [ ] Log completion and mark task for review
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Log task start
+  Command: sow agent log -a "Starting task 020" -r "Implementing LocalExecutor with tests following TDD"
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Let me check the correct sow agent log command format:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Get help for agent log command
+  Command: sow agent log --help
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Manage AI agents for the sow multi-agent system.
+
+  Agents are roles (implementer, architect, reviewer, etc.) that can be
+  spawned by the orchestrator to perform specialized tasks. Each agent
+  has specific capabilities and prompts tailored to its role.
+
+  Commands:
+    list      List available agents
+    spawn     Spawn an agent to execute a task
+    resume    Resume a paused agent session
+
+  Usage:
+    sow agent [command]
+
+  Available Commands:
+    list        List available agents
+    resume      Resume a paused agent session with feedback
+    spawn       Spawn an agent to execute work
+
+  Flags:
+    -h, --help   help for agent
+
+  Global Flags:
+        --quiet     Suppress non-error output
+        --verbose   Enable verbose output
+
+  Use "sow agent [command] --help" for more information about a command.
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Let me check if there's a different task log command:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Get help for task command
+  Command: sow task --help
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Manage project tasks.
+
+  Task commands allow you to create, modify, and list tasks within project phases.
+  Tasks are the atomic units of work, each with inputs, outputs, and status tracking.
+
+  Usage:
+    sow task [command]
+
+  Available Commands:
+    abandon     Abandon a task
+    add         Add a new task
+    input       Manage task input artifacts
+    output      Manage task output artifacts
+    set         Set task field value
+    status      Show task status
+
+  Flags:
+    -h, --help   help for task
+
+  Global Flags:
+        --quiet     Suppress non-error output
+        --verbose   Enable verbose output
+
+  Use "sow task [command] --help" for more information about a command.
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  I see there's no log command. Let me look for how to write to the task log file directly. First, let me update the todo and start writing tests:
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [>] Write LocalExecutor tests (local_test.go)
+    [ ] Implement LocalExecutor (local.go)
+    [ ] Run tests and verify they pass
+    [ ] Run linter and verify no issues
+    [ ] Log completion and mark task for review
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Let me check the existing libs/exec module structure and create the test file first (TDD):
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: List libs/exec directory
+  Command: ls -la /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/libs/exec/
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  .rw------- 2.2k josh  9 Dec 15:36 doc.go
+  .rw------- 1.6k josh  9 Dec 15:36 executor.go
+  .rw-------   52 josh  9 Dec 15:36 go.mod
+  .rw------- 2.7k josh  9 Dec 15:37 README.md
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  The structure is already there from task 010. Now let me write the test file first following TDD:
+
+--------------------------------------------------------------------------------
+TOOL: Write
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/libs/exec/local_test.go
+  Content: 197 lines
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me update the go.mod to include testify dependency and run the tests to verify they fail (since implementation doesn't exist yet):
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Add testify dependency
+  Command: cd /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/libs/exec && go get github.com/stretchr/testify && go mod tidy
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  go: added github.com/stretchr/testify v1.11.1
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Run tests to verify they fail
+  Command: go test -v ./... 2>&1 | head -30
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  # github.com/jmgilman/sow/libs/exec [github.com/jmgilman/sow/libs/exec.test]
+  ./local_test.go:13:7: undefined: NewLocalExecutor
+  ./local_test.go:31:9: undefined: NewLocalExecutor
+  ./local_test.go:40:8: undefined: NewLocalExecutor
+  ./local_test.go:49:8: undefined: NewLocalExecutor
+  ./local_test.go:58:8: undefined: NewLocalExecutor
+  ./local_test.go:65:8: undefined: NewLocalExecutor
+  ./local_test.go:74:8: undefined: NewLocalExecutor
+  ./local_test.go:81:8: undefined: NewLocalExecutor
+  ./local_test.go:94:8: undefined: NewLocalExecutor
+  ./local_test.go:104:8: undefined: NewLocalExecutor
+  ./local_test.go:104:8: too many errors
+  FAIL	github.com/jmgilman/sow/libs/exec [build failed]
+  FAIL
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Good - the tests fail because `NewLocalExecutor` doesn't exist yet. Now let me implement the LocalExecutor:
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Write LocalExecutor tests (local_test.go)
+    [>] Implement LocalExecutor (local.go)
+    [ ] Run tests and verify they pass
+    [ ] Run linter and verify no issues
+    [ ] Log completion and mark task for review
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Write
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/libs/exec/local.go
+  Content: 129 lines
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me run the tests:
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Write LocalExecutor tests (local_test.go)
+    [x] Implement LocalExecutor (local.go)
+    [>] Run tests and verify they pass
+    [ ] Run linter and verify no issues
+    [ ] Log completion and mark task for review
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Run all tests with verbose output
+  Command: go test -v ./...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  === RUN   TestLocalExecutor_Command
+  --- PASS: TestLocalExecutor_Command (0.00s)
+  === RUN   TestLocalExecutor_Exists
+  === RUN   TestLocalExecutor_Exists/echo_exists
+  === RUN   TestLocalExecutor_Exists/true_exists
+  === RUN   TestLocalExecutor_Exists/sh_exists
+  === RUN   TestLocalExecutor_Exists/nonexistent_command
+  --- PASS: TestLocalExecutor_Exists (0.00s)
+      --- PASS: TestLocalExecutor_Exists/echo_exists (0.00s)
+      --- PASS: TestLocalExecutor_Exists/true_exists (0.00s)
+      --- PASS: TestLocalExecutor_Exists/sh_exists (0.00s)
+      --- PASS: TestLocalExecutor_Exists/nonexistent_command (0.00s)
+  === RUN   TestLocalExecutor_Run
+  === RUN   TestLocalExecutor_Run/captures_stdout
+  === RUN   TestLocalExecutor_Run/captures_stderr
+  === RUN   TestLocalExecutor_Run/returns_error_for_failed_command
+  === RUN   TestLocalExecutor_Run/returns_both_stdout_and_stderr
+  === RUN   TestLocalExecutor_Run/handles_empty_args
+  === RUN   TestLocalExecutor_Run/handles_args_with_spaces
+  --- PASS: TestLocalExecutor_Run (0.03s)
+    
+    ... [truncated, 3500 total chars]
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  All tests pass. Now let me run the tests with the race detector:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Run tests with race detector
+  Command: go test -race ./...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  ok  	github.com/jmgilman/sow/libs/exec	1.254s
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me run the linter:
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Write LocalExecutor tests (local_test.go)
+    [x] Implement LocalExecutor (local.go)
+    [x] Run tests and verify they pass
+    [>] Run linter and verify no issues
+    [ ] Log completion and mark task for review
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Run linter on libs/exec
+  Command: cd /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115 && golangci-lint run libs/exec/...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  The linter has issues with the path since libs/exec is a standalone module. Let me run it directly within the module:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Run linter in libs/exec directory
+  Command: golangci-lint run ./...
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Let me fix these linter issues:
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/libs/exec/local_test.go
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/libs/exec/local_test.go
+  Replacing: // TestLocalExecutor_ImplementsExecutor verifies compile-time interface compliance. // The actual ch...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me run the linter again:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Run linter again to verify fixes
+  Command: golangci-lint run ./...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  0 issues.
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Let me also run the tests again to ensure everything still works:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Run tests and race detector again
+  Command: go test -v ./... && go test -race ./...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  === RUN   TestLocalExecutor_Command
+  --- PASS: TestLocalExecutor_Command (0.00s)
+  === RUN   TestLocalExecutor_Exists
+  === RUN   TestLocalExecutor_Exists/echo_exists
+  === RUN   TestLocalExecutor_Exists/true_exists
+  === RUN   TestLocalExecutor_Exists/sh_exists
+  === RUN   TestLocalExecutor_Exists/nonexistent_command
+  --- PASS: TestLocalExecutor_Exists (0.00s)
+      --- PASS: TestLocalExecutor_Exists/echo_exists (0.00s)
+      --- PASS: TestLocalExecutor_Exists/true_exists (0.00s)
+      --- PASS: TestLocalExecutor_Exists/sh_exists (0.00s)
+      --- PASS: TestLocalExecutor_Exists/nonexistent_command (0.00s)
+  === RUN   TestLocalExecutor_Run
+  === RUN   TestLocalExecutor_Run/captures_stdout
+  === RUN   TestLocalExecutor_Run/captures_stderr
+  === RUN   TestLocalExecutor_Run/returns_error_for_failed_command
+  === RUN   TestLocalExecutor_Run/returns_both_stdout_and_stderr
+  === RUN   TestLocalExecutor_Run/handles_empty_args
+  === RUN   TestLocalExecutor_Run/handles_args_with_spaces
+  --- PASS: TestLocalExecutor_Run (0.03s)
+    
+    ... [truncated, 3550 total chars]
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Let me now track the output files and mark the task for review:
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Write LocalExecutor tests (local_test.go)
+    [x] Implement LocalExecutor (local.go)
+    [x] Run tests and verify they pass
+    [x] Run linter and verify no issues
+    [>] Log completion and mark task for review
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Track modified files
+  Command: sow task output add --id 020 --type modified --path "libs/exec/local.go" && sow task output add --id 020 --type modified --path "libs/exec/local_test.go" && sow task output add --id 020 --type modifie...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Added output artifact [0] to task [020]
+  Added output artifact [1] to task [020]
+  Added output artifact [2] to task [020]
+  Added output artifact [3] to task [020]
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me write a summary to the task log file:
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/.sow/project/phases/implementation/tasks/020/log.md
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsexec-module-115/.sow/project/phases/implementation/tasks/020/log.md
+  Replacing: # Task Log  Worker actions will be logged here.
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me mark the task for review:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Mark task for review
+  Command: sow task set --id 020 status needs_review
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Set status on task [020] in phase implementation
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Write LocalExecutor tests (local_test.go)
+    [x] Implement LocalExecutor (local.go)
+    [x] Run tests and verify they pass
+    [x] Run linter and verify no issues
+    [x] Log completion and mark task for review
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Task 020 is complete. Here's a summary of what was accomplished:
+
+  ## Task 020: Implement LocalExecutor with Tests - Complete
+
+  ### Files Created
+  - `libs/exec/local.go` - LocalExecutor implementation (120 lines)
+  - `libs/exec/local_test.go` - Comprehensive behavioral tests (196 lines)
+
+  ### Implementation Details
+
+  **LocalExecutor** provides:
+  - `NewLocalExecutor(command string)` - Constructor
+  - `Command() string` - Returns command name
+  - `Exists() bool` - Checks if command exists in PATH
+  - `Run(args 
+    ... [truncated, 1274 total chars]
+
+================================================================================
+SESSION COMPLETE
+================================================================================
+  Duration: 4m 6s (API: 4m 29s)
+  Turns: 38
+  Cost: $1.79
+
+  FINAL RESULT:
+  Task 020 is complete. Here's a summary of what was accomplished:
+
+  ## Task 020: Implement LocalExecutor with Tests - Complete
+
+  ### Files Created
+  - `libs/exec/local.go` - LocalExecutor implementation (120 lines)
+  - `libs/exec/local_test.go` - Comprehensive behavioral tests (196 lines)
+
+  ### Implementation Details
+
+  **LocalExecutor** provides:
+  - `NewLocalExecutor(command string)` - Constructor
+  - `Command() string` - Returns command name
+  - `Exists() bool` - Checks if command exists in PATH
+  - `Run(args ...string)` - Executes command with output capture
+  - `RunContext(ctx, args ...string)` - Context-aware execution
+  - `RunSilent(args ...string)` - Executes discarding output
+  - `RunSilentContext(ctx, args ...string)` - Context-aware silent execution
+  - `MustExist()` - Panics if command not found
+
+  ### Test Coverage (21 test cases)
+  - Command existence checking (4 tests)
+  - Basic command execution (6 tests)
+  - Context support (3 tests)
+  - Silent execution (6 tests)
+  - Edge cases (empty args, spaces, panic behavior)
+  - Interface compliance verification
+
+  ### Verification
+  - All tests pass (`go test -v ./...`)
+  - Race detector passes (`go test -race ./...`)
+  - Linter passes (`golangci-lint run ./...`)
+
+  The task has been marked as `needs_review` and is ready for orchestrator review.
