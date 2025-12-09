@@ -23,14 +23,24 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
-          cache-dependency-path: cli/go.sum
+          cache-dependency-path: |
+            cli/go.sum
+            libs/schemas/go.sum
 
-      - name: Download dependencies
+      - name: Download CLI dependencies
         working-directory: ./cli
         run: go mod download
 
-      - name: Run tests
+      - name: Download libs/schemas dependencies
+        working-directory: ./libs/schemas
+        run: go mod download
+
+      - name: Run CLI tests
         working-directory: ./cli
+        run: go test -race ./...
+
+      - name: Run libs/schemas tests
+        working-directory: ./libs/schemas
         run: go test -race ./...
 
   lint:
@@ -45,14 +55,23 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24.x'
-          cache-dependency-path: cli/go.sum
+          cache-dependency-path: |
+            cli/go.sum
+            libs/schemas/go.sum
 
-      - name: Run golangci-lint
+      - name: Run golangci-lint (CLI)
         uses: golangci/golangci-lint-action@v8
         with:
           version: latest
           working-directory: ./cli
           args: --config=.golangci.yml
+
+      - name: Run golangci-lint (libs/schemas)
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+          working-directory: ./libs/schemas
+          args: --config=../.golangci.yml
 
   cue-validation:
     name: CUE Schema Validation
@@ -66,29 +85,29 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24.x'
-          cache-dependency-path: cli/go.sum
+          cache-dependency-path: libs/schemas/go.sum
 
       - name: Install CUE
         uses: cue-lang/setup-cue@v1.0.1
 
       - name: Validate CUE schemas
-        working-directory: ./cli/schemas
+        working-directory: ./libs/schemas
         run: cue vet ./...
 
       - name: Check generated types are up-to-date
-        working-directory: ./cli
+        working-directory: ./libs/schemas
         run: |
           # Generate types
-          go generate ./schemas
+          go generate ./...
 
           # Check if there are any changes
-          if ! git diff --exit-code schemas/cue_types_gen.go; then
-            echo "❌ Generated Go types are out of date!"
-            echo "Run 'cd cli && go generate ./schemas' and commit the changes."
+          if ! git diff --exit-code cue_types_gen.go project/cue_types_gen.go; then
+            echo "Generated Go types are out of date!"
+            echo "Run 'cd libs/schemas && go generate ./...' and commit the changes."
             exit 1
           fi
 
-          echo "✅ Generated types are up-to-date"
+          echo "Generated types are up-to-date"
 
   build:
     name: Build
