@@ -1,0 +1,84 @@
+version: "2"
+
+formatters:
+  settings:
+    gofumpt:
+      module-path: github.com/jmgilman/sow/cli
+      extra-rules: true
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/jmgilman/sow)
+        - blank
+        - alias
+        - localmodule
+      no-inline-comments: true
+      no-prefix-comments: true
+      custom-order: true
+
+linters:
+  default: standard
+  enable:
+    # errors
+    - errcheck # no unchecked errors
+    - errorlint # require %w, errors.Is/As
+    - wrapcheck # ensure external errors are wrapped (configured below)
+    # contexts
+    - containedctx # forbid storing context in structs
+    - contextcheck # forbid non-inherited contexts
+    - noctx # require context-aware calls when available
+    - fatcontext # catch heavy values in context
+    # logging / stdlib updates
+    - sloglint # enforce consistent log/slog usage
+    # api & allocation hygiene
+    - staticcheck # high-signal checks
+    - govet # vet checks
+    - ineffassign
+    - unused
+    - unparam
+    - forcetypeassert
+    - rowserrcheck
+    - sqlclosecheck
+    - bodyclose
+    # packages/imports
+    - importas # enforce canonical import aliases
+    # complexity & readability (tuned)
+    # - gocyclo  # Disabled: CLI command handlers have inherent complexity
+    # - cyclop   # Disabled: CLI command handlers have inherent complexity
+    - funlen
+    - nestif
+    - dupword
+    - misspell
+    - godot # sentence-ending periods in comments
+    - revive # light style rules (defaults)
+  settings:
+    wrapcheck:
+      # Extend, don't replace, the default ignore list.
+      extra-ignore-sigs:
+        - .Error() error
+    # Complexity thresholds (kept reasonable to reduce false positives)
+    funlen:
+      lines: 120
+      statements: 60
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: true # only report new issues (keeps adoption sane in large repos)
+  new-from-merge-base: master
+
+output:
+  sort-order:
+    - linter
+    - severity
+    - file
+  show-stats: true
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+  relative-path-mode: gomod
+  allow-parallel-runners: true
+  concurrency: 0 # auto
