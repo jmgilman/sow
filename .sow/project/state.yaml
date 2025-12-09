@@ -1,0 +1,274 @@
+name: libsexec-module
+type: standard
+branch: feat/libsexec-module-115
+description: libs/exec module
+created_at: 2025-12-09T15:17:53.519643-08:00
+updated_at: 2025-12-09T15:29:10.796555-08:00
+phases:
+    finalize:
+        status: pending
+        enabled: false
+        created_at: 2025-12-09T15:17:53.519643-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+    implementation:
+        status: in_progress
+        enabled: false
+        created_at: 2025-12-09T15:17:53.519643-08:00
+        started_at: 2025-12-09T15:17:53.519674-08:00
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata:
+            planning_approved: true
+        inputs:
+            - type: github_issue
+              path: context/issue-115.md
+              approved: true
+              created_at: 2025-12-09T15:17:53.519633-08:00
+              metadata:
+                issue_number: 115
+                issue_title: libs/exec module
+                issue_url: https://github.com/jmgilman/sow/issues/115
+            - type: reference
+              path: ../../knowledge/explorations/libs-refactoring-summary.md
+              approved: true
+              created_at: 2025-12-09T15:17:53.519641-08:00
+              metadata:
+                description: Knowledge file selected during project creation
+                source: user_selected
+        outputs: []
+        tasks:
+            - id: "010"
+              name: Create libs/exec module structure and Executor interface
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T15:27:54.035489-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T15:28:06.071013-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/internal/exec/executor.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:06.02316-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/exec/mock.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:06.032701-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/schemas/go.mod
+                  approved: false
+                  created_at: 2025-12-09T15:28:06.041237-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/schemas/doc.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:06.048504-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/schemas/README.md
+                  approved: false
+                  created_at: 2025-12-09T15:28:06.055947-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/STYLE.md
+                  approved: false
+                  created_at: 2025-12-09T15:28:06.063156-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/READMES.md
+                  approved: false
+                  created_at: 2025-12-09T15:28:06.071013-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "020"
+              name: Implement LocalExecutor with tests
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T15:28:11.70254-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T15:28:21.626858-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/internal/exec/executor.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:21.59915-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/exec/executor.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:21.60895-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/STYLE.md
+                  approved: false
+                  created_at: 2025-12-09T15:28:21.618131-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/TESTING.md
+                  approved: false
+                  created_at: 2025-12-09T15:28:21.626858-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "030"
+              name: Generate mock via moq in mocks subpackage
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T15:28:25.876549-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T15:28:31.304011-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: libs/exec/executor.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:31.286815-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/TESTING.md
+                  approved: false
+                  created_at: 2025-12-09T15:28:31.295814-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/exec/mock.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:31.304011-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "040"
+              name: Migrate consumers to libs/exec
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T15:28:35.576368-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T15:28:43.776934-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/github_cli.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:43.696817-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_cli_test.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:43.705759-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_factory.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:43.713937-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/wizard_state.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:43.721897-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/project/shared.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:43.729297-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/issue/show.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:43.737082-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/issue/list.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:43.744659-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/issue/check.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:43.75234-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/exec/executor.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:43.760249-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/exec/local.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:43.768661-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/go.mod
+                  approved: false
+                  created_at: 2025-12-09T15:28:43.776933-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "050"
+              name: Cleanup old location and final verification
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T15:28:48.494926-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T15:28:54.397367-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/internal/exec/executor.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:54.378225-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/exec/mock.go
+                  approved: false
+                  created_at: 2025-12-09T15:28:54.388334-08:00
+                  metadata: {}
+                - type: reference
+                  path: .sow/project/context/issue-115.md
+                  approved: false
+                  created_at: 2025-12-09T15:28:54.397367-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+    review:
+        status: pending
+        enabled: false
+        created_at: 2025-12-09T15:17:53.519643-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+statechart:
+    current_state: ImplementationDraftPRCreation
+    updated_at: 2025-12-09T15:29:10.796555-08:00
+agent_sessions:
+    planner: 9472e4c7-c2b1-4bc1-8b8b-c28482aa440f
