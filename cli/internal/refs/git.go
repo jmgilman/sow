@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/jmgilman/go/git/cache"
-	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/libs/schemas"
 )
 
 // GitType implements RefType for git repositories.

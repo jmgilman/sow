@@ -14,7 +14,7 @@ import (
 	"text/template"
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	projschema "github.com/jmgilman/sow/cli/schemas/project"
+	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
 // Render renders a template from an embedded filesystem with optional data context.

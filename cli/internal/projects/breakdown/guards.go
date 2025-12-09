@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	projschema "github.com/jmgilman/sow/cli/schemas/project"
+	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
 // Guard functions for breakdown project state transitions.

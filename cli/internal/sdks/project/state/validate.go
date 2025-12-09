@@ -9,8 +9,8 @@ import (
 	cuepkg "github.com/jmgilman/go/cue"
 	"github.com/jmgilman/go/fs/billy"
 	"github.com/jmgilman/go/fs/core"
-	"github.com/jmgilman/sow/cli/schemas"
-	"github.com/jmgilman/sow/cli/schemas/project"
+	"github.com/jmgilman/sow/libs/schemas"
+	"github.com/jmgilman/sow/libs/schemas/project"
 )
 
 // projectSchemas holds the loaded CUE value for the project subpackage.

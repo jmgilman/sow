@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/refs"
-	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/libs/schemas"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

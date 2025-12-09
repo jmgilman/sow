@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
-	"github.com/jmgilman/sow/cli/schemas/project"
+	"github.com/jmgilman/sow/libs/schemas/project"
 )
 
 // mockProjectTypeConfig is a mock implementation of ProjectTypeConfig for testing.

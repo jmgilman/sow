@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	projschema "github.com/jmgilman/sow/cli/schemas/project"
+	projschema "github.com/jmgilman/sow/libs/schemas/project"
 	"github.com/spf13/cobra"
 )
 

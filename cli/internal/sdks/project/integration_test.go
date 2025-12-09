@@ -6,7 +6,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
-	projectschema "github.com/jmgilman/sow/cli/schemas/project"
+	projectschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
 // TestCompleteProjectTypeWorkflow demonstrates the complete SDK workflow from

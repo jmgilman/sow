@@ -3,7 +3,7 @@ package agents
 import (
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/libs/schemas"
 )
 
 // ExecutorRegistry provides lookup and listing of registered executors.

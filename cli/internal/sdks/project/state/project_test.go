@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmgilman/sow/cli/schemas/project"
+	"github.com/jmgilman/sow/libs/schemas/project"
 )
 
 // Wrapper Type Tests

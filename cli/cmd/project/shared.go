@@ -13,7 +13,7 @@ import (
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/templates"
 	"github.com/jmgilman/sow/cli/internal/sow"
-	projschema "github.com/jmgilman/sow/cli/schemas/project"
+	projschema "github.com/jmgilman/sow/libs/schemas/project"
 	"github.com/spf13/cobra"
 )
 

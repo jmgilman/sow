@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/jmgilman/sow/cli/schemas/project"
+	"github.com/jmgilman/sow/libs/schemas/project"
 	"gopkg.in/yaml.v3"
 )
 

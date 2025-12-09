@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jmgilman/sow/cli/schemas/project"
+	"github.com/jmgilman/sow/libs/schemas/project"
 )
 
 // Phase wraps the CUE-generated PhaseState.

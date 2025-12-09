@@ -6,7 +6,7 @@ import (
 	"os/exec"
 
 	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/jmgilman/sow/cli/schemas"
+	"github.com/jmgilman/sow/libs/schemas"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

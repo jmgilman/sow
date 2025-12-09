@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	"github.com/jmgilman/sow/cli/schemas/project"
+	"github.com/jmgilman/sow/libs/schemas/project"
 )
 
 func TestPhaseOutputApproved(t *testing.T) {
