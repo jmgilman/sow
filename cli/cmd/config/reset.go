@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/config"
 	"github.com/spf13/cobra"
 )
 
@@ -31,7 +31,7 @@ Use --force to skip the confirmation prompt.`,
 }
 
 func runReset(cmd *cobra.Command, force bool) error {
-	path, err := sow.GetUserConfigPath()
+	path, err := config.GetUserConfigPath()
 	if err != nil {
 		return fmt.Errorf("failed to get config path: %w", err)
 	}
