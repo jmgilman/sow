@@ -1,0 +1,707 @@
+================================================================================
+SESSION STARTED
+================================================================================
+  Session ID: dc7c3441-b5fe-4262-8214-7b3977732c49
+  Model: claude-opus-4-5-20251101
+  Working Dir: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117
+  Claude Code: v2.0.64
+  Permission Mode: bypassPermissions
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Load implementer base instructions
+  Command: sow prompt guidance/implementer/base
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  # Implementer Agent - Base Instructions
+
+  You are a software implementer. Your sole purpose is to implement what is specified—nothing more, nothing less.
+
+  ## Immediate Actions
+
+  Follow these steps in order:
+
+  ### 1. Read Task State
+
+  Read: `.sow/project/phases/implementation/tasks/{id}/state.yaml`
+
+  Or use command: `sow task status --id {id}`
+
+  Check:
+  - **iteration**: What iteration are you on? (1 = first attempt, 2+ = addressing feedback)
+  - **assigned_agent**: Confirm you're the right agent
+  - **inputs**: Context files and feedback the orchestrator wants you to review
+    - Look for inputs with `type: reference` (context files)
+    - Look for inputs with `type: feedback` (review feedback from previous iterations)
+
+  ### 2. Read Requirements
+
+  Read: `.sow/project/phases/implementation/tasks/{id}/description.md`
+
+  Understand:
+  - What needs to be done
+  - Acceptance criteria
+  - Any specific constraints or requirements
+  - Task scenario type (see detection heuristics below)
+
+  **CRITICAL: Validate Task Descri
+    ... [truncated, 8887 total chars]
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Let me read the task state and description:
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/.sow/project/phases/implementation/tasks/020/state.yaml
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/.sow/project/phases/implementation/tasks/020/description.md
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me check task status and load the TDD guidance:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Check task 020 status
+  Command: sow task status --id 020
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Load TDD guidance
+  Command: sow prompt guidance/implementer/tdd
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Task: 020 - Implement Git operations struct
+  Phase: implementation
+  Status: pending
+  Iteration: 1
+  Assigned Agent: implementer
+
+  Timestamps:
+    Created:   2025-12-09 18:48:56
+    Updated:   2025-12-09 18:49:38
+
+  Inputs (6):
+    [0] reference: cli/internal/sow/git.go
+    [1] reference: cli/internal/sow/worktree_test.go
+    [2] reference: libs/config/repo.go
+    [3] reference: libs/config/repo_test.go
+    [4] reference: .standards/STYLE.md
+    [5] reference: .standards/TESTING.md
+
+  Files:
+    Description: .sow/project/phases/implementation/tasks/020/description.md
+    Log:         .sow/project/phases/implementation/tasks/020/log.md
+    Feedback:    .sow/project/phases/implementation/tasks/020/feedback/
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  # Test-Driven Development (TDD) Methodology
+
+  This guidance is **mandatory** for all implementer work. TDD is non-negotiable.
+
+  ## Core TDD Principles
+
+  ### 1. Test First, Always
+
+  Write tests before writing implementation code. Tests define the behavior you must implement. No exceptions.
+
+  **The Red-Green-Refactor Cycle:**
+
+  1. **Red**: Write a failing test
+  2. **Green**: Write minimal code to make it pass
+  3. **Refactor**: Improve code quality without changing behavior
+  4. Repeat
+
+  ### 2. Test Behavior, Not Implementation
+
+  Tests verify **what code does**, not **how it does it**.
+
+  Test outcomes and public APIs. Internal implementation details are irrelevant to tests.
+
+  ```python
+  # ❌ BAD: Tests internal calls (implementation detail)
+  def test_calls_internal_method():
+      service.process()
+      assert service._internal_method.called
+
+  # ✅ GOOD: Tests outcome (observable behavior)
+  def test_process_returns_correct_result():
+      result = service.process()
+      assert result.value == expected_value
+  ``
+    ... [truncated, 9404 total chars]
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  This is a feature task. Let me load the feature guidance and then read the referenced files:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Load feature implementation guidance
+  Command: sow prompt guidance/implementer/feature
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/cli/internal/sow/git.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/cli/internal/sow/worktree_test.go
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  # Feature Implementation Workflow
+
+  Use this guidance when implementing **new functionality** that doesn't exist yet in the codebase.
+
+  ## Feature Implementation Process
+
+  ### Phase 1: Understand the Requirement
+
+  Before writing any code, ensure you understand:
+
+  1. **What** needs to be built (functional requirements)
+  2. **Why** it's needed (context, use case)
+  3. **How** it should behave (acceptance criteria)
+  4. **Where** it fits in the existing architecture
+
+  Read description.md carefully. If anything is unclear, stop and escalate.
+
+  ### Phase 2: Break Down into Testable Units
+
+  Decompose the feature into small, independently testable units:
+
+  **Example**: "Implement JWT authentication middleware"
+
+  Break down:
+  1. Token parsing from Authorization header
+  2. Token signature validation
+  3. Token expiration checking
+  4. User context extraction from token
+  5. Request rejection on invalid token
+  6. Request continuation on valid token
+
+  Each unit becomes a test (or set of tests).
+
+  ### Phase 3: Identify Int
+    ... [truncated, 7309 total chars]
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Let me also read the existing libs/git module files (types.go and errors.go) that were created in task 010, and check the STYLE.md and TESTING.md:
+
+--------------------------------------------------------------------------------
+TOOL: Glob
+--------------------------------------------------------------------------------
+  Pattern: libs/git/**/*.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/.standards/STYLE.md
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/.standards/TESTING.md
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me read the existing libs/git files to understand the types and errors already defined:
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/libs/git/types.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/libs/git/errors.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/libs/git/doc.go
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/libs/git/go.mod
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me set up my todo list and begin implementation. I need to track adding go-git dependencies and implementing the Git struct following TDD:
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [>] Write tests for NewGit (valid repo, non-repo, Repository(), RepoRoot())
+    [ ] Write tests for CurrentBranch
+    [ ] Write tests for IsProtectedBranch
+    [ ] Write tests for HasUncommittedChanges
+    [ ] Write tests for Branches
+    [ ] Write tests for CheckoutBranch
+    [ ] Implement Git struct to make tests pass
+    [ ] Add go-git dependencies to go.mod
+    [ ] Run all tests and verify
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Log task start
+  Command: sow agent log -a "Started task 020" -r "Implementing Git operations struct - iteration 1, no feedback from previous iterations"
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Check agent log command usage
+  Command: sow agent log --help
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Manage AI agents for the sow multi-agent system.
+
+  Agents are roles (implementer, architect, reviewer, etc.) that can be
+  spawned by the orchestrator to perform specialized tasks. Each agent
+  has specific capabilities and prompts tailored to its role.
+
+  Commands:
+    list      List available agents
+    spawn     Spawn an agent to execute a task
+    resume    Resume a paused agent session
+
+  Usage:
+    sow agent [command]
+
+  Available Commands:
+    list        List available agents
+    resume      Resume a paused agent session with feedback
+    spawn       Spawn an agent to execute work
+
+  Flags:
+    -h, --help   help for agent
+
+  Global Flags:
+        --quiet     Suppress non-error output
+        --verbose   Enable verbose output
+
+  Use "sow agent [command] --help" for more information about a command.
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Check task log command
+  Command: sow task log --help
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Manage project tasks.
+
+  Task commands allow you to create, modify, and list tasks within project phases.
+  Tasks are the atomic units of work, each with inputs, outputs, and status tracking.
+
+  Usage:
+    sow task [command]
+
+  Available Commands:
+    abandon     Abandon a task
+    add         Add a new task
+    input       Manage task input artifacts
+    output      Manage task output artifacts
+    set         Set task field value
+    status      Show task status
+
+  Flags:
+    -h, --help   help for task
+
+  Global Flags:
+        --quiet     Suppress non-error output
+        --verbose   Enable verbose output
+
+  Use "sow task [command] --help" for more information about a command.
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Check log command
+  Command: sow log --help
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Let me just proceed with the implementation. First, I need to add go-git dependencies to go.mod, then write the tests following TDD:
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/libs/git/go.mod
+  Replacing: module github.com/jmgilman/sow/libs/git  go 1.25.3  require github.com/stretchr/testify v1.11.1  req...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me write the tests first, following TDD. I'll create the git_test.go file with all the tests:
+
+--------------------------------------------------------------------------------
+TOOL: Write
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/libs/git/git_test.go
+  Content: 375 lines
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Write tests for NewGit (valid repo, non-repo, Repository(), RepoRoot())
+    [x] Write tests for CurrentBranch
+    [x] Write tests for IsProtectedBranch
+    [x] Write tests for HasUncommittedChanges
+    [x] Write tests for Branches
+    [x] Write tests for CheckoutBranch
+    [>] Implement Git struct to make tests pass
+    [x] Add go-git dependencies to go.mod
+    [ ] Run all tests and verify
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me create the git.go implementation file:
+
+--------------------------------------------------------------------------------
+TOOL: Write
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/libs/git/git.go
+  Content: 124 lines
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me run `go mod tidy` to update the dependencies and then run the tests:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Update go dependencies
+  Command: cd /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/libs/git && go mod tidy 2>&1
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  go: downloading github.com/go-git/go-git/v5 v5.16.0
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Run all tests
+  Command: go test -v ./... 2>&1
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  === RUN   TestErrGHNotInstalled_Error
+  --- PASS: TestErrGHNotInstalled_Error (0.00s)
+  === RUN   TestErrGHNotAuthenticated_Error
+  --- PASS: TestErrGHNotAuthenticated_Error (0.00s)
+  === RUN   TestErrGHCommand_Error
+  === RUN   TestErrGHCommand_Error/includes_stderr_when_present
+  === RUN   TestErrGHCommand_Error/includes_wrapped_error_when_no_stderr
+  --- PASS: TestErrGHCommand_Error (0.00s)
+      --- PASS: TestErrGHCommand_Error/includes_stderr_when_present (0.00s)
+      --- PASS: TestErrGHCommand_Error/includes_wrapped_error_when_no_stderr (0.00s)
+  === RUN   TestErrGHCommand_Unwrap
+  --- PASS: TestErrGHCommand_Unwrap (0.00s)
+  === RUN   TestErrNotGitRepository_Error
+  --- PASS: TestErrNotGitRepository_Error (0.00s)
+  === RUN   TestErrBranchExists_Error
+  --- PASS: TestErrBranchExists_Error (0.00s)
+  === RUN   TestErrorsAs
+  === RUN   TestErrorsAs/ErrGHNotInstalled
+  === RUN   TestErrorsAs/ErrGHNotAuthenticated
+  === RUN   TestErrorsAs/ErrGHCommand
+  === RUN   TestErrorsAs/ErrNotGitRepository
+  === RUN   TestErrorsAs/ErrBr
+    ... [truncated, 5151 total chars]
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  All tests pass. Let me update my todo list and run the tests with race detection to ensure the code is thread-safe:
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Write tests for NewGit (valid repo, non-repo, Repository(), RepoRoot())
+    [x] Write tests for CurrentBranch
+    [x] Write tests for IsProtectedBranch
+    [x] Write tests for HasUncommittedChanges
+    [x] Write tests for Branches
+    [x] Write tests for CheckoutBranch
+    [x] Implement Git struct to make tests pass
+    [x] Add go-git dependencies to go.mod
+    [>] Run all tests and verify
+    [ ] Track modified files and mark task for review
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Run tests with race detection
+  Command: go test -race ./... 2>&1
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  ok  	github.com/jmgilman/sow/libs/git	1.268s
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  All tests pass with race detection. Now let me verify the go.mod is correct and view the final state:
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/libs/git/go.mod
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  The dependencies have been resolved. Now let me track the modified files and mark the task for review:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Track modified files
+  Command: sow task output add --id 020 --type modified --path libs/git/git.go && sow task output add --id 020 --type modified --path libs/git/git_test.go && sow task output add --id 020 --type modified --path l...
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Added output artifact [0] to task [020]
+  Added output artifact [1] to task [020]
+  Added output artifact [2] to task [020]
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Track reference input
+  Command: sow task input add --id 020 --type reference --path cli/internal/sow/git.go
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Added input artifact [6] to task [020]
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Let me write the task log and mark the task for review:
+
+--------------------------------------------------------------------------------
+TOOL: Read
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/.sow/project/phases/implementation/tasks/020/log.md
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+TOOL: Edit
+--------------------------------------------------------------------------------
+  File: /Users/josh/code/sow/.sow/worktrees/feat/libsgit-module-117/.sow/project/phases/implementation/tasks/020/log.md
+  Replacing: # Task Log  Worker actions will be logged here.
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Now let me mark the task for review:
+
+--------------------------------------------------------------------------------
+TOOL: Bash
+--------------------------------------------------------------------------------
+  Description: Mark task for review
+  Command: sow task set --id 020 status needs_review
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+  Set status on task [020] in phase implementation
+
+--------------------------------------------------------------------------------
+TOOL: TodoWrite
+--------------------------------------------------------------------------------
+  Todos:
+    [x] Write tests for NewGit (valid repo, non-repo, Repository(), RepoRoot())
+    [x] Write tests for CurrentBranch
+    [x] Write tests for IsProtectedBranch
+    [x] Write tests for HasUncommittedChanges
+    [x] Write tests for Branches
+    [x] Write tests for CheckoutBranch
+    [x] Implement Git struct to make tests pass
+    [x] Add go-git dependencies to go.mod
+    [x] Run all tests and verify
+    [x] Track modified files and mark task for review
+
+--------------------------------------------------------------------------------
+RESULT [OK]
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+THINKING
+--------------------------------------------------------------------------------
+  Task 020 is complete. Here's a summary of the implementation:
+
+  ## Task 020: Implement Git Operations Struct - Complete
+
+  ### Files Created/Modified
+  1. **libs/git/git.go** (new) - Git struct implementation with:
+     - `Git` struct wrapping `*git.Repository` and `repoRoot`
+     - `NewGit(repoRoot string)` - Opens repo, returns `ErrNotGitRepository` on failure
+     - `Repository()` - Returns underlying `git.Repository`
+     - `RepoRoot()` - Returns repo root path
+     - `CurrentBranch()` - Returns current br
+    ... [truncated, 1682 total chars]
+
+================================================================================
+SESSION COMPLETE
+================================================================================
+  Duration: 4m 4s (API: 4m 35s)
+  Turns: 36
+  Cost: $1.85
+
+  FINAL RESULT:
+  Task 020 is complete. Here's a summary of the implementation:
+
+  ## Task 020: Implement Git Operations Struct - Complete
+
+  ### Files Created/Modified
+  1. **libs/git/git.go** (new) - Git struct implementation with:
+     - `Git` struct wrapping `*git.Repository` and `repoRoot`
+     - `NewGit(repoRoot string)` - Opens repo, returns `ErrNotGitRepository` on failure
+     - `Repository()` - Returns underlying `git.Repository`
+     - `RepoRoot()` - Returns repo root path
+     - `CurrentBranch()` - Returns current branch name
+     - `IsProtectedBranch(branch string)` - Returns true for "main" or "master"
+     - `HasUncommittedChanges()` - Returns true for modified/staged/deleted files, false for untracked
+     - `Branches()` - Returns list of local branch names
+     - `CheckoutBranch(branchName string)` - Checks out specified branch
+
+  2. **libs/git/git_test.go** (new) - 18 test cases covering:
+     - NewGit opening valid/invalid repos
+     - CurrentBranch on default and feature branches
+     - IsProtectedBranch for main/master/other branches
+     - HasUncommittedChanges for clean, modified, staged, and untracked files
+     - Branches listing local only (not remote tracking)
+     - CheckoutBranch for existing and non-existent branches
+
+  3. **libs/git/go.mod** (updated) - Added dependencies:
+     - `github.com/go-git/go-git/v5 v5.16.3`
+     - `github.com/jmgilman/go/git v0.4.0`
+
+  ### Key Design Decision
+  **HasUncommittedChanges** explicitly excludes untracked files (unlike the source implementation that used `status.IsClean()`). This matches the task requirement: "Returns false for only untracked files (important!)".
+
+  ### Test Results
+  - All 30 tests pass (18 new + 12 from task 010)
+  - Race detection passed
