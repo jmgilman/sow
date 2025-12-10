@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/libs/project/state"
 	"github.com/spf13/cobra"
 )
 
@@ -75,7 +75,7 @@ func runPhaseSet(cmd *cobra.Command, args []string, phaseName string) error {
 	}
 
 	// Load project
-	project, err := state.Load(ctx)
+	project, err := cmdutil.LoadProject(cmd.Context(), ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such file") {
 			return fmt.Errorf("no active project found")
@@ -114,7 +114,7 @@ func runPhaseSet(cmd *cobra.Command, args []string, phaseName string) error {
 	project.Phases[phaseName] = phase.PhaseState
 
 	// Save project state
-	if err := project.Save(); err != nil {
+	if err := project.Save(cmd.Context()); err != nil {
 		return fmt.Errorf("failed to save project: %w", err)
 	}
 

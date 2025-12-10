@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
+	"github.com/jmgilman/sow/libs/project/state"
+	
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
@@ -20,7 +20,7 @@ func TestExplorationLifecycle_SingleSummary(t *testing.T) {
 	// Phase 1: Active research
 	t.Run("active research phase", func(t *testing.T) {
 		// Verify initial state
-		if machine.State() != sdkstate.State(Active) {
+		if machine.State() != project.State(Active) {
 			t.Errorf("expected initial state Active, got %v", machine.State())
 		}
 		verifyPhaseStatus(t, proj, "exploration", "active")
@@ -39,22 +39,19 @@ func TestExplorationLifecycle_SingleSummary(t *testing.T) {
 	// Phase 2: Advance to summarizing
 	t.Run("advance to summarizing", func(t *testing.T) {
 		// Verify guard passes
-		can, err := machine.CanFire(sdkstate.Event(EventBeginSummarizing))
-		if err != nil {
-			t.Fatalf("CanFire(EventBeginSummarizing) error: %v", err)
-		}
+		can := machine.CanFire(project.Event(EventBeginSummarizing))
 		if !can {
 			t.Error("guard should allow transition with all tasks complete")
 		}
 
 		// Fire event
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginSummarizing), proj)
 		if err != nil {
 			t.Fatalf("Fire(EventBeginSummarizing) failed: %v", err)
 		}
 
 		// Verify transition
-		if machine.State() != sdkstate.State(Summarizing) {
+		if machine.State() != project.State(Summarizing) {
 			t.Errorf("expected Summarizing state, got %v", machine.State())
 		}
 
@@ -77,22 +74,19 @@ func TestExplorationLifecycle_SingleSummary(t *testing.T) {
 	// Phase 4: Advance to finalizing
 	t.Run("advance to finalizing", func(t *testing.T) {
 		// Verify guard passes
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteSummarizing))
-		if err != nil {
-			t.Fatalf("CanFire(EventCompleteSummarizing) error: %v", err)
-		}
+		can := machine.CanFire(project.Event(EventCompleteSummarizing))
 		if !can {
 			t.Error("guard should allow transition with approved summary")
 		}
 
 		// Fire event
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteSummarizing), proj)
 		if err != nil {
 			t.Fatalf("Fire(EventCompleteSummarizing) failed: %v", err)
 		}
 
 		// Verify transition
-		if machine.State() != sdkstate.State(Finalizing) {
+		if machine.State() != project.State(Finalizing) {
 			t.Errorf("expected Finalizing state, got %v", machine.State())
 		}
 
@@ -123,22 +117,19 @@ func TestExplorationLifecycle_SingleSummary(t *testing.T) {
 		markTaskCompleted(t, proj, "finalization", "100")
 
 		// Verify guard passes
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteFinalization))
-		if err != nil {
-			t.Fatalf("CanFire(EventCompleteFinalization) error: %v", err)
-		}
+		can := machine.CanFire(project.Event(EventCompleteFinalization))
 		if !can {
 			t.Error("guard should allow transition with completed task")
 		}
 
 		// Fire event
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteFinalization), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteFinalization), proj)
 		if err != nil {
 			t.Fatalf("Fire(EventCompleteFinalization) failed: %v", err)
 		}
 
 		// Verify transition to Completed
-		if machine.State() != sdkstate.State(Completed) {
+		if machine.State() != project.State(Completed) {
 			t.Errorf("expected Completed state, got %v", machine.State())
 		}
 
@@ -157,7 +148,7 @@ func TestExplorationLifecycle_SingleSummary(t *testing.T) {
 		verifyPhaseStatus(t, proj, "finalization", "completed")
 
 		// Check state machine in Completed
-		if machine.State() != sdkstate.State(Completed) {
+		if machine.State() != project.State(Completed) {
 			t.Errorf("expected Completed state, got %v", machine.State())
 		}
 
@@ -186,7 +177,7 @@ func TestExplorationLifecycle_MultipleSummaries(t *testing.T) {
 		addResearchTopic(t, proj, "020", "Topic 2", "completed")
 
 		// Advance to Summarizing
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginSummarizing), proj)
 		if err != nil {
 			t.Fatalf("Fire(EventBeginSummarizing) failed: %v", err)
 		}
@@ -213,12 +204,12 @@ func TestExplorationLifecycle_MultipleSummaries(t *testing.T) {
 
 	t.Run("advance to finalizing", func(t *testing.T) {
 		// Should succeed with multiple approved summaries
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteSummarizing), proj)
 		if err != nil {
 			t.Fatalf("Fire(EventCompleteSummarizing) failed: %v", err)
 		}
 
-		if machine.State() != sdkstate.State(Finalizing) {
+		if machine.State() != project.State(Finalizing) {
 			t.Errorf("expected Finalizing state, got %v", machine.State())
 		}
 	})
@@ -228,12 +219,12 @@ func TestExplorationLifecycle_MultipleSummaries(t *testing.T) {
 		addFinalizationTask(t, proj, "100", "Create PR", "completed")
 
 		// Advance to Completed
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteFinalization), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteFinalization), proj)
 		if err != nil {
 			t.Fatalf("Fire(EventCompleteFinalization) failed: %v", err)
 		}
 
-		if machine.State() != sdkstate.State(Completed) {
+		if machine.State() != project.State(Completed) {
 			t.Errorf("expected Completed state, got %v", machine.State())
 		}
 	})
@@ -262,16 +253,13 @@ func TestGuardFailures(t *testing.T) {
 		addResearchTopic(t, proj, "010", "Research Topic", "pending")
 
 		// Try to advance (should fail)
-		can, err := machine.CanFire(sdkstate.Event(EventBeginSummarizing))
-		if err != nil {
-			t.Fatalf("CanFire error: %v", err)
-		}
+		can := machine.CanFire(project.Event(EventBeginSummarizing))
 		if can {
 			t.Error("guard should block transition with pending tasks")
 		}
 
 		// Verify state unchanged
-		if machine.State() != sdkstate.State(Active) {
+		if machine.State() != project.State(Active) {
 			t.Errorf("state should remain Active, got %v", machine.State())
 		}
 	})
@@ -280,10 +268,7 @@ func TestGuardFailures(t *testing.T) {
 		_, machine, _ := setupExplorationProject(t)
 
 		// No tasks added - guard should fail
-		can, err := machine.CanFire(sdkstate.Event(EventBeginSummarizing))
-		if err != nil {
-			t.Fatalf("CanFire error: %v", err)
-		}
+		can := machine.CanFire(project.Event(EventBeginSummarizing))
 		if can {
 			t.Error("guard should block transition with no tasks")
 		}
@@ -296,20 +281,17 @@ func TestGuardFailures(t *testing.T) {
 		addResearchTopic(t, proj, "010", "Research Topic", "completed")
 
 		// Should succeed
-		can, err := machine.CanFire(sdkstate.Event(EventBeginSummarizing))
-		if err != nil {
-			t.Fatalf("CanFire error: %v", err)
-		}
+		can := machine.CanFire(project.Event(EventBeginSummarizing))
 		if !can {
 			t.Error("guard should allow transition with completed tasks")
 		}
 
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginSummarizing), proj)
 		if err != nil {
 			t.Fatalf("Fire failed: %v", err)
 		}
 
-		if machine.State() != sdkstate.State(Summarizing) {
+		if machine.State() != project.State(Summarizing) {
 			t.Errorf("expected Summarizing state, got %v", machine.State())
 		}
 	})
@@ -321,10 +303,7 @@ func TestGuardFailures(t *testing.T) {
 		addResearchTopic(t, proj, "010", "Research Topic", "abandoned")
 
 		// Should succeed
-		can, err := machine.CanFire(sdkstate.Event(EventBeginSummarizing))
-		if err != nil {
-			t.Fatalf("CanFire error: %v", err)
-		}
+		can := machine.CanFire(project.Event(EventBeginSummarizing))
 		if !can {
 			t.Error("guard should allow transition with abandoned tasks")
 		}
@@ -335,22 +314,19 @@ func TestGuardFailures(t *testing.T) {
 
 		// Setup: advance to Summarizing first
 		addResearchTopic(t, proj, "010", "Topic", "completed")
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginSummarizing), proj)
 		if err != nil {
 			t.Fatalf("setup failed: %v", err)
 		}
 
 		// No summaries added - guard should fail
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteSummarizing))
-		if err != nil {
-			t.Fatalf("CanFire error: %v", err)
-		}
+		can := machine.CanFire(project.Event(EventCompleteSummarizing))
 		if can {
 			t.Error("guard should block transition with no summaries")
 		}
 
 		// Verify state unchanged
-		if machine.State() != sdkstate.State(Summarizing) {
+		if machine.State() != project.State(Summarizing) {
 			t.Errorf("state should remain Summarizing, got %v", machine.State())
 		}
 	})
@@ -360,7 +336,7 @@ func TestGuardFailures(t *testing.T) {
 
 		// Setup: advance to Summarizing
 		addResearchTopic(t, proj, "010", "Topic", "completed")
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginSummarizing), proj)
 		if err != nil {
 			t.Fatalf("setup failed: %v", err)
 		}
@@ -369,10 +345,7 @@ func TestGuardFailures(t *testing.T) {
 		addSummaryArtifact(t, proj, "summary.md", false)
 
 		// Guard should fail
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteSummarizing))
-		if err != nil {
-			t.Fatalf("CanFire error: %v", err)
-		}
+		can := machine.CanFire(project.Event(EventCompleteSummarizing))
 		if can {
 			t.Error("guard should block transition with unapproved summaries")
 		}
@@ -383,7 +356,7 @@ func TestGuardFailures(t *testing.T) {
 
 		// Setup: advance to Summarizing with unapproved summary
 		addResearchTopic(t, proj, "010", "Topic", "completed")
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginSummarizing), proj)
 		if err != nil {
 			t.Fatalf("setup failed: %v", err)
 		}
@@ -399,20 +372,17 @@ func TestGuardFailures(t *testing.T) {
 		proj.Phases["exploration"] = phase
 
 		// Now should succeed
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteSummarizing))
-		if err != nil {
-			t.Fatalf("CanFire error: %v", err)
-		}
+		can := machine.CanFire(project.Event(EventCompleteSummarizing))
 		if !can {
 			t.Error("guard should allow transition with approved summaries")
 		}
 
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteSummarizing), proj)
+		err = config.FireWithPhaseUpdates(machine, project.Event(EventCompleteSummarizing), proj)
 		if err != nil {
 			t.Fatalf("Fire failed: %v", err)
 		}
 
-		if machine.State() != sdkstate.State(Finalizing) {
+		if machine.State() != project.State(Finalizing) {
 			t.Errorf("expected Finalizing state, got %v", machine.State())
 		}
 	})
@@ -422,12 +392,12 @@ func TestGuardFailures(t *testing.T) {
 
 		// Setup: advance to Finalizing
 		addResearchTopic(t, proj, "010", "Topic", "completed")
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginSummarizing), proj)
 		if err != nil {
 			t.Fatalf("setup failed: %v", err)
 		}
 		addSummaryArtifact(t, proj, "summary.md", true)
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteSummarizing), proj)
+		err = config.FireWithPhaseUpdates(machine, project.Event(EventCompleteSummarizing), proj)
 		if err != nil {
 			t.Fatalf("setup failed: %v", err)
 		}
@@ -436,16 +406,13 @@ func TestGuardFailures(t *testing.T) {
 		addFinalizationTask(t, proj, "100", "Create PR", "pending")
 
 		// Guard should fail
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteFinalization))
-		if err != nil {
-			t.Fatalf("CanFire error: %v", err)
-		}
+		can := machine.CanFire(project.Event(EventCompleteFinalization))
 		if can {
 			t.Error("guard should block transition with pending tasks")
 		}
 
 		// Verify state unchanged
-		if machine.State() != sdkstate.State(Finalizing) {
+		if machine.State() != project.State(Finalizing) {
 			t.Errorf("state should remain Finalizing, got %v", machine.State())
 		}
 	})
@@ -455,21 +422,18 @@ func TestGuardFailures(t *testing.T) {
 
 		// Setup: advance to Finalizing without tasks
 		addResearchTopic(t, proj, "010", "Topic", "completed")
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginSummarizing), proj)
 		if err != nil {
 			t.Fatalf("setup failed: %v", err)
 		}
 		addSummaryArtifact(t, proj, "summary.md", true)
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteSummarizing), proj)
+		err = config.FireWithPhaseUpdates(machine, project.Event(EventCompleteSummarizing), proj)
 		if err != nil {
 			t.Fatalf("setup failed: %v", err)
 		}
 
 		// No tasks - guard should fail
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteFinalization))
-		if err != nil {
-			t.Fatalf("CanFire error: %v", err)
-		}
+		can := machine.CanFire(project.Event(EventCompleteFinalization))
 		if can {
 			t.Error("guard should block transition with no tasks")
 		}
@@ -480,12 +444,12 @@ func TestGuardFailures(t *testing.T) {
 
 		// Setup: advance to Finalizing
 		addResearchTopic(t, proj, "010", "Topic", "completed")
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginSummarizing), proj)
 		if err != nil {
 			t.Fatalf("setup failed: %v", err)
 		}
 		addSummaryArtifact(t, proj, "summary.md", true)
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteSummarizing), proj)
+		err = config.FireWithPhaseUpdates(machine, project.Event(EventCompleteSummarizing), proj)
 		if err != nil {
 			t.Fatalf("setup failed: %v", err)
 		}
@@ -494,10 +458,7 @@ func TestGuardFailures(t *testing.T) {
 		addFinalizationTask(t, proj, "100", "Create PR", "abandoned")
 
 		// Guard should fail
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteFinalization))
-		if err != nil {
-			t.Fatalf("CanFire error: %v", err)
-		}
+		can := machine.CanFire(project.Event(EventCompleteFinalization))
 		if can {
 			t.Error("guard should block transition with abandoned tasks (finalization requires completed)")
 		}
@@ -514,7 +475,7 @@ func TestStateValidation(t *testing.T) {
 
 		// After advancing to Summarizing: summarizing
 		addResearchTopic(t, proj, "010", "Topic", "completed")
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginSummarizing), proj)
 		if err != nil {
 			t.Fatalf("Fire failed: %v", err)
 		}
@@ -522,7 +483,7 @@ func TestStateValidation(t *testing.T) {
 
 		// After advancing to Finalizing: completed
 		addSummaryArtifact(t, proj, "summary.md", true)
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteSummarizing), proj)
+		err = config.FireWithPhaseUpdates(machine, project.Event(EventCompleteSummarizing), proj)
 		if err != nil {
 			t.Fatalf("Fire failed: %v", err)
 		}
@@ -543,12 +504,12 @@ func TestStateValidation(t *testing.T) {
 
 		// After entering Finalizing state: enabled and in_progress
 		addResearchTopic(t, proj, "010", "Topic", "completed")
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginSummarizing), proj)
 		if err != nil {
 			t.Fatalf("Fire failed: %v", err)
 		}
 		addSummaryArtifact(t, proj, "summary.md", true)
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteSummarizing), proj)
+		err = config.FireWithPhaseUpdates(machine, project.Event(EventCompleteSummarizing), proj)
 		if err != nil {
 			t.Fatalf("Fire failed: %v", err)
 		}
@@ -574,12 +535,12 @@ func TestStateValidation(t *testing.T) {
 
 		// Complete workflow
 		addResearchTopic(t, proj, "010", "Topic", "completed")
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginSummarizing), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginSummarizing), proj)
 		if err != nil {
 			t.Fatalf("Fire failed: %v", err)
 		}
 		addSummaryArtifact(t, proj, "summary.md", true)
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteSummarizing), proj)
+		err = config.FireWithPhaseUpdates(machine, project.Event(EventCompleteSummarizing), proj)
 		if err != nil {
 			t.Fatalf("Fire failed: %v", err)
 		}
@@ -598,7 +559,7 @@ func TestStateValidation(t *testing.T) {
 
 		// Complete finalization
 		addFinalizationTask(t, proj, "100", "PR", "completed")
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteFinalization), proj)
+		err = config.FireWithPhaseUpdates(machine, project.Event(EventCompleteFinalization), proj)
 		if err != nil {
 			t.Fatalf("Fire failed: %v", err)
 		}
@@ -615,15 +576,15 @@ func TestStateValidation(t *testing.T) {
 
 		// Complete full lifecycle
 		addResearchTopic(t, proj, "010", "Topic", "completed")
-		if err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginSummarizing), proj); err != nil {
+		if err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginSummarizing), proj); err != nil {
 			t.Fatalf("Failed to fire EventBeginSummarizing: %v", err)
 		}
 		addSummaryArtifact(t, proj, "summary.md", true)
-		if err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteSummarizing), proj); err != nil {
+		if err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteSummarizing), proj); err != nil {
 			t.Fatalf("Failed to fire EventCompleteSummarizing: %v", err)
 		}
 		addFinalizationTask(t, proj, "100", "PR", "completed")
-		if err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteFinalization), proj); err != nil {
+		if err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteFinalization), proj); err != nil {
 			t.Fatalf("Failed to fire EventCompleteFinalization: %v", err)
 		}
 
@@ -644,7 +605,7 @@ func TestStateValidation(t *testing.T) {
 
 // setupExplorationProject creates a project for testing in Active state.
 // Returns project, machine, and config (needed for FireWithPhaseUpdates).
-func setupExplorationProject(t *testing.T) (*state.Project, *sdkstate.Machine, *project.ProjectTypeConfig) {
+func setupExplorationProject(t *testing.T) (*state.Project, *project.Machine, *project.ProjectTypeConfig) {
 	t.Helper()
 
 	// Create project
@@ -672,7 +633,7 @@ func setupExplorationProject(t *testing.T) (*state.Project, *sdkstate.Machine, *
 	}
 
 	// Build state machine
-	machine := config.BuildMachine(proj, sdkstate.State(Active))
+	machine := config.BuildProjectMachine(proj, project.State(Active))
 	if machine == nil {
 		t.Fatal("BuildMachine returned nil")
 	}

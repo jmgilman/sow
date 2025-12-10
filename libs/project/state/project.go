@@ -36,6 +36,24 @@ type ProjectTypeConfig interface {
 
 	// IsPhaseStartState returns true if the state is the phase's start state.
 	IsPhaseStartState(phaseName string, state string) bool
+
+	// OrchestratorPrompt returns the orchestrator-level prompt for this project type.
+	// Used to generate guidance for the orchestrator agent.
+	OrchestratorPrompt(p *Project) string
+
+	// GetStatePrompt returns the prompt for a specific state.
+	// Used to generate guidance for agents in that state.
+	GetStatePrompt(state string, p *Project) string
+
+	// PhaseSupportsTasks returns true if the named phase supports tasks.
+	PhaseSupportsTasks(phaseName string) bool
+
+	// GetTaskSupportingPhases returns a list of phase names that support tasks.
+	GetTaskSupportingPhases() []string
+
+	// GetDefaultTaskPhase returns the default phase for creating tasks
+	// based on the current state.
+	GetDefaultTaskPhase(currentState string) string
 }
 
 // Project wraps the CUE-generated ProjectState with runtime behavior.

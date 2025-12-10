@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/libs/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/libs/git"
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
@@ -154,7 +154,7 @@ func TestInitializeProject_WithIssue_CreatesArtifact(t *testing.T) {
 	}
 
 	// Load the project state to verify artifact
-	loadedProj, err := state.Load(ctx)
+	loadedProj, err := state.Load(context.Background(), state.NewYAMLBackend(ctx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestInitializeProject_WithoutIssue_NoArtifacts(t *testing.T) {
 	}
 
 	// Load the project state
-	loadedProj, err := state.Load(ctx)
+	loadedProj, err := state.Load(context.Background(), state.NewYAMLBackend(ctx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project: %v", err)
 	}
@@ -399,7 +399,7 @@ func TestInitializeProject_WithEmptyKnowledgeFiles(t *testing.T) {
 	}
 
 	// Load the project state
-	loadedProj, err := state.Load(ctx)
+	loadedProj, err := state.Load(context.Background(), state.NewYAMLBackend(ctx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project: %v", err)
 	}
@@ -428,7 +428,7 @@ func TestInitializeProject_WithSingleKnowledgeFile(t *testing.T) {
 	}
 
 	// Load the project state
-	loadedProj, err := state.Load(ctx)
+	loadedProj, err := state.Load(context.Background(), state.NewYAMLBackend(ctx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project: %v", err)
 	}
@@ -485,7 +485,7 @@ func TestInitializeProject_WithMultipleKnowledgeFiles(t *testing.T) {
 	}
 
 	// Load the project state
-	loadedProj, err := state.Load(ctx)
+	loadedProj, err := state.Load(context.Background(), state.NewYAMLBackend(ctx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project: %v", err)
 	}
@@ -561,7 +561,7 @@ func TestInitializeProject_WithIssueAndKnowledgeFiles(t *testing.T) {
 	}
 
 	// Load the project state
-	loadedProj, err := state.Load(ctx)
+	loadedProj, err := state.Load(context.Background(), state.NewYAMLBackend(ctx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project: %v", err)
 	}
@@ -614,7 +614,7 @@ func TestInitializeProject_NilKnowledgeFiles(t *testing.T) {
 	}
 
 	// Load the project state
-	loadedProj, err := state.Load(ctx)
+	loadedProj, err := state.Load(context.Background(), state.NewYAMLBackend(ctx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project: %v", err)
 	}

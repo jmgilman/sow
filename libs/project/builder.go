@@ -55,8 +55,10 @@ func (b *MachineBuilder) AddTransition(from, to State, event Event, opts ...Tran
 func (b *MachineBuilder) Build() *Machine {
 	fsm := stateless.NewStateMachine(string(b.initialState))
 
-	// Track which states have been configured to avoid duplicate OnEntry/OnExit
-	configuredStates := make(map[State]bool)
+	// Track which states have onEntry/onExit configured to avoid duplicates
+	// We track these separately because a state can be both a source and target
+	onExitConfigured := make(map[State]bool)
+	onEntryConfigured := make(map[State]bool)
 
 	for _, t := range b.transitions {
 		// Apply options
@@ -74,9 +76,10 @@ func (b *MachineBuilder) Build() *Machine {
 		// Configure the source state
 		cfgFrom := fsm.Configure(string(t.from))
 
-		// Add exit action if provided and state not already configured
-		if config.onExit != nil && !configuredStates[t.from] {
+		// Add exit action if provided and not already configured for this state
+		if config.onExit != nil && !onExitConfigured[t.from] {
 			cfgFrom.OnExit(config.onExit)
+			onExitConfigured[t.from] = true
 		}
 
 		// Configure the transition
@@ -90,15 +93,11 @@ func (b *MachineBuilder) Build() *Machine {
 			cfgFrom.Permit(stateless.Trigger(string(t.event)), string(t.to))
 		}
 
-		// Configure the target state entry action if provided
-		if config.onEntry != nil && !configuredStates[t.to] {
+		// Configure the target state entry action if provided and not already configured
+		if config.onEntry != nil && !onEntryConfigured[t.to] {
 			cfgTo := fsm.Configure(string(t.to))
 			cfgTo.OnEntry(config.onEntry)
-		}
-
-		configuredStates[t.from] = true
-		if config.onEntry != nil {
-			configuredStates[t.to] = true
+			onEntryConfigured[t.to] = true
 		}
 	}
 

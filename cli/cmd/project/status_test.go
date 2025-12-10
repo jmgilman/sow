@@ -220,7 +220,7 @@ func TestRunStatus_WithTasks_ShowsTasksSection(t *testing.T) {
 	proj.Phases["implementation"] = implPhase
 
 	// Save the updated project
-	if err := proj.Save(); err != nil {
+	if err := proj.Save(context.Background()); err != nil {
 		t.Fatalf("failed to save project: %v", err)
 	}
 
@@ -519,7 +519,7 @@ func TestRunStatus_PhaseOrderCorrect(t *testing.T) {
 		Tasks:      []projschema.TaskState{},
 	}
 
-	if err := proj.Save(); err != nil {
+	if err := proj.Save(context.Background()); err != nil {
 		t.Fatalf("failed to save project: %v", err)
 	}
 
@@ -575,7 +575,7 @@ func TestRunStatus_TaskCountAccurate(t *testing.T) {
 	}
 	proj.Phases["implementation"] = implPhase
 
-	if err := proj.Save(); err != nil {
+	if err := proj.Save(context.Background()); err != nil {
 		t.Fatalf("failed to save project: %v", err)
 	}
 

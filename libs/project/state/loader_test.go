@@ -67,6 +67,26 @@ func (m *mockConfig) IsPhaseStartState(phaseName string, state string) bool {
 	return false
 }
 
+func (m *mockConfig) OrchestratorPrompt(_ *Project) string {
+	return ""
+}
+
+func (m *mockConfig) GetStatePrompt(_ string, _ *Project) string {
+	return ""
+}
+
+func (m *mockConfig) PhaseSupportsTasks(_ string) bool {
+	return false
+}
+
+func (m *mockConfig) GetTaskSupportingPhases() []string {
+	return nil
+}
+
+func (m *mockConfig) GetDefaultTaskPhase(_ string) string {
+	return ""
+}
+
 // Helper to create a valid project state for testing.
 func validProjectState() *project.ProjectState {
 	now := time.Now()

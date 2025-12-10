@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/agents"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/libs/project/state"
 	"github.com/jmgilman/sow/libs/config"
 	"github.com/spf13/cobra"
 )
@@ -94,7 +94,7 @@ func runResume(cmd *cobra.Command, args []string, explicitPhase, agentFlag strin
 	}
 
 	// Load project state
-	proj, err := state.Load(ctx)
+	proj, err := cmdutil.LoadProject(cmd.Context(), ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such file") {
 			return fmt.Errorf("no active project found")

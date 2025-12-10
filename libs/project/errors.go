@@ -54,3 +54,27 @@ func (e *ErrPhaseStatusUpdate) Error() string {
 func (e *ErrPhaseStatusUpdate) Unwrap() error {
 	return e.Cause
 }
+
+// ErrInvalidOutputType indicates an output artifact has a type not allowed for the phase.
+type ErrInvalidOutputType struct {
+	Phase        string
+	ArtifactType string
+	AllowedTypes []string
+}
+
+// Error returns the error message.
+func (e *ErrInvalidOutputType) Error() string {
+	return fmt.Sprintf("phase %q does not allow output type %q (allowed: %v)", e.Phase, e.ArtifactType, e.AllowedTypes)
+}
+
+// ErrInvalidInputType indicates an input artifact has a type not allowed for the phase.
+type ErrInvalidInputType struct {
+	Phase        string
+	ArtifactType string
+	AllowedTypes []string
+}
+
+// Error returns the error message.
+func (e *ErrInvalidInputType) Error() string {
+	return fmt.Sprintf("phase %q does not allow input type %q (allowed: %v)", e.Phase, e.ArtifactType, e.AllowedTypes)
+}

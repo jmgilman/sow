@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	"github.com/jmgilman/sow/cli/internal/sdks/project"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
+	"github.com/jmgilman/sow/libs/project/state"
+	
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
 )
@@ -63,18 +63,18 @@ Examples:
 			ctx := cmdutil.GetContext(cmd.Context())
 
 			// Load project using SDK
-			project, err := state.Load(ctx)
+			proj, err := cmdutil.LoadProject(cmd.Context(), ctx)
 			if err != nil {
 				return fmt.Errorf("failed to load project: %w", err)
 			}
 
 			// Get current state
-			currentState := state.State(project.Statechart.Current_state)
+			currentState := proj.Statechart.Current_state
 
 			// Check for list mode
 			listFlag, _ := cmd.Flags().GetBool("list")
 			if listFlag {
-				return listAvailableTransitions(project, currentState)
+				return listAvailableTransitions(cmd, proj, currentState)
 			}
 
 			// Check for dry-run mode
@@ -82,8 +82,7 @@ Examples:
 			if dryRunFlag {
 				// Get event argument (validation ensures it exists)
 				event := args[0]
-				machine := project.Machine()
-				return validateTransition(ctx, project, machine, currentState, sdkstate.Event(event))
+				return validateTransition(ctx, proj, currentState, event)
 			}
 
 			// Get event argument if provided
@@ -94,12 +93,11 @@ Examples:
 
 			// Explicit event mode: event argument provided without flags
 			if event != "" {
-				machine := project.Machine()
-				return executeExplicitTransition(ctx, project, machine, currentState, sdkstate.Event(event))
+				return executeExplicitTransition(cmd, ctx, proj, currentState, event)
 			}
 
 			// Auto-determination mode: no flags, no event argument
-			return executeAutoTransition(project, currentState)
+			return executeAutoTransition(cmd, proj, currentState)
 		},
 	}
 
@@ -146,23 +144,30 @@ func validateAdvanceFlags(cmd *cobra.Command, args []string) error {
 // - Transition fails (guard blocked, invalid event)
 // - Save fails (I/O error).
 func executeAutoTransition(
+	cmd *cobra.Command,
 	proj *state.Project,
-	currentState state.State,
+	currentState string,
 ) error {
 	fmt.Printf("Current state: %s\n", currentState)
 
-	// Build state machine for current state
-	machine := proj.Machine()
+	// Type assert to get full project type config
+	config, ok := proj.Config().(*project.ProjectTypeConfig)
+	if !ok {
+		return fmt.Errorf("invalid project configuration")
+	}
+
+	// Build project machine for current state (returns *project.Machine, not raw *stateless.StateMachine)
+	machine := config.BuildProjectMachine(proj, project.State(currentState))
 
 	// Determine which event to fire from current state
-	event, err := proj.Config().DetermineEvent(proj)
+	event, err := config.DetermineEvent(proj)
 	if err != nil {
 		// Enhanced error handling
 		return enhanceAutoTransitionError(err, proj, currentState)
 	}
 
 	// Fire the event with automatic phase status updates
-	if err := proj.Config().FireWithPhaseUpdates(machine, event, proj); err != nil {
+	if err := config.FireWithPhaseUpdates(machine, event, proj); err != nil {
 		// Provide helpful error messages based on error type
 		if strings.Contains(err.Error(), "cannot fire event") {
 			return fmt.Errorf("transition blocked: %w\n\nCheck that all prerequisites for this state transition are met", err)
@@ -170,8 +175,11 @@ func executeAutoTransition(
 		return fmt.Errorf("failed to advance: %w", err)
 	}
 
+	// Sync machine state to project state before saving
+	proj.Statechart.Current_state = string(machine.State())
+
 	// Save updated state
-	if err := proj.Save(); err != nil {
+	if err := proj.Save(cmd.Context()); err != nil {
 		return fmt.Errorf("failed to save state: %w", err)
 	}
 
@@ -185,8 +193,9 @@ func executeAutoTransition(
 // listAvailableTransitions displays all available transitions from the current state.
 // Shows both permitted and blocked transitions with guard status.
 func listAvailableTransitions(
+	_ *cobra.Command,
 	proj *state.Project,
-	currentState state.State,
+	currentState string,
 ) error {
 	fmt.Printf("Current state: %s\n\n", currentState)
 
@@ -197,7 +206,7 @@ func listAvailableTransitions(
 	}
 
 	// Get all configured transitions
-	allTransitions := config.GetAvailableTransitions(currentState)
+	allTransitions := config.GetAvailableTransitions(project.State(currentState))
 	if len(allTransitions) == 0 {
 		fmt.Println("No transitions available from current state.")
 		fmt.Println("This may be a terminal state.")
@@ -205,22 +214,20 @@ func listAvailableTransitions(
 	}
 
 	// Get guard-filtered events (what can fire now)
-	machine := proj.Machine()
-	permittedEvents, err := machine.PermittedTriggers()
-	if err != nil {
-		return fmt.Errorf("failed to get permitted triggers: %w", err)
-	}
+	// Build project machine for current state to evaluate guards
+	machine := config.BuildProjectMachine(proj, project.State(currentState))
+	permittedTriggers := machine.PermittedTriggers()
 
 	// Build set of permitted events for quick lookup
-	permitted := make(map[state.Event]bool)
-	for _, event := range permittedEvents {
-		permitted[event] = true
+	permitted := make(map[string]bool)
+	for _, trigger := range permittedTriggers {
+		permitted[string(trigger)] = true
 	}
 
 	// Display transitions
 	fmt.Println("Available transitions:")
 
-	if len(permittedEvents) == 0 {
+	if len(permittedTriggers) == 0 {
 		fmt.Println()
 		fmt.Println("(All configured transitions are currently blocked by guard conditions)")
 		fmt.Println()
@@ -230,7 +237,7 @@ func listAvailableTransitions(
 
 	for _, transition := range allTransitions {
 		// Check if permitted
-		blocked := !permitted[transition.Event]
+		blocked := !permitted[string(transition.Event)]
 		blockedMarker := ""
 		if blocked {
 			blockedMarker = "  [BLOCKED]"
@@ -258,7 +265,7 @@ func listAvailableTransitions(
 
 // enhanceAutoTransitionError provides helpful error messages when auto-determination fails.
 // Distinguishes between terminal states and intent-based branching scenarios.
-func enhanceAutoTransitionError(err error, proj *state.Project, currentState state.State) error {
+func enhanceAutoTransitionError(err error, proj *state.Project, currentState string) error {
 	// Type assert to get access to introspection methods
 	// The config is always *project.ProjectTypeConfig which has GetAvailableTransitions
 	config, ok := proj.Config().(*project.ProjectTypeConfig)
@@ -268,7 +275,7 @@ func enhanceAutoTransitionError(err error, proj *state.Project, currentState sta
 	}
 
 	// Check if this is a terminal state (no transitions configured)
-	transitions := config.GetAvailableTransitions(currentState)
+	transitions := config.GetAvailableTransitions(project.State(currentState))
 	if len(transitions) == 0 {
 		return fmt.Errorf(
 			"cannot advance from state %s: %w\n\nThis may be a terminal state",
@@ -309,9 +316,8 @@ func enhanceAutoTransitionError(err error, proj *state.Project, currentState sta
 func validateTransition(
 	_ *sow.Context,
 	proj *state.Project,
-	machine *sdkstate.Machine,
-	currentState sdkstate.State,
-	event sdkstate.Event,
+	currentState string,
+	event string,
 ) error {
 	fmt.Printf("Validating transition: %s -> %s\n\n", currentState, event)
 
@@ -322,25 +328,25 @@ func validateTransition(
 	}
 
 	// Check if event is configured for this state
-	targetState := projectConfig.GetTargetState(currentState, event)
+	targetState := projectConfig.GetTargetState(project.State(currentState), project.Event(event))
 	if targetState == "" {
 		fmt.Printf("✗ Event '%s' is not configured for state %s\n\n", event, currentState)
 		fmt.Println("Use 'sow advance --list' to see available transitions.")
 		return fmt.Errorf("event not configured")
 	}
 
+	// Build project machine to check if event can fire
+	machine := projectConfig.BuildProjectMachine(proj, project.State(currentState))
+
 	// Check if event can fire (guard passes)
-	canFire, err := machine.CanFire(event)
-	if err != nil {
-		return fmt.Errorf("failed to validate transition: %w", err)
-	}
+	canFire := machine.CanFire(project.Event(event))
 
 	if !canFire {
 		// Blocked by guard
 		fmt.Println("✗ Transition blocked by guard condition")
 		fmt.Println()
 
-		guardDesc := projectConfig.GetGuardDescription(currentState, event)
+		guardDesc := projectConfig.GetGuardDescription(project.State(currentState), project.Event(event))
 		if guardDesc != "" {
 			fmt.Printf("Guard description: %s\n", guardDesc)
 		}
@@ -356,7 +362,7 @@ func validateTransition(
 	fmt.Println()
 	fmt.Printf("Target state: %s\n", targetState)
 
-	description := projectConfig.GetTransitionDescription(currentState, event)
+	description := projectConfig.GetTransitionDescription(project.State(currentState), project.Event(event))
 	if description != "" {
 		fmt.Printf("Description: %s\n", description)
 	}
@@ -386,11 +392,11 @@ func validateTransition(
 // - Updates phase status based on transition
 // - Saves project state to disk.
 func executeExplicitTransition(
+	cmd *cobra.Command,
 	ctx *sow.Context,
 	proj *state.Project,
-	machine *sdkstate.Machine,
-	currentState sdkstate.State,
-	event sdkstate.Event,
+	currentState string,
+	event string,
 ) error {
 	fmt.Printf("Current state: %s\n", currentState)
 
@@ -400,30 +406,35 @@ func executeExplicitTransition(
 		return fmt.Errorf("cannot execute transition: invalid project configuration")
 	}
 
+	// Convert to typed values for API calls
+	typedState := project.State(currentState)
+	typedEvent := project.Event(event)
+
 	// Validate event is configured for this state
-	targetState := config.GetTargetState(currentState, event)
+	targetState := config.GetTargetState(typedState, typedEvent)
 	if targetState == "" {
 		fmt.Printf("\nError: Event '%s' is not configured for state %s\n\n", event, currentState)
 		fmt.Println("Use 'sow advance --list' to see available transitions.")
 		return fmt.Errorf("event not configured")
 	}
 
-	// Fire the event (this validates guards and executes transition)
-	err := config.FireWithPhaseUpdates(machine, event, proj)
+	// Build project machine for current state (returns *project.Machine, not raw *stateless.StateMachine)
+	machine := config.BuildProjectMachine(proj, typedState)
+	err := config.FireWithPhaseUpdates(machine, typedEvent, proj)
 	if err != nil {
 		// Enhanced error handling for guard failures
-		return enhanceTransitionError(err, currentState, event, targetState, config)
+		return enhanceTransitionError(err, typedState, typedEvent, targetState, config)
 	}
 
 	// Sync machine state to project state (Save() does this, but we need it before Save())
 	// This is required because the machine's internal state has changed
-	proj.Statechart.Current_state = machine.State().String()
+	proj.Statechart.Current_state = string(machine.State())
 
 	// Save updated state to disk
 	// Note: In production, ctx is always set via Load()
 	// In unit tests, proj may not have ctx, so we skip Save()
 	if ctx != nil {
-		if err := proj.Save(); err != nil {
+		if err := proj.Save(cmd.Context()); err != nil {
 			return fmt.Errorf("failed to save state: %w", err)
 		}
 	}
@@ -439,9 +450,9 @@ func executeExplicitTransition(
 // Detects guard failures and provides helpful context and next steps.
 func enhanceTransitionError(
 	err error,
-	currentState sdkstate.State,
-	event sdkstate.Event,
-	targetState sdkstate.State,
+	currentState project.State,
+	event project.Event,
+	targetState project.State,
 	config *project.ProjectTypeConfig,
 ) error {
 	// Check if this is a guard failure

@@ -3,14 +3,14 @@ package design
 import (
 	"testing"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
 )
 
-// TestEventsAreCorrectType verifies all event constants use state.Event type.
+// TestEventsAreCorrectType verifies all event constants use project.Event type.
 func TestEventsAreCorrectType(t *testing.T) {
 	tests := []struct {
 		name  string
-		event state.Event
+		event project.Event
 	}{
 		{"EventCompleteDesign", EventCompleteDesign},
 		{"EventCompleteFinalization", EventCompleteFinalization},
@@ -18,7 +18,7 @@ func TestEventsAreCorrectType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Verify the constant can be assigned to state.Event type
+			// Verify the constant can be assigned to project.Event type
 			e := tt.event
 			if e == "" {
 				t.Errorf("Event %s should not be empty", tt.name)
@@ -31,7 +31,7 @@ func TestEventsAreCorrectType(t *testing.T) {
 func TestEventValues(t *testing.T) {
 	tests := []struct {
 		name     string
-		event    state.Event
+		event    project.Event
 		expected string
 	}{
 		{"EventCompleteDesign", EventCompleteDesign, "complete_design"},
@@ -49,11 +49,11 @@ func TestEventValues(t *testing.T) {
 
 // TestAllEventsAreDifferent verifies no duplicate event values.
 func TestAllEventsAreDifferent(t *testing.T) {
-	events := []state.Event{
+	events := []project.Event{
 		EventCompleteDesign,
 		EventCompleteFinalization,
 	}
-	seen := make(map[state.Event]bool)
+	seen := make(map[project.Event]bool)
 
 	for _, e := range events {
 		if seen[e] {
@@ -71,7 +71,7 @@ func TestAllEventsAreDifferent(t *testing.T) {
 func TestEventNamingConvention(t *testing.T) {
 	tests := []struct {
 		name  string
-		event state.Event
+		event project.Event
 	}{
 		{"EventCompleteDesign uses snake_case", EventCompleteDesign},
 		{"EventCompleteFinalization uses snake_case", EventCompleteFinalization},

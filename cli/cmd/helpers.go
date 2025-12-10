@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/libs/project/state"
 )
 
 // resolveTaskPhase determines which phase to use for task operations.
@@ -33,7 +33,7 @@ func resolveTaskPhase(project *state.Project, explicitPhase string) (string, err
 	}
 
 	// Case 2: Smart default based on current project state
-	currentState := state.State(project.Statechart.Current_state)
+	currentState := project.Statechart.Current_state
 	defaultPhase := config.GetDefaultTaskPhase(currentState)
 
 	if defaultPhase == "" {

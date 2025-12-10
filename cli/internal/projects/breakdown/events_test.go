@@ -3,14 +3,14 @@ package breakdown
 import (
 	"testing"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
 )
 
-// TestEventsAreCorrectType verifies all event constants use state.Event type.
+// TestEventsAreCorrectType verifies all event constants use project.Event type.
 func TestEventsAreCorrectType(t *testing.T) {
 	tests := []struct {
 		name  string
-		event state.Event
+		event project.Event
 	}{
 		{"EventBeginPublishing", EventBeginPublishing},
 		{"EventCompleteBreakdown", EventCompleteBreakdown},
@@ -31,7 +31,7 @@ func TestEventsAreCorrectType(t *testing.T) {
 func TestEventValues(t *testing.T) {
 	tests := []struct {
 		name     string
-		event    state.Event
+		event    project.Event
 		expected string
 	}{
 		{"EventBeginPublishing", EventBeginPublishing, "begin_publishing"},
@@ -49,11 +49,11 @@ func TestEventValues(t *testing.T) {
 
 // TestAllEventsAreDifferent verifies no duplicate event values.
 func TestAllEventsAreDifferent(t *testing.T) {
-	events := []state.Event{
+	events := []project.Event{
 		EventBeginPublishing,
 		EventCompleteBreakdown,
 	}
-	seen := make(map[state.Event]bool)
+	seen := make(map[project.Event]bool)
 
 	for _, e := range events {
 		if seen[e] {
@@ -71,7 +71,7 @@ func TestAllEventsAreDifferent(t *testing.T) {
 func TestEventNamingConvention(t *testing.T) {
 	tests := []struct {
 		name  string
-		event state.Event
+		event project.Event
 	}{
 		{"EventBeginPublishing uses snake_case", EventBeginPublishing},
 		{"EventCompleteBreakdown uses snake_case", EventCompleteBreakdown},

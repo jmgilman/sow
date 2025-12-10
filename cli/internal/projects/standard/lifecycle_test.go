@@ -5,9 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
+	"github.com/jmgilman/sow/libs/project/state"
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
@@ -24,7 +23,7 @@ func TestFullLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Fire(EventProjectInit) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(ImplementationPlanning) {
+		if got := machine.State(); got != project.State(ImplementationPlanning) {
 			t.Errorf("state = %v, want %v", got, ImplementationPlanning)
 		}
 
@@ -43,7 +42,7 @@ func TestFullLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Fire(EventPlanningComplete) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(ImplementationDraftPRCreation) {
+		if got := machine.State(); got != project.State(ImplementationDraftPRCreation) {
 			t.Errorf("state = %v, want %v", got, ImplementationDraftPRCreation)
 		}
 	})
@@ -57,7 +56,7 @@ func TestFullLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Fire(EventDraftPRCreated) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(ImplementationExecuting) {
+		if got := machine.State(); got != project.State(ImplementationExecuting) {
 			t.Errorf("state = %v, want %v", got, ImplementationExecuting)
 		}
 
@@ -76,7 +75,7 @@ func TestFullLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Fire(EventAllTasksComplete) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(ReviewActive) {
+		if got := machine.State(); got != project.State(ReviewActive) {
 			t.Errorf("state = %v, want %v", got, ReviewActive)
 		}
 
@@ -103,7 +102,7 @@ func TestFullLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Fire(EventReviewPass) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(FinalizeChecks) {
+		if got := machine.State(); got != project.State(FinalizeChecks) {
 			t.Errorf("state = %v, want %v", got, FinalizeChecks)
 		}
 
@@ -128,7 +127,7 @@ func TestFullLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Fire(EventChecksDone) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(FinalizePRReady) {
+		if got := machine.State(); got != project.State(FinalizePRReady) {
 			t.Errorf("state = %v, want %v", got, FinalizePRReady)
 		}
 
@@ -138,7 +137,7 @@ func TestFullLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Fire(EventPRReady) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(FinalizePRChecks) {
+		if got := machine.State(); got != project.State(FinalizePRChecks) {
 			t.Errorf("state = %v, want %v", got, FinalizePRChecks)
 		}
 
@@ -148,7 +147,7 @@ func TestFullLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Fire(EventPRChecksPass) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(FinalizeCleanup) {
+		if got := machine.State(); got != project.State(FinalizeCleanup) {
 			t.Errorf("state = %v, want %v", got, FinalizeCleanup)
 		}
 
@@ -158,7 +157,7 @@ func TestFullLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Fire(EventCleanupComplete) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(NoProject) {
+		if got := machine.State(); got != project.State(NoProject) {
 			t.Errorf("state = %v, want %v", got, NoProject)
 		}
 
@@ -184,7 +183,7 @@ func TestReviewFailLoop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fire(EventReviewFail) failed: %v", err)
 	}
-	if got := machine.State(); got != sdkstate.State(ImplementationPlanning) {
+	if got := machine.State(); got != project.State(ImplementationPlanning) {
 		t.Errorf("state = %v, want %v", got, ImplementationPlanning)
 	}
 
@@ -249,7 +248,7 @@ func TestMultipleReviewFailures(t *testing.T) {
 	// Simulate completing implementation again and returning to review
 	// (In real workflow, would go through full ImplementationPlanning → ImplementationExecuting → ReviewActive)
 	// For this test, we'll just update machine state and add another review
-	machine = config.BuildMachine(proj, sdkstate.State(ReviewActive))
+	machine = config.BuildProjectMachine(proj, project.State(ReviewActive))
 
 	// Second review failure
 	addApprovedReview(t, proj, "fail", "review-fail-2.md")
@@ -265,7 +264,7 @@ func TestMultipleReviewFailures(t *testing.T) {
 	}
 
 	// Third review failure
-	machine = config.BuildMachine(proj, sdkstate.State(ReviewActive))
+	machine = config.BuildProjectMachine(proj, project.State(ReviewActive))
 	addApprovedReview(t, proj, "fail", "review-fail-3.md")
 	err = config.FireWithPhaseUpdates(machine, EventReviewFail, proj)
 	if err != nil {
@@ -289,21 +288,21 @@ func TestMultipleReviewFailures(t *testing.T) {
 func TestGuardsBlockInvalidTransitions(t *testing.T) {
 	tests := []struct {
 		name         string
-		initialState sdkstate.State
+		initialState project.State
 		setupFunc    func(*state.Project)
-		event        sdkstate.Event
+		event        project.Event
 		shouldBlock  bool
 	}{
 		{
 			name:         "implementation planning without approved task descriptions blocks",
-			initialState: sdkstate.State(ImplementationPlanning),
+			initialState: project.State(ImplementationPlanning),
 			setupFunc:    func(_ *state.Project) {}, // No task descriptions
-			event:        sdkstate.Event(EventPlanningComplete),
+			event:        project.Event(EventPlanningComplete),
 			shouldBlock:  true,
 		},
 		{
 			name:         "implementation planning with unapproved planning blocks",
-			initialState: sdkstate.State(ImplementationPlanning),
+			initialState: project.State(ImplementationPlanning),
 			setupFunc: func(p *state.Project) {
 				// Set planning_approved to false (or leave unset - both block)
 				phase := p.Phases["implementation"]
@@ -313,17 +312,17 @@ func TestGuardsBlockInvalidTransitions(t *testing.T) {
 				phase.Metadata["planning_approved"] = false
 				p.Phases["implementation"] = phase
 			},
-			event:       sdkstate.Event(EventPlanningComplete),
+			event:       project.Event(EventPlanningComplete),
 			shouldBlock: true,
 		},
 		{
 			name:         "implementation executing without completed tasks blocks",
-			initialState: sdkstate.State(ImplementationExecuting),
+			initialState: project.State(ImplementationExecuting),
 			setupFunc: func(p *state.Project) {
 				// Add pending task
 				addPendingTask(p, "implementation", "001", "Task 1")
 			},
-			event:       sdkstate.Event(EventAllTasksComplete),
+			event:       project.Event(EventAllTasksComplete),
 			shouldBlock: true,
 		},
 	}
@@ -333,10 +332,7 @@ func TestGuardsBlockInvalidTransitions(t *testing.T) {
 			proj, machine, _ := createTestProject(t, tt.initialState)
 			tt.setupFunc(proj)
 
-			can, err := machine.CanFire(tt.event)
-			if err != nil {
-				t.Fatalf("CanFire() error: %v", err)
-			}
+			can := machine.CanFire(tt.event)
 
 			if tt.shouldBlock && can {
 				t.Errorf("guard should block transition but allowed it")
@@ -350,15 +346,15 @@ func TestGuardsBlockInvalidTransitions(t *testing.T) {
 
 // TestPromptGeneration tests prompts generate correctly for each state.
 func TestPromptGeneration(t *testing.T) {
-	states := []sdkstate.State{
-		sdkstate.State(ImplementationPlanning),
-		sdkstate.State(ImplementationDraftPRCreation),
-		sdkstate.State(ImplementationExecuting),
-		sdkstate.State(ReviewActive),
-		sdkstate.State(FinalizeChecks),
-		sdkstate.State(FinalizePRReady),
-		sdkstate.State(FinalizePRChecks),
-		sdkstate.State(FinalizeCleanup),
+	states := []project.State{
+		project.State(ImplementationPlanning),
+		project.State(ImplementationDraftPRCreation),
+		project.State(ImplementationExecuting),
+		project.State(ReviewActive),
+		project.State(FinalizeChecks),
+		project.State(FinalizePRReady),
+		project.State(FinalizePRChecks),
+		project.State(FinalizeCleanup),
 	}
 
 	for _, st := range states {
@@ -386,7 +382,7 @@ func TestPromptGeneration(t *testing.T) {
 // TestOnAdvanceEventDetermination tests event determiners work correctly.
 func TestOnAdvanceEventDetermination(t *testing.T) {
 	t.Run("ReviewActive determines pass event", func(t *testing.T) {
-		proj, _, _ := createTestProject(t, sdkstate.State(ReviewActive))
+		proj, _, _ := createTestProject(t, project.State(ReviewActive))
 		addApprovedReview(t, proj, "pass", "review.md")
 
 		// Verify the review was added with correct assessment
@@ -404,7 +400,7 @@ func TestOnAdvanceEventDetermination(t *testing.T) {
 	})
 
 	t.Run("ReviewActive determines fail event", func(t *testing.T) {
-		proj, _, _ := createTestProject(t, sdkstate.State(ReviewActive))
+		proj, _, _ := createTestProject(t, project.State(ReviewActive))
 		addApprovedReview(t, proj, "fail", "review.md")
 
 		// Verify the review was added with correct assessment
@@ -425,7 +421,7 @@ func TestOnAdvanceEventDetermination(t *testing.T) {
 // Helper functions
 
 // createTestProject creates a project for testing in the specified initial state.
-func createTestProject(t *testing.T, initialState sdkstate.State) (*state.Project, *sdkstate.Machine, *project.ProjectTypeConfig) {
+func createTestProject(t *testing.T, initialState project.State) (*state.Project, *project.Machine, *project.ProjectTypeConfig) {
 	t.Helper()
 
 	// Create minimal project state
@@ -478,7 +474,7 @@ func createTestProject(t *testing.T, initialState sdkstate.State) (*state.Projec
 	}
 
 	// Build state machine with initial state
-	machine := config.BuildMachine(proj, sdkstate.State(initialState))
+	machine := config.BuildProjectMachine(proj, project.State(initialState))
 
 	return proj, machine, config
 }
@@ -619,24 +615,24 @@ func markTaskAsCompleted(t *testing.T, p *state.Project, phaseName, id string) {
 type PromptGenerator func(*state.Project) string
 
 // getPromptGenerator returns the prompt generator for a given state.
-func getPromptGenerator(st sdkstate.State) PromptGenerator {
+func getPromptGenerator(st project.State) PromptGenerator {
 	// Map states to their prompt generators
 	switch st {
-	case sdkstate.State(ImplementationPlanning):
+	case project.State(ImplementationPlanning):
 		return generateImplementationPlanningPrompt
-	case sdkstate.State(ImplementationDraftPRCreation):
+	case project.State(ImplementationDraftPRCreation):
 		return generateImplementationDraftPRCreationPrompt
-	case sdkstate.State(ImplementationExecuting):
+	case project.State(ImplementationExecuting):
 		return generateImplementationExecutingPrompt
-	case sdkstate.State(ReviewActive):
+	case project.State(ReviewActive):
 		return generateReviewPrompt
-	case sdkstate.State(FinalizeChecks):
+	case project.State(FinalizeChecks):
 		return generateFinalizeChecksPrompt
-	case sdkstate.State(FinalizePRReady):
+	case project.State(FinalizePRReady):
 		return generateFinalizePRReadyPrompt
-	case sdkstate.State(FinalizePRChecks):
+	case project.State(FinalizePRChecks):
 		return generateFinalizePRChecksPrompt
-	case sdkstate.State(FinalizeCleanup):
+	case project.State(FinalizeCleanup):
 		return generateFinalizeCleanupPrompt
 	default:
 		return nil
@@ -654,20 +650,20 @@ func TestStandardProjectDescriptions(t *testing.T) {
 
 	// Define all 10 transitions in the standard project
 	transitions := []struct {
-		from  sdkstate.State
-		event sdkstate.Event
+		from  project.State
+		event project.Event
 		name  string
 	}{
-		{sdkstate.State(NoProject), sdkstate.Event(EventProjectInit), "project init"},
-		{sdkstate.State(ImplementationPlanning), sdkstate.Event(EventPlanningComplete), "planning complete"},
-		{sdkstate.State(ImplementationDraftPRCreation), sdkstate.Event(EventDraftPRCreated), "draft PR created"},
-		{sdkstate.State(ImplementationExecuting), sdkstate.Event(EventAllTasksComplete), "all tasks complete"},
-		{sdkstate.State(ReviewActive), sdkstate.Event(EventReviewPass), "review pass"},
-		{sdkstate.State(ReviewActive), sdkstate.Event(EventReviewFail), "review fail"},
-		{sdkstate.State(FinalizeChecks), sdkstate.Event(EventChecksDone), "checks done"},
-		{sdkstate.State(FinalizePRReady), sdkstate.Event(EventPRReady), "PR ready"},
-		{sdkstate.State(FinalizePRChecks), sdkstate.Event(EventPRChecksPass), "PR checks pass"},
-		{sdkstate.State(FinalizeCleanup), sdkstate.Event(EventCleanupComplete), "cleanup complete"},
+		{project.State(NoProject), project.Event(EventProjectInit), "project init"},
+		{project.State(ImplementationPlanning), project.Event(EventPlanningComplete), "planning complete"},
+		{project.State(ImplementationDraftPRCreation), project.Event(EventDraftPRCreated), "draft PR created"},
+		{project.State(ImplementationExecuting), project.Event(EventAllTasksComplete), "all tasks complete"},
+		{project.State(ReviewActive), project.Event(EventReviewPass), "review pass"},
+		{project.State(ReviewActive), project.Event(EventReviewFail), "review fail"},
+		{project.State(FinalizeChecks), project.Event(EventChecksDone), "checks done"},
+		{project.State(FinalizePRReady), project.Event(EventPRReady), "PR ready"},
+		{project.State(FinalizePRChecks), project.Event(EventPRChecksPass), "PR checks pass"},
+		{project.State(FinalizeCleanup), project.Event(EventCleanupComplete), "cleanup complete"},
 	}
 
 	for _, tt := range transitions {
@@ -705,19 +701,19 @@ func TestDescriptionQuality(t *testing.T) {
 
 	// Collect all descriptions
 	transitions := []struct {
-		from  sdkstate.State
-		event sdkstate.Event
+		from  project.State
+		event project.Event
 	}{
-		{sdkstate.State(NoProject), sdkstate.Event(EventProjectInit)},
-		{sdkstate.State(ImplementationPlanning), sdkstate.Event(EventPlanningComplete)},
-		{sdkstate.State(ImplementationDraftPRCreation), sdkstate.Event(EventDraftPRCreated)},
-		{sdkstate.State(ImplementationExecuting), sdkstate.Event(EventAllTasksComplete)},
-		{sdkstate.State(ReviewActive), sdkstate.Event(EventReviewPass)},
-		{sdkstate.State(ReviewActive), sdkstate.Event(EventReviewFail)},
-		{sdkstate.State(FinalizeChecks), sdkstate.Event(EventChecksDone)},
-		{sdkstate.State(FinalizePRReady), sdkstate.Event(EventPRReady)},
-		{sdkstate.State(FinalizePRChecks), sdkstate.Event(EventPRChecksPass)},
-		{sdkstate.State(FinalizeCleanup), sdkstate.Event(EventCleanupComplete)},
+		{project.State(NoProject), project.Event(EventProjectInit)},
+		{project.State(ImplementationPlanning), project.Event(EventPlanningComplete)},
+		{project.State(ImplementationDraftPRCreation), project.Event(EventDraftPRCreated)},
+		{project.State(ImplementationExecuting), project.Event(EventAllTasksComplete)},
+		{project.State(ReviewActive), project.Event(EventReviewPass)},
+		{project.State(ReviewActive), project.Event(EventReviewFail)},
+		{project.State(FinalizeChecks), project.Event(EventChecksDone)},
+		{project.State(FinalizePRReady), project.Event(EventPRReady)},
+		{project.State(FinalizePRChecks), project.Event(EventPRChecksPass)},
+		{project.State(FinalizeCleanup), project.Event(EventCleanupComplete)},
 	}
 
 	descriptions := make(map[string]bool)
@@ -748,7 +744,7 @@ func TestReviewActiveBranchingRefactored(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DetermineEvent failed: %v", err)
 		}
-		if event != sdkstate.Event(EventReviewPass) {
+		if event != project.Event(EventReviewPass) {
 			t.Errorf("DetermineEvent returned %v, want %v", event, EventReviewPass)
 		}
 
@@ -757,7 +753,7 @@ func TestReviewActiveBranchingRefactored(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Fire(EventReviewPass) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(FinalizeChecks) {
+		if got := machine.State(); got != project.State(FinalizeChecks) {
 			t.Errorf("state = %v, want %v", got, FinalizeChecks)
 		}
 	})
@@ -771,7 +767,7 @@ func TestReviewActiveBranchingRefactored(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DetermineEvent failed: %v", err)
 		}
-		if event != sdkstate.Event(EventReviewFail) {
+		if event != project.Event(EventReviewFail) {
 			t.Errorf("DetermineEvent returned %v, want %v", event, EventReviewFail)
 		}
 
@@ -780,7 +776,7 @@ func TestReviewActiveBranchingRefactored(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Fire(EventReviewFail) failed: %v", err)
 		}
-		if got := machine.State(); got != sdkstate.State(ImplementationPlanning) {
+		if got := machine.State(); got != project.State(ImplementationPlanning) {
 			t.Errorf("state = %v, want %v", got, ImplementationPlanning)
 		}
 
@@ -814,7 +810,7 @@ func TestReviewActiveBranchDescriptions(t *testing.T) {
 	config := NewStandardProjectConfig()
 
 	t.Run("pass path has description", func(t *testing.T) {
-		desc := config.GetTransitionDescription(sdkstate.State(ReviewActive), sdkstate.Event(EventReviewPass))
+		desc := config.GetTransitionDescription(project.State(ReviewActive), project.Event(EventReviewPass))
 		if desc == "" {
 			t.Error("EventReviewPass transition has no description")
 		}
@@ -826,7 +822,7 @@ func TestReviewActiveBranchDescriptions(t *testing.T) {
 	})
 
 	t.Run("fail path has description", func(t *testing.T) {
-		desc := config.GetTransitionDescription(sdkstate.State(ReviewActive), sdkstate.Event(EventReviewFail))
+		desc := config.GetTransitionDescription(project.State(ReviewActive), project.Event(EventReviewFail))
 		if desc == "" {
 			t.Error("EventReviewFail transition has no description")
 		}
@@ -843,7 +839,7 @@ func TestReviewActiveIsBranchingState(t *testing.T) {
 	config := NewStandardProjectConfig()
 
 	// ReviewActive should be a branching state (has AddBranch)
-	isBranching := config.IsBranchingState(sdkstate.State(ReviewActive))
+	isBranching := config.IsBranchingState(project.State(ReviewActive))
 	if !isBranching {
 		t.Error("ReviewActive should be a branching state (configured with AddBranch)")
 	}

@@ -81,7 +81,7 @@ func TestProjectTypeConfig_InitialState(t *testing.T) {
 
 			got := ptc.InitialState()
 
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, string(tt.want), got)
 		})
 	}
 }
@@ -168,7 +168,7 @@ func TestProjectTypeConfig_GetPhaseForState(t *testing.T) {
 
 			ptc := &ProjectTypeConfig{phaseConfigs: phases}
 
-			got := ptc.GetPhaseForState(tt.state)
+			got := ptc.GetPhaseForState(string(tt.state))
 
 			assert.Equal(t, tt.want, got)
 		})
@@ -229,7 +229,7 @@ func TestProjectTypeConfig_IsPhaseStartState(t *testing.T) {
 
 			ptc := &ProjectTypeConfig{phaseConfigs: phases}
 
-			got := ptc.IsPhaseStartState(tt.phaseName, tt.state)
+			got := ptc.IsPhaseStartState(tt.phaseName, string(tt.state))
 
 			assert.Equal(t, tt.want, got)
 		})
@@ -290,7 +290,7 @@ func TestProjectTypeConfig_IsPhaseEndState(t *testing.T) {
 
 			ptc := &ProjectTypeConfig{phaseConfigs: phases}
 
-			got := ptc.IsPhaseEndState(tt.phaseName, tt.state)
+			got := ptc.IsPhaseEndState(tt.phaseName, string(tt.state))
 
 			assert.Equal(t, tt.want, got)
 		})
@@ -451,7 +451,7 @@ func TestProjectTypeConfig_GetStatePrompt(t *testing.T) {
 			proj := &state.Project{}
 			proj.Name = tt.projectName
 
-			got := ptc.GetStatePrompt(tt.state, proj)
+			got := ptc.GetStatePrompt(string(tt.state), proj)
 
 			assert.Equal(t, tt.want, got)
 		})

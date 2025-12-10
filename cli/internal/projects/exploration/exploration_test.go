@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
+	"github.com/jmgilman/sow/libs/project/state"
+	
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +16,7 @@ import (
 // with the global registry during package initialization.
 func TestPackageRegistration(t *testing.T) {
 	// The init() function should have registered "exploration" type
-	config, exists := state.Registry["exploration"]
+	config, exists := state.GetConfig("exploration")
 	assert.True(t, exists, "exploration project type should be registered")
 	assert.NotNil(t, config, "exploration config should not be nil")
 }
@@ -246,15 +246,15 @@ func TestConfigurePhases_GetDefaultTaskPhase(t *testing.T) {
 	config := NewExplorationProjectConfig()
 
 	// Active state should map to exploration phase
-	phase := config.GetDefaultTaskPhase(sdkstate.State(Active))
+	phase := config.GetDefaultTaskPhase(string(Active))
 	assert.Equal(t, "exploration", phase, "Active state should default to exploration phase")
 
 	// Summarizing state should map to exploration phase
-	phase = config.GetDefaultTaskPhase(sdkstate.State(Summarizing))
+	phase = config.GetDefaultTaskPhase(string(Summarizing))
 	assert.Equal(t, "exploration", phase, "Summarizing state should default to exploration phase")
 
 	// Finalizing state should fallback to exploration (finalization doesn't support tasks)
-	phase = config.GetDefaultTaskPhase(sdkstate.State(Finalizing))
+	phase = config.GetDefaultTaskPhase(string(Finalizing))
 	assert.Equal(t, "exploration", phase, "Finalizing state should fallback to exploration phase")
 }
 
@@ -430,5 +430,5 @@ func TestConfigureTransitions_InitialState(t *testing.T) {
 	config := NewExplorationProjectConfig()
 
 	// Verify initial state is Active
-	assert.Equal(t, sdkstate.State(Active), config.InitialState(), "initial state should be Active")
+	assert.Equal(t, string(Active), config.InitialState(), "initial state should be Active")
 }

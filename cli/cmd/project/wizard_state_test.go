@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/huh"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/libs/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/libs/git"
 )
@@ -339,7 +339,7 @@ func TestFinalize_InitializesProject(t *testing.T) {
 		t.Fatalf("failed to create worktree context: %v", err)
 	}
 
-	proj, err := state.Load(worktreeCtx)
+	proj, err := state.Load(context.Background(), state.NewYAMLBackend(worktreeCtx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project: %v", err)
 	}
@@ -425,7 +425,7 @@ func TestFinalize_WithEmptyPrompt(t *testing.T) {
 		t.Fatalf("failed to create worktree context: %v", err)
 	}
 
-	proj, err := state.Load(worktreeCtx)
+	proj, err := state.Load(context.Background(), state.NewYAMLBackend(worktreeCtx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project: %v", err)
 	}
@@ -1202,7 +1202,7 @@ func TestFinalize_RoutesToContinuation(t *testing.T) {
 		t.Fatalf("failed to create fresh worktree context: %v", err)
 	}
 
-	proj, err := state.Load(freshWorktreeCtx)
+	proj, err := state.Load(context.Background(), state.NewYAMLBackend(freshWorktreeCtx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project after continuation: %v", err)
 	}
@@ -1258,7 +1258,7 @@ func TestFinalizeContinuation_ValidChoices(t *testing.T) {
 		t.Fatalf("failed to create fresh worktree context: %v", err)
 	}
 
-	proj, err := state.Load(freshWorktreeCtx)
+	proj, err := state.Load(context.Background(), state.NewYAMLBackend(freshWorktreeCtx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project state: %v", err)
 	}
@@ -1307,7 +1307,7 @@ func TestFinalizeContinuation_EmptyUserPrompt(t *testing.T) {
 		t.Fatalf("failed to create fresh worktree context: %v", err)
 	}
 
-	proj, err := state.Load(freshWorktreeCtx)
+	proj, err := state.Load(context.Background(), state.NewYAMLBackend(freshWorktreeCtx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project state: %v", err)
 	}
@@ -1359,7 +1359,7 @@ func TestFinalizeContinuation_NonEmptyUserPrompt(t *testing.T) {
 		t.Fatalf("failed to create fresh worktree context: %v", err)
 	}
 
-	proj, err := state.Load(freshWorktreeCtx)
+	proj, err := state.Load(context.Background(), state.NewYAMLBackend(freshWorktreeCtx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project state: %v", err)
 	}

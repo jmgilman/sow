@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +29,7 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Load project state
-	proj, err := state.Load(ctx)
+	proj, err := cmdutil.LoadProject(cmd.Context(), ctx)
 	if err != nil {
 		return fmt.Errorf("no active project")
 	}

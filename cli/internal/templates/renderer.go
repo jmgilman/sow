@@ -13,7 +13,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/libs/project/state"
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 

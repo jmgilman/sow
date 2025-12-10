@@ -1,9 +1,9 @@
 package design
 
 import (
-	"github.com/jmgilman/sow/cli/internal/sdks/project"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
+	"github.com/jmgilman/sow/libs/project/state"
+	
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
@@ -87,15 +87,15 @@ func initializeDesignProject(p *state.Project, initialInputs map[string][]projsc
 func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
 		WithPhase("design",
-			project.WithStartState(sdkstate.State(Active)),
-			project.WithEndState(sdkstate.State(Active)),
+			project.WithStartState(project.State(Active)),
+			project.WithEndState(project.State(Active)),
 			project.WithOutputs("design", "adr", "architecture", "diagram", "spec"),
 			project.WithTasks(),
 			project.WithMetadataSchema(designMetadataSchema),
 		).
 		WithPhase("finalization",
-			project.WithStartState(sdkstate.State(Finalizing)),
-			project.WithEndState(sdkstate.State(Finalizing)),
+			project.WithStartState(project.State(Finalizing)),
+			project.WithEndState(project.State(Finalizing)),
 			project.WithOutputs("pr"),
 			project.WithTasks(),
 			project.WithMetadataSchema(finalizationMetadataSchema),
@@ -111,17 +111,17 @@ func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.Project
 func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
 		// Set initial state to Active
-		SetInitialState(sdkstate.State(Active)).
+		SetInitialState(project.State(Active)).
 
 		// Transition 1: Active → Finalizing (inter-phase transition)
 		AddTransition(
-			sdkstate.State(Active),
-			sdkstate.State(Finalizing),
-			sdkstate.Event(EventCompleteDesign),
-			project.WithGuard("all documents approved", func(p *state.Project) bool {
+			project.State(Active),
+			project.State(Finalizing),
+			project.Event(EventCompleteDesign),
+			project.WithProjectGuard("all documents approved", func(p *state.Project) bool {
 				return allDocumentsApproved(p)
 			}),
-			project.WithOnEntry(func(p *state.Project) error {
+			project.WithProjectOnEntry(func(p *state.Project) error {
 				// Enable finalization phase
 				// Note: Phase status and timestamps are automatically managed by FireWithPhaseUpdates
 				phase := p.Phases["finalization"]
@@ -133,10 +133,10 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 
 		// Transition 2: Finalizing → Completed (terminal transition)
 		AddTransition(
-			sdkstate.State(Finalizing),
-			sdkstate.State(Completed),
-			sdkstate.Event(EventCompleteFinalization),
-			project.WithGuard("all finalization tasks complete", func(p *state.Project) bool {
+			project.State(Finalizing),
+			project.State(Completed),
+			project.Event(EventCompleteFinalization),
+			project.WithProjectGuard("all finalization tasks complete", func(p *state.Project) bool {
 				return allFinalizationTasksComplete(p)
 			}),
 			// Note: Finalization phase completion is automatically managed by FireWithPhaseUpdates
@@ -152,10 +152,10 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 // Returns the builder to enable method chaining.
 func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
-		OnAdvance(sdkstate.State(Active), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventCompleteDesign), nil
+		OnAdvance(project.State(Active), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventCompleteDesign), nil
 		}).
-		OnAdvance(sdkstate.State(Finalizing), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventCompleteFinalization), nil
+		OnAdvance(project.State(Finalizing), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventCompleteFinalization), nil
 		})
 }

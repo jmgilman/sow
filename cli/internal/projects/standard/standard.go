@@ -3,9 +3,8 @@ package standard
 import (
 	"fmt"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
+	"github.com/jmgilman/sow/libs/project/state"
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
@@ -61,21 +60,21 @@ func initializeStandardProject(p *state.Project, initialInputs map[string][]proj
 func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
 		WithPhase("implementation",
-			project.WithStartState(sdkstate.State(ImplementationPlanning)),
-			project.WithEndState(sdkstate.State(ImplementationExecuting)),
+			project.WithStartState(project.State(ImplementationPlanning)),
+			project.WithEndState(project.State(ImplementationExecuting)),
 			project.WithOutputs("task_list"),
 			project.WithTasks(),
 			project.WithMetadataSchema(implementationMetadataSchema),
 		).
 		WithPhase("review",
-			project.WithStartState(sdkstate.State(ReviewActive)),
-			project.WithEndState(sdkstate.State(ReviewActive)),
+			project.WithStartState(project.State(ReviewActive)),
+			project.WithEndState(project.State(ReviewActive)),
 			project.WithOutputs("review"),
 			project.WithMetadataSchema(reviewMetadataSchema),
 		).
 		WithPhase("finalize",
-			project.WithStartState(sdkstate.State(FinalizeChecks)),
-			project.WithEndState(sdkstate.State(FinalizeCleanup)),
+			project.WithStartState(project.State(FinalizeChecks)),
+			project.WithEndState(project.State(FinalizeCleanup)),
 			project.WithOutputs("pr_body"),
 			project.WithMetadataSchema(finalizeMetadataSchema),
 		)
@@ -86,45 +85,45 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 
 		// ===== STATE MACHINE =====
 
-		SetInitialState(sdkstate.State(ImplementationPlanning)).
+		SetInitialState(project.State(ImplementationPlanning)).
 
 		// Project initialization
 		AddTransition(
-			sdkstate.State(NoProject),
-			sdkstate.State(ImplementationPlanning),
-			sdkstate.Event(EventProjectInit),
-			project.WithDescription("Initialize project and begin implementation planning"),
+			project.State(NoProject),
+			project.State(ImplementationPlanning),
+			project.Event(EventProjectInit),
+			project.WithProjectDescription("Initialize project and begin implementation planning"),
 		).
 
 		// Implementation planning → draft PR creation
 		AddTransition(
-			sdkstate.State(ImplementationPlanning),
-			sdkstate.State(ImplementationDraftPRCreation),
-			sdkstate.Event(EventPlanningComplete),
-			project.WithDescription("Task descriptions approved, create draft PR"),
-			project.WithGuard("task descriptions approved", func(p *state.Project) bool {
+			project.State(ImplementationPlanning),
+			project.State(ImplementationDraftPRCreation),
+			project.Event(EventPlanningComplete),
+			project.WithProjectDescription("Task descriptions approved, create draft PR"),
+			project.WithProjectGuard("task descriptions approved", func(p *state.Project) bool {
 				return allTaskDescriptionsApproved(p)
 			}),
 		).
 
 		// Draft PR creation → execution
 		AddTransition(
-			sdkstate.State(ImplementationDraftPRCreation),
-			sdkstate.State(ImplementationExecuting),
-			sdkstate.Event(EventDraftPRCreated),
-			project.WithDescription("Draft PR created, begin task execution"),
-			project.WithGuard("draft PR created", func(p *state.Project) bool {
+			project.State(ImplementationDraftPRCreation),
+			project.State(ImplementationExecuting),
+			project.Event(EventDraftPRCreated),
+			project.WithProjectDescription("Draft PR created, begin task execution"),
+			project.WithProjectGuard("draft PR created", func(p *state.Project) bool {
 				return draftPRCreated(p)
 			}),
 		).
 
 		// Implementation → Review
 		AddTransition(
-			sdkstate.State(ImplementationExecuting),
-			sdkstate.State(ReviewActive),
-			sdkstate.Event(EventAllTasksComplete),
-			project.WithDescription("All implementation tasks completed, ready for review"),
-			project.WithGuard("all tasks complete", func(p *state.Project) bool {
+			project.State(ImplementationExecuting),
+			project.State(ReviewActive),
+			project.Event(EventAllTasksComplete),
+			project.WithProjectDescription("All implementation tasks completed, ready for review"),
+			project.WithProjectGuard("all tasks complete", func(p *state.Project) bool {
 				return allTasksComplete(p)
 			}),
 		).
@@ -132,19 +131,19 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 		// Review → Finalize/Implementation (branching on review assessment)
 		// Uses AddBranch to declaratively define pass/fail paths based on review assessment
 		AddBranch(
-			sdkstate.State(ReviewActive),
+			project.State(ReviewActive),
 			project.BranchOn(getReviewAssessment),
 			project.When("pass",
-				sdkstate.Event(EventReviewPass),
-				sdkstate.State(FinalizeChecks),
-				project.WithDescription("Review approved, proceed to finalization checks"),
+				project.Event(EventReviewPass),
+				project.State(FinalizeChecks),
+				project.WithProjectDescription("Review approved, proceed to finalization checks"),
 			),
 			project.When("fail",
-				sdkstate.Event(EventReviewFail),
-				sdkstate.State(ImplementationPlanning),
-				project.WithDescription("Review failed, return to implementation planning for rework"),
-				project.WithFailedPhase("review"), // Mark review as failed instead of completed
-				project.WithOnEntry(func(p *state.Project) error {
+				project.Event(EventReviewFail),
+				project.State(ImplementationPlanning),
+				project.WithProjectDescription("Review failed, return to implementation planning for rework"),
+				project.WithProjectFailedPhase("review"), // Mark review as failed instead of completed
+				project.WithProjectOnEntry(func(p *state.Project) error {
 					// Only execute rework logic if review phase exists and has failed
 					// (this prevents executing on NoProject → ImplementationPlanning transition)
 					reviewPhase, hasReview := p.Phases["review"]
@@ -177,35 +176,35 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 
 		// Finalize substates
 		AddTransition(
-			sdkstate.State(FinalizeChecks),
-			sdkstate.State(FinalizePRReady),
-			sdkstate.Event(EventChecksDone),
-			project.WithDescription("Checks completed, prepare PR for final review"),
+			project.State(FinalizeChecks),
+			project.State(FinalizePRReady),
+			project.Event(EventChecksDone),
+			project.WithProjectDescription("Checks completed, prepare PR for final review"),
 		).
 		AddTransition(
-			sdkstate.State(FinalizePRReady),
-			sdkstate.State(FinalizePRChecks),
-			sdkstate.Event(EventPRReady),
-			project.WithDescription("PR body approved, monitoring PR checks"),
-			project.WithGuard("PR body approved", func(p *state.Project) bool {
+			project.State(FinalizePRReady),
+			project.State(FinalizePRChecks),
+			project.Event(EventPRReady),
+			project.WithProjectDescription("PR body approved, monitoring PR checks"),
+			project.WithProjectGuard("PR body approved", func(p *state.Project) bool {
 				return prBodyApproved(p)
 			}),
 		).
 		AddTransition(
-			sdkstate.State(FinalizePRChecks),
-			sdkstate.State(FinalizeCleanup),
-			sdkstate.Event(EventPRChecksPass),
-			project.WithDescription("All PR checks passed, begin cleanup"),
-			project.WithGuard("all PR checks passed", func(p *state.Project) bool {
+			project.State(FinalizePRChecks),
+			project.State(FinalizeCleanup),
+			project.Event(EventPRChecksPass),
+			project.WithProjectDescription("All PR checks passed, begin cleanup"),
+			project.WithProjectGuard("all PR checks passed", func(p *state.Project) bool {
 				return prChecksPassed(p)
 			}),
 		).
 		AddTransition(
-			sdkstate.State(FinalizeCleanup),
-			sdkstate.State(NoProject),
-			sdkstate.Event(EventCleanupComplete),
-			project.WithDescription("Cleanup complete, project finalized"),
-			project.WithGuard("project deleted", func(p *state.Project) bool {
+			project.State(FinalizeCleanup),
+			project.State(NoProject),
+			project.Event(EventCleanupComplete),
+			project.WithProjectDescription("Cleanup complete, project finalized"),
+			project.WithProjectGuard("project deleted", func(p *state.Project) bool {
 				return projectDeleted(p)
 			}),
 		)
@@ -213,28 +212,28 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 
 func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
-		OnAdvance(sdkstate.State(ImplementationPlanning), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventPlanningComplete), nil
+		OnAdvance(project.State(ImplementationPlanning), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventPlanningComplete), nil
 		}).
-		OnAdvance(sdkstate.State(ImplementationDraftPRCreation), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventDraftPRCreated), nil
+		OnAdvance(project.State(ImplementationDraftPRCreation), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventDraftPRCreated), nil
 		}).
-		OnAdvance(sdkstate.State(ImplementationExecuting), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventAllTasksComplete), nil
+		OnAdvance(project.State(ImplementationExecuting), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventAllTasksComplete), nil
 		}).
 		// NOTE: ReviewActive OnAdvance is auto-generated by AddBranch (see configureTransitions)
 		// The discriminator function getReviewAssessment determines pass/fail branching
-		OnAdvance(sdkstate.State(FinalizeChecks), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventChecksDone), nil
+		OnAdvance(project.State(FinalizeChecks), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventChecksDone), nil
 		}).
-		OnAdvance(sdkstate.State(FinalizePRReady), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventPRReady), nil
+		OnAdvance(project.State(FinalizePRReady), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventPRReady), nil
 		}).
-		OnAdvance(sdkstate.State(FinalizePRChecks), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventPRChecksPass), nil
+		OnAdvance(project.State(FinalizePRChecks), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventPRChecksPass), nil
 		}).
-		OnAdvance(sdkstate.State(FinalizeCleanup), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventCleanupComplete), nil
+		OnAdvance(project.State(FinalizeCleanup), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventCleanupComplete), nil
 		})
 }
 
@@ -244,12 +243,12 @@ func configurePrompts(builder *project.ProjectTypeConfigBuilder) *project.Projec
 		WithOrchestratorPrompt(generateOrchestratorPrompt).
 
 		// State-level prompts (what to do in each state)
-		WithPrompt(sdkstate.State(ImplementationPlanning), generateImplementationPlanningPrompt).
-		WithPrompt(sdkstate.State(ImplementationDraftPRCreation), generateImplementationDraftPRCreationPrompt).
-		WithPrompt(sdkstate.State(ImplementationExecuting), generateImplementationExecutingPrompt).
-		WithPrompt(sdkstate.State(ReviewActive), generateReviewPrompt).
-		WithPrompt(sdkstate.State(FinalizeChecks), generateFinalizeChecksPrompt).
-		WithPrompt(sdkstate.State(FinalizePRReady), generateFinalizePRReadyPrompt).
-		WithPrompt(sdkstate.State(FinalizePRChecks), generateFinalizePRChecksPrompt).
-		WithPrompt(sdkstate.State(FinalizeCleanup), generateFinalizeCleanupPrompt)
+		WithPrompt(project.State(ImplementationPlanning), generateImplementationPlanningPrompt).
+		WithPrompt(project.State(ImplementationDraftPRCreation), generateImplementationDraftPRCreationPrompt).
+		WithPrompt(project.State(ImplementationExecuting), generateImplementationExecutingPrompt).
+		WithPrompt(project.State(ReviewActive), generateReviewPrompt).
+		WithPrompt(project.State(FinalizeChecks), generateFinalizeChecksPrompt).
+		WithPrompt(project.State(FinalizePRReady), generateFinalizePRReadyPrompt).
+		WithPrompt(project.State(FinalizePRChecks), generateFinalizePRChecksPrompt).
+		WithPrompt(project.State(FinalizeCleanup), generateFinalizeCleanupPrompt)
 }

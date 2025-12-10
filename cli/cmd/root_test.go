@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/libs/project/state"
 )
 
 // TestExplorationProjectTypeRegistered verifies that the exploration project type
@@ -14,7 +14,7 @@ func TestExplorationProjectTypeRegistered(t *testing.T) {
 	// via blank imports, which triggers their init() functions and registers them
 
 	// Verify exploration is registered
-	config, exists := state.Registry["exploration"]
+	config, exists := state.GetConfig("exploration")
 	if !exists {
 		t.Fatal("exploration project type not registered - check blank import in root.go")
 	}
@@ -32,7 +32,7 @@ func TestExplorationProjectTypeRegistered(t *testing.T) {
 // is still registered (regression test to ensure we didn't break existing functionality).
 func TestStandardProjectTypeRegistered(t *testing.T) {
 	// Verify standard is still registered
-	config, exists := state.Registry["standard"]
+	config, exists := state.GetConfig("standard")
 	if !exists {
 		t.Fatal("standard project type not registered")
 	}

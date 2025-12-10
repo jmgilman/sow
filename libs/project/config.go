@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmgilman/sow/libs/project/state"
 	"github.com/jmgilman/sow/libs/schemas/project"
+	"github.com/qmuntal/stateless"
 )
 
 // Initializer is a function that initializes a new project with phases and initial state.
@@ -56,7 +57,13 @@ func (ptc *ProjectTypeConfig) Name() string {
 }
 
 // InitialState returns the initial state for new projects of this type.
-func (ptc *ProjectTypeConfig) InitialState() State {
+// Returns as string to satisfy state.ProjectTypeConfig interface.
+func (ptc *ProjectTypeConfig) InitialState() string {
+	return string(ptc.initialState)
+}
+
+// InitialStateTyped returns the initial state as a typed State value.
+func (ptc *ProjectTypeConfig) InitialStateTyped() State {
 	return ptc.initialState
 }
 
@@ -67,33 +74,51 @@ func (ptc *ProjectTypeConfig) Phases() map[string]*PhaseConfig {
 
 // GetPhaseForState returns the phase name that owns the given state.
 // Returns empty string if the state doesn't belong to any phase's start or end state.
-func (ptc *ProjectTypeConfig) GetPhaseForState(s State) string {
+// Accepts string to satisfy state.ProjectTypeConfig interface.
+func (ptc *ProjectTypeConfig) GetPhaseForState(s string) string {
+	state := State(s)
 	for name, config := range ptc.phaseConfigs {
-		if config.startState == s || config.endState == s {
+		if config.startState == state || config.endState == state {
 			return name
 		}
 	}
 	return ""
 }
 
+// GetPhaseForStateTyped is the typed version of GetPhaseForState.
+func (ptc *ProjectTypeConfig) GetPhaseForStateTyped(s State) string {
+	return ptc.GetPhaseForState(string(s))
+}
+
 // IsPhaseStartState returns true if the state is the phase's start state.
 // Returns false if the phase doesn't exist or the state doesn't match.
-func (ptc *ProjectTypeConfig) IsPhaseStartState(phaseName string, s State) bool {
+// Accepts string to satisfy state.ProjectTypeConfig interface.
+func (ptc *ProjectTypeConfig) IsPhaseStartState(phaseName string, s string) bool {
 	config, exists := ptc.phaseConfigs[phaseName]
 	if !exists {
 		return false
 	}
-	return config.startState == s
+	return config.startState == State(s)
+}
+
+// IsPhaseStartStateTyped is the typed version of IsPhaseStartState.
+func (ptc *ProjectTypeConfig) IsPhaseStartStateTyped(phaseName string, s State) bool {
+	return ptc.IsPhaseStartState(phaseName, string(s))
 }
 
 // IsPhaseEndState returns true if the state is the phase's end state.
 // Returns false if the phase doesn't exist or the state doesn't match.
-func (ptc *ProjectTypeConfig) IsPhaseEndState(phaseName string, s State) bool {
+func (ptc *ProjectTypeConfig) IsPhaseEndState(phaseName string, s string) bool {
 	config, exists := ptc.phaseConfigs[phaseName]
 	if !exists {
 		return false
 	}
-	return config.endState == s
+	return config.endState == State(s)
+}
+
+// IsPhaseEndStateTyped is the typed version of IsPhaseEndState.
+func (ptc *ProjectTypeConfig) IsPhaseEndStateTyped(phaseName string, s State) bool {
+	return ptc.IsPhaseEndState(phaseName, string(s))
 }
 
 // GetTransition returns the transition config for the given state change.
@@ -119,7 +144,17 @@ func (ptc *ProjectTypeConfig) Initialize(p *state.Project, initialInputs map[str
 
 // GetStatePrompt returns the prompt for a specific state.
 // Returns empty string if no prompt is configured for the state.
-func (ptc *ProjectTypeConfig) GetStatePrompt(s State, p *state.Project) string {
+// Accepts string to satisfy state.ProjectTypeConfig interface.
+func (ptc *ProjectTypeConfig) GetStatePrompt(s string, p *state.Project) string {
+	gen, exists := ptc.prompts[State(s)]
+	if !exists {
+		return ""
+	}
+	return gen(p)
+}
+
+// GetStatePromptTyped returns the prompt for a specific state using typed State.
+func (ptc *ProjectTypeConfig) GetStatePromptTyped(s State, p *state.Project) string {
 	gen, exists := ptc.prompts[s]
 	if !exists {
 		return ""
@@ -168,10 +203,13 @@ func (ptc *ProjectTypeConfig) PhaseSupportsTasks(phaseName string) bool {
 //  1. Check if current state maps to a phase's start or end state
 //  2. If that phase supports tasks, return it
 //  3. Otherwise return first task-supporting phase alphabetically
-func (ptc *ProjectTypeConfig) GetDefaultTaskPhase(currentState State) string {
+//
+// Accepts string to satisfy state.ProjectTypeConfig interface.
+func (ptc *ProjectTypeConfig) GetDefaultTaskPhase(currentState string) string {
+	state := State(currentState)
 	// Try to map current state to a phase
 	for name, config := range ptc.phaseConfigs {
-		if (config.startState == currentState || config.endState == currentState) && config.supportsTasks {
+		if (config.startState == state || config.endState == state) && config.supportsTasks {
 			return name
 		}
 	}
@@ -182,6 +220,11 @@ func (ptc *ProjectTypeConfig) GetDefaultTaskPhase(currentState State) string {
 		return phases[0]
 	}
 	return ""
+}
+
+// GetDefaultTaskPhaseTyped returns the default phase using typed State.
+func (ptc *ProjectTypeConfig) GetDefaultTaskPhaseTyped(currentState State) string {
+	return ptc.GetDefaultTaskPhase(string(currentState))
 }
 
 // IsBranchingState checks if a state has branches configured via AddBranch.
@@ -257,6 +300,42 @@ func (ptc *ProjectTypeConfig) isBranchTransition(bc *BranchConfig, tc Transition
 		}
 	}
 	return false
+}
+
+// GetTargetState returns the target state for a transition from the given state with the given event.
+// Returns an empty State if no such transition is configured.
+func (ptc *ProjectTypeConfig) GetTargetState(from State, event Event) State {
+	transitions := ptc.GetAvailableTransitions(from)
+	for _, t := range transitions {
+		if t.Event == event {
+			return t.To
+		}
+	}
+	return ""
+}
+
+// GetGuardDescription returns the guard description for a transition.
+// Returns an empty string if no guard description is configured.
+func (ptc *ProjectTypeConfig) GetGuardDescription(from State, event Event) string {
+	transitions := ptc.GetAvailableTransitions(from)
+	for _, t := range transitions {
+		if t.Event == event {
+			return t.GuardDesc
+		}
+	}
+	return ""
+}
+
+// GetTransitionDescription returns the description for a transition.
+// Returns an empty string if no description is configured.
+func (ptc *ProjectTypeConfig) GetTransitionDescription(from State, event Event) string {
+	transitions := ptc.GetAvailableTransitions(from)
+	for _, t := range transitions {
+		if t.Event == event {
+			return t.Description
+		}
+	}
+	return ""
 }
 
 // TransitionInfo describes a single available transition from a state.
@@ -422,12 +501,12 @@ func (ptc *ProjectTypeConfig) updateExitingPhaseStatus(
 	transitionConfig *TransitionConfig,
 	proj *state.Project,
 ) error {
-	phaseName := ptc.GetPhaseForState(oldState)
+	phaseName := ptc.GetPhaseForState(string(oldState))
 	if phaseName == "" {
 		return nil
 	}
 
-	if !ptc.IsPhaseEndState(phaseName, oldState) {
+	if !ptc.IsPhaseEndState(phaseName, string(oldState)) {
 		return nil
 	}
 
@@ -453,12 +532,12 @@ func (ptc *ProjectTypeConfig) updateEnteringPhaseStatus(
 	newState State,
 	proj *state.Project,
 ) error {
-	phaseName := ptc.GetPhaseForState(newState)
+	phaseName := ptc.GetPhaseForState(string(newState))
 	if phaseName == "" {
 		return nil
 	}
 
-	if !ptc.IsPhaseStartState(phaseName, newState) {
+	if !ptc.IsPhaseStartState(phaseName, string(newState)) {
 		return nil
 	}
 
@@ -467,4 +546,69 @@ func (ptc *ProjectTypeConfig) updateEnteringPhaseStatus(
 		return &ErrPhaseStatusUpdate{Phase: phaseName, Operation: "mark in_progress", Cause: err}
 	}
 	return nil
+}
+
+// ============================================================================
+// state.ProjectTypeConfig interface implementation
+// ============================================================================
+// These methods allow *ProjectTypeConfig to satisfy the state.ProjectTypeConfig
+// interface, enabling direct registration with state.Register().
+
+// BuildMachine implements state.ProjectTypeConfig.BuildMachine.
+// Creates a stateless.StateMachine for the given project and initial state.
+func (ptc *ProjectTypeConfig) BuildMachine(p *state.Project, initialState string) *stateless.StateMachine {
+	// Build the project machine and return its underlying state machine
+	machine := ptc.BuildProjectMachine(p, State(initialState))
+	return machine.FSM()
+}
+
+// Validate implements state.ProjectTypeConfig.Validate.
+// Validates that all artifacts in each phase have types allowed by the phase configuration.
+func (ptc *ProjectTypeConfig) Validate(p *state.Project) error {
+	for phaseName, phaseState := range p.Phases {
+		phaseConfig, exists := ptc.phaseConfigs[phaseName]
+		if !exists {
+			// Skip phases not defined in config (may be dynamically added)
+			continue
+		}
+
+		// Validate output types
+		allowedOutputs := phaseConfig.AllowedOutputTypes()
+		if len(allowedOutputs) > 0 {
+			for _, artifact := range phaseState.Outputs {
+				if !containsString(allowedOutputs, artifact.Type) {
+					return &ErrInvalidOutputType{
+						Phase:        phaseName,
+						ArtifactType: artifact.Type,
+						AllowedTypes: allowedOutputs,
+					}
+				}
+			}
+		}
+
+		// Validate input types
+		allowedInputs := phaseConfig.AllowedInputTypes()
+		if len(allowedInputs) > 0 {
+			for _, artifact := range phaseState.Inputs {
+				if !containsString(allowedInputs, artifact.Type) {
+					return &ErrInvalidInputType{
+						Phase:        phaseName,
+						ArtifactType: artifact.Type,
+						AllowedTypes: allowedInputs,
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// containsString checks if a string slice contains a specific string.
+func containsString(slice []string, s string) bool {
+	for _, item := range slice {
+		if item == s {
+			return true
+		}
+	}
+	return false
 }

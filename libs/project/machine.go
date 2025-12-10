@@ -68,3 +68,9 @@ func (m *Machine) Prompt() string {
 	}
 	return m.promptGen(m.State())
 }
+
+// FSM returns the underlying stateless.StateMachine.
+// This is used when the raw machine is needed (e.g., for interface implementations).
+func (m *Machine) FSM() *stateless.StateMachine {
+	return m.fsm
+}

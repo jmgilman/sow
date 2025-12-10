@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +32,7 @@ func runSet(cmd *cobra.Command, args []string) error {
 	ctx := cmdutil.GetContext(cmd.Context())
 
 	// Load project
-	proj, err := state.Load(ctx)
+	proj, err := cmdutil.LoadProject(cmd.Context(), ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
@@ -48,7 +47,7 @@ func runSet(cmd *cobra.Command, args []string) error {
 	}
 
 	// Save project
-	if err := proj.Save(); err != nil {
+	if err := proj.Save(cmd.Context()); err != nil {
 		return fmt.Errorf("failed to save project: %w", err)
 	}
 

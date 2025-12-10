@@ -16,9 +16,9 @@
 package breakdown
 
 import (
-	"github.com/jmgilman/sow/cli/internal/sdks/project"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
+	"github.com/jmgilman/sow/libs/project/state"
+	
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
@@ -53,8 +53,8 @@ func NewBreakdownProjectConfig() *project.ProjectTypeConfig {
 func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
 		WithPhase("breakdown",
-			project.WithStartState(sdkstate.State(Discovery)),
-			project.WithEndState(sdkstate.State(Publishing)),
+			project.WithStartState(project.State(Discovery)),
+			project.WithEndState(project.State(Publishing)),
 			project.WithOutputs("discovery", "work_unit_spec"),
 			project.WithTasks(),
 			project.WithMetadataSchema(breakdownMetadataSchema),
@@ -72,17 +72,17 @@ func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.Project
 func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
 		// Set initial state to Discovery
-		SetInitialState(sdkstate.State(Discovery)).
+		SetInitialState(project.State(Discovery)).
 
 		// Transition 1: Discovery → Active (discovery complete)
 		AddTransition(
-			sdkstate.State(Discovery),
-			sdkstate.State(Active),
-			sdkstate.Event(EventBeginActive),
-			project.WithGuard("discovery document approved", func(p *state.Project) bool {
+			project.State(Discovery),
+			project.State(Active),
+			project.Event(EventBeginActive),
+			project.WithProjectGuard("discovery document approved", func(p *state.Project) bool {
 				return hasApprovedDiscoveryDocument(p)
 			}),
-			project.WithOnEntry(func(p *state.Project) error {
+			project.WithProjectOnEntry(func(p *state.Project) error {
 				// Update breakdown phase status to "active"
 				phase := p.Phases["breakdown"]
 				phase.Status = "active"
@@ -93,13 +93,13 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 
 		// Transition 2: Active → Publishing (intra-phase transition)
 		AddTransition(
-			sdkstate.State(Active),
-			sdkstate.State(Publishing),
-			sdkstate.Event(EventBeginPublishing),
-			project.WithGuard("all work units approved and dependencies valid", func(p *state.Project) bool {
+			project.State(Active),
+			project.State(Publishing),
+			project.Event(EventBeginPublishing),
+			project.WithProjectGuard("all work units approved and dependencies valid", func(p *state.Project) bool {
 				return allWorkUnitsApproved(p) && dependenciesValid(p)
 			}),
-			project.WithOnEntry(func(p *state.Project) error {
+			project.WithProjectOnEntry(func(p *state.Project) error {
 				// Update breakdown phase status to "publishing"
 				phase := p.Phases["breakdown"]
 				phase.Status = "publishing"
@@ -110,10 +110,10 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 
 		// Transition 3: Publishing → Completed (terminal transition)
 		AddTransition(
-			sdkstate.State(Publishing),
-			sdkstate.State(Completed),
-			sdkstate.Event(EventCompleteBreakdown),
-			project.WithGuard("all work units published", func(p *state.Project) bool {
+			project.State(Publishing),
+			project.State(Completed),
+			project.Event(EventCompleteBreakdown),
+			project.WithProjectGuard("all work units published", func(p *state.Project) bool {
 				return allWorkUnitsPublished(p)
 			}),
 			// Note: Breakdown phase completion is automatically managed by FireWithPhaseUpdates
@@ -130,14 +130,14 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 // Returns the builder to enable method chaining.
 func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
-		OnAdvance(sdkstate.State(Discovery), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventBeginActive), nil
+		OnAdvance(project.State(Discovery), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventBeginActive), nil
 		}).
-		OnAdvance(sdkstate.State(Active), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventBeginPublishing), nil
+		OnAdvance(project.State(Active), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventBeginPublishing), nil
 		}).
-		OnAdvance(sdkstate.State(Publishing), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventCompleteBreakdown), nil
+		OnAdvance(project.State(Publishing), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventCompleteBreakdown), nil
 		})
 }
 
@@ -147,9 +147,9 @@ func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *proje
 func configurePrompts(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
 		WithOrchestratorPrompt(generateOrchestratorPrompt).
-		WithPrompt(sdkstate.State(Discovery), generateDiscoveryPrompt).
-		WithPrompt(sdkstate.State(Active), generateActivePrompt).
-		WithPrompt(sdkstate.State(Publishing), generatePublishingPrompt)
+		WithPrompt(project.State(Discovery), generateDiscoveryPrompt).
+		WithPrompt(project.State(Active), generateActivePrompt).
+		WithPrompt(project.State(Publishing), generatePublishingPrompt)
 }
 
 // initializeBreakdownProject creates the breakdown phase for a new breakdown project.

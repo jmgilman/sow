@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
+	"github.com/jmgilman/sow/libs/project/state"
+	
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +16,7 @@ import (
 // with the global registry during package initialization.
 func TestPackageRegistration(t *testing.T) {
 	// The init() function should have registered "breakdown" type
-	config, exists := state.Registry["breakdown"]
+	config, exists := state.GetConfig("breakdown")
 	assert.True(t, exists, "breakdown project type should be registered")
 	assert.NotNil(t, config, "breakdown config should not be nil")
 }
@@ -99,8 +99,8 @@ func TestConfigurePhases_CorrectStartEndStates(t *testing.T) {
 	config := builder.Build()
 
 	// Verify breakdown phase is associated with Discovery state
-	assert.True(t, config.IsPhaseStartState("breakdown", sdkstate.State(Discovery)), "Discovery should be start state")
-	assert.True(t, config.IsPhaseEndState("breakdown", sdkstate.State(Publishing)), "Publishing should be end state")
+	assert.True(t, config.IsPhaseStartState("breakdown", string(Discovery)), "Discovery should be start state")
+	assert.True(t, config.IsPhaseEndState("breakdown", string(Publishing)), "Publishing should be end state")
 }
 
 // TestConfigurePhases_GetDefaultTaskPhase verifies that breakdown is returned
@@ -111,11 +111,11 @@ func TestConfigurePhases_GetDefaultTaskPhase(t *testing.T) {
 	config := builder.Build()
 
 	// When in Discovery state, should return breakdown as default
-	defaultPhase := config.GetDefaultTaskPhase(sdkstate.State(Discovery))
+	defaultPhase := config.GetDefaultTaskPhase(string(Discovery))
 	assert.Equal(t, "breakdown", defaultPhase, "default task phase should be breakdown in Discovery state")
 
 	// When in Active state, should return breakdown as default
-	defaultPhase = config.GetDefaultTaskPhase(sdkstate.State(Active))
+	defaultPhase = config.GetDefaultTaskPhase(string(Active))
 	assert.Equal(t, "breakdown", defaultPhase, "default task phase should be breakdown in Active state")
 }
 
@@ -343,7 +343,7 @@ func TestInitializeBreakdownProject_UsesProjectCreatedAt(t *testing.T) {
 func TestConfigureTransitions_SetsInitialState(t *testing.T) {
 	config := NewBreakdownProjectConfig()
 
-	assert.Equal(t, sdkstate.State(Discovery), config.InitialState(), "initial state should be Discovery")
+	assert.Equal(t, string(Discovery), config.InitialState(), "initial state should be Discovery")
 }
 
 // TestActiveToPublishing_GuardBlocksWhenTasksPending verifies that the guard
@@ -356,12 +356,11 @@ func TestActiveToPublishing_GuardBlocksWhenTasksPending(t *testing.T) {
 	addWorkUnit(t, proj, "001", "Feature A", "pending")
 
 	// Verify guard blocks transition
-	can, err := machine.CanFire(sdkstate.Event(EventBeginPublishing))
-	require.NoError(t, err)
+	can := machine.CanFire(project.Event(EventBeginPublishing))
 	assert.False(t, can, "guard should block with pending tasks")
 
 	// Attempt to fire should fail
-	err = machine.Fire(sdkstate.Event(EventBeginPublishing))
+	err := machine.Fire(project.Event(EventBeginPublishing))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "all work units approved and dependencies valid")
 }
@@ -377,8 +376,7 @@ func TestActiveToPublishing_GuardAllowsWhenAllApproved(t *testing.T) {
 	addWorkUnit(t, proj, "002", "Feature B", "completed")
 
 	// Verify guard allows transition
-	can, err := machine.CanFire(sdkstate.Event(EventBeginPublishing))
-	require.NoError(t, err)
+	can := machine.CanFire(project.Event(EventBeginPublishing))
 	assert.True(t, can, "guard should allow with all tasks completed")
 }
 
@@ -392,11 +390,11 @@ func TestActiveToPublishing_OnEntryUpdatesPhaseStatus(t *testing.T) {
 	addWorkUnit(t, proj, "001", "Feature A", "completed")
 
 	// Fire transition
-	err := machine.Fire(sdkstate.Event(EventBeginPublishing))
+	err := machine.Fire(project.Event(EventBeginPublishing))
 	require.NoError(t, err)
 
 	// Verify state changed
-	assert.Equal(t, sdkstate.State(Publishing), machine.State())
+	assert.Equal(t, project.State(Publishing), machine.State())
 
 	// Verify phase status updated
 	phase := proj.Phases["breakdown"]
@@ -412,16 +410,15 @@ func TestPublishingToCompleted_GuardBlocksWhenTasksUnpublished(t *testing.T) {
 
 	// Setup: Get to Publishing state
 	addWorkUnit(t, proj, "001", "Feature A", "completed")
-	err := machine.Fire(sdkstate.Event(EventBeginPublishing))
+	err := machine.Fire(project.Event(EventBeginPublishing))
 	require.NoError(t, err)
 
 	// Verify guard blocks transition (task not published)
-	can, err := machine.CanFire(sdkstate.Event(EventCompleteBreakdown))
-	require.NoError(t, err)
+	can := machine.CanFire(project.Event(EventCompleteBreakdown))
 	assert.False(t, can, "guard should block with unpublished tasks")
 
 	// Attempt to fire should fail
-	err = machine.Fire(sdkstate.Event(EventCompleteBreakdown))
+	err = machine.Fire(project.Event(EventCompleteBreakdown))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "all work units published")
 }
@@ -434,15 +431,14 @@ func TestPublishingToCompleted_GuardAllowsWhenAllPublished(t *testing.T) {
 
 	// Setup: Get to Publishing state
 	addWorkUnit(t, proj, "001", "Feature A", "completed")
-	err := machine.Fire(sdkstate.Event(EventBeginPublishing))
+	err := machine.Fire(project.Event(EventBeginPublishing))
 	require.NoError(t, err)
 
 	// Mark task as published
 	markWorkUnitPublished(t, proj, "001")
 
 	// Verify guard allows transition
-	can, err := machine.CanFire(sdkstate.Event(EventCompleteBreakdown))
-	require.NoError(t, err)
+	can := machine.CanFire(project.Event(EventCompleteBreakdown))
 	assert.True(t, can, "guard should allow with all tasks published")
 }
 
@@ -463,7 +459,7 @@ func TestEventDeterminers_ActiveState(t *testing.T) {
 	// Use DetermineEvent to get the event for current state
 	event, err := config.DetermineEvent(proj)
 	require.NoError(t, err)
-	assert.Equal(t, sdkstate.Event(EventBeginPublishing), event)
+	assert.Equal(t, project.Event(EventBeginPublishing), event)
 }
 
 // TestEventDeterminers_PublishingState verifies that the event determiner for
@@ -481,7 +477,7 @@ func TestEventDeterminers_PublishingState(t *testing.T) {
 	// Use DetermineEvent to get the event for current state
 	event, err := config.DetermineEvent(proj)
 	require.NoError(t, err)
-	assert.Equal(t, sdkstate.Event(EventCompleteBreakdown), event)
+	assert.Equal(t, project.Event(EventCompleteBreakdown), event)
 }
 
 // ========== Full Lifecycle Integration Tests ==========
@@ -492,13 +488,13 @@ func TestBreakdownLifecycle_FullWorkflow(t *testing.T) {
 	proj, machine, config := setupBreakdownProject(t)
 
 	// Verify initial state is Discovery
-	assert.Equal(t, sdkstate.State(Discovery), machine.State())
+	assert.Equal(t, project.State(Discovery), machine.State())
 	phase := proj.Phases["breakdown"]
 	assert.Equal(t, "in_progress", phase.Status)
 
 	// Transition to Active
 	transitionToActive(t, proj, machine, config)
-	assert.Equal(t, sdkstate.State(Active), machine.State())
+	assert.Equal(t, project.State(Active), machine.State())
 	phase = proj.Phases["breakdown"]
 	assert.Equal(t, "active", phase.Status)
 
@@ -507,13 +503,12 @@ func TestBreakdownLifecycle_FullWorkflow(t *testing.T) {
 	addWorkUnit(t, proj, "002", "Feature B", "completed")
 
 	// Transition to Publishing
-	can, err := machine.CanFire(sdkstate.Event(EventBeginPublishing))
-	require.NoError(t, err)
+	can := machine.CanFire(project.Event(EventBeginPublishing))
 	assert.True(t, can)
 
-	err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventBeginPublishing), proj)
+	err := config.FireWithPhaseUpdates(machine, project.Event(EventBeginPublishing), proj)
 	require.NoError(t, err)
-	assert.Equal(t, sdkstate.State(Publishing), machine.State())
+	assert.Equal(t, project.State(Publishing), machine.State())
 
 	phase = proj.Phases["breakdown"]
 	assert.Equal(t, "publishing", phase.Status)
@@ -523,13 +518,12 @@ func TestBreakdownLifecycle_FullWorkflow(t *testing.T) {
 	markWorkUnitPublished(t, proj, "002")
 
 	// Transition to Completed
-	can, err = machine.CanFire(sdkstate.Event(EventCompleteBreakdown))
-	require.NoError(t, err)
+	can = machine.CanFire(project.Event(EventCompleteBreakdown))
 	assert.True(t, can)
 
-	err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteBreakdown), proj)
+	err = config.FireWithPhaseUpdates(machine, project.Event(EventCompleteBreakdown), proj)
 	require.NoError(t, err)
-	assert.Equal(t, sdkstate.State(Completed), machine.State())
+	assert.Equal(t, project.State(Completed), machine.State())
 
 	// Verify phase completed
 	phase = proj.Phases["breakdown"]
@@ -544,41 +538,36 @@ func TestBreakdownLifecycle_GuardsPreventInvalidTransitions(t *testing.T) {
 	transitionToActive(t, proj, machine, config)
 
 	// Cannot transition to Publishing without work units
-	can, err := machine.CanFire(sdkstate.Event(EventBeginPublishing))
-	require.NoError(t, err)
+	can := machine.CanFire(project.Event(EventBeginPublishing))
 	assert.False(t, can, "should not allow transition without work units")
 
 	// Add pending work unit
 	addWorkUnit(t, proj, "001", "Feature A", "pending")
 
 	// Cannot transition with pending work unit
-	can, err = machine.CanFire(sdkstate.Event(EventBeginPublishing))
-	require.NoError(t, err)
+	can = machine.CanFire(project.Event(EventBeginPublishing))
 	assert.False(t, can, "should not allow transition with pending work unit")
 
 	// Complete work unit
 	updateWorkUnitStatus(t, proj, "001", "completed")
 
 	// Now can transition
-	can, err = machine.CanFire(sdkstate.Event(EventBeginPublishing))
-	require.NoError(t, err)
+	can = machine.CanFire(project.Event(EventBeginPublishing))
 	assert.True(t, can, "should allow transition with completed work unit")
 
 	// Transition to Publishing
-	err = machine.Fire(sdkstate.Event(EventBeginPublishing))
+	err := machine.Fire(project.Event(EventBeginPublishing))
 	require.NoError(t, err)
 
 	// Cannot complete without publishing
-	can, err = machine.CanFire(sdkstate.Event(EventCompleteBreakdown))
-	require.NoError(t, err)
+	can = machine.CanFire(project.Event(EventCompleteBreakdown))
 	assert.False(t, can, "should not allow completion without publishing")
 
 	// Mark as published
 	markWorkUnitPublished(t, proj, "001")
 
 	// Now can complete
-	can, err = machine.CanFire(sdkstate.Event(EventCompleteBreakdown))
-	require.NoError(t, err)
+	can = machine.CanFire(project.Event(EventCompleteBreakdown))
 	assert.True(t, can, "should allow completion after publishing")
 }
 
@@ -594,11 +583,10 @@ func TestBreakdownLifecycle_WithAbandonedTasks(t *testing.T) {
 	addWorkUnit(t, proj, "003", "Feature C", "completed")
 
 	// Should be able to transition (abandoned tasks are ignored)
-	can, err := machine.CanFire(sdkstate.Event(EventBeginPublishing))
-	require.NoError(t, err)
+	can := machine.CanFire(project.Event(EventBeginPublishing))
 	assert.True(t, can, "should allow transition with abandoned tasks")
 
-	err = machine.Fire(sdkstate.Event(EventBeginPublishing))
+	err := machine.Fire(project.Event(EventBeginPublishing))
 	require.NoError(t, err)
 
 	// Publish only completed tasks
@@ -606,8 +594,7 @@ func TestBreakdownLifecycle_WithAbandonedTasks(t *testing.T) {
 	markWorkUnitPublished(t, proj, "003")
 
 	// Should be able to complete
-	can, err = machine.CanFire(sdkstate.Event(EventCompleteBreakdown))
-	require.NoError(t, err)
+	can = machine.CanFire(project.Event(EventCompleteBreakdown))
 	assert.True(t, can, "should allow completion with abandoned tasks")
 }
 
@@ -623,8 +610,7 @@ func TestBreakdownLifecycle_WithDependencies(t *testing.T) {
 	addWorkUnitWithDeps(t, proj, "003", "Feature B", "completed", []string{"001"})
 
 	// Valid DAG, should allow transition
-	can, err := machine.CanFire(sdkstate.Event(EventBeginPublishing))
-	require.NoError(t, err)
+	can := machine.CanFire(project.Event(EventBeginPublishing))
 	assert.True(t, can, "should allow transition with valid dependencies")
 }
 
@@ -639,15 +625,14 @@ func TestBreakdownLifecycle_CyclicDependenciesBlock(t *testing.T) {
 	addWorkUnitWithDeps(t, proj, "002", "Feature B", "completed", []string{"001"})
 
 	// Cyclic dependency should block transition
-	can, err := machine.CanFire(sdkstate.Event(EventBeginPublishing))
-	require.NoError(t, err)
+	can := machine.CanFire(project.Event(EventBeginPublishing))
 	assert.False(t, can, "should block transition with cyclic dependencies")
 }
 
 // ========== Test Helper Functions ==========
 
 // setupBreakdownProject creates a test breakdown project and state machine.
-func setupBreakdownProject(t *testing.T) (*state.Project, *sdkstate.Machine, *project.ProjectTypeConfig) {
+func setupBreakdownProject(t *testing.T) (*state.Project, *project.Machine, *project.ProjectTypeConfig) {
 	t.Helper()
 
 	// Create project
@@ -676,7 +661,7 @@ func setupBreakdownProject(t *testing.T) (*state.Project, *sdkstate.Machine, *pr
 	}
 
 	// Build state machine
-	machine := config.BuildMachine(proj, sdkstate.State(Discovery))
+	machine := config.BuildProjectMachine(proj, project.State(Discovery))
 	if machine == nil {
 		t.Fatal("BuildMachine returned nil")
 	}
@@ -687,7 +672,7 @@ func setupBreakdownProject(t *testing.T) (*state.Project, *sdkstate.Machine, *pr
 // transitionToActive transitions the project from Discovery to Active state.
 // Adds an approved discovery artifact and fires EventBeginActive.
 // This is used by tests that need to start in Active state.
-func transitionToActive(t *testing.T, proj *state.Project, machine *sdkstate.Machine, _ *project.ProjectTypeConfig) {
+func transitionToActive(t *testing.T, proj *state.Project, machine *project.Machine, _ *project.ProjectTypeConfig) {
 	t.Helper()
 
 	// Add approved discovery artifact
@@ -707,13 +692,13 @@ func transitionToActive(t *testing.T, proj *state.Project, machine *sdkstate.Mac
 	proj.Phases["breakdown"] = phase
 
 	// Fire EventBeginActive to transition to Active
-	err := machine.Fire(sdkstate.Event(EventBeginActive))
+	err := machine.Fire(project.Event(EventBeginActive))
 	if err != nil {
 		t.Fatalf("failed to transition to Active: %v", err)
 	}
 
 	// Verify we're in Active state
-	if machine.State() != sdkstate.State(Active) {
+	if machine.State() != project.State(Active) {
 		t.Fatalf("expected Active state, got %s", machine.State())
 	}
 }

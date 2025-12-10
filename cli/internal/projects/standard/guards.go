@@ -1,7 +1,7 @@
 package standard
 
 import (
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/libs/project/state"
 )
 
 // Guard helper functions check transition conditions.

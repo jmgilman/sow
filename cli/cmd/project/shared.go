@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"fmt"
 	"os"
 	osExec "os/exec"
@@ -10,12 +11,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/prompts"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/templates"
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/cli/internal/templates"
 	"github.com/jmgilman/sow/libs/exec"
 	"github.com/jmgilman/sow/libs/git"
+	"github.com/jmgilman/sow/libs/project/state"
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
@@ -125,7 +127,11 @@ func initializeProject(
 	}
 
 	// Create project using SDK with initial inputs
-	proj, err := state.Create(ctx, branch, description, initialInputs)
+	proj, err := cmdutil.CreateProject(context.Background(), ctx, state.CreateOpts{
+		Branch:        branch,
+		Description:   description,
+		InitialInputs: initialInputs,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
@@ -169,7 +175,7 @@ func generateNewProjectPrompt(proj *state.Project, initialPrompt string) (string
 	}
 
 	// Layer 3: Initial State Prompt
-	initialState := proj.Machine().State()
+	initialState := proj.Statechart.Current_state
 	statePrompt := proj.Config().GetStatePrompt(initialState, proj)
 	if statePrompt != "" {
 		buf.WriteString(statePrompt)
@@ -212,7 +218,7 @@ func generateContinuePrompt(proj *state.Project) (string, error) {
 	}
 
 	// Layer 3: Current State Prompt
-	currentState := proj.Machine().State()
+	currentState := proj.Statechart.Current_state
 	statePrompt := proj.Config().GetStatePrompt(currentState, proj)
 	if statePrompt != "" {
 		buf.WriteString(statePrompt)

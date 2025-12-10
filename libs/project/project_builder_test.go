@@ -60,7 +60,7 @@ func TestProjectTypeConfigBuilder_SetInitialState(t *testing.T) {
 			SetInitialState(builderTestStatePlanningActive).
 			Build()
 
-		assert.Equal(t, builderTestStatePlanningActive, config.InitialState())
+		assert.Equal(t, string(builderTestStatePlanningActive), config.InitialState())
 	})
 
 	t.Run("returns builder for chaining", func(t *testing.T) {
@@ -353,7 +353,7 @@ func TestProjectTypeConfigBuilder_WithPrompt(t *testing.T) {
 			}).
 			Build()
 
-		prompt := config.GetStatePrompt(builderTestStatePlanningActive, &state.Project{})
+		prompt := config.GetStatePrompt(string(builderTestStatePlanningActive), &state.Project{})
 		assert.Equal(t, "Create your plan", prompt)
 	})
 
@@ -459,14 +459,14 @@ func TestProjectTypeConfigBuilder_Build(t *testing.T) {
 			Build()
 
 		assert.Equal(t, "standard", config.Name())
-		assert.Equal(t, builderTestStatePlanningActive, config.InitialState())
+		assert.Equal(t, string(builderTestStatePlanningActive), config.InitialState())
 		assert.Len(t, config.Phases(), 2)
 		assert.NotNil(t, config.GetTransition(
 			builderTestStatePlanningActive,
 			builderTestStateImplPlanning,
 			builderTestEventAdvancePlanning,
 		))
-		assert.Equal(t, "Plan", config.GetStatePrompt(builderTestStatePlanningActive, &state.Project{}))
+		assert.Equal(t, "Plan", config.GetStatePrompt(string(builderTestStatePlanningActive), &state.Project{}))
 	})
 
 	t.Run("builder can be reused", func(t *testing.T) {

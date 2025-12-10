@@ -365,6 +365,26 @@ func (m *mockProjectTypeConfig) IsPhaseStartState(_ string, _ string) bool {
 	return false
 }
 
+func (m *mockProjectTypeConfig) OrchestratorPrompt(_ *Project) string {
+	return ""
+}
+
+func (m *mockProjectTypeConfig) GetStatePrompt(_ string, _ *Project) string {
+	return ""
+}
+
+func (m *mockProjectTypeConfig) PhaseSupportsTasks(_ string) bool {
+	return false
+}
+
+func (m *mockProjectTypeConfig) GetTaskSupportingPhases() []string {
+	return nil
+}
+
+func (m *mockProjectTypeConfig) GetDefaultTaskPhase(_ string) string {
+	return ""
+}
+
 // Mock method to verify type assertion - test that our interface is minimal but functional.
 func TestProjectTypeConfig_Interface(t *testing.T) {
 	// This test verifies that our interface works correctly with mocks.

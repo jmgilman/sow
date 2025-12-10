@@ -1,9 +1,8 @@
 package exploration
 
 import (
-	"github.com/jmgilman/sow/cli/internal/sdks/project"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
+	"github.com/jmgilman/sow/libs/project/state"
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
@@ -83,15 +82,15 @@ func initializeExplorationProject(p *state.Project, initialInputs map[string][]p
 func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
 		WithPhase("exploration",
-			project.WithStartState(state.State(Active)),
-			project.WithEndState(state.State(Summarizing)),
+			project.WithStartState(project.State(Active)),
+			project.WithEndState(project.State(Summarizing)),
 			project.WithOutputs("summary", "findings"),
 			project.WithTasks(),
 			project.WithMetadataSchema(explorationMetadataSchema),
 		).
 		WithPhase("finalization",
-			project.WithStartState(state.State(Finalizing)),
-			project.WithEndState(state.State(Finalizing)),
+			project.WithStartState(project.State(Finalizing)),
+			project.WithEndState(project.State(Finalizing)),
 			project.WithOutputs("pr"),
 			project.WithMetadataSchema(finalizationMetadataSchema),
 		)
@@ -105,17 +104,17 @@ func configurePhases(builder *project.ProjectTypeConfigBuilder) *project.Project
 func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
 		// Set initial state to Active
-		SetInitialState(sdkstate.State(Active)).
+		SetInitialState(project.State(Active)).
 
 		// Transition 1: Active → Summarizing (intra-phase transition)
 		AddTransition(
-			sdkstate.State(Active),
-			sdkstate.State(Summarizing),
-			sdkstate.Event(EventBeginSummarizing),
-			project.WithGuard("all tasks resolved", func(p *state.Project) bool {
+			project.State(Active),
+			project.State(Summarizing),
+			project.Event(EventBeginSummarizing),
+			project.WithProjectGuard("all tasks resolved", func(p *state.Project) bool {
 				return allTasksResolved(p)
 			}),
-			project.WithOnEntry(func(p *state.Project) error {
+			project.WithProjectOnEntry(func(p *state.Project) error {
 				// Update exploration phase status to "summarizing"
 				phase := p.Phases["exploration"]
 				phase.Status = "summarizing"
@@ -126,13 +125,13 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 
 		// Transition 2: Summarizing → Finalizing (inter-phase transition)
 		AddTransition(
-			sdkstate.State(Summarizing),
-			sdkstate.State(Finalizing),
-			sdkstate.Event(EventCompleteSummarizing),
-			project.WithGuard("all summaries approved", func(p *state.Project) bool {
+			project.State(Summarizing),
+			project.State(Finalizing),
+			project.Event(EventCompleteSummarizing),
+			project.WithProjectGuard("all summaries approved", func(p *state.Project) bool {
 				return allSummariesApproved(p)
 			}),
-			project.WithOnEntry(func(p *state.Project) error {
+			project.WithProjectOnEntry(func(p *state.Project) error {
 				// Enable finalization phase
 				// Note: Phase status and timestamps are automatically managed by FireWithPhaseUpdates
 				phase := p.Phases["finalization"]
@@ -144,10 +143,10 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 
 		// Transition 3: Finalizing → Completed (terminal transition)
 		AddTransition(
-			sdkstate.State(Finalizing),
-			sdkstate.State(Completed),
-			sdkstate.Event(EventCompleteFinalization),
-			project.WithGuard("all finalization tasks complete", func(p *state.Project) bool {
+			project.State(Finalizing),
+			project.State(Completed),
+			project.Event(EventCompleteFinalization),
+			project.WithProjectGuard("all finalization tasks complete", func(p *state.Project) bool {
 				return allFinalizationTasksComplete(p)
 			}),
 			// Note: Finalization phase completion is automatically managed by FireWithPhaseUpdates
@@ -162,13 +161,13 @@ func configureTransitions(builder *project.ProjectTypeConfigBuilder) *project.Pr
 // - Finalizing → EventCompleteFinalization.
 func configureEventDeterminers(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
-		OnAdvance(sdkstate.State(Active), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventBeginSummarizing), nil
+		OnAdvance(project.State(Active), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventBeginSummarizing), nil
 		}).
-		OnAdvance(sdkstate.State(Summarizing), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventCompleteSummarizing), nil
+		OnAdvance(project.State(Summarizing), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventCompleteSummarizing), nil
 		}).
-		OnAdvance(sdkstate.State(Finalizing), func(_ *state.Project) (sdkstate.Event, error) {
-			return sdkstate.Event(EventCompleteFinalization), nil
+		OnAdvance(project.State(Finalizing), func(_ *state.Project) (project.Event, error) {
+			return project.Event(EventCompleteFinalization), nil
 		})
 }

@@ -44,6 +44,26 @@ func (r *registryTestConfig) IsPhaseStartState(_ string, _ string) bool {
 	return false
 }
 
+func (r *registryTestConfig) OrchestratorPrompt(_ *Project) string {
+	return ""
+}
+
+func (r *registryTestConfig) GetStatePrompt(_ string, _ *Project) string {
+	return ""
+}
+
+func (r *registryTestConfig) PhaseSupportsTasks(_ string) bool {
+	return false
+}
+
+func (r *registryTestConfig) GetTaskSupportingPhases() []string {
+	return nil
+}
+
+func (r *registryTestConfig) GetDefaultTaskPhase(_ string) string {
+	return ""
+}
+
 func TestRegister(t *testing.T) {
 	t.Run("adds config to registry", func(t *testing.T) {
 		ClearRegistry()

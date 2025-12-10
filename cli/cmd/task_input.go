@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/libs/project/state"
 	"github.com/jmgilman/sow/libs/schemas/project"
 	"github.com/spf13/cobra"
 )
@@ -184,7 +184,7 @@ func runTaskInputAdd(cmd *cobra.Command, taskID, artifactType, path, explicitPha
 	}
 
 	// Load project
-	proj, err := state.Load(ctx)
+	proj, err := cmdutil.LoadProject(cmd.Context(), ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such file") {
 			return fmt.Errorf("no active project found")
@@ -233,7 +233,7 @@ func runTaskInputAdd(cmd *cobra.Command, taskID, artifactType, path, explicitPha
 	proj.Phases[phaseName] = phaseState
 
 	// Save project state
-	if err := proj.Save(); err != nil {
+	if err := proj.Save(cmd.Context()); err != nil {
 		return fmt.Errorf("failed to save project: %w", err)
 	}
 
@@ -251,7 +251,7 @@ func runTaskInputSet(cmd *cobra.Command, args []string, taskID, explicitPhase st
 	}
 
 	// Load project
-	proj, err := state.Load(ctx)
+	proj, err := cmdutil.LoadProject(cmd.Context(), ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such file") {
 			return fmt.Errorf("no active project found")
@@ -309,7 +309,7 @@ func runTaskInputSet(cmd *cobra.Command, args []string, taskID, explicitPhase st
 	proj.Phases[phaseName] = phaseState
 
 	// Save project state
-	if err := proj.Save(); err != nil {
+	if err := proj.Save(cmd.Context()); err != nil {
 		return fmt.Errorf("failed to save project: %w", err)
 	}
 
@@ -327,7 +327,7 @@ func runTaskInputRemove(cmd *cobra.Command, taskID, explicitPhase string, index 
 	}
 
 	// Load project
-	proj, err := state.Load(ctx)
+	proj, err := cmdutil.LoadProject(cmd.Context(), ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such file") {
 			return fmt.Errorf("no active project found")
@@ -375,7 +375,7 @@ func runTaskInputRemove(cmd *cobra.Command, taskID, explicitPhase string, index 
 	proj.Phases[phaseName] = phaseState
 
 	// Save project state
-	if err := proj.Save(); err != nil {
+	if err := proj.Save(cmd.Context()); err != nil {
 		return fmt.Errorf("failed to save project: %w", err)
 	}
 
@@ -393,7 +393,7 @@ func runTaskInputList(cmd *cobra.Command, taskID, explicitPhase string) error {
 	}
 
 	// Load project
-	proj, err := state.Load(ctx)
+	proj, err := cmdutil.LoadProject(cmd.Context(), ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such file") {
 			return fmt.Errorf("no active project found")
