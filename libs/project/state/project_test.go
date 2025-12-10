@@ -341,6 +341,30 @@ func (m *mockProjectTypeConfig) Name() string {
 	return m.name
 }
 
+func (m *mockProjectTypeConfig) InitialState() string {
+	return "initial"
+}
+
+func (m *mockProjectTypeConfig) Initialize(_ *Project, _ map[string][]project.ArtifactState) error {
+	return nil
+}
+
+func (m *mockProjectTypeConfig) Validate(_ *Project) error {
+	return nil
+}
+
+func (m *mockProjectTypeConfig) BuildMachine(_ *Project, initialState string) *stateless.StateMachine {
+	return stateless.NewStateMachine(initialState)
+}
+
+func (m *mockProjectTypeConfig) GetPhaseForState(_ string) string {
+	return ""
+}
+
+func (m *mockProjectTypeConfig) IsPhaseStartState(_ string, _ string) bool {
+	return false
+}
+
 // Mock method to verify type assertion - test that our interface is minimal but functional.
 func TestProjectTypeConfig_Interface(t *testing.T) {
 	// This test verifies that our interface works correctly with mocks.

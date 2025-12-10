@@ -14,6 +14,28 @@ import (
 type ProjectTypeConfig interface {
 	// Name returns the configured name for this project type.
 	Name() string
+
+	// InitialState returns the initial state for new projects of this type.
+	InitialState() string
+
+	// Initialize sets up a new project with phases and initial state.
+	// Called during Create() to let the project type set up its structure.
+	Initialize(p *Project, initialInputs map[string][]project.ArtifactState) error
+
+	// Validate validates project metadata against type-specific schemas.
+	// Called during Load() and Save() to ensure metadata is valid.
+	Validate(p *Project) error
+
+	// BuildMachine creates a state machine for the project.
+	// The machine is bound to the project instance for guard evaluation.
+	BuildMachine(p *Project, initialState string) *stateless.StateMachine
+
+	// GetPhaseForState returns the phase name that owns the given state.
+	// Returns empty string if the state doesn't belong to any phase.
+	GetPhaseForState(state string) string
+
+	// IsPhaseStartState returns true if the state is the phase's start state.
+	IsPhaseStartState(phaseName string, state string) bool
 }
 
 // Project wraps the CUE-generated ProjectState with runtime behavior.
