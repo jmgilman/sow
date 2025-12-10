@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/exec"
+	"github.com/jmgilman/sow/libs/exec"
 )
 
 // GitHubCLI implements GitHubClient using the gh CLI tool.

@@ -1,13 +1,3 @@
-// Package exec provides a lightweight wrapper for executing external commands.
-//
-// This package defines the Executor interface for command execution and provides
-// LocalExecutor as the standard implementation. The interface pattern enables
-// easy mocking in tests.
-//
-// Usage:
-//
-//	executor := exec.NewLocal("gh")
-//	github := sow.NewGitHub(executor)
 package exec
 
 import (
@@ -17,49 +7,21 @@ import (
 	"os/exec"
 )
 
-// Executor defines the interface for executing external commands.
-//
-// This interface allows for easy mocking in tests while providing a consistent
-// API for command execution across the codebase.
-type Executor interface {
-	// Command returns the command name this executor wraps.
-	Command() string
-
-	// Exists checks if the command exists in PATH.
-	Exists() bool
-
-	// Run executes the command with the given arguments.
-	// Returns stdout, stderr, and error.
-	Run(args ...string) (stdout, stderr string, err error)
-
-	// RunContext executes the command with the given arguments and context.
-	// The context can be used for cancellation and timeouts.
-	RunContext(ctx context.Context, args ...string) (stdout, stderr string, err error)
-
-	// RunSilent executes the command but only returns an error.
-	// Stdout and stderr are discarded.
-	RunSilent(args ...string) error
-
-	// RunSilentContext is like RunSilent but accepts a context for cancellation.
-	RunSilentContext(ctx context.Context, args ...string) error
-}
-
-// LocalExecutor is the standard implementation of Executor that executes
-// commands on the local system using os/exec.
+// LocalExecutor executes commands on the local system using os/exec.
 type LocalExecutor struct {
 	command string
 }
 
-// NewLocal creates a new LocalExecutor for the specified command.
+// NewLocalExecutor creates a new LocalExecutor for the specified command.
 //
 // The command should be the base command name (e.g., "gh", "claude", "git").
 // The executor will use exec.LookPath to find the command in PATH.
 //
 // Example:
 //
-//	gh := exec.NewLocal("gh")
-//	claude := exec.NewLocal("claude")
-func NewLocal(command string) *LocalExecutor {
+//	gh := exec.NewLocalExecutor("gh")
+//	claude := exec.NewLocalExecutor("claude")
+func NewLocalExecutor(command string) *LocalExecutor {
 	return &LocalExecutor{
 		command: command,
 	}
@@ -77,7 +39,7 @@ func (e *LocalExecutor) Command() string {
 //
 // Example:
 //
-//	gh := exec.NewLocal("gh")
+//	gh := exec.NewLocalExecutor("gh")
 //	if !gh.Exists() {
 //	    return fmt.Errorf("gh CLI not found")
 //	}
@@ -93,7 +55,7 @@ func (e *LocalExecutor) Exists() bool {
 //
 // Example:
 //
-//	gh := exec.NewLocal("gh")
+//	gh := exec.NewLocalExecutor("gh")
 //	stdout, stderr, err := gh.Run("issue", "list", "--label", "bug")
 //	if err != nil {
 //	    fmt.Printf("Command failed: %s\n", stderr)
@@ -131,7 +93,7 @@ func (e *LocalExecutor) RunContext(ctx context.Context, args ...string) (stdout,
 //
 // Example:
 //
-//	gh := exec.NewLocal("gh")
+//	gh := exec.NewLocalExecutor("gh")
 //	if err := gh.RunSilent("auth", "status"); err != nil {
 //	    return fmt.Errorf("not authenticated")
 //	}
@@ -153,7 +115,7 @@ func (e *LocalExecutor) RunSilentContext(ctx context.Context, args ...string) er
 // Example:
 //
 //	func init() {
-//	    gh := exec.NewLocal("gh")
+//	    gh := exec.NewLocalExecutor("gh")
 //	    gh.MustExist() // Panic if gh not installed
 //	}
 func (e *LocalExecutor) MustExist() {

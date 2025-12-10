@@ -5,9 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/exec"
-	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/spf13/cobra"
+
+	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/exec"
 )
 
 func newShowCmd() *cobra.Command {
@@ -30,8 +31,8 @@ Examples:
 			}
 
 			// Create GitHub client
-			ghExec := exec.NewLocal("gh")
-			gh := sow.NewGitHub(ghExec)
+			ghExec := exec.NewLocalExecutor("gh")
+			gh := sow.NewGitHubCLI(ghExec)
 
 			issue, err := gh.GetIssue(number)
 			if err != nil {

@@ -8,10 +8,11 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
-	sowexec "github.com/jmgilman/sow/cli/internal/exec"
+	"github.com/spf13/cobra"
+
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/spf13/cobra"
+	"github.com/jmgilman/sow/libs/exec"
 )
 
 // WizardState represents the current state of the project wizard.
@@ -45,7 +46,7 @@ type Wizard struct {
 
 // NewWizard creates a new wizard instance.
 func NewWizard(cmd *cobra.Command, ctx *sow.Context, claudeFlags []string) *Wizard {
-	ghExec := sowexec.NewLocal("gh")
+	ghExec := exec.NewLocalExecutor("gh")
 
 	return &Wizard{
 		state:       StateEntry,
