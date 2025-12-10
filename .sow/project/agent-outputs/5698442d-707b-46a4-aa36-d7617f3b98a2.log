@@ -770,3 +770,4 @@ SESSION COMPLETE
   6. Old config code removed from `cli/internal/sow/`
 
   Implementation is ready for finalization.
+Error: Session ID 5698442d-707b-46a4-aa36-d7617f3b98a2 is already in use.
