@@ -3,6 +3,7 @@ package cmdutil
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/libs/project/state"
@@ -44,18 +45,29 @@ func WithContext(ctx context.Context, sowCtx *sow.Context) context.Context {
 // This is a convenience wrapper around state.Load with the YAML backend.
 func LoadProject(ctx context.Context, sowCtx *sow.Context) (*state.Project, error) {
 	backend := state.NewYAMLBackend(sowCtx.FS())
-	return state.Load(ctx, backend)
+	proj, err := state.Load(ctx, backend)
+	if err != nil {
+		return nil, fmt.Errorf("load project: %w", err)
+	}
+	return proj, nil
 }
 
 // SaveProject saves the project to the sow context's filesystem.
 // This is a convenience wrapper around state.Save.
 func SaveProject(ctx context.Context, proj *state.Project) error {
-	return state.Save(ctx, proj)
+	if err := state.Save(ctx, proj); err != nil {
+		return fmt.Errorf("save project: %w", err)
+	}
+	return nil
 }
 
 // CreateProject creates a new project and saves it.
 // This is a convenience wrapper around state.Create with the YAML backend.
 func CreateProject(ctx context.Context, sowCtx *sow.Context, opts state.CreateOpts) (*state.Project, error) {
 	backend := state.NewYAMLBackend(sowCtx.FS())
-	return state.Create(ctx, backend, opts)
+	proj, err := state.Create(ctx, backend, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create project: %w", err)
+	}
+	return proj, nil
 }

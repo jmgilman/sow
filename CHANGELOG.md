@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `libs/project` module: Consolidated project SDK with Backend interface abstraction
+- `libs/project/state`: Project state management with pluggable backends
+- `MemoryBackend` for improved testability
+- Context-based API with cancellation support
+
+### Changed
+
+- Project state operations now use `Backend` interface instead of `sow.Context`
+- Moved project SDK from `cli/internal/sdks/` to `libs/project/`
+
+### Removed
+
+- `cli/internal/sdks/state/` package (consolidated into libs/project)
+- `cli/internal/sdks/project/` package (consolidated into libs/project)
+
 ## [0.1.1] - 2025-10-20
 
 ### Added
