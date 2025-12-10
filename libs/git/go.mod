@@ -22,6 +22,7 @@ require (
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jmgilman/go/errors v0.1.0 // indirect
 	github.com/jmgilman/go/exec v0.1.0 // indirect
+	github.com/jmgilman/sow/libs/exec v0.0.0-20251210021502-7e2c5961c7e4 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/pjbgf/sha1cd v0.3.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
