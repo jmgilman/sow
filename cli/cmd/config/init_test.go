@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/config"
 	"github.com/jmgilman/sow/libs/schemas"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -124,14 +124,14 @@ func TestInitConfigAtPath_FilePermissions(t *testing.T) {
 // is valid YAML that can be parsed.
 func TestConfigTemplate_ValidYAML(t *testing.T) {
 	// Parse template as YAML
-	var config schemas.UserConfig
-	err := yaml.Unmarshal([]byte(configTemplate), &config)
+	var userCfg schemas.UserConfig
+	err := yaml.Unmarshal([]byte(configTemplate), &userCfg)
 	if err != nil {
 		t.Fatalf("template is not valid YAML: %v", err)
 	}
 
 	// Verify basic structure
-	if config.Agents == nil {
+	if userCfg.Agents == nil {
 		t.Fatal("expected agents section in config")
 	}
 }
@@ -140,23 +140,23 @@ func TestConfigTemplate_ValidYAML(t *testing.T) {
 // passes full validation when loaded.
 func TestConfigTemplate_PassesValidation(t *testing.T) {
 	// Parse template as YAML
-	var config schemas.UserConfig
-	err := yaml.Unmarshal([]byte(configTemplate), &config)
+	var userCfg schemas.UserConfig
+	err := yaml.Unmarshal([]byte(configTemplate), &userCfg)
 	if err != nil {
 		t.Fatalf("template is not valid YAML: %v", err)
 	}
 
-	// Validate using sow.ValidateUserConfig
-	err = sow.ValidateUserConfig(&config)
+	// Validate using config.ValidateUserConfig
+	err = config.ValidateUserConfig(&userCfg)
 	if err != nil {
 		t.Fatalf("template failed validation: %v", err)
 	}
 
 	// Verify executors section
-	if config.Agents.Executors == nil {
+	if userCfg.Agents.Executors == nil {
 		t.Fatal("expected executors in template")
 	}
-	claudeExec, ok := config.Agents.Executors["claude-code"]
+	claudeExec, ok := userCfg.Agents.Executors["claude-code"]
 	if !ok {
 		t.Fatal("expected 'claude-code' executor in template")
 	}
@@ -165,13 +165,13 @@ func TestConfigTemplate_PassesValidation(t *testing.T) {
 	}
 
 	// Verify bindings section
-	if config.Agents.Bindings == nil {
+	if userCfg.Agents.Bindings == nil {
 		t.Fatal("expected bindings in template")
 	}
-	if config.Agents.Bindings.Orchestrator == nil || *config.Agents.Bindings.Orchestrator != "claude-code" {
+	if userCfg.Agents.Bindings.Orchestrator == nil || *userCfg.Agents.Bindings.Orchestrator != "claude-code" {
 		t.Error("expected orchestrator binding 'claude-code'")
 	}
-	if config.Agents.Bindings.Implementer == nil || *config.Agents.Bindings.Implementer != "claude-code" {
+	if userCfg.Agents.Bindings.Implementer == nil || *userCfg.Agents.Bindings.Implementer != "claude-code" {
 		t.Error("expected implementer binding 'claude-code'")
 	}
 }
