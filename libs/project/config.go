@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	"github.com/jmgilman/sow/libs/project/state"
@@ -62,14 +63,15 @@ func (ptc *ProjectTypeConfig) InitialState() string {
 	return string(ptc.initialState)
 }
 
-// InitialStateTyped returns the initial state as a typed State value.
-func (ptc *ProjectTypeConfig) InitialStateTyped() State {
-	return ptc.initialState
-}
-
-// Phases returns the phase configurations.
+// Phases returns a copy of the phase configurations.
+// The returned map is a shallow copy, so callers cannot modify the internal map,
+// but they should not modify the PhaseConfig values themselves.
 func (ptc *ProjectTypeConfig) Phases() map[string]*PhaseConfig {
-	return ptc.phaseConfigs
+	result := make(map[string]*PhaseConfig, len(ptc.phaseConfigs))
+	for k, v := range ptc.phaseConfigs {
+		result[k] = v
+	}
+	return result
 }
 
 // GetPhaseForState returns the phase name that owns the given state.
@@ -85,11 +87,6 @@ func (ptc *ProjectTypeConfig) GetPhaseForState(s string) string {
 	return ""
 }
 
-// GetPhaseForStateTyped is the typed version of GetPhaseForState.
-func (ptc *ProjectTypeConfig) GetPhaseForStateTyped(s State) string {
-	return ptc.GetPhaseForState(string(s))
-}
-
 // IsPhaseStartState returns true if the state is the phase's start state.
 // Returns false if the phase doesn't exist or the state doesn't match.
 // Accepts string to satisfy state.ProjectTypeConfig interface.
@@ -101,11 +98,6 @@ func (ptc *ProjectTypeConfig) IsPhaseStartState(phaseName string, s string) bool
 	return config.startState == State(s)
 }
 
-// IsPhaseStartStateTyped is the typed version of IsPhaseStartState.
-func (ptc *ProjectTypeConfig) IsPhaseStartStateTyped(phaseName string, s State) bool {
-	return ptc.IsPhaseStartState(phaseName, string(s))
-}
-
 // IsPhaseEndState returns true if the state is the phase's end state.
 // Returns false if the phase doesn't exist or the state doesn't match.
 func (ptc *ProjectTypeConfig) IsPhaseEndState(phaseName string, s string) bool {
@@ -114,11 +106,6 @@ func (ptc *ProjectTypeConfig) IsPhaseEndState(phaseName string, s string) bool {
 		return false
 	}
 	return config.endState == State(s)
-}
-
-// IsPhaseEndStateTyped is the typed version of IsPhaseEndState.
-func (ptc *ProjectTypeConfig) IsPhaseEndStateTyped(phaseName string, s State) bool {
-	return ptc.IsPhaseEndState(phaseName, string(s))
 }
 
 // GetTransition returns the transition config for the given state change.
@@ -147,15 +134,6 @@ func (ptc *ProjectTypeConfig) Initialize(p *state.Project, initialInputs map[str
 // Accepts string to satisfy state.ProjectTypeConfig interface.
 func (ptc *ProjectTypeConfig) GetStatePrompt(s string, p *state.Project) string {
 	gen, exists := ptc.prompts[State(s)]
-	if !exists {
-		return ""
-	}
-	return gen(p)
-}
-
-// GetStatePromptTyped returns the prompt for a specific state using typed State.
-func (ptc *ProjectTypeConfig) GetStatePromptTyped(s State, p *state.Project) string {
-	gen, exists := ptc.prompts[s]
 	if !exists {
 		return ""
 	}
@@ -220,11 +198,6 @@ func (ptc *ProjectTypeConfig) GetDefaultTaskPhase(currentState string) string {
 		return phases[0]
 	}
 	return ""
-}
-
-// GetDefaultTaskPhaseTyped returns the default phase using typed State.
-func (ptc *ProjectTypeConfig) GetDefaultTaskPhaseTyped(currentState State) string {
-	return ptc.GetDefaultTaskPhase(string(currentState))
 }
 
 // IsBranchingState checks if a state has branches configured via AddBranch.
@@ -572,43 +545,25 @@ func (ptc *ProjectTypeConfig) Validate(p *state.Project) error {
 			continue
 		}
 
-		// Validate output types
-		allowedOutputs := phaseConfig.AllowedOutputTypes()
-		if len(allowedOutputs) > 0 {
-			for _, artifact := range phaseState.Outputs {
-				if !containsString(allowedOutputs, artifact.Type) {
-					return &ErrInvalidOutputType{
-						Phase:        phaseName,
-						ArtifactType: artifact.Type,
-						AllowedTypes: allowedOutputs,
-					}
-				}
-			}
+		// Validate output types using O(1) lookup
+		if err := state.ValidateArtifactTypes(
+			phaseState.Outputs,
+			phaseConfig.AllowedOutputTypes(),
+			phaseName,
+			"output",
+		); err != nil {
+			return fmt.Errorf("validating output types: %w", err)
 		}
 
-		// Validate input types
-		allowedInputs := phaseConfig.AllowedInputTypes()
-		if len(allowedInputs) > 0 {
-			for _, artifact := range phaseState.Inputs {
-				if !containsString(allowedInputs, artifact.Type) {
-					return &ErrInvalidInputType{
-						Phase:        phaseName,
-						ArtifactType: artifact.Type,
-						AllowedTypes: allowedInputs,
-					}
-				}
-			}
+		// Validate input types using O(1) lookup
+		if err := state.ValidateArtifactTypes(
+			phaseState.Inputs,
+			phaseConfig.AllowedInputTypes(),
+			phaseName,
+			"input",
+		); err != nil {
+			return fmt.Errorf("validating input types: %w", err)
 		}
 	}
 	return nil
-}
-
-// containsString checks if a string slice contains a specific string.
-func containsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-	return false
 }

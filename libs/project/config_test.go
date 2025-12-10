@@ -113,14 +113,37 @@ func TestProjectTypeConfig_Phases(t *testing.T) {
 		assert.Len(t, got, 2)
 	})
 
-	t.Run("returns nil when no phases configured", func(t *testing.T) {
+	t.Run("returns empty map when no phases configured", func(t *testing.T) {
 		t.Parallel()
 
 		ptc := &ProjectTypeConfig{}
 
 		got := ptc.Phases()
 
-		assert.Nil(t, got)
+		assert.NotNil(t, got)
+		assert.Empty(t, got)
+	})
+
+	t.Run("returns defensive copy not original map", func(t *testing.T) {
+		t.Parallel()
+
+		phases := map[string]*PhaseConfig{
+			"planning": {
+				name:       "planning",
+				startState: configTestStatePlanningActive,
+				endState:   configTestStatePlanningActive,
+			},
+		}
+
+		ptc := &ProjectTypeConfig{phaseConfigs: phases}
+
+		got := ptc.Phases()
+
+		// Modify the returned map
+		delete(got, "planning")
+
+		// Original should be unchanged
+		assert.Len(t, ptc.phaseConfigs, 1)
 	})
 }
 

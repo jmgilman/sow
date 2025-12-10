@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -178,6 +179,7 @@ func TestMachineBuilder_Guards(t *testing.T) {
 	})
 }
 
+//nolint:funlen // test functions with many subtests are naturally long
 func TestMachineBuilder_Actions(t *testing.T) {
 	t.Parallel()
 
@@ -235,6 +237,84 @@ func TestMachineBuilder_Actions(t *testing.T) {
 
 		assert.Contains(t, callOrder, "exit")
 		assert.Contains(t, callOrder, "entry")
+	})
+
+	t.Run("multiple OnEntry actions for same target state are composed", func(t *testing.T) {
+		t.Parallel()
+
+		var callOrder []string
+		machine := NewBuilder(testStatePending, nil).
+			// First transition to Active has OnEntry
+			AddTransition(testStatePending, testStateActive, testEventStart,
+				WithOnEntry(func(_ context.Context, _ ...any) error {
+					callOrder = append(callOrder, "entry1")
+					return nil
+				})).
+			// Second transition to Active also has OnEntry
+			AddTransition(testStateCompleted, testStateActive, Event("restart"),
+				WithOnEntry(func(_ context.Context, _ ...any) error {
+					callOrder = append(callOrder, "entry2")
+					return nil
+				})).
+			Build()
+
+		require.NoError(t, machine.Fire(testEventStart))
+
+		// Both entry actions should be composed and run
+		assert.Contains(t, callOrder, "entry1")
+		assert.Contains(t, callOrder, "entry2")
+	})
+
+	t.Run("multiple OnExit actions for same source state are composed", func(t *testing.T) {
+		t.Parallel()
+
+		var callOrder []string
+		machine := NewBuilder(testStatePending, nil).
+			// First transition from Pending has OnExit
+			AddTransition(testStatePending, testStateActive, testEventStart,
+				WithOnExit(func(_ context.Context, _ ...any) error {
+					callOrder = append(callOrder, "exit1")
+					return nil
+				})).
+			// Second transition from Pending also has OnExit
+			AddTransition(testStatePending, testStateCompleted, testEventComplete,
+				WithOnExit(func(_ context.Context, _ ...any) error {
+					callOrder = append(callOrder, "exit2")
+					return nil
+				})).
+			Build()
+
+		require.NoError(t, machine.Fire(testEventStart))
+
+		// Both exit actions should be composed and run
+		assert.Contains(t, callOrder, "exit1")
+		assert.Contains(t, callOrder, "exit2")
+	})
+
+	t.Run("composed actions stop on first error", func(t *testing.T) {
+		t.Parallel()
+
+		action2Called := false
+		machine := NewBuilder(testStatePending, nil).
+			// First transition has failing OnEntry
+			AddTransition(testStatePending, testStateActive, testEventStart,
+				WithOnEntry(func(_ context.Context, _ ...any) error {
+					return errors.New("action1 failed")
+				})).
+			// Second transition to same state has another OnEntry
+			AddTransition(testStateCompleted, testStateActive, Event("restart"),
+				WithOnEntry(func(_ context.Context, _ ...any) error {
+					action2Called = true
+					return nil
+				})).
+			Build()
+
+		err := machine.Fire(testEventStart)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "action1 failed")
+		// Second action should NOT have been called (error stops composition)
+		assert.False(t, action2Called)
 	})
 }
 

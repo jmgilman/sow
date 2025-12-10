@@ -38,9 +38,6 @@ type Guard func() bool
 // via closure. It receives the project and returns whether transition is allowed.
 // The Description provides a human-readable explanation of what the guard checks,
 // which appears in error messages when the guard fails.
-//
-// Note: The state.Project type is a placeholder that will be fully implemented
-// in Task 040.
 type GuardTemplate struct {
 	Description string
 	Func        func(*state.Project) bool
@@ -48,24 +45,15 @@ type GuardTemplate struct {
 
 // Action is a function that mutates project state during transitions.
 // Returns error if action fails.
-//
-// Note: The state.Project type is a placeholder that will be fully implemented
-// in Task 040.
 type Action func(*state.Project) error
 
 // EventDeterminer examines project state and determines the next event
 // for the generic Advance() command. Returns the event or error if unable
 // to determine (e.g., missing required state).
-//
-// Note: The state.Project type is a placeholder that will be fully implemented
-// in Task 040.
 type EventDeterminer func(*state.Project) (Event, error)
 
 // PromptGenerator creates a contextual prompt for a given state.
 // Returns markdown-formatted string to display to user.
-//
-// Note: The state.Project type is a placeholder that will be fully implemented
-// in Task 040.
 type PromptGenerator func(*state.Project) string
 
 // PromptFunc generates a prompt for a state during transitions.

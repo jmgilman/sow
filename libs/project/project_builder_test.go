@@ -486,3 +486,179 @@ func TestProjectTypeConfigBuilder_Build(t *testing.T) {
 		assert.NotSame(t, config1, config2)
 	})
 }
+
+//nolint:funlen // test functions with many subtests are naturally long
+func TestProjectTypeConfigBuilder_BuildWithValidation(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns error when initial state not set", func(t *testing.T) {
+		t.Parallel()
+
+		builder := NewProjectTypeConfigBuilder("test")
+
+		_, err := builder.BuildWithValidation()
+
+		require.Error(t, err)
+		var configErr *ErrConfigValidation
+		require.ErrorAs(t, err, &configErr)
+		assert.Contains(t, configErr.Issues, "initial state not set (use SetInitialState)")
+	})
+
+	t.Run("returns error when phase has start but no end state", func(t *testing.T) {
+		t.Parallel()
+
+		builder := NewProjectTypeConfigBuilder("test").
+			SetInitialState(builderTestStatePlanningActive).
+			WithPhase("incomplete",
+				WithStartState(builderTestStatePlanningActive),
+				// Missing WithEndState
+			)
+
+		_, err := builder.BuildWithValidation()
+
+		require.Error(t, err)
+		var configErr *ErrConfigValidation
+		require.ErrorAs(t, err, &configErr)
+		assert.Len(t, configErr.Issues, 1)
+		assert.Contains(t, configErr.Issues[0], "has start state but no end state")
+	})
+
+	t.Run("returns error when phase has end but no start state", func(t *testing.T) {
+		t.Parallel()
+
+		builder := NewProjectTypeConfigBuilder("test").
+			SetInitialState(builderTestStatePlanningActive).
+			WithPhase("incomplete",
+				WithEndState(builderTestStatePlanningActive),
+				// Missing WithStartState
+			)
+
+		_, err := builder.BuildWithValidation()
+
+		require.Error(t, err)
+		var configErr *ErrConfigValidation
+		require.ErrorAs(t, err, &configErr)
+		assert.Len(t, configErr.Issues, 1)
+		assert.Contains(t, configErr.Issues[0], "has end state but no start state")
+	})
+
+	t.Run("returns error when transition references unknown state", func(t *testing.T) {
+		t.Parallel()
+
+		builder := NewProjectTypeConfigBuilder("test").
+			SetInitialState(builderTestStatePlanningActive).
+			WithPhase("planning",
+				WithStartState(builderTestStatePlanningActive),
+				WithEndState(builderTestStatePlanningActive),
+			).
+			AddTransition(
+				builderTestStatePlanningActive,
+				State("unknown_state"), // Not defined in any phase
+				builderTestEventAdvancePlanning,
+			)
+
+		_, err := builder.BuildWithValidation()
+
+		require.Error(t, err)
+		var configErr *ErrConfigValidation
+		require.ErrorAs(t, err, &configErr)
+		assert.Contains(t, configErr.Issues[0], "transition to state")
+		assert.Contains(t, configErr.Issues[0], "not in any phase")
+	})
+
+	t.Run("returns error when initial state not in any phase", func(t *testing.T) {
+		t.Parallel()
+
+		builder := NewProjectTypeConfigBuilder("test").
+			SetInitialState(State("orphan_state")).
+			WithPhase("planning",
+				WithStartState(builderTestStatePlanningActive),
+				WithEndState(builderTestStatePlanningActive),
+			)
+
+		_, err := builder.BuildWithValidation()
+
+		require.Error(t, err)
+		var configErr *ErrConfigValidation
+		require.ErrorAs(t, err, &configErr)
+		assert.Contains(t, configErr.Issues[0], "initial state")
+		assert.Contains(t, configErr.Issues[0], "not in any phase")
+	})
+
+	t.Run("allows NoProject state in transitions", func(t *testing.T) {
+		t.Parallel()
+
+		builder := NewProjectTypeConfigBuilder("test").
+			SetInitialState(builderTestStatePlanningActive).
+			WithPhase("planning",
+				WithStartState(builderTestStatePlanningActive),
+				WithEndState(builderTestStatePlanningActive),
+			).
+			AddTransition(
+				NoProject,
+				builderTestStatePlanningActive,
+				Event("init"),
+			)
+
+		config, err := builder.BuildWithValidation()
+
+		require.NoError(t, err)
+		assert.NotNil(t, config)
+	})
+
+	t.Run("succeeds with valid configuration", func(t *testing.T) {
+		t.Parallel()
+
+		builder := NewProjectTypeConfigBuilder("test").
+			SetInitialState(builderTestStatePlanningActive).
+			WithPhase("planning",
+				WithStartState(builderTestStatePlanningActive),
+				WithEndState(builderTestStatePlanningActive),
+			)
+
+		config, err := builder.BuildWithValidation()
+
+		require.NoError(t, err)
+		assert.Equal(t, "test", config.Name())
+	})
+
+	t.Run("skips transition validation when no phases defined", func(t *testing.T) {
+		t.Parallel()
+
+		// Simple config without phases - transitions to unknown states are OK
+		builder := NewProjectTypeConfigBuilder("test").
+			SetInitialState(builderTestStatePlanningActive).
+			AddTransition(
+				State("any_state"),
+				State("other_state"),
+				Event("go"),
+			)
+
+		config, err := builder.BuildWithValidation()
+
+		require.NoError(t, err)
+		assert.NotNil(t, config)
+	})
+
+	t.Run("collects multiple validation errors", func(t *testing.T) {
+		t.Parallel()
+
+		builder := NewProjectTypeConfigBuilder("test").
+			WithPhase("incomplete1",
+				WithStartState(State("start1")),
+				// Missing end
+			).
+			WithPhase("incomplete2",
+				WithEndState(State("end2")),
+				// Missing start
+			)
+
+		_, err := builder.BuildWithValidation()
+
+		require.Error(t, err)
+		var configErr *ErrConfigValidation
+		require.ErrorAs(t, err, &configErr)
+		// Should have: initial state missing + 2 phase issues
+		assert.GreaterOrEqual(t, len(configErr.Issues), 3)
+	})
+}

@@ -14,9 +14,9 @@ import (
 config := project.NewProjectTypeConfigBuilder("mytype").
     SetInitialState(project.State("Planning")).
     WithPhase("planning",
-        project.StartState(project.State("Planning")),
-        project.EndState(project.State("Planning")),
-        project.OutputTypes("task_list"),
+        project.WithStartState(project.State("Planning")),
+        project.WithEndState(project.State("Planning")),
+        project.WithOutputs("task_list"),
     ).
     AddTransition(
         project.State("Planning"),
@@ -46,14 +46,14 @@ Use the fluent builder API to define project types:
 config := project.NewProjectTypeConfigBuilder("standard").
     SetInitialState(StateIdea).
     WithPhase("planning",
-        project.StartState(StatePlanning),
-        project.EndState(StatePlanning),
-        project.SupportsTasks(),
+        project.WithStartState(StatePlanning),
+        project.WithEndState(StatePlanning),
+        project.WithTasks(),
     ).
     WithPhase("implementation",
-        project.StartState(StateImplementing),
-        project.EndState(StateImplementing),
-        project.SupportsTasks(),
+        project.WithStartState(StateImplementing),
+        project.WithEndState(StateImplementing),
+        project.WithTasks(),
     ).
     AddTransition(
         StatePlanning,
@@ -245,12 +245,14 @@ builder.AddBranch(StateReview,
         return "rejected"
     }),
     project.When("approved",
-        project.To(StateComplete),
-        project.Event(EventApprove),
+        EventApprove,
+        StateComplete,
+        project.WithProjectDescription("Review approved"),
     ),
     project.When("rejected",
-        project.To(StatePlanning),
-        project.Event(EventReject),
+        EventReject,
+        StatePlanning,
+        project.WithProjectDescription("Review rejected, return to planning"),
     ),
 )
 ```
