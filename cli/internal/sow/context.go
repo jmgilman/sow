@@ -7,15 +7,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jmgilman/go/git"
+	"github.com/jmgilman/sow/libs/git"
 )
 
 // Context provides unified access to sow subsystems: filesystem, git, and GitHub.
 // It is created once per CLI command invocation and passed to all subsystems.
 type Context struct {
 	fs       FS
-	repo     *Git
-	github   *GitHubCLI
+	repo     *git.Git
+	github   git.GitHubClient
 	repoRoot string
 
 	// Worktree support
@@ -36,7 +36,7 @@ func NewContext(repoRoot string) (*Context, error) {
 	}
 
 	// Open git repository
-	gitRepo, err := git.Open(repoRoot)
+	gitRepo, err := git.NewGit(repoRoot)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open git repository: %w", err)
 	}
@@ -102,7 +102,7 @@ func NewContext(repoRoot string) (*Context, error) {
 
 	return &Context{
 		fs:           sowFS, // Will be nil if .sow doesn't exist
-		repo:         &Git{repo: gitRepo},
+		repo:         gitRepo,
 		repoRoot:     repoRoot,
 		isWorktree:   isWorktree,
 		worktreePath: repoRoot, // if worktree, this is the worktree path
@@ -116,14 +116,14 @@ func (c *Context) FS() FS {
 }
 
 // Git returns the Git repository wrapper.
-func (c *Context) Git() *Git {
+func (c *Context) Git() *git.Git {
 	return c.repo
 }
 
 // GitHub returns the GitHub client (lazy-loaded).
-func (c *Context) GitHub() *GitHubCLI {
+func (c *Context) GitHub() git.GitHubClient {
 	if c.github == nil {
-		c.github = &GitHubCLI{}
+		c.github, _ = git.NewGitHubClient()
 	}
 	return c.github
 }

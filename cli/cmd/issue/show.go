@@ -7,8 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/jmgilman/sow/libs/exec"
+	"github.com/jmgilman/sow/libs/git"
 )
 
 func newShowCmd() *cobra.Command {
@@ -31,8 +30,10 @@ Examples:
 			}
 
 			// Create GitHub client
-			ghExec := exec.NewLocalExecutor("gh")
-			gh := sow.NewGitHubCLI(ghExec)
+			gh, err := git.NewGitHubClient()
+			if err != nil {
+				return err
+			}
 
 			issue, err := gh.GetIssue(number)
 			if err != nil {
@@ -48,7 +49,7 @@ Examples:
 }
 
 // printIssueDetails prints detailed issue information.
-func printIssueDetails(cmd *cobra.Command, issue *sow.Issue) {
+func printIssueDetails(cmd *cobra.Command, issue *git.Issue) {
 	out := cmd.OutOrStdout()
 
 	// Header

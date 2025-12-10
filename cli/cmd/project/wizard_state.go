@@ -12,7 +12,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/jmgilman/sow/libs/exec"
+	"github.com/jmgilman/sow/libs/git"
 )
 
 // WizardState represents the current state of the project wizard.
@@ -40,13 +40,13 @@ type Wizard struct {
 	choices     map[string]interface{}
 	claudeFlags []string
 	cmd         *cobra.Command
-	github      sow.GitHubClient // GitHub client for issue operations
+	github      git.GitHubClient // GitHub client for issue operations
 	testMode    bool             //nolint:unused // Will be used by wizard flows for test mode
 }
 
 // NewWizard creates a new wizard instance.
 func NewWizard(cmd *cobra.Command, ctx *sow.Context, claudeFlags []string) *Wizard {
-	ghExec := exec.NewLocalExecutor("gh")
+	gh, _ := git.NewGitHubClient()
 
 	return &Wizard{
 		state:       StateEntry,
@@ -54,7 +54,7 @@ func NewWizard(cmd *cobra.Command, ctx *sow.Context, claudeFlags []string) *Wiza
 		choices:     make(map[string]interface{}),
 		claudeFlags: claudeFlags,
 		cmd:         cmd,
-		github:      sow.NewGitHub(ghExec),
+		github:      gh,
 	}
 }
 
@@ -191,7 +191,7 @@ func (w *Wizard) handleIssueSelect() error {
 	}
 
 	// Fetch issues with 'sow' label using spinner
-	var issues []sow.Issue
+	var issues []git.Issue
 	var fetchErr error
 
 	debugLog("GitHub", "Calling gh issue list --label sow --state open")
@@ -242,8 +242,8 @@ func (w *Wizard) handleGitHubError(err error) error {
 	var fallbackMsg string
 
 	// Determine error type using errors.As for wrapped error support
-	var notInstalled sow.ErrGHNotInstalled
-	var notAuthenticated sow.ErrGHNotAuthenticated
+	var notInstalled git.ErrGHNotInstalled
+	var notAuthenticated git.ErrGHNotAuthenticated
 
 	if errors.As(err, &notInstalled) {
 		errorMsg = "GitHub CLI not found\n\n" +
@@ -280,7 +280,7 @@ func (w *Wizard) handleTypeSelect() error {
 	var selectedType string
 
 	// Check if we have issue context
-	_, hasIssue := w.choices["issue"].(*sow.Issue)
+	_, hasIssue := w.choices["issue"].(*git.Issue)
 
 	// Build form with just type selection
 	form := huh.NewForm(
@@ -480,7 +480,7 @@ func (w *Wizard) handlePromptEntry() error {
 	var contextLines []string
 
 	// Check for issue context (GitHub issue path)
-	if issue, ok := w.choices["issue"].(*sow.Issue); ok {
+	if issue, ok := w.choices["issue"].(*git.Issue); ok {
 		contextLines = append(contextLines,
 			fmt.Sprintf("Issue: #%d - %s", issue.Number, issue.Title))
 	}
@@ -605,7 +605,7 @@ func (w *Wizard) handleProjectSelect() error {
 	}
 
 	// Double-check state file still exists (race condition check)
-	worktreePath := sow.WorktreePath(w.ctx.MainRepoRoot(), selectedBranch)
+	worktreePath := git.WorktreePath(w.ctx.MainRepoRoot(), selectedBranch)
 	statePath := filepath.Join(worktreePath, ".sow", "project", "state.yaml")
 	if _, err := os.Stat(statePath); err != nil {
 		// Project was deleted between discovery and selection
@@ -667,7 +667,7 @@ func (w *Wizard) handleContinuePrompt() error {
 // showIssueSelectScreen displays the issue selection prompt.
 // Issues are retrieved from w.choices["issues"] (set by handleIssueSelect).
 func (w *Wizard) showIssueSelectScreen() error {
-	issues, ok := w.choices["issues"].([]sow.Issue)
+	issues, ok := w.choices["issues"].([]git.Issue)
 	if !ok {
 		return fmt.Errorf("issues not found in choices")
 	}
@@ -744,7 +744,7 @@ func (w *Wizard) showIssueSelectScreen() error {
 
 // createLinkedBranch generates a branch name from the issue and creates a linked branch.
 func (w *Wizard) createLinkedBranch() error {
-	issue, ok := w.choices["issue"].(*sow.Issue)
+	issue, ok := w.choices["issue"].(*git.Issue)
 	if !ok {
 		return fmt.Errorf("issue not found in choices")
 	}
@@ -789,7 +789,7 @@ func (w *Wizard) createLinkedBranch() error {
 
 // handleAlreadyLinkedError displays error when issue has existing linked branch.
 // Returns nil to keep wizard running (user can select different issue).
-func (w *Wizard) handleAlreadyLinkedError(issueNumber int, branch sow.LinkedBranch) error {
+func (w *Wizard) handleAlreadyLinkedError(issueNumber int, branch git.LinkedBranch) error {
 	errorMsg := fmt.Sprintf(
 		"Issue #%d already has a linked branch: %s\n\n"+
 			"To continue working on this issue:\n"+
@@ -842,8 +842,8 @@ func (w *Wizard) finalizeCreation() error {
 	}
 
 	// Extract issue if present (GitHub issue path)
-	var issue *sow.Issue
-	if issueData, ok := w.choices["issue"].(*sow.Issue); ok {
+	var issue *git.Issue
+	if issueData, ok := w.choices["issue"].(*git.Issue); ok {
 		issue = issueData
 	}
 
@@ -861,7 +861,7 @@ func (w *Wizard) finalizeCreation() error {
 
 	// Only check if we're on the branch we're trying to create a worktree for
 	if currentBranch == branch {
-		if err := sow.CheckUncommittedChanges(w.ctx); err != nil {
+		if err := git.CheckUncommittedChanges(w.ctx.Git()); err != nil {
 			return fmt.Errorf("repository has uncommitted changes\n\n"+
 				"You are currently on branch '%s'.\n"+
 				"Creating a worktree requires switching to a different branch first.\n\n"+
@@ -872,8 +872,8 @@ func (w *Wizard) finalizeCreation() error {
 	}
 
 	// Step 2: Ensure worktree exists
-	worktreePath := sow.WorktreePath(w.ctx.RepoRoot(), branch)
-	if err := sow.EnsureWorktree(w.ctx, worktreePath, branch); err != nil {
+	worktreePath := git.WorktreePath(w.ctx.RepoRoot(), branch)
+	if err := git.EnsureWorktree(w.ctx.Git(), w.ctx.RepoRoot(), worktreePath, branch); err != nil {
 		return fmt.Errorf("failed to create worktree: %w", err)
 	}
 
@@ -930,8 +930,8 @@ func (w *Wizard) finalizeContinuation() error {
 	}
 
 	// 2. Ensure worktree exists (idempotent)
-	worktreePath := sow.WorktreePath(w.ctx.MainRepoRoot(), proj.Branch)
-	if err := sow.EnsureWorktree(w.ctx, worktreePath, proj.Branch); err != nil {
+	worktreePath := git.WorktreePath(w.ctx.MainRepoRoot(), proj.Branch)
+	if err := git.EnsureWorktree(w.ctx.Git(), w.ctx.MainRepoRoot(), worktreePath, proj.Branch); err != nil {
 		return fmt.Errorf("failed to ensure worktree: %w", err)
 	}
 

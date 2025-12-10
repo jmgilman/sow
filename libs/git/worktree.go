@@ -1,4 +1,4 @@
-package sow
+package git
 
 import (
 	"context"
@@ -8,9 +8,10 @@ import (
 	"path/filepath"
 )
 
-// WorktreePath returns the path where a worktree for the given branch should be created.
+// WorktreePath returns the path where a worktree for the given branch should be.
 // Preserves forward slashes in branch names to maintain git's branch namespacing.
-// Example: branch "feat/auth" → "<repoRoot>/.sow/worktrees/feat/auth/".
+//
+// Example: branch "feat/auth" produces "<repoRoot>/.sow/worktrees/feat/auth/".
 func WorktreePath(repoRoot, branch string) string {
 	return filepath.Join(repoRoot, ".sow", "worktrees", branch)
 }
@@ -18,7 +19,13 @@ func WorktreePath(repoRoot, branch string) string {
 // EnsureWorktree creates a git worktree at the specified path for the given branch.
 // If the worktree already exists, returns nil (idempotent operation).
 // Creates the branch if it doesn't exist.
-func EnsureWorktree(ctx *Context, path, branch string) error {
+//
+// Parameters:
+//   - g: Git instance for the main repository
+//   - repoRoot: Absolute path to the main repository root
+//   - path: Target path for the worktree
+//   - branch: Branch name to checkout in the worktree
+func EnsureWorktree(g *Git, repoRoot, path, branch string) error {
 	// Check if worktree already exists
 	if _, err := os.Stat(path); err == nil {
 		// Path exists - assume it's a valid worktree
@@ -31,71 +38,74 @@ func EnsureWorktree(ctx *Context, path, branch string) error {
 	}
 
 	// Check current branch in main repo
-	bgCtx := context.Background()
-	currentBranchCmd := exec.CommandContext(bgCtx, "git", "branch", "--show-current")
-	currentBranchCmd.Dir = ctx.RepoRoot()
+	ctx := context.Background()
+	currentBranchCmd := exec.CommandContext(ctx, "git", "branch", "--show-current")
+	currentBranchCmd.Dir = repoRoot
 	currentBranchOutput, err := currentBranchCmd.Output()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 	currentBranch := string(currentBranchOutput)
-	currentBranch = currentBranch[:len(currentBranch)-1] // Remove trailing newline
+	if len(currentBranch) > 0 {
+		currentBranch = currentBranch[:len(currentBranch)-1] // Remove trailing newline
+	}
 
 	// If we're currently on the branch we want to create a worktree for,
 	// switch to a different branch first (git worktree add fails if branch is checked out)
 	if currentBranch == branch {
-		switchCmd := exec.CommandContext(bgCtx, "git", "checkout", "master")
-		switchCmd.Dir = ctx.RepoRoot()
+		switchCmd := exec.CommandContext(ctx, "git", "checkout", "master")
+		switchCmd.Dir = repoRoot
 		if err := switchCmd.Run(); err != nil {
 			// If master doesn't exist, try main
-			switchCmd = exec.CommandContext(bgCtx, "git", "checkout", "main")
-			switchCmd.Dir = ctx.RepoRoot()
+			switchCmd = exec.CommandContext(ctx, "git", "checkout", "main")
+			switchCmd.Dir = repoRoot
 			_ = switchCmd.Run() // Ignore error - we'll fail later if needed
 		}
 	}
 
 	// Check if branch exists using git CLI
-	checkCmd := exec.CommandContext(bgCtx, "git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
-	checkCmd.Dir = ctx.RepoRoot()
+	checkCmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
+	checkCmd.Dir = repoRoot
 	branchExists := checkCmd.Run() == nil
 
-	// If branch doesn't exist, create it using git CLI (so both go-git and git CLI can see it)
+	// If branch doesn't exist, create it from current HEAD
 	if !branchExists {
 		// Get current HEAD
-		repo := ctx.Git().Repository().Underlying()
-		head, err := repo.Head()
+		head, err := g.repo.Underlying().Head()
 		if err != nil {
 			return fmt.Errorf("failed to get HEAD: %w", err)
 		}
 
 		// Create branch using git CLI
-		createBranchCmd := exec.CommandContext(bgCtx, "git", "branch", branch, head.Hash().String())
-		createBranchCmd.Dir = ctx.RepoRoot()
+		createBranchCmd := exec.CommandContext(ctx, "git", "branch", branch, head.Hash().String())
+		createBranchCmd.Dir = repoRoot
 		if output, err := createBranchCmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create branch via git CLI: %w (output: %s)", err, output)
 		}
 	}
 
 	// Create worktree using git CLI (more reliable than go-git for worktrees)
-	addCmd := exec.CommandContext(bgCtx, "git", "worktree", "add", path, branch)
-	addCmd.Dir = ctx.RepoRoot()
+	addCmd := exec.CommandContext(ctx, "git", "worktree", "add", path, branch)
+	addCmd.Dir = repoRoot
 	if output, err := addCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to add worktree: command %v failed with exit code %d: %s", addCmd.Args, addCmd.ProcessState.ExitCode(), string(output))
+		return fmt.Errorf("failed to add worktree: command %v failed: %s", addCmd.Args, string(output))
 	}
 
 	return nil
 }
 
-// CheckUncommittedChanges verifies the main repository has no uncommitted changes.
+// CheckUncommittedChanges verifies the repository has no uncommitted changes.
 // Returns an error if uncommitted changes exist.
+// Untracked files are allowed (they don't block worktree creation).
+//
 // Can be skipped in test environments by setting SOW_SKIP_UNCOMMITTED_CHECK=1.
-func CheckUncommittedChanges(ctx *Context) error {
+func CheckUncommittedChanges(g *Git) error {
 	// Allow tests to skip this check if needed (for testscript compatibility)
 	if os.Getenv("SOW_SKIP_UNCOMMITTED_CHECK") == "1" {
 		return nil
 	}
 
-	worktree, err := ctx.Git().Repository().Underlying().Worktree()
+	worktree, err := g.repo.Underlying().Worktree()
 	if err != nil {
 		return fmt.Errorf("failed to get worktree: %w", err)
 	}

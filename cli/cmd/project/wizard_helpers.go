@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/git"
 )
 
 // debugLog prints debug messages to stderr when SOW_DEBUG=1 is set.
@@ -388,7 +389,7 @@ func performUncommittedChangesCheckIfNeeded(ctx *sow.Context, targetBranch strin
 	}
 
 	// Use existing validation
-	if err := sow.CheckUncommittedChanges(ctx); err != nil {
+	if err := git.CheckUncommittedChanges(ctx.Git()); err != nil {
 		// Enhance with user-friendly message
 		return fmt.Errorf(
 			"repository has uncommitted changes\n\n"+
@@ -434,7 +435,7 @@ func checkBranchState(ctx *sow.Context, branchName string) (*BranchState, error)
 	}
 
 	// Check if worktree exists
-	worktreePath := sow.WorktreePath(ctx.RepoRoot(), branchName)
+	worktreePath := git.WorktreePath(ctx.RepoRoot(), branchName)
 	if _, err := os.Stat(worktreePath); err == nil {
 		state.WorktreeExists = true
 
@@ -884,7 +885,7 @@ func wrapValidationError(err error, context string) error {
 //
 // Returns formatted error string ready for display.
 func formatGitHubError(err error) string {
-	var ghErr sow.ErrGHCommand
+	var ghErr git.ErrGHCommand
 	if !errors.As(err, &ghErr) {
 		// Not a GitHub command error, return generic message
 		return fmt.Sprintf("GitHub operation failed: %v", err)
@@ -937,7 +938,7 @@ func formatGitHubError(err error) string {
 // Returns:
 //   - nil if no linked branches (OK to create)
 //   - formatted error if linked branch exists
-func checkIssueLinkedBranch(github sow.GitHubClient, issueNumber int) error {
+func checkIssueLinkedBranch(github git.GitHubClient, issueNumber int) error {
 	branches, err := github.GetLinkedBranches(issueNumber)
 	if err != nil {
 		// Format the GitHub error for user display
@@ -959,8 +960,8 @@ func checkIssueLinkedBranch(github sow.GitHubClient, issueNumber int) error {
 //
 // Returns:
 //   - Slice of issues that have the 'sow' label
-func filterIssuesBySowLabel(issues []sow.Issue) []sow.Issue {
-	var filtered []sow.Issue
+func filterIssuesBySowLabel(issues []git.Issue) []git.Issue {
+	var filtered []git.Issue
 
 	for _, issue := range issues {
 		if issue.HasLabel("sow") {

@@ -14,6 +14,7 @@ require (
 	github.com/jmgilman/go/git v0.4.0
 	github.com/jmgilman/sow/libs/config v0.0.0
 	github.com/jmgilman/sow/libs/exec v0.0.0
+	github.com/jmgilman/sow/libs/git v0.0.0
 	github.com/jmgilman/sow/libs/schemas v0.0.0
 	github.com/qmuntal/stateless v1.7.2
 	github.com/rogpeppe/go-internal v1.14.1
@@ -90,5 +91,7 @@ require (
 replace github.com/jmgilman/sow/libs/config => ../libs/config
 
 replace github.com/jmgilman/sow/libs/exec => ../libs/exec
+
+replace github.com/jmgilman/sow/libs/git => ../libs/git
 
 replace github.com/jmgilman/sow/libs/schemas => ../libs/schemas

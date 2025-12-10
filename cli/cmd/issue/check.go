@@ -6,8 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/jmgilman/sow/libs/exec"
+	"github.com/jmgilman/sow/libs/git"
 )
 
 func newCheckCmd() *cobra.Command {
@@ -30,8 +29,10 @@ Examples:
 			}
 
 			// Create GitHub client
-			ghExec := exec.NewLocalExecutor("gh")
-			gh := sow.NewGitHubCLI(ghExec)
+			gh, err := git.NewGitHubClient()
+			if err != nil {
+				return err
+			}
 
 			// Get issue details
 			issue, err := gh.GetIssue(number)
@@ -59,7 +60,7 @@ Examples:
 }
 
 // printCheckStatus prints the issue check status.
-func printCheckStatus(cmd *cobra.Command, issue *sow.Issue, branches []sow.LinkedBranch) {
+func printCheckStatus(cmd *cobra.Command, issue *git.Issue, branches []git.LinkedBranch) {
 	out := cmd.OutOrStdout()
 
 	_, _ = fmt.Fprintf(out, "Issue #%d: %s\n", issue.Number, issue.Title)

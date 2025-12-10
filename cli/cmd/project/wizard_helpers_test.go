@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/git"
+	"github.com/jmgilman/sow/libs/git/mocks"
 )
 
 // TestNormalizeName tests the normalizeName function with various inputs.
@@ -2147,7 +2149,7 @@ func TestFormatGitHubError_RateLimit(t *testing.T) {
 	}{
 		{
 			name: "rate limit error",
-			err: sow.ErrGHCommand{
+			err: git.ErrGHCommand{
 				Command: "issue list",
 				Stderr:  "API rate limit exceeded for user",
 				Err:     errors.New("exit code 1"),
@@ -2157,7 +2159,7 @@ func TestFormatGitHubError_RateLimit(t *testing.T) {
 		},
 		{
 			name: "case insensitive matching",
-			err: sow.ErrGHCommand{
+			err: git.ErrGHCommand{
 				Command: "test",
 				Stderr:  "RATE LIMIT exceeded",
 				Err:     errors.New("exit code 1"),
@@ -2178,7 +2180,7 @@ func TestFormatGitHubError_Network(t *testing.T) {
 	}{
 		{
 			name: "network error - connection",
-			err: sow.ErrGHCommand{
+			err: git.ErrGHCommand{
 				Command: "issue view",
 				Stderr:  "dial tcp: connection refused",
 				Err:     errors.New("exit code 1"),
@@ -2188,7 +2190,7 @@ func TestFormatGitHubError_Network(t *testing.T) {
 		},
 		{
 			name: "network error - timeout",
-			err: sow.ErrGHCommand{
+			err: git.ErrGHCommand{
 				Command: "issue view",
 				Stderr:  "request timeout",
 				Err:     errors.New("exit code 1"),
@@ -2198,7 +2200,7 @@ func TestFormatGitHubError_Network(t *testing.T) {
 		},
 		{
 			name: "network error - unreachable",
-			err: sow.ErrGHCommand{
+			err: git.ErrGHCommand{
 				Command: "issue view",
 				Stderr:  "host unreachable",
 				Err:     errors.New("exit code 1"),
@@ -2220,7 +2222,7 @@ func TestFormatGitHubError_NotFound(t *testing.T) {
 	}{
 		{
 			name: "not found error",
-			err: sow.ErrGHCommand{
+			err: git.ErrGHCommand{
 				Command: "issue view 999",
 				Stderr:  "issue not found",
 				Err:     errors.New("exit code 1"),
@@ -2230,7 +2232,7 @@ func TestFormatGitHubError_NotFound(t *testing.T) {
 		},
 		{
 			name: "not found error - does not exist",
-			err: sow.ErrGHCommand{
+			err: git.ErrGHCommand{
 				Command: "repo view",
 				Stderr:  "repository does not exist",
 				Err:     errors.New("exit code 1"),
@@ -2252,7 +2254,7 @@ func TestFormatGitHubError_Permission(t *testing.T) {
 	}{
 		{
 			name: "permission denied error",
-			err: sow.ErrGHCommand{
+			err: git.ErrGHCommand{
 				Command: "issue create",
 				Stderr:  "permission denied",
 				Err:     errors.New("exit code 1"),
@@ -2262,7 +2264,7 @@ func TestFormatGitHubError_Permission(t *testing.T) {
 		},
 		{
 			name: "permission denied - forbidden",
-			err: sow.ErrGHCommand{
+			err: git.ErrGHCommand{
 				Command: "issue create",
 				Stderr:  "403 Forbidden",
 				Err:     errors.New("exit code 1"),
@@ -2272,7 +2274,7 @@ func TestFormatGitHubError_Permission(t *testing.T) {
 		},
 		{
 			name: "permission denied - not authorized",
-			err: sow.ErrGHCommand{
+			err: git.ErrGHCommand{
 				Command: "issue create",
 				Stderr:  "not authorized to access",
 				Err:     errors.New("exit code 1"),
@@ -2294,7 +2296,7 @@ func TestFormatGitHubError_Other(t *testing.T) {
 	}{
 		{
 			name: "unknown error",
-			err: sow.ErrGHCommand{
+			err: git.ErrGHCommand{
 				Command: "some command",
 				Stderr:  "some unexpected error",
 				Err:     errors.New("exit code 1"),
@@ -2342,7 +2344,7 @@ func runFormatGitHubErrorTests(t *testing.T, tests []struct {
 func TestCheckIssueLinkedBranch(t *testing.T) {
 	tests := []struct {
 		name          string
-		branches      []sow.LinkedBranch
+		branches      []git.LinkedBranch
 		branchesErr   error
 		wantErr       bool
 		errContains   string
@@ -2350,12 +2352,12 @@ func TestCheckIssueLinkedBranch(t *testing.T) {
 	}{
 		{
 			name:     "no linked branches - OK",
-			branches: []sow.LinkedBranch{},
+			branches: []git.LinkedBranch{},
 			wantErr:  false,
 		},
 		{
 			name: "one linked branch - error",
-			branches: []sow.LinkedBranch{
+			branches: []git.LinkedBranch{
 				{Name: "feat/auth", URL: "https://github.com/test/repo/tree/feat/auth"},
 			},
 			wantErr:     true,
@@ -2363,7 +2365,7 @@ func TestCheckIssueLinkedBranch(t *testing.T) {
 		},
 		{
 			name: "multiple linked branches - error with first",
-			branches: []sow.LinkedBranch{
+			branches: []git.LinkedBranch{
 				{Name: "feat/first-branch", URL: "https://github.com/test/repo/tree/feat/first-branch"},
 				{Name: "feat/second-branch", URL: "https://github.com/test/repo/tree/feat/second-branch"},
 			},
@@ -2373,13 +2375,13 @@ func TestCheckIssueLinkedBranch(t *testing.T) {
 		},
 		{
 			name:        "GetLinkedBranches error",
-			branchesErr: sow.ErrGHCommand{Command: "issue develop --list", Stderr: "some error"},
+			branchesErr: git.ErrGHCommand{Command: "issue develop --list", Stderr: "some error"},
 			wantErr:     true,
 			errContains: "GitHub command failed",
 		},
 		{
 			name:        "GetLinkedBranches network error",
-			branchesErr: sow.ErrGHCommand{Command: "issue develop --list", Stderr: "network timeout"},
+			branchesErr: git.ErrGHCommand{Command: "issue develop --list", Stderr: "network timeout"},
 			wantErr:     true,
 			errContains: "Cannot reach GitHub",
 		},
@@ -2387,8 +2389,8 @@ func TestCheckIssueLinkedBranch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := &sow.MockGitHub{
-				GetLinkedBranchesFunc: func(_ int) ([]sow.LinkedBranch, error) {
+			mock := &mocks.GitHubClientMock{
+				GetLinkedBranchesFunc: func(_ int) ([]git.LinkedBranch, error) {
 					return tt.branches, tt.branchesErr
 				},
 			}
@@ -2420,77 +2422,53 @@ func TestCheckIssueLinkedBranch(t *testing.T) {
 func TestFilterIssuesBySowLabel(t *testing.T) {
 	tests := []struct {
 		name     string
-		issues   []sow.Issue
+		issues   []git.Issue
 		expected int
 	}{
 		{
 			name:     "empty input",
-			issues:   []sow.Issue{},
+			issues:   []git.Issue{},
 			expected: 0,
 		},
 		{
 			name: "all issues have sow label",
-			issues: []sow.Issue{
-				{Number: 1, Title: "Issue 1", Labels: []struct {
-					Name string `json:"name"`
-				}{{Name: "sow"}}},
-				{Number: 2, Title: "Issue 2", Labels: []struct {
-					Name string `json:"name"`
-				}{{Name: "sow"}}},
+			issues: []git.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []git.Label{{Name: "sow"}}},
+				{Number: 2, Title: "Issue 2", Labels: []git.Label{{Name: "sow"}}},
 			},
 			expected: 2,
 		},
 		{
 			name: "no issues have sow label",
-			issues: []sow.Issue{
-				{Number: 1, Title: "Issue 1", Labels: []struct {
-					Name string `json:"name"`
-				}{{Name: "bug"}}},
-				{Number: 2, Title: "Issue 2", Labels: []struct {
-					Name string `json:"name"`
-				}{{Name: "feature"}}},
+			issues: []git.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []git.Label{{Name: "bug"}}},
+				{Number: 2, Title: "Issue 2", Labels: []git.Label{{Name: "feature"}}},
 			},
 			expected: 0,
 		},
 		{
 			name: "mixed labels",
-			issues: []sow.Issue{
-				{Number: 1, Title: "Issue 1", Labels: []struct {
-					Name string `json:"name"`
-				}{{Name: "sow"}}},
-				{Number: 2, Title: "Issue 2", Labels: []struct {
-					Name string `json:"name"`
-				}{{Name: "bug"}}},
-				{Number: 3, Title: "Issue 3", Labels: []struct {
-					Name string `json:"name"`
-				}{{Name: "sow"}, {Name: "feature"}}},
+			issues: []git.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []git.Label{{Name: "sow"}}},
+				{Number: 2, Title: "Issue 2", Labels: []git.Label{{Name: "bug"}}},
+				{Number: 3, Title: "Issue 3", Labels: []git.Label{{Name: "sow"}, {Name: "feature"}}},
 			},
 			expected: 2,
 		},
 		{
 			name: "issues with no labels",
-			issues: []sow.Issue{
-				{Number: 1, Title: "Issue 1", Labels: []struct {
-					Name string `json:"name"`
-				}{}},
-				{Number: 2, Title: "Issue 2", Labels: []struct {
-					Name string `json:"name"`
-				}{{Name: "sow"}}},
+			issues: []git.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []git.Label{}},
+				{Number: 2, Title: "Issue 2", Labels: []git.Label{{Name: "sow"}}},
 			},
 			expected: 1,
 		},
 		{
 			name: "case sensitive matching",
-			issues: []sow.Issue{
-				{Number: 1, Title: "Issue 1", Labels: []struct {
-					Name string `json:"name"`
-				}{{Name: "sow"}}},
-				{Number: 2, Title: "Issue 2", Labels: []struct {
-					Name string `json:"name"`
-				}{{Name: "SOW"}}},
-				{Number: 3, Title: "Issue 3", Labels: []struct {
-					Name string `json:"name"`
-				}{{Name: "Sow"}}},
+			issues: []git.Issue{
+				{Number: 1, Title: "Issue 1", Labels: []git.Label{{Name: "sow"}}},
+				{Number: 2, Title: "Issue 2", Labels: []git.Label{{Name: "SOW"}}},
+				{Number: 3, Title: "Issue 3", Labels: []git.Label{{Name: "Sow"}}},
 			},
 			expected: 1, // Only exact match "sow"
 		},
