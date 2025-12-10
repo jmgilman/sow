@@ -1,21 +1,26 @@
-package sow
+package config
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/jmgilman/go/fs/core"
 	"github.com/jmgilman/sow/libs/schemas"
 	"gopkg.in/yaml.v3"
 )
 
-// DefaultExecutorName is the default executor name for all agent bindings.
-const DefaultExecutorName = "claude-code"
+// ValidExecutorTypes defines the allowed executor types.
+var ValidExecutorTypes = map[string]bool{
+	"claude":   true,
+	"cursor":   true,
+	"windsurf": true,
+}
 
 // GetUserConfigPath returns the path to the user configuration file.
-// Uses XDG-style paths for consistency:
+// Uses XDG-style paths:
 //   - Linux/Mac: ~/.config/sow/config.yaml (or $XDG_CONFIG_HOME/sow/config.yaml)
-//   - Windows: %APPDATA%\sow\config.yaml.
+//   - Windows: %APPDATA%\sow\config.yaml
 func GetUserConfigPath() (string, error) {
 	// Check for XDG_CONFIG_HOME first (works on all platforms)
 	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
@@ -26,7 +31,7 @@ func GetUserConfigPath() (string, error) {
 	if os.PathSeparator == '\\' {
 		configDir, err := os.UserConfigDir()
 		if err != nil {
-			return "", fmt.Errorf("failed to get user config directory: %w", err)
+			return "", fmt.Errorf("get user config dir: %w", err)
 		}
 		return filepath.Join(configDir, "sow", "config.yaml"), nil
 	}
@@ -34,32 +39,34 @@ func GetUserConfigPath() (string, error) {
 	// On Unix-like systems (Linux, macOS), use ~/.config/
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
+		return "", fmt.Errorf("get home directory: %w", err)
 	}
 	return filepath.Join(home, ".config", "sow", "config.yaml"), nil
 }
 
 // LoadUserConfig loads the user configuration from the standard location.
+// It accepts a core.FS filesystem for file operations.
 // Returns default configuration if file doesn't exist (zero-config experience).
 // Returns error only for actual failures (parse errors, permission issues).
-func LoadUserConfig() (*schemas.UserConfig, error) {
+func LoadUserConfig(fsys core.FS) (*schemas.UserConfig, error) {
 	path, err := GetUserConfigPath()
 	if err != nil {
 		// If we can't determine the path, return defaults
 		return getDefaultUserConfig(), nil
 	}
-	return LoadUserConfigFromPath(path)
+	return LoadUserConfigFromPath(fsys, path)
 }
 
 // LoadUserConfigFromPath loads user configuration from a specific path.
-// This is used internally and for testing.
+// It accepts a core.FS filesystem for file operations.
+// This is useful for testing and for loading configs from non-standard locations.
 // The full loading pipeline is:
-// 1. Read and parse YAML
-// 2. Validate (before applying defaults)
-// 3. Apply defaults for missing values
-// 4. Apply environment overrides (highest priority).
-func LoadUserConfigFromPath(path string) (*schemas.UserConfig, error) {
-	data, err := os.ReadFile(path)
+//  1. Read and parse YAML
+//  2. Validate (before applying defaults)
+//  3. Apply defaults for missing values
+//  4. Apply environment overrides (highest priority).
+func LoadUserConfigFromPath(fsys core.FS, path string) (*schemas.UserConfig, error) {
+	data, err := fsys.ReadFile(path)
 	if os.IsNotExist(err) {
 		// Config doesn't exist, return defaults with env overrides
 		config := getDefaultUserConfig()
@@ -67,7 +74,7 @@ func LoadUserConfigFromPath(path string) (*schemas.UserConfig, error) {
 		return config, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config %s: %w", path, err)
+		return nil, fmt.Errorf("read config %s: %w", path, err)
 	}
 
 	// Handle empty file
@@ -81,12 +88,12 @@ func LoadUserConfigFromPath(path string) (*schemas.UserConfig, error) {
 	// Parse YAML
 	var config schemas.UserConfig
 	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse config %s: %w", path, err)
+		return nil, fmt.Errorf("parse config %s: %w", path, ErrInvalidYAML)
 	}
 
 	// Validate before applying defaults
 	if err := ValidateUserConfig(&config); err != nil {
-		return nil, fmt.Errorf("invalid config %s: %w", path, err)
+		return nil, fmt.Errorf("validate config %s: %w", path, err)
 	}
 
 	// Apply defaults for missing values
@@ -98,8 +105,82 @@ func LoadUserConfigFromPath(path string) (*schemas.UserConfig, error) {
 	return &config, nil
 }
 
+// ValidateUserConfig validates the user configuration.
+// Checks:
+//   - Executor types are valid ("claude", "cursor", "windsurf")
+//   - Bindings reference defined executors (or default "claude-code")
+//
+// Returns nil if valid, error with details if invalid.
+func ValidateUserConfig(config *schemas.UserConfig) error {
+	if config == nil || config.Agents == nil {
+		return nil
+	}
+
+	// Validate executor types
+	for name, exec := range config.Agents.Executors {
+		if !ValidExecutorTypes[exec.Type] {
+			return fmt.Errorf(
+				"unknown executor type %q for executor %q: %w",
+				exec.Type, name, ErrInvalidConfig,
+			)
+		}
+	}
+
+	// Validate bindings reference defined executors
+	if config.Agents.Bindings != nil {
+		if err := validateBindings(config); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateBindings checks that all bindings reference defined executors.
+func validateBindings(config *schemas.UserConfig) error {
+	bindings := map[string]*string{
+		"orchestrator": config.Agents.Bindings.Orchestrator,
+		"implementer":  config.Agents.Bindings.Implementer,
+		"architect":    config.Agents.Bindings.Architect,
+		"reviewer":     config.Agents.Bindings.Reviewer,
+		"planner":      config.Agents.Bindings.Planner,
+		"researcher":   config.Agents.Bindings.Researcher,
+		"decomposer":   config.Agents.Bindings.Decomposer,
+	}
+
+	for agentRole, executorPtr := range bindings {
+		if executorPtr == nil {
+			continue // Nil bindings are ok, will get defaults
+		}
+		executorName := *executorPtr
+
+		// "claude-code" is always valid (implicit default executor)
+		if executorName == DefaultExecutorName {
+			continue
+		}
+
+		// Check if executor is defined
+		if config.Agents.Executors == nil {
+			return fmt.Errorf(
+				"binding %q references undefined executor %q: %w",
+				agentRole, executorName, ErrInvalidConfig,
+			)
+		}
+		if _, ok := config.Agents.Executors[executorName]; !ok {
+			return fmt.Errorf(
+				"binding %q references undefined executor %q: %w",
+				agentRole, executorName, ErrInvalidConfig,
+			)
+		}
+	}
+
+	return nil
+}
+
 // getDefaultUserConfig returns a UserConfig with all default values.
 // Default: All agents use claude-code executor with safe settings.
+//
+//nolint:revive // Field names must match generated schemas.UserConfig structure
 func getDefaultUserConfig() *schemas.UserConfig {
 	yoloMode := false
 	claudeCode := DefaultExecutorName
@@ -165,6 +246,8 @@ func getDefaultUserConfig() *schemas.UserConfig {
 
 // applyUserConfigDefaults fills in missing configuration values with defaults.
 // This allows partial configuration - user only specifies what they want to change.
+//
+//nolint:revive // Field names must match generated schemas.UserConfig structure
 func applyUserConfigDefaults(config *schemas.UserConfig) {
 	claudeCode := DefaultExecutorName
 	yoloMode := false
@@ -238,94 +321,50 @@ func applyUserConfigDefaults(config *schemas.UserConfig) {
 	}
 
 	// Apply defaults for each nil binding
-	if config.Agents.Bindings.Orchestrator == nil {
-		config.Agents.Bindings.Orchestrator = &claudeCode
-	}
-	if config.Agents.Bindings.Implementer == nil {
-		config.Agents.Bindings.Implementer = &claudeCode
-	}
-	if config.Agents.Bindings.Architect == nil {
-		config.Agents.Bindings.Architect = &claudeCode
-	}
-	if config.Agents.Bindings.Reviewer == nil {
-		config.Agents.Bindings.Reviewer = &claudeCode
-	}
-	if config.Agents.Bindings.Planner == nil {
-		config.Agents.Bindings.Planner = &claudeCode
-	}
-	if config.Agents.Bindings.Researcher == nil {
-		config.Agents.Bindings.Researcher = &claudeCode
-	}
-	if config.Agents.Bindings.Decomposer == nil {
-		config.Agents.Bindings.Decomposer = &claudeCode
-	}
+	applyBindingDefaults(config.Agents.Bindings, claudeCode)
 }
 
-// ValidExecutorTypes defines the allowed executor types.
-var ValidExecutorTypes = map[string]bool{
-	"claude":   true,
-	"cursor":   true,
-	"windsurf": true,
-}
-
-// ValidateUserConfig validates the user configuration.
-// Checks:
-// - Executor types are valid ("claude", "cursor", "windsurf")
-// - Bindings reference defined executors (or default "claude-code")
-// Returns nil if valid, error with details if invalid.
-func ValidateUserConfig(config *schemas.UserConfig) error {
-	if config == nil || config.Agents == nil {
-		return nil
+// applyBindingDefaults fills in nil binding fields with the default executor.
+//
+//nolint:revive // Field names must match generated schemas.UserConfig structure
+func applyBindingDefaults(bindings *struct {
+	Orchestrator *string `json:"orchestrator,omitempty"`
+	Implementer  *string `json:"implementer,omitempty"`
+	Architect    *string `json:"architect,omitempty"`
+	Reviewer     *string `json:"reviewer,omitempty"`
+	Planner      *string `json:"planner,omitempty"`
+	Researcher   *string `json:"researcher,omitempty"`
+	Decomposer   *string `json:"decomposer,omitempty"`
+}, defaultExec string) {
+	if bindings.Orchestrator == nil {
+		bindings.Orchestrator = &defaultExec
 	}
-
-	// Validate executor types
-	for name, exec := range config.Agents.Executors {
-		if !ValidExecutorTypes[exec.Type] {
-			return fmt.Errorf("unknown executor type %q for executor %q; must be one of: claude, cursor, windsurf", exec.Type, name)
-		}
+	if bindings.Implementer == nil {
+		bindings.Implementer = &defaultExec
 	}
-
-	// Validate bindings reference defined executors
-	if config.Agents.Bindings != nil {
-		// Collect all bindings in a map for iteration
-		bindings := map[string]*string{
-			"orchestrator": config.Agents.Bindings.Orchestrator,
-			"implementer":  config.Agents.Bindings.Implementer,
-			"architect":    config.Agents.Bindings.Architect,
-			"reviewer":     config.Agents.Bindings.Reviewer,
-			"planner":      config.Agents.Bindings.Planner,
-			"researcher":   config.Agents.Bindings.Researcher,
-			"decomposer":   config.Agents.Bindings.Decomposer,
-		}
-
-		for agentRole, executorPtr := range bindings {
-			if executorPtr == nil {
-				continue // Nil bindings are ok, will get defaults
-			}
-			executorName := *executorPtr
-
-			// "claude-code" is always valid (implicit default executor)
-			if executorName == DefaultExecutorName {
-				continue
-			}
-
-			// Check if executor is defined
-			if config.Agents.Executors == nil {
-				return fmt.Errorf("binding %q references undefined executor %q", agentRole, executorName)
-			}
-			if _, ok := config.Agents.Executors[executorName]; !ok {
-				return fmt.Errorf("binding %q references undefined executor %q", agentRole, executorName)
-			}
-		}
+	if bindings.Architect == nil {
+		bindings.Architect = &defaultExec
 	}
-
-	return nil
+	if bindings.Reviewer == nil {
+		bindings.Reviewer = &defaultExec
+	}
+	if bindings.Planner == nil {
+		bindings.Planner = &defaultExec
+	}
+	if bindings.Researcher == nil {
+		bindings.Researcher = &defaultExec
+	}
+	if bindings.Decomposer == nil {
+		bindings.Decomposer = &defaultExec
+	}
 }
 
 // applyEnvOverrides applies environment variable overrides to the configuration.
 // Environment variables take precedence over file configuration.
 // Format: SOW_AGENTS_{ROLE}={executor_name}
 // Example: SOW_AGENTS_IMPLEMENTER=cursor.
+//
+//nolint:revive // Field names must match generated schemas.UserConfig structure
 func applyEnvOverrides(config *schemas.UserConfig) {
 	// Ensure config.Agents exists
 	if config.Agents == nil {

@@ -5,7 +5,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/config"
 	"github.com/jmgilman/sow/libs/schemas"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -27,7 +27,7 @@ Checks performed:
 }
 
 func runValidate(cmd *cobra.Command, _ []string) error {
-	path, err := sow.GetUserConfigPath()
+	path, err := config.GetUserConfigPath()
 	if err != nil {
 		return fmt.Errorf("failed to get config path: %w", err)
 	}
@@ -68,14 +68,14 @@ func runValidateWithPath(cmd *cobra.Command, path string) error {
 	cmd.Println("OK YAML syntax valid")
 
 	// Parse into config struct
-	var config schemas.UserConfig
-	if err := yaml.Unmarshal(data, &config); err != nil {
+	var cfg schemas.UserConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		cmd.Printf("X Failed to parse config: %v\n", err)
 		return fmt.Errorf("validation failed")
 	}
 
 	// Validate schema/semantics
-	if err := sow.ValidateUserConfig(&config); err != nil {
+	if err := config.ValidateUserConfig(&cfg); err != nil {
 		cmd.Printf("X Validation error: %v\n", err)
 		return fmt.Errorf("validation failed")
 	}
@@ -84,7 +84,7 @@ func runValidateWithPath(cmd *cobra.Command, path string) error {
 	cmd.Println("OK Bindings reference defined executors")
 
 	// Check executor binaries (warnings only)
-	warnings := checkExecutorBinariesFromConfig(&config)
+	warnings := checkExecutorBinariesFromConfig(&cfg)
 	for _, w := range warnings {
 		cmd.Printf("WARN Warning: %s\n", w)
 	}

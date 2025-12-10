@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/config"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +32,7 @@ Use --exists to check if the file exists (for scripting).`,
 }
 
 func runPath(cmd *cobra.Command, checkExists bool) error {
-	path, err := sow.GetUserConfigPath()
+	path, err := config.GetUserConfigPath()
 	if err != nil {
 		return fmt.Errorf("failed to get config path: %w", err)
 	}

@@ -5,7 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/go/fs/billy"
+	"github.com/jmgilman/sow/libs/config"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -25,7 +26,7 @@ The output shows what configuration is actually being used.`,
 }
 
 func runShow(cmd *cobra.Command, _ []string) error {
-	path, err := sow.GetUserConfigPath()
+	path, err := config.GetUserConfigPath()
 	if err != nil {
 		return fmt.Errorf("failed to get config path: %w", err)
 	}
@@ -34,8 +35,11 @@ func runShow(cmd *cobra.Command, _ []string) error {
 
 // runShowWithPath is a helper that allows testing with custom paths.
 func runShowWithPath(cmd *cobra.Command, path string) error {
+	// Create a local filesystem for config loading
+	fsys := billy.NewLocal()
+
 	// Load effective config using the internal loader for path-specific loading
-	config, err := sow.LoadUserConfigFromPath(path)
+	cfg, err := config.LoadUserConfigFromPath(fsys, path)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -60,7 +64,7 @@ func runShowWithPath(cmd *cobra.Command, path string) error {
 	cmd.Println()
 
 	// Output as YAML
-	output, err := yaml.Marshal(config)
+	output, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}

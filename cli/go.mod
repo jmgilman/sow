@@ -12,6 +12,7 @@ require (
 	github.com/jmgilman/go/fs/billy v0.1.1
 	github.com/jmgilman/go/fs/core v0.2.0
 	github.com/jmgilman/go/git v0.4.0
+	github.com/jmgilman/sow/libs/config v0.0.0
 	github.com/jmgilman/sow/libs/exec v0.0.0
 	github.com/jmgilman/sow/libs/schemas v0.0.0
 	github.com/qmuntal/stateless v1.7.2
@@ -85,6 +86,8 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
+
+replace github.com/jmgilman/sow/libs/config => ../libs/config
 
 replace github.com/jmgilman/sow/libs/exec => ../libs/exec
 

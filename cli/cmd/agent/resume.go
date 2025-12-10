@@ -8,7 +8,7 @@ import (
 	"github.com/jmgilman/sow/cli/internal/agents"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/config"
 	"github.com/spf13/cobra"
 )
 
@@ -103,7 +103,7 @@ func runResume(cmd *cobra.Command, args []string, explicitPhase, agentFlag strin
 	}
 
 	// Load user config for executor settings
-	userConfig, err := sow.LoadUserConfig()
+	userConfig, err := config.LoadUserConfig(ctx.FS())
 	if err != nil {
 		return fmt.Errorf("failed to load user config: %w", err)
 	}
