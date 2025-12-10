@@ -10,6 +10,8 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/git"
+	"github.com/jmgilman/sow/libs/git/mocks"
 )
 
 // TestMain sets up test environment for all tests in this package.
@@ -41,7 +43,7 @@ func TestCompleteGitHubIssueWorkflow(t *testing.T) {
 	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "add", ".").Run()
 	_ = exec.CommandContext(context.Background(), "git", "-C", tmpDir, "commit", "-m", "initial commit").Run()
 
-	mockIssue := sow.Issue{
+	mockIssue := git.Issue{
 		Number: 123,
 		Title:  "Add JWT authentication",
 		Body:   "Implement JWT-based auth",
@@ -49,23 +51,23 @@ func TestCompleteGitHubIssueWorkflow(t *testing.T) {
 		URL:    "https://github.com/test/repo/issues/123",
 	}
 
-	mockIssues := []sow.Issue{mockIssue}
+	mockIssues := []git.Issue{mockIssue}
 
 	wizard := &Wizard{
 		state:   StateCreateSource,
 		ctx:     ctx,
 		choices: make(map[string]interface{}),
-		github: &sow.MockGitHub{
+		github: &mocks.GitHubClientMock{
 			CheckAvailabilityFunc: func() error {
 				return nil
 			},
-			ListIssuesFunc: func(_, _ string) ([]sow.Issue, error) {
+			ListIssuesFunc: func(_, _ string) ([]git.Issue, error) {
 				return mockIssues, nil
 			},
-			GetLinkedBranchesFunc: func(_ int) ([]sow.LinkedBranch, error) {
-				return []sow.LinkedBranch{}, nil // No linked branches
+			GetLinkedBranchesFunc: func(_ int) ([]git.LinkedBranch, error) {
+				return []git.LinkedBranch{}, nil // No linked branches
 			},
-			GetIssueFunc: func(_ int) (*sow.Issue, error) {
+			GetIssueFunc: func(_ int) (*git.Issue, error) {
 				return &mockIssue, nil
 			},
 			CreateLinkedBranchFunc: func(_ int, _ string, _ bool) (string, error) {
@@ -154,7 +156,7 @@ func TestCompleteGitHubIssueWorkflow(t *testing.T) {
 	t.Log("✓ Initialized project with issue metadata")
 
 	// === VERIFICATION: Check project structure ===
-	worktreePath := sow.WorktreePath(tmpDir, createdBranch)
+	worktreePath := git.WorktreePath(tmpDir, createdBranch)
 	issueFilePath := filepath.Join(worktreePath, ".sow", "project", "context", "issue-123.md")
 
 	if _, err := os.Stat(issueFilePath); os.IsNotExist(err) {
@@ -296,7 +298,7 @@ func TestBranchNamePathStillWorks(t *testing.T) {
 		state:   StateComplete,
 		ctx:     ctx,
 		choices: make(map[string]interface{}),
-		github:  &sow.MockGitHub{}, // Mock but unused
+		github:  &mocks.GitHubClientMock{}, // Mock but unused
 		cmd:     nil,
 	}
 
@@ -313,7 +315,7 @@ func TestBranchNamePathStillWorks(t *testing.T) {
 	}
 
 	// Verify project created WITHOUT issue metadata
-	worktreePath := sow.WorktreePath(tmpDir, "feat/test-project")
+	worktreePath := git.WorktreePath(tmpDir, "feat/test-project")
 	contextDir := filepath.Join(worktreePath, ".sow", "project", "context")
 
 	entries, err := os.ReadDir(contextDir)
@@ -352,7 +354,7 @@ func TestFileSelection_WithKnowledgeFiles(t *testing.T) {
 		state:   StateFileSelect,
 		ctx:     ctx,
 		choices: make(map[string]interface{}),
-		github:  &sow.MockGitHub{},
+		github:  &mocks.GitHubClientMock{},
 		cmd:     nil,
 	}
 
@@ -386,7 +388,7 @@ func TestFileSelection_EmptyDirectory(t *testing.T) {
 		state:   StateFileSelect,
 		ctx:     ctx,
 		choices: make(map[string]interface{}),
-		github:  &sow.MockGitHub{},
+		github:  &mocks.GitHubClientMock{},
 		cmd:     nil,
 	}
 
@@ -410,7 +412,7 @@ func TestFileSelection_NonExistentDirectory(t *testing.T) {
 		state:   StateFileSelect,
 		ctx:     ctx,
 		choices: make(map[string]interface{}),
-		github:  &sow.MockGitHub{},
+		github:  &mocks.GitHubClientMock{},
 		cmd:     nil,
 	}
 
@@ -462,7 +464,7 @@ func TestHandleNameEntry_TransitionsToFileSelect(t *testing.T) {
 		choices: map[string]interface{}{
 			"type": "standard",
 		},
-		github: &sow.MockGitHub{},
+		github: &mocks.GitHubClientMock{},
 		cmd:    nil,
 	}
 

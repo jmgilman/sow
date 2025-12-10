@@ -15,6 +15,7 @@ import (
 	"github.com/jmgilman/sow/cli/internal/sdks/project/templates"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/libs/exec"
+	"github.com/jmgilman/sow/libs/git"
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
@@ -34,7 +35,7 @@ func initializeProject(
 	ctx *sow.Context,
 	branch string,
 	description string,
-	issue *sow.Issue,
+	issue *git.Issue,
 	knowledgeFiles []string,
 ) (*state.Project, error) {
 	// Get the worktree root path

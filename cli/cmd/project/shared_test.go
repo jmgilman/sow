@@ -11,6 +11,7 @@ import (
 
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/git"
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 
 	// Import project types to register them.
@@ -96,7 +97,7 @@ func TestInitializeProject_WithIssue_WritesIssueFile(t *testing.T) {
 	ctx, tmpDir := setupTestContext(t)
 
 	// Create test issue
-	issue := &sow.Issue{
+	issue := &git.Issue{
 		Number: 123,
 		Title:  "Test Issue",
 		Body:   "Test issue body",
@@ -138,7 +139,7 @@ func TestInitializeProject_WithIssue_CreatesArtifact(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 
 	// Create test issue
-	issue := &sow.Issue{
+	issue := &git.Issue{
 		Number: 456,
 		Title:  "Another Issue",
 		Body:   "Another body",
@@ -543,7 +544,7 @@ func TestInitializeProject_WithIssueAndKnowledgeFiles(t *testing.T) {
 	ctx, _ := setupTestContext(t)
 
 	// Create test issue
-	issue := &sow.Issue{
+	issue := &git.Issue{
 		Number: 789,
 		Title:  "Test Issue with Knowledge",
 		Body:   "Test body",

@@ -6,8 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jmgilman/sow/cli/internal/sow"
-	"github.com/jmgilman/sow/libs/exec"
+	"github.com/jmgilman/sow/libs/git"
 )
 
 func newListCmd() *cobra.Command {
@@ -32,8 +31,10 @@ Examples:
   sow issue list --state closed`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Create GitHub client
-			ghExec := exec.NewLocalExecutor("gh")
-			gh := sow.NewGitHubCLI(ghExec)
+			gh, err := git.NewGitHubClient()
+			if err != nil {
+				return err
+			}
 
 			issues, err := gh.ListIssues("sow", state)
 			if err != nil {
@@ -56,7 +57,7 @@ Examples:
 }
 
 // printIssuesTable prints issues in a table format.
-func printIssuesTable(cmd *cobra.Command, issues []sow.Issue) {
+func printIssuesTable(cmd *cobra.Command, issues []git.Issue) {
 	out := cmd.OutOrStdout()
 
 	// Header

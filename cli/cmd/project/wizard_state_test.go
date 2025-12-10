@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
+	"github.com/jmgilman/sow/libs/git"
 )
 
 // mockGitHub is a test double for GitHub operations.
@@ -597,7 +598,7 @@ func TestHandleProjectSelect_SingleProject(t *testing.T) {
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
 
 	// Use EnsureWorktree to create the worktree
-	if err := sow.EnsureWorktree(ctx, worktreePath, branchName); err != nil {
+	if err := git.EnsureWorktree(ctx.Git(), ctx.RepoRoot(), worktreePath, branchName); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
 	}
 
@@ -676,7 +677,7 @@ func TestHandleProjectSelect_MultipleProjects(t *testing.T) {
 
 	for _, p := range projects {
 		worktreePath := tmpDir + "/.sow/worktrees/" + p.branch
-		if err := sow.EnsureWorktree(ctx, worktreePath, p.branch); err != nil {
+		if err := git.EnsureWorktree(ctx.Git(), ctx.RepoRoot(), worktreePath, p.branch); err != nil {
 			t.Fatalf("failed to create worktree for %s: %v", p.branch, err)
 		}
 
@@ -749,7 +750,7 @@ func TestHandleProjectSelect_CancelOption(t *testing.T) {
 
 	branchName := "feat/test"
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
-	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	_ = git.EnsureWorktree(ctx.Git(), ctx.RepoRoot(), worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
 	_, _ = initializeProject(worktreeCtx, branchName, "test", nil, nil)
 
@@ -782,7 +783,7 @@ func TestHandleProjectSelect_ProjectDeletedAfterDiscovery(t *testing.T) {
 
 	branchName := "feat/test-delete"
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
-	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	_ = git.EnsureWorktree(ctx.Git(), ctx.RepoRoot(), worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
 	_, _ = initializeProject(worktreeCtx, branchName, "test-delete", nil, nil)
 
@@ -1103,7 +1104,7 @@ func TestHandleContinuePrompt_IntegrationFlow(t *testing.T) {
 
 	branchName := "feat/integration-test"
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
-	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	_ = git.EnsureWorktree(ctx.Git(), ctx.RepoRoot(), worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
 	_, _ = initializeProject(worktreeCtx, branchName, "integration-test", nil, nil)
 
@@ -1171,7 +1172,7 @@ func TestFinalize_RoutesToContinuation(t *testing.T) {
 
 	branchName := "feat/existing-project"
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
-	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	_ = git.EnsureWorktree(ctx.Git(), ctx.RepoRoot(), worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
 	_, _ = initializeProject(worktreeCtx, branchName, "existing-project", nil, nil)
 
@@ -1225,7 +1226,7 @@ func TestFinalizeContinuation_ValidChoices(t *testing.T) {
 
 	branchName := "feat/test-continuation"
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
-	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	_ = git.EnsureWorktree(ctx.Git(), ctx.RepoRoot(), worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
 	_, _ = initializeProject(worktreeCtx, branchName, "test-continuation", nil, nil)
 
@@ -1279,7 +1280,7 @@ func TestFinalizeContinuation_EmptyUserPrompt(t *testing.T) {
 
 	branchName := "feat/empty-prompt-test"
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
-	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	_ = git.EnsureWorktree(ctx.Git(), ctx.RepoRoot(), worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
 	_, _ = initializeProject(worktreeCtx, branchName, "empty-prompt-test", nil, nil)
 
@@ -1334,7 +1335,7 @@ func TestFinalizeContinuation_NonEmptyUserPrompt(t *testing.T) {
 
 	branchName := "feat/user-prompt-test"
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
-	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	_ = git.EnsureWorktree(ctx.Git(), ctx.RepoRoot(), worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
 	_, _ = initializeProject(worktreeCtx, branchName, "user-prompt-test", nil, nil)
 
@@ -1445,7 +1446,7 @@ func TestFinalizeContinuation_MissingPromptChoice(t *testing.T) {
 
 	branchName := "feat/missing-prompt"
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
-	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	_ = git.EnsureWorktree(ctx.Git(), ctx.RepoRoot(), worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
 	_, _ = initializeProject(worktreeCtx, branchName, "missing-prompt", nil, nil)
 
@@ -1483,7 +1484,7 @@ func TestFinalizeContinuation_WorktreeDeleted(t *testing.T) {
 
 	branchName := "feat/worktree-deleted"
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
-	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	_ = git.EnsureWorktree(ctx.Git(), ctx.RepoRoot(), worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
 	_, _ = initializeProject(worktreeCtx, branchName, "worktree-deleted", nil, nil)
 
@@ -1527,7 +1528,7 @@ func TestFinalizeContinuation_NoUncommittedCheck(t *testing.T) {
 	// Create a project in a worktree
 	branchName := "feat/uncommitted-test"
 	worktreePath := tmpDir + "/.sow/worktrees/" + branchName
-	_ = sow.EnsureWorktree(ctx, worktreePath, branchName)
+	_ = git.EnsureWorktree(ctx.Git(), ctx.RepoRoot(), worktreePath, branchName)
 	worktreeCtx, _ := sow.NewContext(worktreePath)
 	_, _ = initializeProject(worktreeCtx, branchName, "uncommitted-test", nil, nil)
 
