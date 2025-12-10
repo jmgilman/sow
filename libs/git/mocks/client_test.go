@@ -5,6 +5,8 @@ import (
 
 	"github.com/jmgilman/sow/libs/git"
 	"github.com/jmgilman/sow/libs/git/mocks"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestGitHubClientMock_Implements_Interface verifies the generated mock
@@ -19,148 +21,124 @@ func TestGitHubClientMock_Implements_Interface(_ *testing.T) {
 	var _ git.GitHubClient = mock
 }
 
-func TestGitHubClientMock_CheckAvailability(t *testing.T) {
-	mock := &mocks.GitHubClientMock{
-		CheckAvailabilityFunc: func() error { return nil },
-	}
+// TestGitHubClientMock tests that all mock methods work correctly.
+func TestGitHubClientMock(t *testing.T) {
+	t.Run("CheckAvailability returns configured value", func(t *testing.T) {
+		mock := &mocks.GitHubClientMock{
+			CheckAvailabilityFunc: func() error { return nil },
+		}
 
-	err := mock.CheckAvailability()
-	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
-	}
-}
+		err := mock.CheckAvailability()
 
-func TestGitHubClientMock_ListIssues(t *testing.T) {
-	expectedIssues := []git.Issue{
-		{Number: 1, Title: "Test Issue"},
-		{Number: 2, Title: "Another Issue"},
-	}
+		require.NoError(t, err)
+	})
 
-	mock := &mocks.GitHubClientMock{
-		ListIssuesFunc: func(_, _ string) ([]git.Issue, error) {
-			return expectedIssues, nil
-		},
-	}
+	t.Run("ListIssues returns configured issues", func(t *testing.T) {
+		expectedIssues := []git.Issue{
+			{Number: 1, Title: "Test Issue"},
+			{Number: 2, Title: "Another Issue"},
+		}
+		mock := &mocks.GitHubClientMock{
+			ListIssuesFunc: func(_, _ string) ([]git.Issue, error) {
+				return expectedIssues, nil
+			},
+		}
 
-	issues, err := mock.ListIssues("bug", "open")
-	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
-	}
-	if len(issues) != 2 {
-		t.Errorf("expected 2 issues, got %d", len(issues))
-	}
-	if issues[0].Title != "Test Issue" {
-		t.Errorf("expected first issue title 'Test Issue', got '%s'", issues[0].Title)
-	}
-}
+		issues, err := mock.ListIssues("bug", "open")
 
-func TestGitHubClientMock_GetIssue(t *testing.T) {
-	expectedIssue := &git.Issue{Number: 42, Title: "Found Issue"}
+		require.NoError(t, err)
+		require.Len(t, issues, 2)
+		assert.Equal(t, "Test Issue", issues[0].Title)
+	})
 
-	mock := &mocks.GitHubClientMock{
-		GetIssueFunc: func(_ int) (*git.Issue, error) {
-			return expectedIssue, nil
-		},
-	}
+	t.Run("GetIssue returns configured issue", func(t *testing.T) {
+		expectedIssue := &git.Issue{Number: 42, Title: "Found Issue"}
+		mock := &mocks.GitHubClientMock{
+			GetIssueFunc: func(_ int) (*git.Issue, error) {
+				return expectedIssue, nil
+			},
+		}
 
-	issue, err := mock.GetIssue(42)
-	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
-	}
-	if issue.Number != 42 {
-		t.Errorf("expected issue number 42, got %d", issue.Number)
-	}
-}
+		issue, err := mock.GetIssue(42)
 
-func TestGitHubClientMock_CreateIssue(t *testing.T) {
-	mock := &mocks.GitHubClientMock{
-		CreateIssueFunc: func(title, _ string, _ []string) (*git.Issue, error) {
-			return &git.Issue{Number: 100, Title: title}, nil
-		},
-	}
+		require.NoError(t, err)
+		assert.Equal(t, 42, issue.Number)
+	})
 
-	issue, err := mock.CreateIssue("New Issue", "Body text", []string{"enhancement"})
-	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
-	}
-	if issue.Number != 100 {
-		t.Errorf("expected issue number 100, got %d", issue.Number)
-	}
-}
+	t.Run("CreateIssue returns configured issue", func(t *testing.T) {
+		mock := &mocks.GitHubClientMock{
+			CreateIssueFunc: func(title, _ string, _ []string) (*git.Issue, error) {
+				return &git.Issue{Number: 100, Title: title}, nil
+			},
+		}
 
-func TestGitHubClientMock_GetLinkedBranches(t *testing.T) {
-	mock := &mocks.GitHubClientMock{
-		GetLinkedBranchesFunc: func(_ int) ([]git.LinkedBranch, error) {
-			return []git.LinkedBranch{{Name: "feat/123"}}, nil
-		},
-	}
+		issue, err := mock.CreateIssue("New Issue", "Body text", []string{"enhancement"})
 
-	branches, err := mock.GetLinkedBranches(123)
-	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
-	}
-	if len(branches) != 1 {
-		t.Errorf("expected 1 branch, got %d", len(branches))
-	}
-}
+		require.NoError(t, err)
+		assert.Equal(t, 100, issue.Number)
+	})
 
-func TestGitHubClientMock_CreateLinkedBranch(t *testing.T) {
-	mock := &mocks.GitHubClientMock{
-		CreateLinkedBranchFunc: func(_ int, _ string, _ bool) (string, error) {
-			return "feat/issue-123", nil
-		},
-	}
+	t.Run("GetLinkedBranches returns configured branches", func(t *testing.T) {
+		mock := &mocks.GitHubClientMock{
+			GetLinkedBranchesFunc: func(_ int) ([]git.LinkedBranch, error) {
+				return []git.LinkedBranch{{Name: "feat/123"}}, nil
+			},
+		}
 
-	name, err := mock.CreateLinkedBranch(123, "", false)
-	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
-	}
-	if name != "feat/issue-123" {
-		t.Errorf("expected branch name 'feat/issue-123', got '%s'", name)
-	}
-}
+		branches, err := mock.GetLinkedBranches(123)
 
-func TestGitHubClientMock_CreatePullRequest(t *testing.T) {
-	mock := &mocks.GitHubClientMock{
-		CreatePullRequestFunc: func(_, _ string, _ bool) (int, string, error) {
-			return 456, "https://github.com/owner/repo/pull/456", nil
-		},
-	}
+		require.NoError(t, err)
+		require.Len(t, branches, 1)
+	})
 
-	num, url, err := mock.CreatePullRequest("My PR", "Description", true)
-	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
-	}
-	if num != 456 {
-		t.Errorf("expected PR number 456, got %d", num)
-	}
-	if url != "https://github.com/owner/repo/pull/456" {
-		t.Errorf("expected PR URL, got '%s'", url)
-	}
-}
+	t.Run("CreateLinkedBranch returns configured branch name", func(t *testing.T) {
+		mock := &mocks.GitHubClientMock{
+			CreateLinkedBranchFunc: func(_ int, _ string, _ bool) (string, error) {
+				return "feat/issue-123", nil
+			},
+		}
 
-func TestGitHubClientMock_UpdatePullRequest(t *testing.T) {
-	mock := &mocks.GitHubClientMock{
-		UpdatePullRequestFunc: func(_ int, _, _ string) error {
-			return nil
-		},
-	}
+		name, err := mock.CreateLinkedBranch(123, "", false)
 
-	err := mock.UpdatePullRequest(456, "Updated Title", "Updated Body")
-	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
-	}
-}
+		require.NoError(t, err)
+		assert.Equal(t, "feat/issue-123", name)
+	})
 
-func TestGitHubClientMock_MarkPullRequestReady(t *testing.T) {
-	mock := &mocks.GitHubClientMock{
-		MarkPullRequestReadyFunc: func(_ int) error {
-			return nil
-		},
-	}
+	t.Run("CreatePullRequest returns configured PR details", func(t *testing.T) {
+		mock := &mocks.GitHubClientMock{
+			CreatePullRequestFunc: func(_, _ string, _ bool) (int, string, error) {
+				return 456, "https://github.com/owner/repo/pull/456", nil
+			},
+		}
 
-	err := mock.MarkPullRequestReady(456)
-	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
-	}
+		num, url, err := mock.CreatePullRequest("My PR", "Description", true)
+
+		require.NoError(t, err)
+		assert.Equal(t, 456, num)
+		assert.Equal(t, "https://github.com/owner/repo/pull/456", url)
+	})
+
+	t.Run("UpdatePullRequest returns configured result", func(t *testing.T) {
+		mock := &mocks.GitHubClientMock{
+			UpdatePullRequestFunc: func(_ int, _, _ string) error {
+				return nil
+			},
+		}
+
+		err := mock.UpdatePullRequest(456, "Updated Title", "Updated Body")
+
+		require.NoError(t, err)
+	})
+
+	t.Run("MarkPullRequestReady returns configured result", func(t *testing.T) {
+		mock := &mocks.GitHubClientMock{
+			MarkPullRequestReadyFunc: func(_ int) error {
+				return nil
+			},
+		}
+
+		err := mock.MarkPullRequestReady(456)
+
+		require.NoError(t, err)
+	})
 }

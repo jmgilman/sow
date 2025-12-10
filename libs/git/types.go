@@ -15,6 +15,12 @@ type Issue struct {
 	Labels []Label `json:"labels"`
 }
 
+// LinkedBranch represents a branch linked to an issue.
+type LinkedBranch struct {
+	Name string
+	URL  string
+}
+
 // HasLabel checks if an issue has a specific label.
 func (i *Issue) HasLabel(label string) bool {
 	for _, l := range i.Labels {
@@ -23,10 +29,4 @@ func (i *Issue) HasLabel(label string) bool {
 		}
 	}
 	return false
-}
-
-// LinkedBranch represents a branch linked to an issue.
-type LinkedBranch struct {
-	Name string
-	URL  string
 }

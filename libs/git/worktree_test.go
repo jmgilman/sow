@@ -13,39 +13,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestWorktreePath_SimpleBranch tests path generation for simple branch names.
-func TestWorktreePath_SimpleBranch(t *testing.T) {
+// TestWorktreePath tests path generation for various branch name formats.
+func TestWorktreePath(t *testing.T) {
 	repoRoot := "/Users/test/repo"
-	branch := "main"
 
-	result := WorktreePath(repoRoot, branch)
+	tests := []struct {
+		name   string
+		branch string
+		want   string
+	}{
+		{
+			name:   "simple branch name",
+			branch: "main",
+			want:   filepath.Join(repoRoot, ".sow", "worktrees", "main"),
+		},
+		{
+			name:   "branch with single slash creates nested path",
+			branch: "feat/auth",
+			want:   filepath.Join(repoRoot, ".sow", "worktrees", "feat", "auth"),
+		},
+		{
+			name:   "branch with multiple slashes creates deeply nested path",
+			branch: "feature/epic/task",
+			want:   filepath.Join(repoRoot, ".sow", "worktrees", "feature", "epic", "task"),
+		},
+	}
 
-	expected := filepath.Join(repoRoot, ".sow", "worktrees", "main")
-	assert.Equal(t, expected, result)
-}
-
-// TestWorktreePath_PreservesSlashes tests that WorktreePath preserves forward slashes
-// in branch names to maintain git's semantic branch grouping.
-func TestWorktreePath_PreservesSlashes(t *testing.T) {
-	repoRoot := "/Users/test/repo"
-	branch := "feat/auth"
-
-	result := WorktreePath(repoRoot, branch)
-
-	// filepath.Join splits "feat/auth" into components, resulting in nested path
-	expected := filepath.Join(repoRoot, ".sow", "worktrees", "feat", "auth")
-	assert.Equal(t, expected, result)
-}
-
-// TestWorktreePath_NestedSlashes tests path generation with multiple slashes.
-func TestWorktreePath_NestedSlashes(t *testing.T) {
-	repoRoot := "/Users/test/repo"
-	branch := "feature/epic/task"
-
-	result := WorktreePath(repoRoot, branch)
-
-	expected := filepath.Join(repoRoot, ".sow", "worktrees", "feature", "epic", "task")
-	assert.Equal(t, expected, result)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := WorktreePath(repoRoot, tt.branch)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 // setupTestRepo creates a git repo in a temp directory with an initial commit.

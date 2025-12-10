@@ -146,124 +146,101 @@ func TestGit_CurrentBranch_ReturnsFeatureBranch(t *testing.T) {
 	assert.Equal(t, branchName, branch)
 }
 
-// TestGit_IsProtectedBranch_ReturnsTrueForMain tests that main is protected.
-func TestGit_IsProtectedBranch_ReturnsTrueForMain(t *testing.T) {
+// TestGit_IsProtectedBranch tests branch protection detection.
+func TestGit_IsProtectedBranch(t *testing.T) {
 	tempDir := initTestRepo(t)
 	g, err := NewGit(tempDir)
 	require.NoError(t, err)
 
-	assert.True(t, g.IsProtectedBranch("main"))
-}
-
-// TestGit_IsProtectedBranch_ReturnsTrueForMaster tests that master is protected.
-func TestGit_IsProtectedBranch_ReturnsTrueForMaster(t *testing.T) {
-	tempDir := initTestRepo(t)
-	g, err := NewGit(tempDir)
-	require.NoError(t, err)
-
-	assert.True(t, g.IsProtectedBranch("master"))
-}
-
-// TestGit_IsProtectedBranch_ReturnsFalseForOtherBranches tests that non-protected
-// branches return false.
-func TestGit_IsProtectedBranch_ReturnsFalseForOtherBranches(t *testing.T) {
-	tempDir := initTestRepo(t)
-	g, err := NewGit(tempDir)
-	require.NoError(t, err)
-
-	tests := []string{
-		"develop",
-		"feature/x",
-		"feat/auth",
-		"bugfix/123",
-		"release/1.0",
+	tests := []struct {
+		name   string
+		branch string
+		want   bool
+	}{
+		{name: "main is protected", branch: "main", want: true},
+		{name: "master is protected", branch: "master", want: true},
+		{name: "develop is not protected", branch: "develop", want: false},
+		{name: "feature branch is not protected", branch: "feature/x", want: false},
+		{name: "feat branch is not protected", branch: "feat/auth", want: false},
+		{name: "bugfix branch is not protected", branch: "bugfix/123", want: false},
+		{name: "release branch is not protected", branch: "release/1.0", want: false},
 	}
 
-	for _, branch := range tests {
-		t.Run(branch, func(t *testing.T) {
-			assert.False(t, g.IsProtectedBranch(branch))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := g.IsProtectedBranch(tt.branch)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
-// TestGit_HasUncommittedChanges_ReturnsFalseForCleanRepo tests that a clean
-// repository returns false.
-func TestGit_HasUncommittedChanges_ReturnsFalseForCleanRepo(t *testing.T) {
-	tempDir := initTestRepo(t)
+// TestGit_HasUncommittedChanges tests detection of uncommitted changes.
+func TestGit_HasUncommittedChanges(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, tempDir string)
+		want  bool
+	}{
+		{
+			name:  "clean repo returns false",
+			setup: func(_ *testing.T, _ string) {},
+			want:  false,
+		},
+		{
+			name: "modified tracked file returns true",
+			setup: func(t *testing.T, tempDir string) {
+				t.Helper()
+				testFile := filepath.Join(tempDir, "test.txt")
+				err := os.WriteFile(testFile, []byte("modified content"), 0644)
+				require.NoError(t, err)
+			},
+			want: true,
+		},
+		{
+			name: "staged changes return true",
+			setup: func(t *testing.T, tempDir string) {
+				t.Helper()
+				newFile := filepath.Join(tempDir, "new.txt")
+				err := os.WriteFile(newFile, []byte("new content"), 0644)
+				require.NoError(t, err)
 
-	g, err := NewGit(tempDir)
-	require.NoError(t, err)
+				repo, err := gogit.PlainOpen(tempDir)
+				require.NoError(t, err)
 
-	hasChanges, err := g.HasUncommittedChanges()
+				wt, err := repo.Worktree()
+				require.NoError(t, err)
 
-	require.NoError(t, err)
-	assert.False(t, hasChanges)
-}
+				_, err = wt.Add("new.txt")
+				require.NoError(t, err)
+			},
+			want: true,
+		},
+		{
+			name: "untracked files only returns false",
+			setup: func(t *testing.T, tempDir string) {
+				t.Helper()
+				untrackedFile := filepath.Join(tempDir, "untracked.txt")
+				err := os.WriteFile(untrackedFile, []byte("untracked content"), 0644)
+				require.NoError(t, err)
+			},
+			want: false,
+		},
+	}
 
-// TestGit_HasUncommittedChanges_ReturnsTrueForModifiedFiles tests that
-// modified tracked files return true.
-func TestGit_HasUncommittedChanges_ReturnsTrueForModifiedFiles(t *testing.T) {
-	tempDir := initTestRepo(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := initTestRepo(t)
+			tt.setup(t, tempDir)
 
-	// Modify the tracked file
-	testFile := filepath.Join(tempDir, "test.txt")
-	err := os.WriteFile(testFile, []byte("modified content"), 0644)
-	require.NoError(t, err)
+			g, err := NewGit(tempDir)
+			require.NoError(t, err)
 
-	g, err := NewGit(tempDir)
-	require.NoError(t, err)
+			got, err := g.HasUncommittedChanges()
 
-	hasChanges, err := g.HasUncommittedChanges()
-
-	require.NoError(t, err)
-	assert.True(t, hasChanges)
-}
-
-// TestGit_HasUncommittedChanges_ReturnsTrueForStagedChanges tests that
-// staged changes return true.
-func TestGit_HasUncommittedChanges_ReturnsTrueForStagedChanges(t *testing.T) {
-	tempDir := initTestRepo(t)
-
-	// Create a new file and stage it
-	newFile := filepath.Join(tempDir, "new.txt")
-	err := os.WriteFile(newFile, []byte("new content"), 0644)
-	require.NoError(t, err)
-
-	repo, err := gogit.PlainOpen(tempDir)
-	require.NoError(t, err)
-
-	wt, err := repo.Worktree()
-	require.NoError(t, err)
-
-	_, err = wt.Add("new.txt")
-	require.NoError(t, err)
-
-	g, err := NewGit(tempDir)
-	require.NoError(t, err)
-
-	hasChanges, err := g.HasUncommittedChanges()
-
-	require.NoError(t, err)
-	assert.True(t, hasChanges)
-}
-
-// TestGit_HasUncommittedChanges_ReturnsFalseForOnlyUntrackedFiles tests that
-// untracked files do NOT count as uncommitted changes.
-func TestGit_HasUncommittedChanges_ReturnsFalseForOnlyUntrackedFiles(t *testing.T) {
-	tempDir := initTestRepo(t)
-
-	// Create an untracked file (don't stage it)
-	untrackedFile := filepath.Join(tempDir, "untracked.txt")
-	err := os.WriteFile(untrackedFile, []byte("untracked content"), 0644)
-	require.NoError(t, err)
-
-	g, err := NewGit(tempDir)
-	require.NoError(t, err)
-
-	hasChanges, err := g.HasUncommittedChanges()
-
-	require.NoError(t, err)
-	assert.False(t, hasChanges, "untracked files should NOT count as uncommitted changes")
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 // TestGit_Branches_ReturnsLocalBranches tests that Branches() returns

@@ -30,95 +30,10 @@ func NewGitHubCLI(executor exec.Executor) *GitHubCLI {
 	}
 }
 
-// checkInstalled verifies that the gh CLI is installed and available.
-func (g *GitHubCLI) checkInstalled() error {
-	if !g.exec.Exists() {
-		return ErrGHNotInstalled{}
-	}
-	return nil
-}
-
-// checkAuthenticated verifies that the gh CLI is authenticated.
-func (g *GitHubCLI) checkAuthenticated() error {
-	// gh auth status exits with code 1 if not authenticated
-	// but writes to stderr in both success and failure cases
-	if err := g.exec.RunSilent("auth", "status"); err != nil {
-		return ErrGHNotAuthenticated{}
-	}
-
-	return nil
-}
-
-// ensure checks that gh is installed and authenticated.
-func (g *GitHubCLI) ensure() error {
-	if err := g.checkInstalled(); err != nil {
-		return err
-	}
-	if err := g.checkAuthenticated(); err != nil {
-		return err
-	}
-	return nil
-}
-
 // CheckAvailability implements GitHubClient.
 // For CLI client, this checks that gh is installed and authenticated.
 func (g *GitHubCLI) CheckAvailability() error {
 	return g.ensure()
-}
-
-// ListIssues lists issues with the given label and state.
-func (g *GitHubCLI) ListIssues(label, state string) ([]Issue, error) {
-	if err := g.ensure(); err != nil {
-		return nil, err
-	}
-
-	stdout, stderr, err := g.exec.Run(
-		"issue", "list",
-		"--label", label,
-		"--state", state,
-		"--json", "number,title,url,state,labels",
-		"--limit", "1000",
-	)
-	if err != nil {
-		return nil, ErrGHCommand{
-			Command: fmt.Sprintf("issue list --label %s --state %s", label, state),
-			Stderr:  stderr,
-			Err:     err,
-		}
-	}
-
-	var issues []Issue
-	if err := json.Unmarshal([]byte(stdout), &issues); err != nil {
-		return nil, fmt.Errorf("failed to parse issue list: %w", err)
-	}
-
-	return issues, nil
-}
-
-// GetIssue retrieves a single issue by number.
-func (g *GitHubCLI) GetIssue(number int) (*Issue, error) {
-	if err := g.ensure(); err != nil {
-		return nil, err
-	}
-
-	stdout, stderr, err := g.exec.Run(
-		"issue", "view", fmt.Sprintf("%d", number),
-		"--json", "number,title,body,url,state,labels",
-	)
-	if err != nil {
-		return nil, ErrGHCommand{
-			Command: fmt.Sprintf("issue view %d", number),
-			Stderr:  stderr,
-			Err:     err,
-		}
-	}
-
-	var issue Issue
-	if err := json.Unmarshal([]byte(stdout), &issue); err != nil {
-		return nil, fmt.Errorf("failed to parse issue: %w", err)
-	}
-
-	return &issue, nil
 }
 
 // CreateIssue creates a GitHub issue using gh CLI.
@@ -178,59 +93,6 @@ func (g *GitHubCLI) CreateIssue(title, body string, labels []string) (*Issue, er
 		URL:    issueURL,
 		State:  "open",
 	}, nil
-}
-
-// GetLinkedBranches returns branches linked to an issue.
-func (g *GitHubCLI) GetLinkedBranches(number int) ([]LinkedBranch, error) {
-	if err := g.ensure(); err != nil {
-		return nil, err
-	}
-
-	stdout, stderr, err := g.exec.Run(
-		"issue", "develop", "--list", fmt.Sprintf("%d", number),
-	)
-	if err != nil {
-		// Check if error is because no branches are linked
-		if strings.Contains(stderr, "no linked branches") ||
-			strings.Contains(stderr, "No linked branches") {
-			return []LinkedBranch{}, nil
-		}
-
-		return nil, ErrGHCommand{
-			Command: fmt.Sprintf("issue develop --list %d", number),
-			Stderr:  stderr,
-			Err:     err,
-		}
-	}
-
-	// Parse output - gh issue develop --list returns tab-separated values
-	// Format: BRANCH    URL
-	lines := strings.Split(strings.TrimSpace(stdout), "\n")
-
-	var branches []LinkedBranch
-	for i, line := range lines {
-		// Skip header line
-		if i == 0 {
-			continue
-		}
-
-		// Skip empty lines
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
-		// Split by whitespace (tabs or spaces)
-		parts := strings.Fields(line)
-		if len(parts) >= 2 {
-			branches = append(branches, LinkedBranch{
-				Name: parts[0],
-				URL:  parts[1],
-			})
-		}
-	}
-
-	return branches, nil
 }
 
 // CreateLinkedBranch creates a branch linked to an issue using gh issue develop.
@@ -342,6 +204,135 @@ func (g *GitHubCLI) CreatePullRequest(title, body string, draft bool) (int, stri
 	return prNumber, prURL, nil
 }
 
+// GetIssue retrieves a single issue by number.
+func (g *GitHubCLI) GetIssue(number int) (*Issue, error) {
+	if err := g.ensure(); err != nil {
+		return nil, err
+	}
+
+	stdout, stderr, err := g.exec.Run(
+		"issue", "view", fmt.Sprintf("%d", number),
+		"--json", "number,title,body,url,state,labels",
+	)
+	if err != nil {
+		return nil, ErrGHCommand{
+			Command: fmt.Sprintf("issue view %d", number),
+			Stderr:  stderr,
+			Err:     err,
+		}
+	}
+
+	var issue Issue
+	if err := json.Unmarshal([]byte(stdout), &issue); err != nil {
+		return nil, fmt.Errorf("failed to parse issue: %w", err)
+	}
+
+	return &issue, nil
+}
+
+// GetLinkedBranches returns branches linked to an issue.
+func (g *GitHubCLI) GetLinkedBranches(number int) ([]LinkedBranch, error) {
+	if err := g.ensure(); err != nil {
+		return nil, err
+	}
+
+	stdout, stderr, err := g.exec.Run(
+		"issue", "develop", "--list", fmt.Sprintf("%d", number),
+	)
+	if err != nil {
+		// Check if error is because no branches are linked
+		if strings.Contains(stderr, "no linked branches") ||
+			strings.Contains(stderr, "No linked branches") {
+			return []LinkedBranch{}, nil
+		}
+
+		return nil, ErrGHCommand{
+			Command: fmt.Sprintf("issue develop --list %d", number),
+			Stderr:  stderr,
+			Err:     err,
+		}
+	}
+
+	// Parse output - gh issue develop --list returns tab-separated values
+	// Format: BRANCH    URL
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+
+	var branches []LinkedBranch
+	for i, line := range lines {
+		// Skip header line
+		if i == 0 {
+			continue
+		}
+
+		// Skip empty lines
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Split by whitespace (tabs or spaces)
+		parts := strings.Fields(line)
+		if len(parts) >= 2 {
+			branches = append(branches, LinkedBranch{
+				Name: parts[0],
+				URL:  parts[1],
+			})
+		}
+	}
+
+	return branches, nil
+}
+
+// ListIssues lists issues with the given label and state.
+func (g *GitHubCLI) ListIssues(label, state string) ([]Issue, error) {
+	if err := g.ensure(); err != nil {
+		return nil, err
+	}
+
+	stdout, stderr, err := g.exec.Run(
+		"issue", "list",
+		"--label", label,
+		"--state", state,
+		"--json", "number,title,url,state,labels",
+		"--limit", "1000",
+	)
+	if err != nil {
+		return nil, ErrGHCommand{
+			Command: fmt.Sprintf("issue list --label %s --state %s", label, state),
+			Stderr:  stderr,
+			Err:     err,
+		}
+	}
+
+	var issues []Issue
+	if err := json.Unmarshal([]byte(stdout), &issues); err != nil {
+		return nil, fmt.Errorf("failed to parse issue list: %w", err)
+	}
+
+	return issues, nil
+}
+
+// MarkPullRequestReady converts a draft pull request to "ready for review" state.
+func (g *GitHubCLI) MarkPullRequestReady(number int) error {
+	if err := g.ensure(); err != nil {
+		return err
+	}
+
+	_, stderr, err := g.exec.Run(
+		"pr", "ready", fmt.Sprintf("%d", number),
+	)
+
+	if err != nil {
+		return ErrGHCommand{
+			Command: fmt.Sprintf("pr ready %d", number),
+			Stderr:  stderr,
+			Err:     err,
+		}
+	}
+
+	return nil
+}
+
 // UpdatePullRequest updates an existing pull request's title and body.
 func (g *GitHubCLI) UpdatePullRequest(number int, title, body string) error {
 	if err := g.ensure(); err != nil {
@@ -365,24 +356,33 @@ func (g *GitHubCLI) UpdatePullRequest(number int, title, body string) error {
 	return nil
 }
 
-// MarkPullRequestReady converts a draft pull request to "ready for review" state.
-func (g *GitHubCLI) MarkPullRequestReady(number int) error {
-	if err := g.ensure(); err != nil {
+// checkAuthenticated verifies that the gh CLI is authenticated.
+func (g *GitHubCLI) checkAuthenticated() error {
+	// gh auth status exits with code 1 if not authenticated
+	// but writes to stderr in both success and failure cases
+	if err := g.exec.RunSilent("auth", "status"); err != nil {
+		return ErrGHNotAuthenticated{}
+	}
+
+	return nil
+}
+
+// checkInstalled verifies that the gh CLI is installed and available.
+func (g *GitHubCLI) checkInstalled() error {
+	if !g.exec.Exists() {
+		return ErrGHNotInstalled{}
+	}
+	return nil
+}
+
+// ensure checks that gh is installed and authenticated.
+func (g *GitHubCLI) ensure() error {
+	if err := g.checkInstalled(); err != nil {
 		return err
 	}
-
-	_, stderr, err := g.exec.Run(
-		"pr", "ready", fmt.Sprintf("%d", number),
-	)
-
-	if err != nil {
-		return ErrGHCommand{
-			Command: fmt.Sprintf("pr ready %d", number),
-			Stderr:  stderr,
-			Err:     err,
-		}
+	if err := g.checkAuthenticated(); err != nil {
+		return err
 	}
-
 	return nil
 }
 
