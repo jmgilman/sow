@@ -256,7 +256,7 @@ func TestLoad(t *testing.T) {
 		ClearRegistry()
 
 		state := validProjectState()
-		state.Type = "unknown-type"
+		state.Type = "unknown_type" // Uses underscore to pass CUE validation
 		backend := NewMemoryBackendWithState(state)
 
 		// Act
