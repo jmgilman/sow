@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -10,7 +11,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/libs/git"
 )
@@ -942,7 +943,7 @@ func (w *Wizard) finalizeContinuation() error {
 	}
 
 	// 4. Load fresh project state
-	projectState, err := state.Load(worktreeCtx)
+	projectState, err := cmdutil.LoadProject(context.Background(), worktreeCtx)
 	if err != nil {
 		return fmt.Errorf("failed to load project state: %w", err)
 	}

@@ -1,0 +1,156 @@
+package state
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/jmgilman/sow/libs/schemas/project"
+)
+
+// Phase wraps the CUE-generated PhaseState.
+// This is a pure data wrapper with no additional runtime fields.
+type Phase struct {
+	project.PhaseState
+}
+
+// AddPhaseInputFromOutput adds an artifact from one phase's outputs as an input to another phase.
+// This is useful for creating data flow between phases (e.g., failed review -> implementation input).
+// The function searches backwards through source outputs to find the latest matching artifact.
+//
+// Parameters:
+//   - p: The project containing the phases
+//   - sourcePhaseName: The phase to copy the artifact from
+//   - targetPhaseName: The phase to add the artifact to
+//   - artifactType: The type of artifact to search for
+//   - filter: Optional filter function to further constrain which artifact is selected (can be nil)
+//
+// Returns an error if either phase is not found, or if no matching artifact exists.
+func AddPhaseInputFromOutput(
+	p *Project,
+	sourcePhaseName string,
+	targetPhaseName string,
+	artifactType string,
+	filter func(*project.ArtifactState) bool,
+) error {
+	sourcePhase, exists := p.Phases[sourcePhaseName]
+	if !exists {
+		return fmt.Errorf("source phase %s not found", sourcePhaseName)
+	}
+
+	targetPhase, exists := p.Phases[targetPhaseName]
+	if !exists {
+		return fmt.Errorf("target phase %s not found", targetPhaseName)
+	}
+
+	// Find matching artifact in source outputs (search backwards for latest)
+	var matchingArtifact *project.ArtifactState
+	for i := len(sourcePhase.Outputs) - 1; i >= 0; i-- {
+		artifact := &sourcePhase.Outputs[i]
+		if artifact.Type == artifactType && (filter == nil || filter(artifact)) {
+			matchingArtifact = artifact
+			break
+		}
+	}
+
+	if matchingArtifact == nil {
+		return fmt.Errorf("no matching artifact of type %s found in %s outputs", artifactType, sourcePhaseName)
+	}
+
+	// Add as input to target phase
+	targetPhase.Inputs = append(targetPhase.Inputs, *matchingArtifact)
+	p.Phases[targetPhaseName] = targetPhase
+	return nil
+}
+
+// IncrementPhaseIteration increments the iteration counter for a phase.
+// If the iteration is not set, initializes it to 1.
+// This is typically called during onEntry actions when re-entering a phase
+// after a failure in a downstream phase.
+//
+// Example usage in transition actions:
+//
+//	project.WithOnEntry(func(p *state.Project) error {
+//	    return state.IncrementPhaseIteration(p, "implementation")
+//	})
+func IncrementPhaseIteration(p *Project, phaseName string) error {
+	phase, exists := p.Phases[phaseName]
+	if !exists {
+		return fmt.Errorf("phase %s not found", phaseName)
+	}
+
+	// Get current iteration (0 if not set)
+	currentIter := phase.Iteration
+
+	// Increment
+	phase.Iteration = currentIter + 1
+	p.Phases[phaseName] = phase
+	return nil
+}
+
+// MarkPhaseCompleted sets a phase's status to "completed" and records the completed_at timestamp.
+// This is typically called automatically by the SDK when leaving a phase's end state.
+//
+// Example usage in transition actions:
+//
+//	project.WithOnExit(func(p *state.Project) error {
+//	    return state.MarkPhaseCompleted(p, "implementation")
+//	})
+func MarkPhaseCompleted(p *Project, phaseName string) error {
+	phase, exists := p.Phases[phaseName]
+	if !exists {
+		return fmt.Errorf("phase %s not found", phaseName)
+	}
+
+	now := time.Now()
+	phase.Status = "completed"
+	phase.Completed_at = now
+	p.Phases[phaseName] = phase
+	return nil
+}
+
+// MarkPhaseFailed sets a phase's status to "failed" and records the failed_at timestamp.
+// This is typically called during onExit actions when transitioning away from a failed phase.
+//
+// Example usage in transition actions:
+//
+//	project.WithOnExit(func(p *state.Project) error {
+//	    return state.MarkPhaseFailed(p, "review")
+//	})
+func MarkPhaseFailed(p *Project, phaseName string) error {
+	phase, exists := p.Phases[phaseName]
+	if !exists {
+		return fmt.Errorf("phase %s not found", phaseName)
+	}
+
+	now := time.Now()
+	phase.Status = "failed"
+	phase.Failed_at = now
+	p.Phases[phaseName] = phase
+	return nil
+}
+
+// MarkPhaseInProgress sets a phase's status to "in_progress" and records the started_at timestamp.
+// This only modifies the status if the current status is "pending", to preserve
+// manual status changes during rework loops.
+// This is typically called automatically by the SDK when entering a phase's start state.
+//
+// Example usage in transition actions:
+//
+//	project.WithOnEntry(func(p *state.Project) error {
+//	    return state.MarkPhaseInProgress(p, "implementation")
+//	})
+func MarkPhaseInProgress(p *Project, phaseName string) error {
+	phase, exists := p.Phases[phaseName]
+	if !exists {
+		return fmt.Errorf("phase %s not found", phaseName)
+	}
+
+	// Only update if currently pending (preserve manual changes for rework)
+	if phase.Status == "pending" {
+		now := time.Now()
+		phase.Status = "in_progress"
+		phase.Started_at = now
+		p.Phases[phaseName] = phase
+	}
+	return nil
+}

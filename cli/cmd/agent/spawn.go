@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmgilman/sow/cli/internal/agents"
 	"github.com/jmgilman/sow/cli/internal/cmdutil"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
 	"github.com/jmgilman/sow/libs/config"
+	"github.com/jmgilman/sow/libs/project/state"
 	"github.com/jmgilman/sow/libs/schemas"
 	"github.com/spf13/cobra"
 )
@@ -101,7 +101,7 @@ func runSpawn(cmd *cobra.Command, args []string, explicitPhase, agentFlag, custo
 	}
 
 	// Load project state (required for both modes)
-	proj, err := state.Load(ctx)
+	proj, err := cmdutil.LoadProject(cmd.Context(), ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such file") {
 			return fmt.Errorf("no active project found")
@@ -212,7 +212,7 @@ func runSpawnWithTask(cmd *cobra.Command, proj *state.Project, taskID, explicitP
 		proj.Phases[phaseName] = phaseState
 
 		// CRITICAL: Save before spawning (crash recovery)
-		if err := proj.Save(); err != nil {
+		if err := proj.Save(cmd.Context()); err != nil {
 			return fmt.Errorf("failed to save session ID: %w", err)
 		}
 	}
@@ -269,7 +269,7 @@ func runSpawnTaskless(cmd *cobra.Command, proj *state.Project, agentName, custom
 		proj.Agent_sessions[agentName] = sessionID
 
 		// CRITICAL: Save before spawning (crash recovery)
-		if err := proj.Save(); err != nil {
+		if err := proj.Save(cmd.Context()); err != nil {
 			return fmt.Errorf("failed to save session ID: %w", err)
 		}
 	}
@@ -345,7 +345,7 @@ func resolveTaskPhase(project *state.Project, explicitPhase string) (string, err
 	}
 
 	// Case 2: Smart default based on current project state
-	currentState := state.State(project.Statechart.Current_state)
+	currentState := project.Statechart.Current_state
 	defaultPhase := config.GetDefaultTaskPhase(currentState)
 
 	if defaultPhase == "" {

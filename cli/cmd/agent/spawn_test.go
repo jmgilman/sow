@@ -815,8 +815,8 @@ func TestRunSpawn_NoProject(t *testing.T) {
 		t.Fatal("expected error when no project exists")
 	}
 
-	if !strings.Contains(err.Error(), "no active project") {
-		t.Errorf("expected error to mention 'no active project', got: %v", err)
+	if !strings.Contains(err.Error(), "project state not found") {
+		t.Errorf("expected error to mention 'project state not found', got: %v", err)
 	}
 }
 

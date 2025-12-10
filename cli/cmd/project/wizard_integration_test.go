@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/libs/project/state"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/libs/git"
 	"github.com/jmgilman/sow/libs/git/mocks"
@@ -171,7 +171,7 @@ func TestCompleteGitHubIssueWorkflow(t *testing.T) {
 		t.Fatalf("failed to create worktree context: %v", err)
 	}
 
-	proj, err := state.Load(worktreeCtx)
+	proj, err := state.Load(context.Background(), state.NewYAMLBackend(worktreeCtx.FS()))
 	if err != nil {
 		t.Fatalf("failed to load project: %v", err)
 	}

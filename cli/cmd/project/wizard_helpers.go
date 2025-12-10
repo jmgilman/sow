@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -12,7 +13,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/cli/internal/cmdutil"
 	"github.com/jmgilman/sow/cli/internal/sow"
 	"github.com/jmgilman/sow/libs/git"
 )
@@ -614,7 +615,7 @@ func processProjectState(path, worktreesDir string, info os.FileInfo) *ProjectIn
 	}
 
 	// Load project state
-	proj, err := state.Load(worktreeCtx)
+	proj, err := cmdutil.LoadProject(context.Background(), worktreeCtx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to load project state for %s: %v\n", branchName, err)
 		return nil
@@ -636,7 +637,7 @@ func processProjectState(path, worktreesDir string, info os.FileInfo) *ProjectIn
 		Branch:         branchName,
 		Name:           proj.Name,
 		Type:           proj.Type,
-		Phase:          proj.Machine().State().String(),
+		Phase:          proj.Statechart.Current_state,
 		TasksCompleted: tasksCompleted,
 		TasksTotal:     tasksTotal,
 		ModTime:        info.ModTime(),

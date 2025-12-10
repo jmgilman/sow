@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
+	"github.com/jmgilman/sow/libs/project/state"
+	
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +16,7 @@ import (
 // with the global registry during package initialization.
 func TestPackageRegistration(t *testing.T) {
 	// The init() function should have registered "design" type
-	config, exists := state.Registry["design"]
+	config, exists := state.GetConfig("design")
 	assert.True(t, exists, "design project type should be registered")
 	assert.NotNil(t, config, "design config should not be nil")
 }
@@ -36,7 +36,7 @@ func TestNewDesignProjectConfig_InitialState(t *testing.T) {
 	config := NewDesignProjectConfig()
 
 	// Verify initial state is Active
-	assert.Equal(t, sdkstate.State(Active), config.InitialState(), "initial state should be Active")
+	assert.Equal(t, string(Active), config.InitialState(), "initial state should be Active")
 }
 
 // TestInitializeDesignProject_CreatesPhases verifies that the initializer
@@ -252,11 +252,11 @@ func TestConfigurePhases_GetDefaultTaskPhase(t *testing.T) {
 	config := NewDesignProjectConfig()
 
 	// Active state should map to design phase
-	phase := config.GetDefaultTaskPhase(sdkstate.State(Active))
+	phase := config.GetDefaultTaskPhase(string(Active))
 	assert.Equal(t, "design", phase, "Active state should default to design phase")
 
 	// Finalizing state should map to finalization phase
-	phase = config.GetDefaultTaskPhase(sdkstate.State(Finalizing))
+	phase = config.GetDefaultTaskPhase(string(Finalizing))
 	assert.Equal(t, "finalization", phase, "Finalizing state should default to finalization phase")
 }
 
@@ -416,7 +416,7 @@ func TestConfigureTransitions_InitialState(t *testing.T) {
 	config := NewDesignProjectConfig()
 
 	// Verify initial state is Active
-	assert.Equal(t, sdkstate.State(Active), config.InitialState(), "initial state should be Active")
+	assert.Equal(t, string(Active), config.InitialState(), "initial state should be Active")
 }
 
 // TestTransitions_ActiveToFinalizing_GuardBlocksWhenDocumentsNotApproved tests that
@@ -438,7 +438,7 @@ func TestTransitions_ActiveToFinalizing_GuardBlocksWhenDocumentsNotApproved(t *t
 	require.NoError(t, err)
 
 	// Build state machine
-	machine := config.BuildMachine(proj, sdkstate.State(Active))
+	machine := config.BuildProjectMachine(proj, project.State(Active))
 
 	// Add a task that is not completed
 	phase := proj.Phases["design"]
@@ -452,7 +452,7 @@ func TestTransitions_ActiveToFinalizing_GuardBlocksWhenDocumentsNotApproved(t *t
 	proj.Phases["design"] = phase
 
 	// Should not be able to advance
-	canFire, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
+	canFire := machine.CanFire(project.Event(EventCompleteDesign))
 	require.NoError(t, err)
 	assert.False(t, canFire, "should not be able to fire EventCompleteDesign when documents not approved")
 }
@@ -476,7 +476,7 @@ func TestTransitions_ActiveToFinalizing_GuardAllowsWhenDocumentsApproved(t *test
 	require.NoError(t, err)
 
 	// Build state machine
-	machine := config.BuildMachine(proj, sdkstate.State(Active))
+	machine := config.BuildProjectMachine(proj, project.State(Active))
 
 	// Add a completed task
 	phase := proj.Phases["design"]
@@ -490,7 +490,7 @@ func TestTransitions_ActiveToFinalizing_GuardAllowsWhenDocumentsApproved(t *test
 	proj.Phases["design"] = phase
 
 	// Should be able to advance
-	canFire, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
+	canFire := machine.CanFire(project.Event(EventCompleteDesign))
 	require.NoError(t, err)
 	assert.True(t, canFire, "should be able to fire EventCompleteDesign when documents approved")
 }
@@ -514,7 +514,7 @@ func TestTransitions_FinalizingToCompleted_GuardBlocksWhenTasksIncomplete(t *tes
 	require.NoError(t, err)
 
 	// Build state machine and transition to Finalizing
-	machine := config.BuildMachine(proj, sdkstate.State(Active))
+	machine := config.BuildProjectMachine(proj, project.State(Active))
 
 	// First transition to Finalizing
 	phase := proj.Phases["design"]
@@ -523,7 +523,7 @@ func TestTransitions_FinalizingToCompleted_GuardBlocksWhenTasksIncomplete(t *tes
 	}
 	proj.Phases["design"] = phase
 
-	err = machine.Fire(sdkstate.Event(EventCompleteDesign))
+	err = machine.Fire(project.Event(EventCompleteDesign))
 	require.NoError(t, err)
 
 	// Add incomplete finalization task
@@ -538,7 +538,7 @@ func TestTransitions_FinalizingToCompleted_GuardBlocksWhenTasksIncomplete(t *tes
 	proj.Phases["finalization"] = finalizationPhase
 
 	// Should not be able to complete
-	canFire, err := machine.CanFire(sdkstate.Event(EventCompleteFinalization))
+	canFire := machine.CanFire(project.Event(EventCompleteFinalization))
 	require.NoError(t, err)
 	assert.False(t, canFire, "should not be able to fire EventCompleteFinalization when tasks incomplete")
 }
@@ -562,7 +562,7 @@ func TestTransitions_FinalizingToCompleted_GuardAllowsWhenTasksComplete(t *testi
 	require.NoError(t, err)
 
 	// Build state machine and transition to Finalizing
-	machine := config.BuildMachine(proj, sdkstate.State(Active))
+	machine := config.BuildProjectMachine(proj, project.State(Active))
 
 	// First transition to Finalizing
 	phase := proj.Phases["design"]
@@ -571,7 +571,7 @@ func TestTransitions_FinalizingToCompleted_GuardAllowsWhenTasksComplete(t *testi
 	}
 	proj.Phases["design"] = phase
 
-	err = machine.Fire(sdkstate.Event(EventCompleteDesign))
+	err = machine.Fire(project.Event(EventCompleteDesign))
 	require.NoError(t, err)
 
 	// Add completed finalization task
@@ -586,7 +586,7 @@ func TestTransitions_FinalizingToCompleted_GuardAllowsWhenTasksComplete(t *testi
 	proj.Phases["finalization"] = finalizationPhase
 
 	// Should be able to complete
-	canFire, err := machine.CanFire(sdkstate.Event(EventCompleteFinalization))
+	canFire := machine.CanFire(project.Event(EventCompleteFinalization))
 	require.NoError(t, err)
 	assert.True(t, canFire, "should be able to fire EventCompleteFinalization when tasks complete")
 }

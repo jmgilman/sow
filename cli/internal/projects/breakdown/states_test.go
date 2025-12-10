@@ -3,14 +3,14 @@ package breakdown
 import (
 	"testing"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
 )
 
-// TestStatesAreCorrectType verifies all state constants use state.State type.
+// TestStatesAreCorrectType verifies all state constants use project.State type.
 func TestStatesAreCorrectType(t *testing.T) {
 	tests := []struct {
 		name  string
-		state state.State
+		state project.State
 	}{
 		{"Active", Active},
 		{"Publishing", Publishing},
@@ -32,7 +32,7 @@ func TestStatesAreCorrectType(t *testing.T) {
 func TestStateValues(t *testing.T) {
 	tests := []struct {
 		name     string
-		state    state.State
+		state    project.State
 		expected string
 	}{
 		{"Active state", Active, "Active"},
@@ -51,8 +51,8 @@ func TestStateValues(t *testing.T) {
 
 // TestAllStatesAreDifferent verifies no duplicate state values.
 func TestAllStatesAreDifferent(t *testing.T) {
-	states := []state.State{Active, Publishing, Completed}
-	seen := make(map[state.State]bool)
+	states := []project.State{Active, Publishing, Completed}
+	seen := make(map[project.State]bool)
 
 	for _, s := range states {
 		if seen[s] {

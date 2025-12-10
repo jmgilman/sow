@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/templates"
+	"github.com/jmgilman/sow/cli/internal/templates"
+	"github.com/jmgilman/sow/libs/project"
+	"github.com/jmgilman/sow/libs/project/state"
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
@@ -19,9 +19,9 @@ var templatesFS embed.FS
 func configurePrompts(builder *project.ProjectTypeConfigBuilder) *project.ProjectTypeConfigBuilder {
 	return builder.
 		WithOrchestratorPrompt(generateOrchestratorPrompt).
-		WithPrompt(state.State(Active), generateActivePrompt).
-		WithPrompt(state.State(Summarizing), generateSummarizingPrompt).
-		WithPrompt(state.State(Finalizing), generateFinalizingPrompt)
+		WithPrompt(project.State(Active), generateActivePrompt).
+		WithPrompt(project.State(Summarizing), generateSummarizingPrompt).
+		WithPrompt(project.State(Finalizing), generateFinalizingPrompt)
 }
 
 // generateOrchestratorPrompt generates the orchestrator-level prompt for exploration projects.

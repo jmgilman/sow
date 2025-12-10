@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
-	sdkstate "github.com/jmgilman/sow/cli/internal/sdks/state"
+	"github.com/jmgilman/sow/libs/project"
+	"github.com/jmgilman/sow/libs/project/state"
+	
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +23,7 @@ func TestDesignLifecycle_SingleDocument(t *testing.T) {
 	// Phase 1: Active design - plan and draft document
 	t.Run("plan and draft document", func(t *testing.T) {
 		// Verify initial state
-		assert.Equal(t, sdkstate.State(Active), machine.State(), "initial state should be Active")
+		assert.Equal(t, project.State(Active), machine.State(), "initial state should be Active")
 		verifyPhaseStatus(t, proj, "design", "active")
 		verifyPhaseEnabled(t, proj, "design", true)
 
@@ -51,16 +51,15 @@ func TestDesignLifecycle_SingleDocument(t *testing.T) {
 	// Phase 2: Advance to finalizing
 	t.Run("advance to finalizing", func(t *testing.T) {
 		// Verify guard passes
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
-		require.NoError(t, err, "CanFire should not error")
+		can := machine.CanFire(project.Event(EventCompleteDesign))
 		assert.True(t, can, "guard should allow transition with completed document")
 
 		// Fire event
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteDesign), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteDesign), proj)
 		require.NoError(t, err, "Fire should not error")
 
 		// Verify state transition
-		assert.Equal(t, sdkstate.State(Finalizing), machine.State(), "state should be Finalizing")
+		assert.Equal(t, project.State(Finalizing), machine.State(), "state should be Finalizing")
 
 		// Verify design phase completed
 		verifyPhaseStatus(t, proj, "design", "completed")
@@ -83,16 +82,15 @@ func TestDesignLifecycle_SingleDocument(t *testing.T) {
 		markFinalizationTaskCompleted(t, proj, "100")
 
 		// Verify guard passes
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteFinalization))
-		require.NoError(t, err, "CanFire should not error")
+		can := machine.CanFire(project.Event(EventCompleteFinalization))
 		assert.True(t, can, "guard should allow transition with completed task")
 
 		// Fire event
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteFinalization), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteFinalization), proj)
 		require.NoError(t, err, "Fire should not error")
 
 		// Verify state transition to Completed
-		assert.Equal(t, sdkstate.State(Completed), machine.State(), "state should be Completed")
+		assert.Equal(t, project.State(Completed), machine.State(), "state should be Completed")
 
 		// Verify finalization phase completed
 		verifyPhaseStatus(t, proj, "finalization", "completed")
@@ -107,7 +105,7 @@ func TestDesignLifecycle_SingleDocument(t *testing.T) {
 		verifyPhaseStatus(t, proj, "finalization", "completed")
 
 		// State machine should be in Completed state
-		assert.Equal(t, sdkstate.State(Completed), machine.State(), "final state should be Completed")
+		assert.Equal(t, project.State(Completed), machine.State(), "final state should be Completed")
 
 		// Verify all timestamps set
 		designPhase := proj.Phases["design"]
@@ -164,23 +162,22 @@ func TestDesignLifecycle_MultipleDocuments(t *testing.T) {
 
 	t.Run("advance to finalizing with mix of completed and abandoned", func(t *testing.T) {
 		// Should succeed - has at least one completed task
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteDesign))
 		assert.True(t, can, "guard should allow transition with completed tasks")
 
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteDesign), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteDesign), proj)
 		require.NoError(t, err)
 
-		assert.Equal(t, sdkstate.State(Finalizing), machine.State(), "state should be Finalizing")
+		assert.Equal(t, project.State(Finalizing), machine.State(), "state should be Finalizing")
 	})
 
 	t.Run("complete finalization", func(t *testing.T) {
 		addFinalizationTask(t, proj, "100", "Move documents", "completed")
 
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteFinalization), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteFinalization), proj)
 		require.NoError(t, err)
 
-		assert.Equal(t, sdkstate.State(Completed), machine.State(), "state should be Completed")
+		assert.Equal(t, project.State(Completed), machine.State(), "state should be Completed")
 	})
 
 	t.Run("verify all artifacts handled correctly", func(t *testing.T) {
@@ -229,7 +226,7 @@ func TestDesignLifecycle_WithInputs(t *testing.T) {
 		require.NoError(t, err)
 
 		// Build state machine
-		machine := config.BuildMachine(proj, sdkstate.State(Active))
+		machine := config.BuildProjectMachine(proj, project.State(Active))
 		require.NotNil(t, machine)
 
 		// Verify inputs are tracked separately
@@ -246,8 +243,7 @@ func TestDesignLifecycle_WithInputs(t *testing.T) {
 		markTaskCompleted(t, proj, "010")
 
 		// Inputs don't block progression
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteDesign))
 		assert.True(t, can, "inputs should not block progression")
 	})
 }
@@ -274,8 +270,7 @@ func TestDesignLifecycle_ReviewWorkflow(t *testing.T) {
 		verifyTaskStatus(t, proj, "design", "010", "needs_review")
 
 		// Cannot advance with needs_review task
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteDesign))
 		assert.False(t, can, "should not advance with task in review")
 	})
 
@@ -285,8 +280,7 @@ func TestDesignLifecycle_ReviewWorkflow(t *testing.T) {
 		verifyTaskStatus(t, proj, "design", "010", "in_progress")
 
 		// Still cannot advance
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteDesign))
 		assert.False(t, can, "should not advance with in_progress task")
 
 		// Request review again
@@ -311,8 +305,7 @@ func TestDesignLifecycle_ReviewWorkflow(t *testing.T) {
 		assert.True(t, artifact.Approved, "artifact should be auto-approved on completion")
 
 		// Can now advance
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteDesign))
 		assert.True(t, can, "should be able to advance after completion")
 	})
 }
@@ -340,16 +333,15 @@ func TestDesignLifecycle_AllAbandoned(t *testing.T) {
 
 	t.Run("cannot advance with all abandoned", func(t *testing.T) {
 		// Guard should block - needs at least one completed
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteDesign))
 		assert.False(t, can, "should not advance when all tasks abandoned")
 
 		// Try to fire anyway - should fail
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteDesign), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteDesign), proj)
 		assert.Error(t, err, "should error when trying to fire blocked transition")
 
 		// Verify state unchanged
-		assert.Equal(t, sdkstate.State(Active), machine.State(), "state should remain Active")
+		assert.Equal(t, project.State(Active), machine.State(), "state should remain Active")
 	})
 }
 
@@ -363,12 +355,11 @@ func TestDesignLifecycle_NoTasks(t *testing.T) {
 		assert.Empty(t, phase.Tasks, "should have no tasks")
 
 		// Guard should block
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteDesign))
 		assert.False(t, can, "should not advance with no tasks")
 
 		// Verify state unchanged
-		assert.Equal(t, sdkstate.State(Active), machine.State(), "state should remain Active")
+		assert.Equal(t, project.State(Active), machine.State(), "state should remain Active")
 	})
 }
 
@@ -465,8 +456,7 @@ func TestGuardFailures(t *testing.T) {
 		addDocumentTask(t, proj, "010", "Design Doc", "design", ".sow/knowledge/designs/doc.md")
 
 		// Guard should block
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteDesign))
 		assert.False(t, can, "guard should block transition with pending tasks")
 	})
 
@@ -478,8 +468,7 @@ func TestGuardFailures(t *testing.T) {
 		markTaskInProgress(t, proj, "010")
 
 		// Guard should block
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteDesign))
 		assert.False(t, can, "guard should block transition with in_progress tasks")
 	})
 
@@ -493,8 +482,7 @@ func TestGuardFailures(t *testing.T) {
 		markTaskNeedsReview(t, proj, "010")
 
 		// Guard should block
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteDesign))
 		assert.False(t, can, "guard should block transition with needs_review tasks")
 	})
 
@@ -508,8 +496,7 @@ func TestGuardFailures(t *testing.T) {
 		markTaskCompleted(t, proj, "010")
 
 		// Guard should allow
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteDesign))
 		assert.True(t, can, "guard should allow transition with completed tasks")
 	})
 
@@ -527,8 +514,7 @@ func TestGuardFailures(t *testing.T) {
 		markTaskAbandoned(t, proj, "020")
 
 		// Guard should allow
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteDesign))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteDesign))
 		assert.True(t, can, "guard should allow transition with completed and abandoned tasks")
 	})
 
@@ -540,15 +526,14 @@ func TestGuardFailures(t *testing.T) {
 		artifact := addDesignArtifact(t, proj, "project/design.md", "design")
 		linkArtifactToTask(t, proj, "010", artifact)
 		markTaskCompleted(t, proj, "010")
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteDesign), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteDesign), proj)
 		require.NoError(t, err)
 
 		// Add pending finalization task
 		addFinalizationTask(t, proj, "100", "Move docs", "pending")
 
 		// Guard should block
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteFinalization))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteFinalization))
 		assert.False(t, can, "guard should block transition with pending tasks")
 	})
 
@@ -560,7 +545,7 @@ func TestGuardFailures(t *testing.T) {
 		artifact := addDesignArtifact(t, proj, "project/design.md", "design")
 		linkArtifactToTask(t, proj, "010", artifact)
 		markTaskCompleted(t, proj, "010")
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteDesign), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteDesign), proj)
 		require.NoError(t, err)
 
 		// No finalization tasks
@@ -568,8 +553,7 @@ func TestGuardFailures(t *testing.T) {
 		assert.Empty(t, phase.Tasks, "should have no finalization tasks")
 
 		// Guard should block
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteFinalization))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteFinalization))
 		assert.False(t, can, "guard should block transition with no tasks")
 	})
 
@@ -581,15 +565,14 @@ func TestGuardFailures(t *testing.T) {
 		artifact := addDesignArtifact(t, proj, "project/design.md", "design")
 		linkArtifactToTask(t, proj, "010", artifact)
 		markTaskCompleted(t, proj, "010")
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteDesign), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteDesign), proj)
 		require.NoError(t, err)
 
 		// Add abandoned finalization task
 		addFinalizationTask(t, proj, "100", "Move docs", "abandoned")
 
 		// Guard should block (finalization requires completed)
-		can, err := machine.CanFire(sdkstate.Event(EventCompleteFinalization))
-		require.NoError(t, err)
+		can := machine.CanFire(project.Event(EventCompleteFinalization))
 		assert.False(t, can, "guard should block transition with abandoned tasks")
 	})
 }
@@ -610,7 +593,7 @@ func TestStateValidation(t *testing.T) {
 		linkArtifactToTask(t, proj, "010", artifact)
 		markTaskCompleted(t, proj, "010")
 
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteDesign), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteDesign), proj)
 		require.NoError(t, err)
 
 		verifyPhaseStatus(t, proj, "design", "completed")
@@ -629,7 +612,7 @@ func TestStateValidation(t *testing.T) {
 		linkArtifactToTask(t, proj, "010", artifact)
 		markTaskCompleted(t, proj, "010")
 
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteDesign), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteDesign), proj)
 		require.NoError(t, err)
 
 		verifyPhaseEnabled(t, proj, "finalization", true)
@@ -649,7 +632,7 @@ func TestStateValidation(t *testing.T) {
 		linkArtifactToTask(t, proj, "010", artifact)
 		markTaskCompleted(t, proj, "010")
 
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteDesign), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteDesign), proj)
 		require.NoError(t, err)
 
 		// Design completed_at should be set
@@ -662,7 +645,7 @@ func TestStateValidation(t *testing.T) {
 
 		// Complete finalization
 		addFinalizationTask(t, proj, "100", "Move docs", "completed")
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteFinalization), proj)
+		err = config.FireWithPhaseUpdates(machine, project.Event(EventCompleteFinalization), proj)
 		require.NoError(t, err)
 
 		// Finalization completed_at should be set
@@ -679,11 +662,11 @@ func TestStateValidation(t *testing.T) {
 		linkArtifactToTask(t, proj, "010", artifact)
 		markTaskCompleted(t, proj, "010")
 
-		err := config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteDesign), proj)
+		err := config.FireWithPhaseUpdates(machine, project.Event(EventCompleteDesign), proj)
 		require.NoError(t, err)
 
 		addFinalizationTask(t, proj, "100", "Move docs", "completed")
-		err = config.FireWithPhaseUpdates(machine, sdkstate.Event(EventCompleteFinalization), proj)
+		err = config.FireWithPhaseUpdates(machine, project.Event(EventCompleteFinalization), proj)
 		require.NoError(t, err)
 
 		// Both phases should be marked completed
@@ -695,7 +678,7 @@ func TestStateValidation(t *testing.T) {
 // Helper functions
 
 // setupDesignProject creates a project for testing in Active state.
-func setupDesignProject(t *testing.T) (*state.Project, *sdkstate.Machine, *project.ProjectTypeConfig) {
+func setupDesignProject(t *testing.T) (*state.Project, *project.Machine, *project.ProjectTypeConfig) {
 	t.Helper()
 
 	// Create project
@@ -724,7 +707,7 @@ func setupDesignProject(t *testing.T) (*state.Project, *sdkstate.Machine, *proje
 	}
 
 	// Build state machine
-	machine := config.BuildMachine(proj, sdkstate.State(Active))
+	machine := config.BuildProjectMachine(proj, project.State(Active))
 	if machine == nil {
 		t.Fatal("BuildMachine returned nil")
 	}

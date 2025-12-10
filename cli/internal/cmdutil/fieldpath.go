@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/libs/project/state"
 )
 
 // ParseFieldPath splits a field path into segments using dot notation.

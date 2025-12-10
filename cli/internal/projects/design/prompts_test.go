@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmgilman/sow/cli/internal/sdks/project"
-	"github.com/jmgilman/sow/cli/internal/sdks/project/state"
+	"github.com/jmgilman/sow/libs/project"
+	"github.com/jmgilman/sow/libs/project/state"
 	projschema "github.com/jmgilman/sow/libs/schemas/project"
 )
 
@@ -54,8 +54,8 @@ func TestConfigurePrompts(t *testing.T) {
 				},
 			},
 		}
-		activeState := state.State(Active)
-		prompt := config.GetStatePrompt(activeState, p)
+		activeState := project.State(Active)
+		prompt := config.GetStatePrompt(string(activeState), p)
 		if prompt == "" {
 			t.Error("Active state prompt generator returned empty string")
 		}
@@ -76,8 +76,8 @@ func TestConfigurePrompts(t *testing.T) {
 				},
 			},
 		}
-		finalizingState := state.State(Finalizing)
-		prompt := config.GetStatePrompt(finalizingState, p)
+		finalizingState := project.State(Finalizing)
+		prompt := config.GetStatePrompt(string(finalizingState), p)
 		if prompt == "" {
 			t.Error("Finalizing state prompt generator returned empty string")
 		}
