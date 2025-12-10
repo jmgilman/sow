@@ -1,0 +1,352 @@
+name: libsgit-module
+type: standard
+branch: feat/libsgit-module-117
+description: libs/git module
+created_at: 2025-12-09T18:33:38.696536-08:00
+updated_at: 2025-12-09T18:49:53.038881-08:00
+phases:
+    finalize:
+        status: pending
+        enabled: false
+        created_at: 2025-12-09T18:33:38.696536-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+    implementation:
+        status: in_progress
+        enabled: false
+        created_at: 2025-12-09T18:33:38.696536-08:00
+        started_at: 2025-12-09T18:33:38.696569-08:00
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata:
+            planning_approved: true
+        inputs:
+            - type: github_issue
+              path: context/issue-117.md
+              approved: true
+              created_at: 2025-12-09T18:33:38.696525-08:00
+              metadata:
+                issue_number: 117
+                issue_title: libs/git module
+                issue_url: https://github.com/jmgilman/sow/issues/117
+            - type: reference
+              path: ../../knowledge/explorations/libs-refactoring-summary.md
+              approved: true
+              created_at: 2025-12-09T18:33:38.696535-08:00
+              metadata:
+                description: Knowledge file selected during project creation
+                source: user_selected
+        outputs: []
+        tasks:
+            - id: "010"
+              name: Create libs/git module foundation and types
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T18:48:56.294213-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T18:49:37.332696-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: libs/exec/go.mod
+                  approved: false
+                  created_at: 2025-12-09T18:49:37.27713-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/exec/doc.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:37.288676-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/exec/executor.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:37.297963-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/config/repo.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:37.307304-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_cli.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:37.315613-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/STYLE.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:37.324467-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/TESTING.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:37.332695-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "020"
+              name: Implement Git operations struct
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T18:48:56.973582-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T18:49:38.958392-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/git.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:38.914954-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/worktree_test.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:38.924527-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/config/repo.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:38.933437-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/config/repo_test.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:38.94195-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/STYLE.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:38.950275-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/TESTING.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:38.958392-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "030"
+              name: Implement GitHubClient interface and CLI adapter
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T18:48:57.946685-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T18:49:40.256905-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/github_client.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:40.194979-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_cli.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:40.204748-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_cli_test.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:40.213838-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/github_factory.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:40.222406-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/exec/executor.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:40.231839-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/exec/mocks/executor.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:40.240244-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/STYLE.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:40.248604-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/TESTING.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:40.256904-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "040"
+              name: Implement worktree operations
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T18:48:59.70303-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T18:49:41.452249-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/worktree.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:41.405369-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/worktree_test.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:41.416595-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/config/repo.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:41.426321-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/config/repo_test.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:41.435051-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/STYLE.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:41.443604-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/TESTING.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:41.452249-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "050"
+              name: Generate mocks and create README
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T18:49:00.522794-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T18:49:42.828216-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: libs/exec/README.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:42.787134-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/exec/mocks/executor.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:42.797768-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/STYLE.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:42.808342-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/TESTING.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:42.818403-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/READMES.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:42.828216-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "060"
+              name: Update consumer files to use libs/git
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T18:49:01.582462-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T18:49:44.354626-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/context.go
+                  approved: false
+                  created_at: 2025-12-09T18:49:44.333888-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/STYLE.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:44.344434-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/TESTING.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:44.354626-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "070"
+              name: Cleanup old code and final verification
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T18:49:02.957983-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T18:49:46.196936-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: .golangci.yml
+                  approved: false
+                  created_at: 2025-12-09T18:49:46.173635-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/STYLE.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:46.186179-08:00
+                  metadata: {}
+                - type: reference
+                  path: .standards/TESTING.md
+                  approved: false
+                  created_at: 2025-12-09T18:49:46.196935-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+    review:
+        status: pending
+        enabled: false
+        created_at: 2025-12-09T18:33:38.696536-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+statechart:
+    current_state: ImplementationDraftPRCreation
+    updated_at: 2025-12-09T18:49:53.038881-08:00
+agent_sessions:
+    planner: 13832396-5ae8-423b-b11d-333d3a274de6
