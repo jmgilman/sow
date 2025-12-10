@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/jmgilman/go/fs/billy"
 	"github.com/jmgilman/sow/libs/config"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -34,8 +35,11 @@ func runShow(cmd *cobra.Command, _ []string) error {
 
 // runShowWithPath is a helper that allows testing with custom paths.
 func runShowWithPath(cmd *cobra.Command, path string) error {
+	// Create a local filesystem for config loading
+	fsys := billy.NewLocal()
+
 	// Load effective config using the internal loader for path-specific loading
-	cfg, err := config.LoadUserConfigFromPath(path)
+	cfg, err := config.LoadUserConfigFromPath(fsys, path)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}

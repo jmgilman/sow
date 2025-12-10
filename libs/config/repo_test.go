@@ -2,9 +2,9 @@ package config
 
 import (
 	"errors"
-	"io/fs"
 	"testing"
 
+	"github.com/jmgilman/go/fs/billy"
 	"github.com/jmgilman/sow/libs/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -113,36 +113,19 @@ func TestLoadRepoConfigFromBytes(t *testing.T) {
 	}
 }
 
-// mockFS implements core.FS for testing.
-type mockFS struct {
-	files map[string][]byte
-	err   error
-}
-
-func (m *mockFS) ReadFile(name string) ([]byte, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	data, ok := m.files[name]
-	if !ok {
-		return nil, fs.ErrNotExist
-	}
-	return data, nil
-}
-
 func TestLoadRepoConfig(t *testing.T) {
 	tests := []struct {
-		name    string
-		fs      *mockFS
-		want    *schemas.Config
-		wantErr error
+		name      string
+		setupFS   func() *billy.MemoryFS
+		want      *schemas.Config
+		wantErr   error
 	}{
 		{
 			name: "config file exists with all fields",
-			fs: &mockFS{
-				files: map[string][]byte{
-					"config.yaml": []byte("artifacts:\n  adrs: custom-adrs\n  design_docs: custom-docs"),
-				},
+			setupFS: func() *billy.MemoryFS {
+				memfs := billy.NewMemory()
+				_ = memfs.WriteFile("config.yaml", []byte("artifacts:\n  adrs: custom-adrs\n  design_docs: custom-docs"), 0644)
+				return memfs
 			},
 			//nolint:revive // Field names must match generated schemas.Config structure
 			want: &schemas.Config{
@@ -157,10 +140,10 @@ func TestLoadRepoConfig(t *testing.T) {
 		},
 		{
 			name: "config file exists with partial fields",
-			fs: &mockFS{
-				files: map[string][]byte{
-					"config.yaml": []byte("artifacts:\n  adrs: partial-adrs"),
-				},
+			setupFS: func() *billy.MemoryFS {
+				memfs := billy.NewMemory()
+				_ = memfs.WriteFile("config.yaml", []byte("artifacts:\n  adrs: partial-adrs"), 0644)
+				return memfs
 			},
 			//nolint:revive // Field names must match generated schemas.Config structure
 			want: &schemas.Config{
@@ -175,26 +158,26 @@ func TestLoadRepoConfig(t *testing.T) {
 		},
 		{
 			name: "config file doesn't exist returns default config",
-			fs: &mockFS{
-				files: map[string][]byte{}, // no config.yaml
+			setupFS: func() *billy.MemoryFS {
+				return billy.NewMemory() // no config.yaml
 			},
 			want: DefaultConfig(),
 		},
 		{
 			name: "empty config file returns default config",
-			fs: &mockFS{
-				files: map[string][]byte{
-					"config.yaml": []byte(""),
-				},
+			setupFS: func() *billy.MemoryFS {
+				memfs := billy.NewMemory()
+				_ = memfs.WriteFile("config.yaml", []byte(""), 0644)
+				return memfs
 			},
 			want: DefaultConfig(),
 		},
 		{
 			name: "invalid YAML returns error",
-			fs: &mockFS{
-				files: map[string][]byte{
-					"config.yaml": []byte("invalid: [yaml: without: closing"),
-				},
+			setupFS: func() *billy.MemoryFS {
+				memfs := billy.NewMemory()
+				_ = memfs.WriteFile("config.yaml", []byte("invalid: [yaml: without: closing"), 0644)
+				return memfs
 			},
 			wantErr: ErrInvalidYAML,
 		},
@@ -202,7 +185,8 @@ func TestLoadRepoConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := LoadRepoConfig(tt.fs)
+			memfs := tt.setupFS()
+			got, err := LoadRepoConfig(memfs)
 
 			if tt.wantErr != nil {
 				require.Error(t, err)

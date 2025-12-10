@@ -2,11 +2,12 @@ package config
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
+	"github.com/jmgilman/go/fs/billy"
+	"github.com/jmgilman/go/fs/core"
 	"github.com/jmgilman/sow/libs/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,7 +91,7 @@ func TestGetUserConfigPath_PlatformSpecific(t *testing.T) {
 func TestLoadUserConfigFromPath(t *testing.T) {
 	tests := []struct {
 		name      string
-		setup     func(t *testing.T) string // returns path to config file
+		setupFS   func() (core.FS, string) // returns filesystem and path to config file
 		envSetup  func(t *testing.T)
 		want      func() *schemas.UserConfig
 		wantErr   error
@@ -98,10 +99,10 @@ func TestLoadUserConfigFromPath(t *testing.T) {
 	}{
 		{
 			name: "valid config with custom executor",
-			setup: func(t *testing.T) string {
-				t.Helper()
-				dir := t.TempDir()
-				path := filepath.Join(dir, "config.yaml")
+			setupFS: func() (core.FS, string) {
+				memfs := billy.NewMemory()
+				path := "home/.config/sow/config.yaml"
+				_ = memfs.MkdirAll("home/.config/sow", 0755)
 				content := `agents:
   executors:
     my-cursor:
@@ -109,8 +110,8 @@ func TestLoadUserConfigFromPath(t *testing.T) {
   bindings:
     implementer: my-cursor
 `
-				require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-				return path
+				_ = memfs.WriteFile(path, []byte(content), 0644)
+				return memfs, path
 			},
 			checkFunc: func(t *testing.T, got *schemas.UserConfig) {
 				require.NotNil(t, got.Agents)
@@ -124,8 +125,9 @@ func TestLoadUserConfigFromPath(t *testing.T) {
 		},
 		{
 			name: "file not found returns defaults",
-			setup: func(t *testing.T) string {
-				return filepath.Join(t.TempDir(), "nonexistent.yaml")
+			setupFS: func() (core.FS, string) {
+				memfs := billy.NewMemory()
+				return memfs, "nonexistent.yaml"
 			},
 			checkFunc: func(t *testing.T, got *schemas.UserConfig) {
 				// Should have defaults applied
@@ -139,12 +141,11 @@ func TestLoadUserConfigFromPath(t *testing.T) {
 		},
 		{
 			name: "empty file returns defaults",
-			setup: func(t *testing.T) string {
-				t.Helper()
-				dir := t.TempDir()
-				path := filepath.Join(dir, "config.yaml")
-				require.NoError(t, os.WriteFile(path, []byte(""), 0644))
-				return path
+			setupFS: func() (core.FS, string) {
+				memfs := billy.NewMemory()
+				path := "config.yaml"
+				_ = memfs.WriteFile(path, []byte(""), 0644)
+				return memfs, path
 			},
 			checkFunc: func(t *testing.T, got *schemas.UserConfig) {
 				require.NotNil(t, got.Agents)
@@ -154,16 +155,15 @@ func TestLoadUserConfigFromPath(t *testing.T) {
 		},
 		{
 			name: "partial config applies defaults for missing",
-			setup: func(t *testing.T) string {
-				t.Helper()
-				dir := t.TempDir()
-				path := filepath.Join(dir, "config.yaml")
+			setupFS: func() (core.FS, string) {
+				memfs := billy.NewMemory()
+				path := "config.yaml"
 				content := `agents:
   bindings:
     implementer: claude-code
 `
-				require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-				return path
+				_ = memfs.WriteFile(path, []byte(content), 0644)
+				return memfs, path
 			},
 			checkFunc: func(t *testing.T, got *schemas.UserConfig) {
 				require.NotNil(t, got.Agents)
@@ -180,44 +180,41 @@ func TestLoadUserConfigFromPath(t *testing.T) {
 		},
 		{
 			name: "invalid YAML returns error",
-			setup: func(t *testing.T) string {
-				t.Helper()
-				dir := t.TempDir()
-				path := filepath.Join(dir, "config.yaml")
+			setupFS: func() (core.FS, string) {
+				memfs := billy.NewMemory()
+				path := "config.yaml"
 				content := `invalid: [yaml: without: closing`
-				require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-				return path
+				_ = memfs.WriteFile(path, []byte(content), 0644)
+				return memfs, path
 			},
 			wantErr: ErrInvalidYAML,
 		},
 		{
 			name: "invalid executor type returns error",
-			setup: func(t *testing.T) string {
-				t.Helper()
-				dir := t.TempDir()
-				path := filepath.Join(dir, "config.yaml")
+			setupFS: func() (core.FS, string) {
+				memfs := billy.NewMemory()
+				path := "config.yaml"
 				content := `agents:
   executors:
     bad-executor:
       type: invalid-type
 `
-				require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-				return path
+				_ = memfs.WriteFile(path, []byte(content), 0644)
+				return memfs, path
 			},
 			wantErr: ErrInvalidConfig,
 		},
 		{
 			name: "binding references undefined executor returns error",
-			setup: func(t *testing.T) string {
-				t.Helper()
-				dir := t.TempDir()
-				path := filepath.Join(dir, "config.yaml")
+			setupFS: func() (core.FS, string) {
+				memfs := billy.NewMemory()
+				path := "config.yaml"
 				content := `agents:
   bindings:
     implementer: nonexistent-executor
 `
-				require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-				return path
+				_ = memfs.WriteFile(path, []byte(content), 0644)
+				return memfs, path
 			},
 			wantErr: ErrInvalidConfig,
 		},
@@ -242,8 +239,8 @@ func TestLoadUserConfigFromPath(t *testing.T) {
 				tt.envSetup(t)
 			}
 
-			path := tt.setup(t)
-			got, err := LoadUserConfigFromPath(path)
+			fsys, path := tt.setupFS()
+			got, err := LoadUserConfigFromPath(fsys, path)
 
 			if tt.wantErr != nil {
 				require.Error(t, err)
@@ -495,22 +492,21 @@ func TestValidateUserConfig(t *testing.T) {
 func TestEnvironmentOverrides(t *testing.T) {
 	tests := []struct {
 		name      string
-		setup     func(t *testing.T) string
+		setupFS   func() (core.FS, string)
 		envSetup  func(t *testing.T)
 		checkFunc func(t *testing.T, got *schemas.UserConfig)
 	}{
 		{
 			name: "SOW_AGENTS_IMPLEMENTER overrides binding",
-			setup: func(t *testing.T) string {
-				t.Helper()
-				dir := t.TempDir()
-				path := filepath.Join(dir, "config.yaml")
+			setupFS: func() (core.FS, string) {
+				memfs := billy.NewMemory()
+				path := "config.yaml"
 				content := `agents:
   bindings:
     implementer: claude-code
 `
-				require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-				return path
+				_ = memfs.WriteFile(path, []byte(content), 0644)
+				return memfs, path
 			},
 			envSetup: func(t *testing.T) {
 				t.Setenv("SOW_AGENTS_IMPLEMENTER", "custom-executor")
@@ -524,8 +520,9 @@ func TestEnvironmentOverrides(t *testing.T) {
 		},
 		{
 			name: "multiple env vars can be set",
-			setup: func(t *testing.T) string {
-				return filepath.Join(t.TempDir(), "nonexistent.yaml")
+			setupFS: func() (core.FS, string) {
+				memfs := billy.NewMemory()
+				return memfs, "nonexistent.yaml"
 			},
 			envSetup: func(t *testing.T) {
 				t.Setenv("SOW_AGENTS_ORCHESTRATOR", "orch-executor")
@@ -542,10 +539,9 @@ func TestEnvironmentOverrides(t *testing.T) {
 		},
 		{
 			name: "env vars take precedence over file config",
-			setup: func(t *testing.T) string {
-				t.Helper()
-				dir := t.TempDir()
-				path := filepath.Join(dir, "config.yaml")
+			setupFS: func() (core.FS, string) {
+				memfs := billy.NewMemory()
+				path := "config.yaml"
 				content := `agents:
   executors:
     my-cursor:
@@ -554,8 +550,8 @@ func TestEnvironmentOverrides(t *testing.T) {
     implementer: my-cursor
     orchestrator: my-cursor
 `
-				require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-				return path
+				_ = memfs.WriteFile(path, []byte(content), 0644)
+				return memfs, path
 			},
 			envSetup: func(t *testing.T) {
 				t.Setenv("SOW_AGENTS_IMPLEMENTER", "env-override")
@@ -571,8 +567,9 @@ func TestEnvironmentOverrides(t *testing.T) {
 		},
 		{
 			name: "all env var overrides work",
-			setup: func(t *testing.T) string {
-				return filepath.Join(t.TempDir(), "nonexistent.yaml")
+			setupFS: func() (core.FS, string) {
+				memfs := billy.NewMemory()
+				return memfs, "nonexistent.yaml"
 			},
 			envSetup: func(t *testing.T) {
 				t.Setenv("SOW_AGENTS_ORCHESTRATOR", "env-orch")
@@ -616,8 +613,8 @@ func TestEnvironmentOverrides(t *testing.T) {
 				tt.envSetup(t)
 			}
 
-			path := tt.setup(t)
-			got, err := LoadUserConfigFromPath(path)
+			fsys, path := tt.setupFS()
+			got, err := LoadUserConfigFromPath(fsys, path)
 
 			require.NoError(t, err)
 			tt.checkFunc(t, got)
@@ -665,8 +662,7 @@ func TestDefaultValues(t *testing.T) {
 }
 
 func TestLoadUserConfig(t *testing.T) {
-	// This test uses the actual user config path, so we need to be careful
-	// We can only really test that it doesn't error when the config doesn't exist
+	// This test uses an in-memory filesystem
 	t.Run("returns config without error", func(t *testing.T) {
 		// Clear all SOW_AGENTS_* env vars
 		for _, env := range []string{
@@ -681,10 +677,10 @@ func TestLoadUserConfig(t *testing.T) {
 			t.Setenv(env, "")
 		}
 
-		// Point to a non-existent directory so we get defaults
-		t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "nonexistent"))
+		// Use an in-memory filesystem with no config file
+		memfs := billy.NewMemory()
 
-		config, err := LoadUserConfig()
+		config, err := LoadUserConfig(memfs)
 
 		require.NoError(t, err)
 		require.NotNil(t, config)
@@ -712,14 +708,14 @@ func TestLoadingPipelineOrder(t *testing.T) {
 	t.Run("validates before applying defaults", func(t *testing.T) {
 		// If an invalid executor type is in the config, it should fail validation
 		// even if defaults would make it work
-		dir := t.TempDir()
-		path := filepath.Join(dir, "config.yaml")
+		memfs := billy.NewMemory()
+		path := "config.yaml"
 		content := `agents:
   executors:
     bad-exec:
       type: not-valid
 `
-		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		_ = memfs.WriteFile(path, []byte(content), 0644)
 
 		// Clear env vars
 		for _, env := range []string{
@@ -734,20 +730,20 @@ func TestLoadingPipelineOrder(t *testing.T) {
 			t.Setenv(env, "")
 		}
 
-		_, err := LoadUserConfigFromPath(path)
+		_, err := LoadUserConfigFromPath(memfs, path)
 
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, ErrInvalidConfig))
 	})
 
 	t.Run("env overrides applied last", func(t *testing.T) {
-		dir := t.TempDir()
-		path := filepath.Join(dir, "config.yaml")
+		memfs := billy.NewMemory()
+		path := "config.yaml"
 		content := `agents:
   bindings:
     implementer: claude-code
 `
-		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		_ = memfs.WriteFile(path, []byte(content), 0644)
 
 		// Clear other env vars
 		for _, env := range []string{
@@ -763,7 +759,7 @@ func TestLoadingPipelineOrder(t *testing.T) {
 		// Set the override
 		t.Setenv("SOW_AGENTS_IMPLEMENTER", "env-override")
 
-		config, err := LoadUserConfigFromPath(path)
+		config, err := LoadUserConfigFromPath(memfs, path)
 
 		require.NoError(t, err)
 		// Env override should win

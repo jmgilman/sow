@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jmgilman/go/fs/core"
 	"github.com/jmgilman/sow/libs/schemas"
 	"gopkg.in/yaml.v3"
 )
@@ -44,26 +45,28 @@ func GetUserConfigPath() (string, error) {
 }
 
 // LoadUserConfig loads the user configuration from the standard location.
+// It accepts a core.FS filesystem for file operations.
 // Returns default configuration if file doesn't exist (zero-config experience).
 // Returns error only for actual failures (parse errors, permission issues).
-func LoadUserConfig() (*schemas.UserConfig, error) {
+func LoadUserConfig(fsys core.FS) (*schemas.UserConfig, error) {
 	path, err := GetUserConfigPath()
 	if err != nil {
 		// If we can't determine the path, return defaults
 		return getDefaultUserConfig(), nil
 	}
-	return LoadUserConfigFromPath(path)
+	return LoadUserConfigFromPath(fsys, path)
 }
 
 // LoadUserConfigFromPath loads user configuration from a specific path.
+// It accepts a core.FS filesystem for file operations.
 // This is useful for testing and for loading configs from non-standard locations.
 // The full loading pipeline is:
 //  1. Read and parse YAML
 //  2. Validate (before applying defaults)
 //  3. Apply defaults for missing values
 //  4. Apply environment overrides (highest priority).
-func LoadUserConfigFromPath(path string) (*schemas.UserConfig, error) {
-	data, err := os.ReadFile(path)
+func LoadUserConfigFromPath(fsys core.FS, path string) (*schemas.UserConfig, error) {
+	data, err := fsys.ReadFile(path)
 	if os.IsNotExist(err) {
 		// Config doesn't exist, return defaults with env overrides
 		config := getDefaultUserConfig()

@@ -5,14 +5,16 @@ Configuration loading for sow repositories and user settings.
 ## Quick Start
 
 ```go
-import "github.com/jmgilman/sow/libs/config"
+import (
+    "github.com/jmgilman/go/fs/billy"
+    "github.com/jmgilman/sow/libs/config"
+)
 
-// Load repository configuration from bytes
-data, err := os.ReadFile(".sow/config.yaml")
-if err != nil {
-    return err
-}
-cfg, err := config.LoadRepoConfigFromBytes(data)
+// Create a local filesystem
+fs := billy.NewLocal()
+
+// Load repository configuration
+cfg, err := config.LoadRepoConfig(fs)
 if err != nil {
     return err
 }
@@ -24,6 +26,7 @@ if err != nil {
 
 ```go
 // Using a filesystem interface for testability
+fs := billy.NewLocal()
 cfg, err := config.LoadRepoConfig(fs)
 if err != nil {
     return fmt.Errorf("load config: %w", err)
@@ -45,14 +48,36 @@ cfg, err := config.LoadRepoConfigFromBytes(data)
 ### Load User Config
 
 ```go
+// Create a local filesystem
+fs := billy.NewLocal()
+
 // Load from standard location (~/.config/sow/config.yaml)
-userCfg, err := config.LoadUserConfig()
+userCfg, err := config.LoadUserConfig(fs)
 if err != nil {
     return fmt.Errorf("load user config: %w", err)
 }
 
+// Load from a specific path
+userCfg, err := config.LoadUserConfigFromPath(fs, "/path/to/config.yaml")
+
 // Get the config file path
 path, err := config.GetUserConfigPath()
+```
+
+### Testing with In-Memory Filesystem
+
+```go
+// Use billy.NewMemory() for tests
+fs := billy.NewMemory()
+
+// Set up test config
+_ = fs.WriteFile("config.yaml", []byte(`
+artifacts:
+  adrs: test-adrs
+`), 0644)
+
+// Load config in test
+cfg, err := config.LoadRepoConfig(fs)
 ```
 
 ### Get Path Helpers

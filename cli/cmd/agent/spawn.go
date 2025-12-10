@@ -110,7 +110,7 @@ func runSpawn(cmd *cobra.Command, args []string, explicitPhase, agentFlag, custo
 	}
 
 	// Load user config for executor settings
-	userConfig, err := config.LoadUserConfig()
+	userConfig, err := config.LoadUserConfig(ctx.FS())
 	if err != nil {
 		return fmt.Errorf("failed to load user config: %w", err)
 	}

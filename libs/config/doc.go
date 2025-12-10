@@ -5,12 +5,16 @@
 // The loading functions are decoupled from the CLI's Context type, accepting explicit
 // dependencies like filesystem interfaces or raw bytes.
 //
+// All loading functions accept a core.FS filesystem interface from
+// github.com/jmgilman/go/fs/core. For production use, pass billy.NewLocal()
+// for local filesystem access or billy.NewMemory() for testing.
+//
 // # Repository Configuration
 //
 // Repository configuration controls artifact paths and other repo-specific settings.
 // Load it using either a filesystem interface or raw bytes:
 //
-//	// From filesystem
+//	// From filesystem (accepts core.FS interface)
 //	cfg, err := config.LoadRepoConfig(fs)
 //
 //	// From bytes (more flexible)
@@ -20,7 +24,8 @@
 //
 // User configuration controls agent executor bindings and settings:
 //
-//	cfg, err := config.LoadUserConfig()
+//	cfg, err := config.LoadUserConfig(fs)
+//	cfg, err := config.LoadUserConfigFromPath(fs, path)
 //	path, err := config.GetUserConfigPath()
 //
 // # Path Helpers

@@ -6,21 +6,16 @@ import (
 	"fmt"
 	"io/fs"
 
+	"github.com/jmgilman/go/fs/core"
 	"github.com/jmgilman/sow/libs/schemas"
 	"gopkg.in/yaml.v3"
 )
 
-// FS defines the filesystem interface required for loading configuration.
-// This is compatible with core.FS from github.com/jmgilman/go/fs/core.
-type FS interface {
-	ReadFile(name string) ([]byte, error)
-}
-
 // LoadRepoConfig loads the repository configuration from .sow/config.yaml.
-// It accepts an FS filesystem rooted at the .sow directory.
+// It accepts a core.FS filesystem rooted at the .sow directory.
 // Returns the config with defaults applied for any unspecified values.
 // If config.yaml doesn't exist, returns default configuration (not an error).
-func LoadRepoConfig(fsys FS) (*schemas.Config, error) {
+func LoadRepoConfig(fsys core.FS) (*schemas.Config, error) {
 	data, err := fsys.ReadFile("config.yaml")
 	if err != nil {
 		// Config doesn't exist, return defaults
