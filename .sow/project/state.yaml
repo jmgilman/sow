@@ -1,0 +1,238 @@
+name: libsconfig-module
+type: standard
+branch: feat/libsconfig-module-116
+description: libs/config module
+created_at: 2025-12-09T16:27:49.688649-08:00
+updated_at: 2025-12-09T16:40:34.163726-08:00
+phases:
+    finalize:
+        status: pending
+        enabled: false
+        created_at: 2025-12-09T16:27:49.688649-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+    implementation:
+        status: in_progress
+        enabled: false
+        created_at: 2025-12-09T16:27:49.688649-08:00
+        started_at: 2025-12-09T16:27:49.688679-08:00
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata:
+            planning_approved: true
+        inputs:
+            - type: github_issue
+              path: context/issue-116.md
+              approved: true
+              created_at: 2025-12-09T16:27:49.688643-08:00
+              metadata:
+                issue_number: 116
+                issue_title: libs/config module
+                issue_url: https://github.com/jmgilman/sow/issues/116
+            - type: reference
+              path: ../../knowledge/explorations/libs-refactoring-summary.md
+              approved: true
+              created_at: 2025-12-09T16:27:49.688647-08:00
+              metadata:
+                description: Knowledge file selected during project creation
+                source: user_selected
+        outputs: []
+        tasks:
+            - id: "010"
+              name: Create libs/config module structure
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T16:39:36.334097-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T16:40:22.806983-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: libs/exec/go.mod
+                  approved: false
+                  created_at: 2025-12-09T16:40:22.77388-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/exec/doc.go
+                  approved: false
+                  created_at: 2025-12-09T16:40:22.782627-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/exec/README.md
+                  approved: false
+                  created_at: 2025-12-09T16:40:22.791449-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/config.go
+                  approved: false
+                  created_at: 2025-12-09T16:40:22.79945-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/user_config.go
+                  approved: false
+                  created_at: 2025-12-09T16:40:22.806983-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "020"
+              name: Implement repository configuration loading
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T16:39:37.430263-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T16:40:24.014086-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/config.go
+                  approved: false
+                  created_at: 2025-12-09T16:40:23.998108-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/schemas/config.cue
+                  approved: false
+                  created_at: 2025-12-09T16:40:24.006279-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/exec/local_test.go
+                  approved: false
+                  created_at: 2025-12-09T16:40:24.014086-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "030"
+              name: Implement user configuration loading
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T16:39:38.449555-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T16:40:25.0096-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/user_config.go
+                  approved: false
+                  created_at: 2025-12-09T16:40:24.991582-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/schemas/user_config.cue
+                  approved: false
+                  created_at: 2025-12-09T16:40:25.001442-08:00
+                  metadata: {}
+                - type: reference
+                  path: libs/exec/local_test.go
+                  approved: false
+                  created_at: 2025-12-09T16:40:25.0096-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "040"
+              name: Implement path helper functions
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T16:39:39.291766-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T16:40:26.836252-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/config.go
+                  approved: false
+                  created_at: 2025-12-09T16:40:26.836252-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "050"
+              name: Update consumer files to use libs/config
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T16:39:40.401091-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T16:40:28.149422-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/cmd/config/validate.go
+                  approved: false
+                  created_at: 2025-12-09T16:40:28.123368-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/config/show.go
+                  approved: false
+                  created_at: 2025-12-09T16:40:28.132879-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/cmd/agent/spawn.go
+                  approved: false
+                  created_at: 2025-12-09T16:40:28.141182-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/go.mod
+                  approved: false
+                  created_at: 2025-12-09T16:40:28.149421-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+            - id: "060"
+              name: Cleanup old config code from CLI
+              phase: implementation
+              status: pending
+              created_at: 2025-12-09T16:39:41.353556-08:00
+              started_at: 0001-01-01T00:00:00Z
+              updated_at: 2025-12-09T16:40:29.098308-08:00
+              completed_at: 0001-01-01T00:00:00Z
+              iteration: 1
+              assigned_agent: implementer
+              session_id: ""
+              inputs:
+                - type: reference
+                  path: cli/internal/sow/config.go
+                  approved: false
+                  created_at: 2025-12-09T16:40:29.088834-08:00
+                  metadata: {}
+                - type: reference
+                  path: cli/internal/sow/user_config.go
+                  approved: false
+                  created_at: 2025-12-09T16:40:29.098308-08:00
+                  metadata: {}
+              outputs: []
+              metadata: {}
+    review:
+        status: pending
+        enabled: false
+        created_at: 2025-12-09T16:27:49.688649-08:00
+        started_at: 0001-01-01T00:00:00Z
+        completed_at: 0001-01-01T00:00:00Z
+        failed_at: 0001-01-01T00:00:00Z
+        iteration: 0
+        metadata: {}
+        inputs: []
+        outputs: []
+        tasks: []
+statechart:
+    current_state: ImplementationDraftPRCreation
+    updated_at: 2025-12-09T16:40:34.163726-08:00
+agent_sessions:
+    planner: 95023b44-c61f-42a2-912d-b7f47be05555
