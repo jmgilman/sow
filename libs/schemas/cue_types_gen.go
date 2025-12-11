@@ -72,6 +72,106 @@ type ArtifactReference struct {
 	Tags []string `json:"tags"`
 }
 
+// RefManifest defines the schema for .sow-ref.yaml manifest files.
+//
+// These manifests are required in all OCI-distributed refs and define
+// metadata including title, link name, content description, classifications,
+// tags, and optional provenance/packaging/hints sections.
+type RefManifest struct {
+	// schema_version is the semantic version of this manifest format.
+	// Format: MAJOR.MINOR.PATCH
+	Schema_version string `json:"schema_version"`
+
+	// ref contains core identification for this reference.
+	Ref RefIdentification `json:"ref"`
+
+	// content describes what this reference contains.
+	Content RefContent `json:"content"`
+
+	// provenance contains optional authorship and source information.
+	Provenance RefProvenance `json:"provenance,omitempty"`
+
+	// packaging contains optional publishing configuration.
+	Packaging RefPackaging `json:"packaging,omitempty"`
+
+	// hints provides optional LLM usage suggestions.
+	Hints RefHints `json:"hints,omitempty"`
+
+	// metadata is a freeform map for organization-specific data.
+	Metadata map[string]any/* CUE top */ `json:"metadata,omitempty"`
+}
+
+// RefIdentification contains core identification fields for a reference.
+type RefIdentification struct {
+	// title is the human-readable name for this reference.
+	Title string `json:"title"`
+
+	// link is the symlink name in kebab-case format.
+	// Must start and end with alphanumeric, can contain hyphens in the middle.
+	// Examples: "go-standards", "api-patterns", "my-ref"
+	Link string `json:"link"`
+}
+
+// RefContent describes the content of a reference.
+type RefContent struct {
+	// description is a non-empty string describing the reference.
+	Description string `json:"description"`
+
+	// summary is an optional longer description.
+	Summary string `json:"summary,omitempty"`
+
+	// classifications is an array of at least one classification.
+	Classifications []RefClassification `json:"classifications"`
+
+	// tags is an array of at least one tag.
+	Tags []string `json:"tags"`
+}
+
+// RefClassification categorizes a reference by type.
+type RefClassification struct {
+	// type is one of the predefined classification types.
+	Type ClassificationType `json:"type"`
+
+	// description is an optional string describing the classification.
+	Description string `json:"description,omitempty"`
+}
+
+// ClassificationType defines the allowed classification values.
+type ClassificationType string
+
+// RefProvenance contains optional authorship and source information.
+type RefProvenance struct {
+	// authors is an optional array of author names.
+	Authors []string `json:"authors,omitempty"`
+
+	// created is an optional RFC 3339 timestamp string.
+	Created string `json:"created,omitempty"`
+
+	// updated is an optional RFC 3339 timestamp string.
+	Updated string `json:"updated,omitempty"`
+
+	// source is an optional source URL (e.g., git URL).
+	Source string `json:"source,omitempty"`
+
+	// license is an optional license identifier (e.g., "MIT", "Apache-2.0").
+	License string `json:"license,omitempty"`
+}
+
+// RefPackaging contains optional publishing configuration.
+type RefPackaging struct {
+	// exclude is an optional array of glob patterns to exclude when packaging.
+	Exclude []string `json:"exclude,omitempty"`
+}
+
+// RefHints provides optional LLM usage suggestions.
+type RefHints struct {
+	// suggested_queries is an optional array of example queries.
+	Suggested_queries []string `json:"suggested_queries,omitempty"`
+
+	// primary_files is an optional array of important file paths.
+	Primary_files []string `json:"primary_files,omitempty"`
+}
+
 // RefsCacheIndex defines the schema for ~/.cache/sow/index.json
 //
 // This is the cache index containing transient metadata about cached
